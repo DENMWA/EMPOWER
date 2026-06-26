@@ -7,6 +7,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 ## Features
 
 - Manager and worker dashboards
+- Lightweight roster with day/week views, employee colours, shift status, and progress-note tracking
 - Participant/client profiles and staff sample data
 - Progress note generator with mock AI improvement
 - Guided Voice Documentation with transcript preview and SpeechSynthesis read-back
@@ -52,7 +53,7 @@ AI keys must stay server-side. Do not expose service role keys or AI keys to the
 
 ## Supabase Setup
 
-Use `supabase/schema.sql` as the starting migration. It defines organisations, users, participants/clients, assignments, goals, progress notes, incidents, note scores, approvals, audit logs, documents, document AI summaries, document-note links, templates, voice sessions, invoice evidence checks, and invoice summaries.
+Use `supabase/schema.sql` as the starting migration. It defines organisations, users, participants/clients, assignments, goals, progress notes, roster shifts, incidents, note scores, approvals, audit logs, documents, document AI summaries, document-note links, templates, voice sessions, invoice evidence checks, and invoice summaries.
 
 Private storage buckets to create:
 
@@ -84,7 +85,11 @@ The MVP stores document metadata only. Production should use private Supabase St
 
 ## Invoice-readiness
 
-The MVP checks whether evidence appears ready. It does not perform accounting, payroll, rostering, claiming, or payment processing.
+The MVP checks whether evidence appears ready. It does not perform accounting, payroll, claiming, or payment processing.
+
+## Roster
+
+Roster is a lightweight shift planning and documentation-tracking feature. It is not payroll, award interpretation, accounting, NDIS claiming automation, or a full workforce management system. See `docs/ROSTER.md` for details.
 
 ## Pricing
 
@@ -103,4 +108,4 @@ Deploy to Vercel or Railway after configuring environment variables and Supabase
 - Authentication is not connected.
 - AI, transcription, PDF export, and document extraction are mocked.
 - Supabase policies are a production starting point and need project-specific review.
-- No Stripe, full invoicing, payroll, rostering, or accounting is implemented.
+- No Stripe, full invoicing, payroll, full workforce management, or accounting is implemented.
