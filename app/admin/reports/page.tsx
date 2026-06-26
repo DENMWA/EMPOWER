@@ -1,3 +1,4 @@
+import { AdminGate } from "@/components/admin/AdminGate";
 import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
@@ -12,7 +13,7 @@ export default function AdminReportsPage() {
   const unverifiedDocuments = documents.filter((doc) => !doc.status.includes("verified"));
 
   return (
-    <>
+    <AdminGate>
       <PageHeader
         eyebrow="Admin reports"
         title="Status reports for documentation, roster, incidents, and evidence"
@@ -44,7 +45,7 @@ export default function AdminReportsPage() {
           <ReportCard icon={FileWarning} title="Evidence Gaps" value={unverifiedDocuments.length} detail="Documents awaiting manager verification" tone="blue" />
         </div>
       </Section>
-    </>
+    </AdminGate>
   );
 }
 
