@@ -4,17 +4,17 @@ import { participants, progressNotes, users } from "@/lib/sample-data";
 import { AlertTriangle, CheckCircle2, ClipboardList, FileWarning, Mic, TrendingUp } from "lucide-react";
 
 const managerStats = [
-  { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList },
-  { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", icon: FileWarning },
-  { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", icon: AlertTriangle },
-  { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", icon: CheckCircle2 }
+  { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
+  { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
+  { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
+  { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
 ];
 
 const workerActions = [
-  { label: "Create progress note", href: "/notes/new", icon: ClipboardList },
-  { label: "Record voice note", href: "/notes/new#voice", icon: Mic },
-  { label: "Start guided interview", href: "/notes/new#guided", icon: Mic },
-  { label: "Draft notes", href: "/dashboard", icon: FileWarning }
+  { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
+  { label: "Record voice note", detail: "Speak naturally on shift", href: "/notes/new#voice", icon: Mic },
+  { label: "Start guided interview", detail: "Question-by-question capture", href: "/notes/new#guided", icon: Mic },
+  { label: "Draft notes", detail: "Continue unfinished records", href: "/dashboard", icon: FileWarning }
 ];
 
 export function ManagerDashboardCards() {
@@ -23,14 +23,17 @@ export function ManagerDashboardCards() {
       {managerStats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.label}>
+          <Card key={stat.label} className="relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-600 to-sky-500" />
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-slate-600">{stat.label}</p>
                 <p className="mt-2 text-3xl font-bold text-ink">{stat.value}</p>
                 <p className="mt-2 text-sm text-slate-600">{stat.detail}</p>
               </div>
-              <Icon className="text-sea" aria-hidden="true" />
+              <span className={`grid h-11 w-11 place-items-center rounded-md ${stat.tone}`}>
+                <Icon aria-hidden="true" size={21} />
+              </span>
             </div>
           </Card>
         );
@@ -45,9 +48,12 @@ export function WorkerDashboardCards() {
       {workerActions.map((action) => {
         const Icon = action.icon;
         return (
-          <Link key={action.label} href={action.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-soft hover:border-teal-500 focus:outline focus:outline-2 focus:outline-teal-700">
-            <Icon className="text-sea" aria-hidden="true" />
+          <Link key={action.label} href={action.href} className="group rounded-md border border-slate-200 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-teal-500 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700">
+            <span className="grid h-11 w-11 place-items-center rounded-md bg-mint text-teal-900 transition group-hover:bg-teal-700 group-hover:text-white">
+              <Icon aria-hidden="true" size={20} />
+            </span>
             <p className="mt-4 text-lg font-semibold text-ink">{action.label}</p>
+            <p className="mt-1 text-sm text-slate-600">{action.detail}</p>
           </Link>
         );
       })}
@@ -67,7 +73,7 @@ export function DashboardOperationalLists() {
           {progressNotes.map((note) => {
             const participant = participants.find((item) => item.id === note.participantId);
             return (
-              <div key={note.id} className="rounded-md border border-slate-200 p-4">
+              <div key={note.id} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-ink">{participant?.name} - {note.supportType}</h3>
                   <StatusBadge label={note.status} tone={note.status === "Approved" ? "green" : "amber"} />
