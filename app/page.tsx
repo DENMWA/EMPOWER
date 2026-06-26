@@ -2,6 +2,7 @@ import { ButtonLink, Section, StatusBadge } from "@/components/ui";
 import { DashboardOperationalLists, ManagerDashboardCards, WorkerDashboardCards } from "@/components/dashboard/DashboardCards";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { PlanRecommendation } from "@/components/onboarding/PlanRecommendation";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { CheckCircle2, FileText, Mic2, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
 
 const proofPoints = [
@@ -12,27 +13,61 @@ const proofPoints = [
 ];
 
 export default function HomePage() {
+  const softwareJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Empower Notes",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    inLanguage: "en-AU",
+    areaServed: {
+      "@type": "Country",
+      name: "Australia"
+    },
+    audience: [
+      {
+        "@type": "Audience",
+        audienceType: "NDIS providers"
+      },
+      {
+        "@type": "Audience",
+        audienceType: "Disability support providers"
+      },
+      {
+        "@type": "Audience",
+        audienceType: "Social workers and youth workers"
+      }
+    ],
+    description:
+      "Australian NDIS documentation software for audit-ready progress notes, incident reports, client records, rostering, billing, and provider reporting.",
+    offers: {
+      "@type": "Offer",
+      category: "Subscription"
+    }
+  };
+
   return (
     <>
+      <JsonLd data={softwareJsonLd} />
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <p className="mb-4 inline-flex items-center gap-2 rounded-md bg-mint px-3 py-1 text-sm font-semibold text-teal-900">
               <Sparkles size={16} aria-hidden="true" />
-              Premium documentation intelligence for care teams
+              Australian NDIS documentation intelligence
             </p>
             <h1 className="max-w-4xl text-4xl font-bold leading-tight text-ink sm:text-6xl">
-              Speak naturally. Empower Notes creates safer, audit-ready support records.
+              Australian NDIS documentation software for safer, audit-ready support records.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-              A polished command centre for disability, social work, youth work, NDIS, and community service providers who need person-centred records, stronger evidence, and manager-ready oversight.
+              A polished command centre for Australian disability support, social work, youth work, NDIS, and community service providers who need person-centred progress notes, incident reports, client records, billing evidence, and manager-ready oversight.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <ButtonLink href="/notes/new">Create premium note</ButtonLink>
               <ButtonLink href="/dashboard" variant="secondary">Open dashboard</ButtonLink>
             </div>
             <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
-              {["AI quality score", "Guided voice capture", "Evidence readiness"].map((item) => (
+              {["NDIS-ready notes", "Guided voice capture", "Evidence readiness"].map((item) => (
                 <div key={item} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-ink">{item}</div>
               ))}
             </div>
