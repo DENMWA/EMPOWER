@@ -16,7 +16,9 @@ html {
 
 body {
   margin: 0;
-  background: #f5f7fb;
+  background:
+    linear-gradient(180deg, rgba(230, 242, 255, 0.65) 0%, rgba(245, 247, 251, 0.96) 320px),
+    #f5f7fb;
   color: #152238;
 }
 
@@ -39,4 +41,9 @@ textarea {
 .accessibility-mode select,
 .accessibility-mode textarea {
   min-height: 48px;
+}
+
+::selection {
+  background: #99f6e4;
+  color: #152238;
 }
