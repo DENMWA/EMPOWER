@@ -5,6 +5,7 @@ import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocument
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
 import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
+import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { participants, sampleRoughNote, supportTypes } from "@/lib/sample-data";
 import { checkMissingDetails, improveTranscriptToProgressNote, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
@@ -74,11 +75,15 @@ export function ProgressNoteGenerator() {
         <Card>
           <h2 className="text-xl font-semibold text-ink">Professional Progress Note</h2>
           <p className="mt-3 leading-7 text-slate-800">{finalNote}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Submit for review</button>
-            <button className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Save draft</button>
-            <button className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Export PDF</button>
-          </div>
+          <RecordActions
+            className="mt-4"
+            recordId="progress-note-draft"
+            recordType="progress-note"
+            title="Professional Progress Note"
+            body={finalNote}
+            filename="empower-notes-progress-note"
+          />
+          <p className="mt-3 text-sm text-slate-600">Demo save keeps the record in this browser. Production should save progress notes to Supabase with immutable audit history.</p>
         </Card>
       ) : null}
       <div className="grid gap-6 lg:grid-cols-2">
