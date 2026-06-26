@@ -1,5 +1,6 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
+import { ReportingInsightsChart } from "@/components/admin/ReportingInsightsChart";
 import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
@@ -22,6 +23,8 @@ export default function AdminReportsPage() {
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
       <Section className="space-y-6">
+        <ReportingInsightsChart />
+
         <div className="grid gap-4 lg:grid-cols-3">
           {periods.map((period) => {
             const report = getRosterReportSummary(rosterShifts, period, today);
@@ -31,7 +34,8 @@ export default function AdminReportsPage() {
               `Total shifts: ${report.totalShifts}`,
               `Notes outstanding: ${report.notesOutstanding}`,
               `Completed: ${report.completed}`,
-              `Cancelled/no-show: ${report.cancelledOrNoShow}`
+              `Cancelled/no-show: ${report.cancelledOrNoShow}`,
+              "Comparative analysis: see live admin chart for incident reports, community access, and irregular support progress."
             ];
             return (
               <Card key={period}>
