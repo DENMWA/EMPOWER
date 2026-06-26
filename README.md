@@ -18,7 +18,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 - AI note quality score, missing-detail checker, person-centred rewrite, and goal suggestions
 - Incident report assistant with required escalation wording
 - Manager approval workflow and sole-provider self-certification placeholders
-- Document Vault and AI Evidence Reader with manager verification messaging
+- Client-specific Document Vault and AI Evidence Reader with manager verification messaging
 - Evidence-based invoice-readiness checks and simple invoice summaries
 - Audit Pack Generator and PDF export placeholders
 - Public pricing page, founding offer, plan comparison, and FAQ
