@@ -6,6 +6,7 @@ import {
   FileCheck2,
   FileWarning,
   FolderLock,
+  ReceiptText,
   Settings,
   ShieldCheck,
   UserPlus
@@ -23,6 +24,13 @@ const adminTools = [
     badge: "Access"
   },
   {
+    title: "Add Staff",
+    detail: "Invite a new worker, manager, or admin and assign participant access.",
+    href: "/admin/staff/new",
+    icon: UserPlus,
+    badge: "Invite"
+  },
+  {
     title: "Admin Roster",
     detail: "Create shifts and review locked weekly, fortnightly, and monthly roster status.",
     href: "/roster",
@@ -35,6 +43,13 @@ const adminTools = [
     href: "/admin/reports",
     icon: ClipboardCheck,
     badge: "Reports"
+  },
+  {
+    title: "Billing",
+    detail: "Review plan usage, billing status, and download a PDF billing summary.",
+    href: "/admin/billing",
+    icon: ReceiptText,
+    badge: "Billing"
   },
   {
     title: "Note Review",
