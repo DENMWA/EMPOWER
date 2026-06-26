@@ -1,4 +1,5 @@
 import { AdminGate } from "@/components/admin/AdminGate";
+import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
@@ -24,6 +25,14 @@ export default function AdminReportsPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           {periods.map((period) => {
             const report = getRosterReportSummary(rosterShifts, period, today);
+            const reportLines = [
+              `Period: ${report.label}`,
+              `Date range: ${report.dateRange}`,
+              `Total shifts: ${report.totalShifts}`,
+              `Notes outstanding: ${report.notesOutstanding}`,
+              `Completed: ${report.completed}`,
+              `Cancelled/no-show: ${report.cancelledOrNoShow}`
+            ];
             return (
               <Card key={period}>
                 <p className="text-sm font-semibold uppercase tracking-wide text-sea">{report.label}</p>
@@ -33,6 +42,9 @@ export default function AdminReportsPage() {
                   <span>Notes outstanding: <strong>{report.notesOutstanding}</strong></span>
                   <span>Completed: <strong>{report.completed}</strong></span>
                   <span>Cancelled/no-show: <strong>{report.cancelledOrNoShow}</strong></span>
+                </div>
+                <div className="mt-4">
+                  <PdfDownloadButton filename={`empower-notes-${period}-status-report.pdf`} title={`Empower Notes ${report.label}`} lines={reportLines} />
                 </div>
               </Card>
             );
