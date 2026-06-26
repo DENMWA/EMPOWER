@@ -44,6 +44,17 @@ export type ProgressNote = {
   invoiceReady: boolean;
 };
 
+export type SupportDocument = {
+  id: string;
+  participantId: string;
+  type: string;
+  status: string;
+  visibility: "worker-visible" | "manager-only";
+  confidence: number;
+  startDate: string;
+  expiryDate: string;
+};
+
 export const supportTypes = [
   "Community access",
   "Personal care",
@@ -182,11 +193,13 @@ export const progressNotes: ProgressNote[] = [
 export const sampleIncident =
   "Participant slipped near the bathroom doorway. No visible injury observed. Staff checked wellbeing, supported the participant to sit safely, notified manager, and monitored presentation.";
 
-export const documents = [
-  { id: "doc-001", participantId: "joseph-k", type: "Behaviour Support Plan", status: "Manager verified", visibility: "worker-visible", confidence: 91 },
-  { id: "doc-002", participantId: "joseph-k", type: "NDIS Plan", status: "AI extracted, awaiting verification", visibility: "manager-only", confidence: 84 },
-  { id: "doc-003", participantId: "amelia-r", type: "Communication Profile", status: "Manager verified", visibility: "worker-visible", confidence: 93 },
-  { id: "doc-004", participantId: "sarah-t", type: "Risk Assessment", status: "Manager verified", visibility: "manager-only", confidence: 88 }
+export const documents: SupportDocument[] = [
+  { id: "doc-001", participantId: "joseph-k", type: "Behaviour Support Plan", status: "Manager verified", visibility: "worker-visible", confidence: 91, startDate: "2026-01-15", expiryDate: "2026-07-20" },
+  { id: "doc-002", participantId: "joseph-k", type: "NDIS Plan", status: "AI extracted, awaiting verification", visibility: "manager-only", confidence: 84, startDate: "2025-08-01", expiryDate: "2026-07-12" },
+  { id: "doc-003", participantId: "amelia-r", type: "Communication Profile", status: "Manager verified", visibility: "worker-visible", confidence: 93, startDate: "2026-03-01", expiryDate: "2027-03-01" },
+  { id: "doc-004", participantId: "sarah-t", type: "Risk Assessment", status: "Manager verified", visibility: "manager-only", confidence: 88, startDate: "2025-06-01", expiryDate: "2026-06-20" },
+  { id: "doc-005", participantId: "amelia-r", type: "Service Agreement", status: "Manager verified", visibility: "manager-only", confidence: 89, startDate: "2026-02-10", expiryDate: "2026-07-27" },
+  { id: "doc-006", participantId: "sarah-t", type: "CHAP", status: "Manager verified", visibility: "worker-visible", confidence: 90, startDate: "2026-04-05", expiryDate: "2026-08-05" }
 ];
 
 export const templates = [
