@@ -8,6 +8,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 
 - Manager and worker dashboards
 - Admin control centre for team, roster, reports, reviews, documents, audit packs, and settings
+- Separate developer platform console for subscriptions, payments, diagnostics, analytics, feature flags, and account health
 - Demo admin password gate for admin routes and roster
 - PDF downloads for admin reports and billing summary
 - Admin client intake with client-specific colour schemes for reporting dashboards
@@ -18,7 +19,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 - AI note quality score, missing-detail checker, person-centred rewrite, and goal suggestions
 - Incident report assistant with required escalation wording
 - Manager approval workflow and sole-provider self-certification placeholders
-- Client-specific Document Vault and AI Evidence Reader with manager verification messaging
+- Client-specific Document Vault with start dates, expiry dates, one-month and fortnight reminders, and manager verification messaging
 - Evidence-based invoice-readiness checks and simple invoice summaries
 - Audit Pack Generator and PDF export placeholders
 - Public pricing page, founding offer, plan comparison, and FAQ
@@ -53,6 +54,7 @@ The demo runs without these keys. Production should configure:
 - `ANTHROPIC_API_KEY`
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_ADMIN_DEMO_PASSWORD`
+- `NEXT_PUBLIC_PLATFORM_DEMO_PASSWORD`
 
 AI keys must stay server-side. Do not expose service role keys or AI keys to the client.
 
@@ -86,7 +88,7 @@ Accessibility Mode is persisted in local storage and increases the interface siz
 
 ## Document Vault
 
-The MVP stores document metadata only. Production should use private Supabase Storage, server-side document processing, audit logs for upload/view/download/delete, manager-only visibility, and explicit verification before extracted AI information is authoritative.
+The MVP stores document metadata only. Production should use private Supabase Storage, server-side document processing, audit logs for upload/view/download/delete, manager-only visibility, expiry reminder jobs, and explicit verification before extracted AI information is authoritative.
 
 ## Invoice-readiness
 
@@ -99,6 +101,10 @@ Roster is an admin-only lightweight shift planning and documentation-tracking fe
 ## Admin Gate
 
 The demo admin password is `EmpowerNotes2026` unless `NEXT_PUBLIC_ADMIN_DEMO_PASSWORD` is set. Production should replace this with real authentication, server-side sessions, and role-based access control.
+
+## Platform Console
+
+The demo platform password is `EmpowerPlatform2026` unless `NEXT_PUBLIC_PLATFORM_DEMO_PASSWORD` is set. The `/platform` console is separate from provider admin and should become an owner-only internal app with MFA, IP controls, audit logging, and server-side authorization in production.
 
 ## Pricing
 
