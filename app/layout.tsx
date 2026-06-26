@@ -3,8 +3,8 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Empower Disability and Social Work",
-  description: "AI-assisted documentation and compliance-quality SaaS for disability and community service providers."
+  title: "Empower Notes",
+  description: "Clear, person-centred support records in minutes."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
