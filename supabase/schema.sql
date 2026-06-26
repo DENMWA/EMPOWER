@@ -92,6 +92,28 @@ create table progress_notes (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists roster_shifts (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid not null references participants_or_clients(id) on delete cascade,
+  worker_id uuid not null references users(id) on delete cascade,
+  support_type text not null,
+  shift_date date not null,
+  start_time time not null,
+  end_time time not null,
+  location text,
+  shift_instructions text,
+  status text not null default 'Scheduled',
+  note_required boolean default true,
+  note_completed boolean default false,
+  progress_note_id uuid references progress_notes(id) on delete set null,
+  created_by uuid references users(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table progress_notes add column if not exists roster_shift_id uuid references roster_shifts(id) on delete set null;
+
 create table incidents (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references organisations(id) on delete cascade,
@@ -276,6 +298,7 @@ alter table participants_or_clients enable row level security;
 alter table participant_assignments enable row level security;
 alter table goals enable row level security;
 alter table progress_notes enable row level security;
+alter table roster_shifts enable row level security;
 alter table incidents enable row level security;
 alter table note_scores enable row level security;
 alter table approvals enable row level security;
@@ -307,6 +330,41 @@ create policy "workers create own notes for assigned participants" on progress_n
   organisation_id = (select organisation_id from users where id = auth.uid())
   and staff_id = auth.uid()
   and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+
+create policy "roster shifts visible by assignment or manager" on roster_shifts for select using (
+  organisation_id = (select organisation_id from users where id = auth.uid())
+  and (
+    current_user_is_manager()
+    or worker_id = auth.uid()
+    or assigned_to_participant(participant_id)
+  )
+);
+
+create policy "managers manage organisation roster shifts" on roster_shifts for all using (
+  organisation_id = (select organisation_id from users where id = auth.uid())
+  and current_user_is_manager()
+) with check (
+  organisation_id = (select organisation_id from users where id = auth.uid())
+  and current_user_is_manager()
+);
+
+create policy "sole providers manage own roster shifts" on roster_shifts for all using (
+  organisation_id = (select organisation_id from users where id = auth.uid())
+  and worker_id = auth.uid()
+  and exists (
+    select 1 from users
+    where id = auth.uid()
+    and role = 'sole_provider'
+  )
+) with check (
+  organisation_id = (select organisation_id from users where id = auth.uid())
+  and worker_id = auth.uid()
+  and exists (
+    select 1 from users
+    where id = auth.uid()
+    and role = 'sole_provider'
+  )
 );
 
 create policy "managers approve organisation notes" on approvals for insert with check (
@@ -351,3 +409,18 @@ create policy "org scoped templates" on templates for select using (organisation
 create policy "org scoped voice sessions" on voice_sessions for select using (organisation_id = (select organisation_id from users where id = auth.uid()) and (current_user_is_manager() or staff_id = auth.uid()));
 create policy "org scoped invoice checks" on invoice_evidence_checks for select using (organisation_id = (select organisation_id from users where id = auth.uid()));
 create policy "org scoped invoice summaries" on invoice_summaries for select using (organisation_id = (select organisation_id from users where id = auth.uid()) and current_user_is_manager());
+
+create index if not exists idx_roster_shifts_organisation_id on roster_shifts(organisation_id);
+create index if not exists idx_roster_shifts_participant_id on roster_shifts(participant_id);
+create index if not exists idx_roster_shifts_worker_id on roster_shifts(worker_id);
+create index if not exists idx_roster_shifts_shift_date on roster_shifts(shift_date);
+create index if not exists idx_roster_shifts_status on roster_shifts(status);
+
+-- Roster audit actions:
+-- roster_shift_created
+-- roster_shift_updated
+-- roster_shift_completed
+-- roster_shift_cancelled
+-- roster_shift_no_show
+-- roster_shift_note_required
+-- roster_shift_note_completed
