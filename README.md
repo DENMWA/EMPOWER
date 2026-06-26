@@ -7,6 +7,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 ## Features
 
 - Manager and worker dashboards
+- Admin control centre for team, roster, reports, reviews, documents, audit packs, and settings
 - Admin-only lightweight roster with day/week views, employee colours, shift status, and weekly/fortnightly/monthly status reports
 - Participant/client profiles and staff sample data
 - Progress note generator with mock AI improvement
