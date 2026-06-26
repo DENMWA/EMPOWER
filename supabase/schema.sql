@@ -1,4 +1,4 @@
--- Empower Disability and Social Work MVP schema.
+-- Empower Notes MVP schema.
 -- Storage buckets to create privately: participant-documents, note-exports, audit-packs.
 -- Do not create public document URLs.
 
