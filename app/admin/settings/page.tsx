@@ -1,3 +1,4 @@
+import { AdminGate } from "@/components/admin/AdminGate";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
 const settings = [
@@ -11,7 +12,7 @@ const settings = [
 
 export default function AdminSettingsPage() {
   return (
-    <>
+    <AdminGate>
       <PageHeader
         eyebrow="Admin settings"
         title="Organisation controls and default settings"
@@ -26,6 +27,6 @@ export default function AdminSettingsPage() {
           </Card>
         ))}
       </Section>
-    </>
+    </AdminGate>
   );
 }
