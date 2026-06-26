@@ -8,6 +8,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 
 - Manager and worker dashboards
 - Admin control centre for team, roster, reports, reviews, documents, audit packs, and settings
+- Demo admin password gate for admin routes and roster
 - Admin-only lightweight roster with day/week views, employee colours, shift status, and weekly/fortnightly/monthly status reports
 - Participant/client profiles and staff sample data
 - Progress note generator with mock AI improvement
@@ -49,6 +50,7 @@ The demo runs without these keys. Production should configure:
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_ADMIN_DEMO_PASSWORD`
 
 AI keys must stay server-side. Do not expose service role keys or AI keys to the client.
 
@@ -91,6 +93,10 @@ The MVP checks whether evidence appears ready. It does not perform accounting, p
 ## Roster
 
 Roster is an admin-only lightweight shift planning and documentation-tracking feature. It includes weekly, fortnightly, and monthly status reports. It is not payroll, award interpretation, accounting, NDIS claiming automation, or a full workforce management system. See `docs/ROSTER.md` for details.
+
+## Admin Gate
+
+The demo admin password is `EmpowerNotes2026` unless `NEXT_PUBLIC_ADMIN_DEMO_PASSWORD` is set. Production should replace this with real authentication, server-side sessions, and role-based access control.
 
 ## Pricing
 
