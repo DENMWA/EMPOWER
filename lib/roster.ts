@@ -26,6 +26,8 @@ export type RosterFilters = {
   noteState: string;
 };
 
+export type RosterReportPeriod = "weekly" | "fortnightly" | "monthly";
+
 export type EmployeeColourScheme = {
   key: string;
   label: string;
@@ -219,6 +221,30 @@ export function getRosterSummary(shifts: RosterShift[] = rosterShifts) {
   };
 }
 
+export function getRosterReportSummary(shifts: RosterShift[] = rosterShifts, period: RosterReportPeriod = "weekly", selectedDate = today) {
+  const range = getRosterReportRange(period, selectedDate);
+  const inRange = shifts.filter((shift) => {
+    const shiftDate = new Date(`${shift.shiftDate}T00:00:00`);
+    return shiftDate >= range.start && shiftDate <= range.end;
+  });
+
+  return {
+    period,
+    label: range.label,
+    dateRange: `${range.start.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} - ${range.end.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`,
+    totalShifts: inRange.length,
+    noteRequired: inRange.filter((shift) => shift.noteRequired).length,
+    noteCompleted: inRange.filter((shift) => shift.noteCompleted).length,
+    notesOutstanding: inRange.filter((shift) => shift.noteRequired && !shift.noteCompleted).length,
+    completed: inRange.filter((shift) => shift.status === "Completed" || shift.status === "Note Completed").length,
+    cancelledOrNoShow: inRange.filter((shift) => shift.status === "Cancelled" || shift.status === "No Show").length,
+    statusCounts: rosterStatuses.map((status) => ({
+      status,
+      count: inRange.filter((shift) => shift.status === status).length
+    }))
+  };
+}
+
 export function filterRosterShifts(shifts: RosterShift[], filters: RosterFilters) {
   return shifts.filter((shift) => {
     const workerMatches = filters.workerId === "all" || shift.workerId === filters.workerId;
@@ -274,6 +300,29 @@ export function getRosterWeekDays(selectedDate: string) {
       shortDate: date.toLocaleDateString("en-AU", { day: "numeric", month: "short" })
     };
   });
+}
+
+function getRosterReportRange(period: RosterReportPeriod, selectedDate: string) {
+  const selected = new Date(`${selectedDate}T00:00:00`);
+  const start = period === "monthly" ? new Date(selected.getFullYear(), selected.getMonth(), 1) : getWeekStart(selectedDate);
+  const end = new Date(start);
+
+  if (period === "weekly") {
+    end.setDate(start.getDate() + 6);
+  } else if (period === "fortnightly") {
+    end.setDate(start.getDate() + 13);
+  } else {
+    end.setMonth(start.getMonth() + 1);
+    end.setDate(0);
+  }
+
+  const labels: Record<RosterReportPeriod, string> = {
+    weekly: "Weekly status report",
+    fortnightly: "Fortnightly status report",
+    monthly: "Monthly status report"
+  };
+
+  return { start, end, label: labels[period] };
 }
 
 export function getRosterSelectOptions() {
