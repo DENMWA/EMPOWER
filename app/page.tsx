@@ -22,7 +22,7 @@ export default function HomePage() {
               Premium documentation intelligence for care teams
             </p>
             <h1 className="max-w-4xl text-4xl font-bold leading-tight text-ink sm:text-6xl">
-              Speak naturally. Empower creates safer, audit-ready support records.
+              Speak naturally. Empower Notes creates safer, audit-ready support records.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
               A polished command centre for disability, social work, youth work, NDIS, and community service providers who need person-centred records, stronger evidence, and manager-ready oversight.
