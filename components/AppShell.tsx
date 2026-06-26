@@ -11,7 +11,7 @@ import { CalendarDays, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, Cli
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/team", label: "Team", icon: UserPlus },
-  { href: "/roster", label: "Roster", icon: CalendarDays },
+  { href: "/roster", label: "Admin Roster", icon: CalendarDays },
   { href: "/notes/new", label: "Progress Note", icon: Mic },
   { href: "/participants", label: "Participants", icon: Users },
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
