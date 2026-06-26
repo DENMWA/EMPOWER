@@ -1,4 +1,5 @@
 import { Card, StatusBadge } from "@/components/ui";
+import { RecordActions } from "@/components/records/RecordActions";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { documents, participants } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,23 @@ export function DocumentVault() {
                   <p className="text-sm text-slate-600">{participant?.name ?? "Unassigned client"} - {doc.confidence}% extraction confidence</p>
                   <p className="mt-1 text-sm text-slate-600">Start: {formatDate(doc.startDate)} | Expiry: {formatDate(doc.expiryDate)}</p>
                   <span className={cn("mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold", colour.badge)}>{colour.label} client file</span>
+                  <RecordActions
+                    className="mt-3"
+                    recordId={doc.id}
+                    recordType="document"
+                    title={`${doc.type} - ${participant?.name ?? "Unassigned client"}`}
+                    body={[
+                      `Client: ${participant?.name ?? "Unassigned client"}`,
+                      `Document type: ${doc.type}`,
+                      `Status: ${doc.status}`,
+                      `Visibility: ${doc.visibility}`,
+                      `Start date: ${formatDate(doc.startDate)}`,
+                      `Expiry date: ${formatDate(doc.expiryDate)}`,
+                      `Reminder: ${reminder.label}`,
+                      `Extraction confidence: ${doc.confidence}%`
+                    ].join("\n")}
+                    filename={`empower-notes-${doc.id}-${doc.type.toLowerCase().replace(/\s+/g, "-")}`}
+                  />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
