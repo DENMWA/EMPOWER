@@ -1,6 +1,6 @@
-# Empower Disability and Social Work
+# Empower Notes
 
-Empower is an AI-assisted documentation and compliance-quality SaaS MVP for disability support, social work, youth work, NDIS providers, sole providers, managers, and provider owners.
+Empower Notes is an AI-assisted documentation and compliance-quality SaaS MVP for disability support, social work, youth work, NDIS providers, sole providers, managers, and provider owners.
 
 It demonstrates voice-to-compliant-documentation: workers can type or dictate rough notes, run a guided voice interview, improve wording, score audit readiness, check missing details, suggest goal links, prepare incident summaries, verify document evidence, and review invoice-readiness.
 
