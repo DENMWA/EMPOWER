@@ -26,7 +26,7 @@ export function DocumentUploadCard() {
         <label className="text-sm font-semibold text-slate-700">
           Document type
           <select className="mt-2 w-full rounded-md border border-slate-300 p-3">
-            {["NDIS Plan", "Behaviour support plan", "Risk assessment", "Communication profile", "Service agreement", "Other"].map((type) => <option key={type}>{type}</option>)}
+            {["NDIS Plan", "Behaviour support plan", "Risk assessment", "Communication profile", "Medical documents", "CHAP", "Service agreement", "Other"].map((type) => <option key={type}>{type}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
