@@ -4,16 +4,18 @@ Roster is a lightweight shift planning and documentation-tracking feature. It is
 
 ## Purpose
 
-Roster helps teams see who is working with which participant, when the support is happening, where it is happening, and whether a progress note still needs to be completed after the shift.
+Roster helps admins see who is working with which participant, when the support is happening, where it is happening, and whether a progress note still needs to be completed after the shift.
 
 ## What It Does
 
 - Shows day and week roster views.
-- Lets managers create a simple shift in demo mode.
+- Lets admins create a simple shift in demo mode.
 - Displays worker, participant, support type, time, location, and instructions.
 - Tracks shift status and progress-note status.
+- Provides weekly, fortnightly, and monthly status reports.
 - Uses consistent employee colours across cards, week blocks, filters, modals, and the legend.
-- Gives the dashboard a small operational summary of today's shifts and documentation follow-up risk.
+- Gives the admin dashboard a small operational summary of today's shifts and documentation follow-up risk.
+- Keeps rostering out of worker-facing quick actions.
 
 ## What It Does Not Do
 
@@ -49,7 +51,7 @@ Roster uses readable labels, visible status badges, keyboard-focusable cards and
 
 Production storage should use the `roster_shifts` table in `supabase/schema.sql`. The table links each shift to an organisation, participant/client, worker, optional progress note, and creator. Progress notes can also link back to a roster shift through `progress_notes.roster_shift_id`.
 
-Access control should keep roster records organisation-scoped. Workers should see their own assigned shifts and participant/client context. Managers, admins, service managers, owners, and sole providers should manage roster shifts within their organisation.
+Access control should keep roster records organisation-scoped and admin-only. Workers should not access roster planning or status reports. Admins and owners should manage roster shifts and view status reports within their organisation.
 
 ## Future Roadmap
 
