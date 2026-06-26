@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, StatusBadge } from "@/components/ui";
 import { getRosterSummary } from "@/lib/roster";
 import { participants, progressNotes, users } from "@/lib/sample-data";
-import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, Mic, TrendingUp } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, LockKeyhole, Mic, TrendingUp } from "lucide-react";
 
 const managerStats = [
   { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
@@ -12,10 +12,10 @@ const managerStats = [
 ];
 
 const workerActions = [
-  { label: "View roster", detail: "See today and week shifts", href: "/roster", icon: CalendarDays },
   { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
   { label: "Record voice note", detail: "Speak naturally on shift", href: "/notes/new#voice", icon: Mic },
-  { label: "Start guided interview", detail: "Question-by-question capture", href: "/notes/new#guided", icon: Mic }
+  { label: "Start guided interview", detail: "Question-by-question capture", href: "/notes/new#guided", icon: Mic },
+  { label: "Participant profiles", detail: "Review support context", href: "/participants", icon: ClipboardList }
 ];
 
 export function ManagerDashboardCards() {
@@ -114,8 +114,8 @@ export function DashboardOperationalLists() {
       <Card className="lg:col-span-3">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-ink">Roster Snapshot</h2>
-            <p className="mt-1 text-sm text-slate-600">Lightweight shift visibility and note follow-up tracking.</p>
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-ink"><LockKeyhole size={18} aria-hidden="true" />Admin Roster Snapshot</h2>
+            <p className="mt-1 text-sm text-slate-600">Locked shift visibility and status reporting for admin users.</p>
           </div>
           <Link href="/roster" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-sea px-3 text-sm font-semibold text-white hover:bg-teal-800">
             <CalendarDays size={17} aria-hidden="true" />Open roster
