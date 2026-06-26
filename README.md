@@ -7,7 +7,7 @@ It demonstrates voice-to-compliant-documentation: workers can type or dictate ro
 ## Features
 
 - Manager and worker dashboards
-- Lightweight roster with day/week views, employee colours, shift status, and progress-note tracking
+- Admin-only lightweight roster with day/week views, employee colours, shift status, and weekly/fortnightly/monthly status reports
 - Participant/client profiles and staff sample data
 - Progress note generator with mock AI improvement
 - Guided Voice Documentation with transcript preview and SpeechSynthesis read-back
@@ -89,7 +89,7 @@ The MVP checks whether evidence appears ready. It does not perform accounting, p
 
 ## Roster
 
-Roster is a lightweight shift planning and documentation-tracking feature. It is not payroll, award interpretation, accounting, NDIS claiming automation, or a full workforce management system. See `docs/ROSTER.md` for details.
+Roster is an admin-only lightweight shift planning and documentation-tracking feature. It includes weekly, fortnightly, and monthly status reports. It is not payroll, award interpretation, accounting, NDIS claiming automation, or a full workforce management system. See `docs/ROSTER.md` for details.
 
 ## Pricing
 
