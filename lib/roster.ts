@@ -102,7 +102,7 @@ function addDays(days: number) {
 
 const today = addDays(0);
 const tomorrow = addDays(1);
-const thisWeek = addDays(3);
+const thisWeek = addDays(2);
 
 export const rosterStatuses: RosterStatus[] = ["Scheduled", "In Progress", "Completed", "Note Required", "Note Completed", "Cancelled", "No Show"];
 
