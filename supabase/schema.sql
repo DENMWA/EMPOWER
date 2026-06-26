@@ -281,6 +281,18 @@ as $$
   )
 $$;
 
+create or replace function current_user_is_roster_admin()
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1 from users
+    where id = auth.uid()
+    and role in ('admin','owner')
+  )
+$$;
+
 create or replace function assigned_to_participant(participant uuid)
 returns boolean
 language sql
@@ -332,39 +344,17 @@ create policy "workers create own notes for assigned participants" on progress_n
   and (current_user_is_manager() or assigned_to_participant(participant_id))
 );
 
-create policy "roster shifts visible by assignment or manager" on roster_shifts for select using (
+create policy "roster shifts visible to admins only" on roster_shifts for select using (
   organisation_id = (select organisation_id from users where id = auth.uid())
-  and (
-    current_user_is_manager()
-    or worker_id = auth.uid()
-    or assigned_to_participant(participant_id)
-  )
+  and current_user_is_roster_admin()
 );
 
-create policy "managers manage organisation roster shifts" on roster_shifts for all using (
+create policy "admins manage organisation roster shifts" on roster_shifts for all using (
   organisation_id = (select organisation_id from users where id = auth.uid())
-  and current_user_is_manager()
+  and current_user_is_roster_admin()
 ) with check (
   organisation_id = (select organisation_id from users where id = auth.uid())
-  and current_user_is_manager()
-);
-
-create policy "sole providers manage own roster shifts" on roster_shifts for all using (
-  organisation_id = (select organisation_id from users where id = auth.uid())
-  and worker_id = auth.uid()
-  and exists (
-    select 1 from users
-    where id = auth.uid()
-    and role = 'sole_provider'
-  )
-) with check (
-  organisation_id = (select organisation_id from users where id = auth.uid())
-  and worker_id = auth.uid()
-  and exists (
-    select 1 from users
-    where id = auth.uid()
-    and role = 'sole_provider'
-  )
+  and current_user_is_roster_admin()
 );
 
 create policy "managers approve organisation notes" on approvals for insert with check (
