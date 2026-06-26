@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarPlus, LayoutGrid, ListChecks } from "lucide-react";
+import { CalendarPlus, LayoutGrid, ListChecks, LockKeyhole } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
 import { RosterFilters } from "@/components/roster/RosterFilters";
 import { RosterShiftModal } from "@/components/roster/RosterShiftModal";
+import { RosterStatusReports } from "@/components/roster/RosterStatusReports";
 import { RosterWeekView } from "@/components/roster/RosterWeekView";
 import { Card, PageHeader, Section } from "@/components/ui";
 import {
@@ -46,9 +47,9 @@ export function RosterPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Roster"
-        title="Plan shifts and track the notes that need to follow"
-        description="A lightweight schedule for support teams: see who is working, what support is planned, and whether the progress note is still outstanding."
+        eyebrow="Admin roster"
+        title="Locked roster planning and status reports"
+        description="Roster is an admin-only planning area for assigning shifts, checking coverage, and reviewing weekly, fortnightly, and monthly documentation status."
         actions={
           <button type="button" onClick={() => setCreating(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
             <CalendarPlus size={18} aria-hidden="true" />Create shift
@@ -57,6 +58,18 @@ export function RosterPage() {
       />
 
       <Section className="space-y-6">
+        <Card className="border-teal-200 bg-teal-50">
+          <div className="flex flex-wrap items-start gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-md bg-white text-teal-800 shadow-sm">
+              <LockKeyhole size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Admin-only access</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-700">Roster planning and status reports are locked for admin users. Worker workflows stay focused on participants, notes, incidents, and documents.</p>
+            </div>
+          </div>
+        </Card>
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card><p className="text-sm font-medium text-slate-600">Today&apos;s rostered shifts</p><p className="mt-2 text-3xl font-bold text-ink">{summary.todayCount}</p></Card>
           <Card><p className="text-sm font-medium text-slate-600">Shifts in progress</p><p className="mt-2 text-3xl font-bold text-sky-800">{summary.inProgress}</p></Card>
@@ -86,6 +99,8 @@ export function RosterPage() {
         </Card>
 
         <RosterFilters filters={filters} onChange={setFilters} />
+
+        <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
