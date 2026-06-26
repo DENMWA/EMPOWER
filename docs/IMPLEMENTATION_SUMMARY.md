@@ -1,6 +1,6 @@
 # Implementation Summary
 
-Implemented a polished demo-ready Next.js MVP for Empower Disability and Social Work.
+Implemented a polished demo-ready Next.js MVP for Empower Notes.
 
 Included modules:
 
