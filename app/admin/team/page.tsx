@@ -1,10 +1,11 @@
+import { AdminGate } from "@/components/admin/AdminGate";
 import { InviteTeamMemberForm } from "@/components/admin/InviteTeamMemberForm";
 import { TeamMembersTable } from "@/components/admin/TeamMembersTable";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function AdminTeamPage() {
   return (
-    <>
+    <AdminGate>
       <PageHeader
         eyebrow="Admin workspace"
         title="Team members and access control"
@@ -15,6 +16,6 @@ export default function AdminTeamPage() {
         <InviteTeamMemberForm />
         <TeamMembersTable />
       </Section>
-    </>
+    </AdminGate>
   );
 }
