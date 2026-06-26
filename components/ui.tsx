@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
+import type { HTMLAttributes, ReactNode } from "react";
 
-export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode }) {
+export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode }) {
   return (
     <section className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-10 lg:flex-row lg:items-end lg:justify-between">
@@ -15,12 +16,12 @@ export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?:
   );
 }
 
-export function Section({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Section({ children, className }: { children: ReactNode; className?: string }) {
   return <section className={cn("mx-auto max-w-7xl px-4 py-8", className)}>{children}</section>;
 }
 
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("rounded-md border border-slate-200 bg-white p-5 shadow-soft", className)}>{children}</div>;
+export function Card({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("rounded-md border border-slate-200 bg-white p-5 shadow-soft", className)} {...props}>{children}</div>;
 }
 
 export function StatusBadge({ label, tone = "slate" }: { label: string; tone?: "slate" | "green" | "amber" | "red" | "blue" }) {
@@ -34,7 +35,7 @@ export function StatusBadge({ label, tone = "slate" }: { label: string; tone?: "
   return <span className={cn("inline-flex rounded-md px-2.5 py-1 text-xs font-semibold", tones[tone])}>{label}</span>;
 }
 
-export function ButtonLink({ href, children, variant = "primary" }: { href: string; children: React.ReactNode; variant?: "primary" | "secondary" }) {
+export function ButtonLink({ href, children, variant = "primary" }: { href: string; children: ReactNode; variant?: "primary" | "secondary" }) {
   return (
     <a
       href={href}
