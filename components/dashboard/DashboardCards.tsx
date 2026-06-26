@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Card, StatusBadge } from "@/components/ui";
+import { getRosterSummary } from "@/lib/roster";
 import { participants, progressNotes, users } from "@/lib/sample-data";
-import { AlertTriangle, CheckCircle2, ClipboardList, FileWarning, Mic, TrendingUp } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, Mic, TrendingUp } from "lucide-react";
 
 const managerStats = [
   { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
@@ -11,10 +12,10 @@ const managerStats = [
 ];
 
 const workerActions = [
+  { label: "View roster", detail: "See today and week shifts", href: "/roster", icon: CalendarDays },
   { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
   { label: "Record voice note", detail: "Speak naturally on shift", href: "/notes/new#voice", icon: Mic },
-  { label: "Start guided interview", detail: "Question-by-question capture", href: "/notes/new#guided", icon: Mic },
-  { label: "Draft notes", detail: "Continue unfinished records", href: "/dashboard", icon: FileWarning }
+  { label: "Start guided interview", detail: "Question-by-question capture", href: "/notes/new#guided", icon: Mic }
 ];
 
 export function ManagerDashboardCards() {
@@ -62,6 +63,8 @@ export function WorkerDashboardCards() {
 }
 
 export function DashboardOperationalLists() {
+  const rosterSummary = getRosterSummary();
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
@@ -106,6 +109,23 @@ export function DashboardOperationalLists() {
         <div className="mt-5 flex items-center gap-2 text-sm text-slate-600">
           <TrendingUp size={18} aria-hidden="true" />
           Quality scores are mocked for demo mode.
+        </div>
+      </Card>
+      <Card className="lg:col-span-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-ink">Roster Snapshot</h2>
+            <p className="mt-1 text-sm text-slate-600">Lightweight shift visibility and note follow-up tracking.</p>
+          </div>
+          <Link href="/roster" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-sea px-3 text-sm font-semibold text-white hover:bg-teal-800">
+            <CalendarDays size={17} aria-hidden="true" />Open roster
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-md bg-slate-50 p-4"><p className="text-sm text-slate-600">Today&apos;s rostered shifts</p><p className="mt-2 text-2xl font-bold text-ink">{rosterSummary.todayCount}</p></div>
+          <div className="rounded-md bg-sky-50 p-4"><p className="text-sm text-slate-600">Shifts in progress</p><p className="mt-2 text-2xl font-bold text-sky-800">{rosterSummary.inProgress}</p></div>
+          <div className="rounded-md bg-amber-50 p-4"><p className="text-sm text-slate-600">Completed needing notes</p><p className="mt-2 text-2xl font-bold text-amber-800">{rosterSummary.completedNeedingNotes}</p></div>
+          <div className="rounded-md bg-red-50 p-4"><p className="text-sm text-slate-600">Cancelled/no-show shifts</p><p className="mt-2 text-2xl font-bold text-red-700">{rosterSummary.cancelledOrNoShow}</p></div>
         </div>
       </Card>
     </div>
