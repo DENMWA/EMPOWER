@@ -3,6 +3,8 @@ import { getClientColourScheme } from "@/lib/client-colours";
 import { documents, participants } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
+const dayMs = 24 * 60 * 60 * 1000;
+
 export function DocumentVault() {
   return (
     <Card>
@@ -15,6 +17,7 @@ export function DocumentVault() {
         {documents.map((doc) => {
           const participant = participants.find((item) => item.id === doc.participantId);
           const colour = getClientColourScheme(doc.participantId);
+          const reminder = getExpiryReminder(doc.expiryDate);
           return (
             <div key={doc.id} className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border border-l-4 p-4", colour.border)}>
               <div className="flex items-start gap-3">
@@ -22,10 +25,12 @@ export function DocumentVault() {
                 <div>
                   <p className="font-semibold text-ink">{doc.type}</p>
                   <p className="text-sm text-slate-600">{participant?.name ?? "Unassigned client"} - {doc.confidence}% extraction confidence</p>
+                  <p className="mt-1 text-sm text-slate-600">Start: {formatDate(doc.startDate)} | Expiry: {formatDate(doc.expiryDate)}</p>
                   <span className={cn("mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold", colour.badge)}>{colour.label} client file</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                <StatusBadge label={reminder.label} tone={reminder.tone} />
                 <StatusBadge label={doc.status} tone={doc.status.includes("verified") ? "green" : "amber"} />
                 <StatusBadge label={doc.visibility} tone={doc.visibility === "manager-only" ? "red" : "blue"} />
               </div>
@@ -35,4 +40,29 @@ export function DocumentVault() {
       </div>
     </Card>
   );
+}
+
+function getExpiryReminder(expiryDate: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(`${expiryDate}T00:00:00`);
+  const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / dayMs);
+
+  if (daysUntilExpiry < 0) {
+    return { label: `Expired ${Math.abs(daysUntilExpiry)} days ago`, tone: "red" as const };
+  }
+
+  if (daysUntilExpiry <= 14) {
+    return { label: `Fortnight reminder: ${daysUntilExpiry} days left`, tone: "red" as const };
+  }
+
+  if (daysUntilExpiry <= 30) {
+    return { label: `One month reminder: ${daysUntilExpiry} days left`, tone: "amber" as const };
+  }
+
+  return { label: `Active: ${daysUntilExpiry} days left`, tone: "green" as const };
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
