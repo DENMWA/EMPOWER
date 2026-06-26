@@ -9,11 +9,13 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
+  UserRoundPlus,
   UserPlus
 } from "lucide-react";
+import { ClientReportColourCards } from "@/components/admin/ClientReportColourCards";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getRosterSummary } from "@/lib/roster";
-import { documents, progressNotes, users } from "@/lib/sample-data";
+import { participants, progressNotes, users } from "@/lib/sample-data";
 
 const adminTools = [
   {
@@ -29,6 +31,13 @@ const adminTools = [
     href: "/admin/staff/new",
     icon: UserPlus,
     badge: "Invite"
+  },
+  {
+    title: "Add Client",
+    detail: "Create a client profile with support needs, risk alerts, goals, staff access, and reporting colour.",
+    href: "/admin/clients/new",
+    icon: UserRoundPlus,
+    badge: "Client"
   },
   {
     title: "Admin Roster",
@@ -104,10 +113,12 @@ export function AdminDashboard() {
       <Section className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <AdminMetric label="Active staff" value={users.length} detail="Sample team members" />
+          <AdminMetric label="Active clients" value={participants.length} detail="Colour-coded profiles" tone="blue" />
           <AdminMetric label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
           <AdminMetric label="Notes needing review" value={weakNotes} detail="Quality or detail risk" tone="amber" />
-          <AdminMetric label="Verified documents" value={documents.filter((doc) => doc.status.includes("verified")).length} detail="Evidence ready" tone="green" />
         </div>
+
+        <ClientReportColourCards />
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {adminTools.map((tool) => {
@@ -148,11 +159,12 @@ export function AdminDashboard() {
   );
 }
 
-function AdminMetric({ label, value, detail, tone = "slate" }: { label: string; value: number; detail: string; tone?: "slate" | "amber" | "green" }) {
+function AdminMetric({ label, value, detail, tone = "slate" }: { label: string; value: number; detail: string; tone?: "slate" | "amber" | "green" | "blue" }) {
   const toneClasses = {
     slate: "text-ink",
     amber: "text-amber-800",
-    green: "text-emerald-800"
+    green: "text-emerald-800",
+    blue: "text-sky-800"
   };
 
   return (
