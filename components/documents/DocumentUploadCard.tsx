@@ -36,7 +36,15 @@ export function DocumentUploadCard() {
             <option>manager-only</option>
           </select>
         </label>
-        <label className="text-sm font-semibold text-slate-700 lg:col-span-3">
+        <label className="text-sm font-semibold text-slate-700">
+          Start date
+          <input className="mt-2 w-full rounded-md border border-slate-300 p-3" type="date" required />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Expiry date
+          <input className="mt-2 w-full rounded-md border border-slate-300 p-3" type="date" required />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
           Private file
           <input className="mt-2 w-full rounded-md border border-slate-300 p-2" type="file" />
         </label>
