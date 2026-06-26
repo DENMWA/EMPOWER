@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FileCheck2 } from "lucide-react";
+import { AdminGate } from "@/components/admin/AdminGate";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { participants, progressNotes, users } from "@/lib/sample-data";
 
@@ -7,7 +8,7 @@ export default function AdminReviewsPage() {
   const reviewQueue = progressNotes.filter((note) => note.status !== "Approved" || note.missingDetails.length > 0 || note.riskyWordingFlags.length > 0);
 
   return (
-    <>
+    <AdminGate>
       <PageHeader
         eyebrow="Admin note review"
         title="Review note quality before it becomes evidence"
@@ -22,9 +23,9 @@ export default function AdminReviewsPage() {
             <Card key={note.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-500">{worker?.name} · {note.supportDate}</p>
+                  <p className="text-sm font-semibold text-slate-500">{worker?.name} - {note.supportDate}</p>
                   <h2 className="mt-1 text-xl font-semibold text-ink">{participant?.name} - {note.supportType}</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">Audit score {note.score}% · Billing evidence {note.billingEvidenceScore}%</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">Audit score {note.score}% - Billing evidence {note.billingEvidenceScore}%</p>
                 </div>
                 <StatusBadge label={note.status} tone={note.status === "Approved" ? "green" : "amber"} />
               </div>
@@ -39,6 +40,6 @@ export default function AdminReviewsPage() {
           <FileCheck2 size={18} aria-hidden="true" />Open note workspace
         </Link>
       </Section>
-    </>
+    </AdminGate>
   );
 }
