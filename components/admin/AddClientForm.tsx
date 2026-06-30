@@ -1,11 +1,58 @@
+"use client";
+
 import { FilePlus2, Palette, Save } from "lucide-react";
+import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
+import { addStoredClient, createClientId } from "@/lib/client-records";
 import { sampleGoals, users } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
 export function AddClientForm() {
   const colourOptions = getClientColourOptions();
+  const [name, setName] = useState("");
+  const [initials, setInitials] = useState("");
+  const [supportNeeds, setSupportNeeds] = useState("");
+  const [communication, setCommunication] = useState("");
+  const [riskAlerts, setRiskAlerts] = useState("");
+  const [selectedGoals, setSelectedGoals] = useState(sampleGoals.slice(0, 2));
+  const [assignedWorkers, setAssignedWorkers] = useState(users.slice(0, 1).map((user) => user.id));
+  const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
+  const [saved, setSaved] = useState(false);
+
+  function toggleGoal(goal: string) {
+    setSelectedGoals((current) => current.includes(goal) ? current.filter((item) => item !== goal) : [...current, goal]);
+  }
+
+  function toggleWorker(userId: string) {
+    setAssignedWorkers((current) => current.includes(userId) ? current.filter((item) => item !== userId) : [...current, userId]);
+  }
+
+  function saveClient() {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
+    addStoredClient({
+      id: createClientId(cleanName),
+      name: cleanName,
+      initials: (initials.trim() || cleanName.split(/\s+/).map((part) => part[0]).join("")).slice(0, 4).toUpperCase(),
+      supportNeeds: supportNeeds.trim() || "Support needs to be added.",
+      communication: communication.trim() || "Communication preferences to be added.",
+      goals: selectedGoals,
+      riskAlerts: riskAlerts.split("\n").map((item) => item.trim()).filter(Boolean),
+      assignedWorkers,
+      documents: [],
+      colourSchemeId,
+      createdAt: new Date().toISOString()
+    });
+
+    setSaved(true);
+    setName("");
+    setInitials("");
+    setSupportNeeds("");
+    setCommunication("");
+    setRiskAlerts("");
+  }
 
   return (
     <Card className="border-teal-100">
@@ -15,29 +62,29 @@ export function AddClientForm() {
           <h2 className="mt-1 text-2xl font-bold text-ink">Add a client profile</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Capture the client details that shape worker notes, roster planning, risk reporting, document evidence, and admin dashboards.</p>
         </div>
-        <StatusBadge label="Mock client record" tone="blue" />
+        <StatusBadge label={saved ? "Client saved" : "Real client record"} tone={saved ? "green" : "blue"} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <label className="block text-sm font-semibold text-slate-700">
           Client full name
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. Grace M." />
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. Grace M." value={name} onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="block text-sm font-semibold text-slate-700">
           Initials
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. GM" maxLength={4} />
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. GM" maxLength={4} value={initials} onChange={(event) => setInitials(event.target.value.toUpperCase())} />
         </label>
         <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
           Support needs
-          <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Daily living, community access, behaviour support, communication support..." />
+          <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Daily living, community access, behaviour support, communication support..." value={supportNeeds} onChange={(event) => setSupportNeeds(event.target.value)} />
         </label>
         <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
           Communication preferences
-          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Preferred prompts, processing time, consent notes, communication aids..." />
+          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Preferred prompts, processing time, consent notes, communication aids..." value={communication} onChange={(event) => setCommunication(event.target.value)} />
         </label>
         <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
           Risk alerts
-          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Known triggers, escalation instructions, medication prompts, falls risk..." />
+          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Known triggers, escalation instructions, medication prompts, falls risk..." value={riskAlerts} onChange={(event) => setRiskAlerts(event.target.value)} />
         </label>
       </div>
 
@@ -45,9 +92,9 @@ export function AddClientForm() {
         <div>
           <p className="text-sm font-semibold text-slate-700">Assigned goals</p>
           <div className="mt-3 grid gap-3">
-            {sampleGoals.slice(0, 5).map((goal, index) => (
+            {sampleGoals.slice(0, 5).map((goal) => (
               <label key={goal} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" defaultChecked={index < 2} />
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={selectedGoals.includes(goal)} onChange={() => toggleGoal(goal)} />
                 <span className="font-medium text-ink">{goal}</span>
               </label>
             ))}
@@ -57,9 +104,9 @@ export function AddClientForm() {
         <div>
           <p className="text-sm font-semibold text-slate-700">Assign staff access</p>
           <div className="mt-3 grid gap-3">
-            {users.map((user, index) => (
+            {users.map((user) => (
               <label key={user.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" defaultChecked={index === 0} />
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={assignedWorkers.includes(user.id)} onChange={() => toggleWorker(user.id)} />
                 <span>
                   <span className="block font-semibold text-ink">{user.name}</span>
                   <span className="block text-slate-600">{user.roleLabel}</span>
@@ -76,9 +123,9 @@ export function AddClientForm() {
           <p className="text-sm font-semibold text-slate-700">Client reporting colour</p>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {colourOptions.map((colour, index) => (
+          {colourOptions.map((colour) => (
             <label key={colour.id} className={cn("flex items-center gap-3 rounded-md border p-3 text-sm", colour.border, colour.panel)}>
-              <input type="radio" name="client-colour" className="h-4 w-4 accent-teal-700" defaultChecked={index === 0} />
+              <input type="radio" name="client-colour" className="h-4 w-4 accent-teal-700" checked={colourSchemeId === colour.id} onChange={() => setColourSchemeId(colour.id)} />
               <span className={cn("h-6 w-6 rounded-md", colour.bar)} />
               <span className={cn("font-semibold", colour.text)}>{colour.label}</span>
             </label>
@@ -87,11 +134,11 @@ export function AddClientForm() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={saveClient} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
           <Save size={18} aria-hidden="true" />
           Save client
         </button>
-        <button className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
+        <button type="button" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <FilePlus2 size={18} aria-hidden="true" />
           Add document later
         </button>
