@@ -1,40 +1,49 @@
-"use client";
-
-import { useState } from "react";
-import { RecordActions } from "@/components/records/RecordActions";
-import { Card, StatusBadge } from "@/components/ui";
-import { generateIncidentSummary } from "@/lib/ai-mock";
-import { sampleIncident } from "@/lib/sample-data";
+import Link from "next/link";
+import { ClipboardList, FilePlus2, ShieldCheck } from "lucide-react";
+import { Card } from "@/components/ui";
 
 export function IncidentAssistant() {
-  const [details, setDetails] = useState(sampleIncident);
-  const summary = generateIncidentSummary();
   return (
-    <Card>
-      <h2 className="text-2xl font-bold text-ink">Guided Incident Report Assistant</h2>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <label className="text-sm font-semibold text-slate-700">
-          What happened?
-          <textarea className="mt-2 min-h-44 w-full rounded-md border border-slate-300 p-3" value={details} onChange={(event) => setDetails(event.target.value)} />
-        </label>
-        <div className="rounded-md bg-slate-50 p-4">
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge label="Manager review required" tone="amber" />
-            <StatusBadge label="No final legal decision" tone="blue" />
+    <div className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
+      <Card className="space-y-5">
+        <div className="flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-ink text-white shadow-lift">
+            <ClipboardList size={24} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Incident reporting</p>
+            <h2 className="mt-1 text-2xl font-bold text-ink">Structured incident capture with manager review</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Capture what happened, who was involved, visible injury or distress, immediate response, notifications, follow-up actions, and review status in one guided workflow.
+            </p>
           </div>
-          <p className="mt-4 leading-7 text-slate-800">{summary.summary}</p>
-          <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-900">{summary.reviewPrompt}</p>
-          <RecordActions
-            className="mt-4"
-            recordId="incident-report-draft"
-            recordType="incident-report"
-            title="Guided Incident Report"
-            body={[details, "", summary.summary, summary.reviewPrompt].join("\n")}
-            filename="empower-notes-incident-report"
-          />
-          <p className="mt-3 text-sm text-slate-600">Demo save keeps the incident report in this browser. Production should retain incident reports with manager review and audit history.</p>
         </div>
-      </div>
-    </Card>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ["Body map", "Mark front or back body locations with injury notes."],
+            ["Save/download", "Retain a local draft and export the report."],
+            ["Review", "Send incidents through a manager review path."]
+          ].map(([title, body]) => (
+            <div key={title} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <h3 className="font-bold text-ink">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+            </div>
+          ))}
+        </div>
+        <Link href="/incidents/new" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift">
+          <FilePlus2 size={18} aria-hidden="true" />
+          New incident report
+        </Link>
+      </Card>
+      <Card className="space-y-4 bg-amber-50/70">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="text-amber-700" size={22} aria-hidden="true" />
+          <h2 className="text-xl font-bold text-ink">Manager visibility</h2>
+        </div>
+        <p className="text-sm leading-6 text-slate-700">
+          Reports include prompts for emergency escalation, safeguarding concern, reportable incident assessment, support-plan updates, and lock status. Final decisions remain with the organisation and authorised reviewers.
+        </p>
+      </Card>
+    </div>
   );
 }
