@@ -38,12 +38,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur-xl">
         <div className={cn("h-1", isPlatform ? "bg-gradient-to-r from-slate-950 via-sky-700 to-teal-600" : "bg-gradient-to-r from-teal-700 via-sky-600 to-amber-500")} />
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <Link href={isPlatform ? "/platform" : "/"} className="flex items-center gap-3 font-semibold text-ink" aria-label={isPlatform ? "Empower Notes platform console" : "Empower Notes home"}>
+          <Link href={isPlatform ? "/platform" : "/"} className="flex items-center gap-3 font-semibold text-ink" aria-label={isPlatform ? "EmpowerNotes platform console" : "EmpowerNotes home"}>
             <span className={cn("grid h-12 w-12 place-items-center rounded-md text-lg font-bold text-white shadow-lift ring-4", isPlatform ? "bg-slate-950 ring-slate-100" : "bg-ink ring-teal-50")}>
               {isPlatform ? <SquareTerminal size={22} aria-hidden="true" /> : "E"}
             </span>
             <span>
-              <span className="block text-lg">{isPlatform ? "Empower Notes Platform" : "Empower Notes"}</span>
+              <span className="block text-lg">{isPlatform ? "EmpowerNotes Platform" : "EmpowerNotes"}</span>
               <span className="block text-sm font-normal text-slate-600">{isPlatform ? "Owner-only subscription and diagnostics console" : "Clear, person-centred support records"}</span>
             </span>
           </Link>

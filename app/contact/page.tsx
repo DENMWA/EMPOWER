@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Card, PageHeader, Section } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Book an Empower Notes Demo in Australia",
+  title: "Book an EmpowerNotes Demo in Australia",
   description:
-    "Book an Empower Notes demo for Australian NDIS providers, disability support teams, social workers, youth workers, and community service organisations.",
+    "Book an EmpowerNotes demo for Australian NDIS providers, disability support teams, social workers, youth workers, and community service organisations.",
   alternates: {
     canonical: "/contact"
   }

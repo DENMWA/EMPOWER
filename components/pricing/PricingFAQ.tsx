@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui";
 
 const faqs = [
-  ["Does Empower Notes replace professional judgement?", "No. Empower Notes assists with quality, wording, prompts, and evidence organisation only."],
+  ["Does EmpowerNotes replace professional judgement?", "No. EmpowerNotes assists with quality, wording, prompts, and evidence organisation only."],
   ["Is payment processing live?", "No. Stripe checkout is intentionally left as a production integration point."],
   ["Can workers see billing?", "No. Billing display is restricted to owner, admin, and service manager roles."],
   ["Are documents public?", "No. Production storage should use private buckets and server-side processing only."]

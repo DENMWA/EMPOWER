@@ -4,14 +4,14 @@ import { AppShell } from "@/components/AppShell";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://empowernotes.com.au";
 const seoDescription =
-  "Empower Notes is Australian NDIS documentation software for disability support, social work, youth work, and community service providers who need audit-ready progress notes, incident reports, rostering, billing, and client records.";
+  "EmpowerNotes is Australian NDIS documentation software for disability support, social work, youth work, and community service providers who need audit-ready progress notes, incident reports, rostering, billing, and client records.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
-  applicationName: "Empower Notes",
+  applicationName: "EmpowerNotes",
   title: {
-    default: "Empower Notes | Australian NDIS Documentation Software",
-    template: "%s | Empower Notes"
+    default: "EmpowerNotes | Australian NDIS Documentation Software",
+    template: "%s | EmpowerNotes"
   },
   description: seoDescription,
   keywords: [
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
     "youth work documentation software",
     "NDIS audit evidence"
   ],
-  creator: "Empower Notes",
-  publisher: "Empower Notes",
+  creator: "EmpowerNotes",
+  publisher: "EmpowerNotes",
   category: "Health and community services software",
   alternates: {
     canonical: "/"
@@ -36,13 +36,13 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_AU",
     url: "/",
-    siteName: "Empower Notes",
-    title: "Empower Notes | Australian NDIS Documentation Software",
+    siteName: "EmpowerNotes",
+    title: "EmpowerNotes | Australian NDIS Documentation Software",
     description: seoDescription
   },
   twitter: {
     card: "summary_large_image",
-    title: "Empower Notes | Australian NDIS Documentation Software",
+    title: "EmpowerNotes | Australian NDIS Documentation Software",
     description: seoDescription
   },
   robots: {

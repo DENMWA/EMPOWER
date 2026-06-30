@@ -3,9 +3,9 @@ import { PlanRecommendation } from "@/components/onboarding/PlanRecommendation";
 import { PageHeader, Section } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Start Empower Notes for Your Australian Care Team",
+  title: "Start EmpowerNotes for Your Australian Care Team",
   description:
-    "Start Empower Notes for Australian NDIS, disability support, social work, youth work, and community service documentation.",
+    "Start EmpowerNotes for Australian NDIS, disability support, social work, youth work, and community service documentation.",
   alternates: {
     canonical: "/signup"
   }

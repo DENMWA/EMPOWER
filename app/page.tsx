@@ -16,7 +16,7 @@ export default function HomePage() {
   const softwareJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Empower Notes",
+    name: "EmpowerNotes",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     inLanguage: "en-AU",
