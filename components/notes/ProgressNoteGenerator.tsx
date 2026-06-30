@@ -10,18 +10,111 @@ import { Card } from "@/components/ui";
 import { participants, sampleRoughNote, supportTypes } from "@/lib/sample-data";
 import { checkMissingDetails, improveTranscriptToProgressNote, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 
+type ContinenceCareRecord = {
+  applicableSupports: string[];
+  bowelMovement: string;
+  bristolType: string;
+  urineRecord: string;
+  urineAppearance: string;
+  uridomeCare: string;
+  catheterCare: string;
+  incontinenceSupport: string;
+  toiletingSupport: string;
+  personalCareNotes: string;
+};
+
+const continenceSupportOptions = [
+  "Incontinence support",
+  "Toileting support",
+  "Bowel movement record",
+  "Urination record",
+  "Uridome care",
+  "Catheter care"
+];
+
+const bristolStoolOptions = [
+  "Not applicable / no bowel movement observed",
+  "Type 1 - Separate hard lumps",
+  "Type 2 - Lumpy and sausage-like",
+  "Type 3 - Sausage shape with cracks",
+  "Type 4 - Smooth, soft sausage/snake",
+  "Type 5 - Soft blobs with clear edges",
+  "Type 6 - Mushy consistency",
+  "Type 7 - Watery, no solid pieces"
+];
+
+const urineRecordOptions = [
+  "Not applicable / not observed",
+  "Passed urine independently",
+  "Prompted/supported to toilet",
+  "Incontinence pad changed",
+  "Uridome checked/changed",
+  "Catheter bag checked/emptied",
+  "No urine passed during support"
+];
+
+const initialContinenceRecord: ContinenceCareRecord = {
+  applicableSupports: [],
+  bowelMovement: "Not observed during support",
+  bristolType: bristolStoolOptions[0],
+  urineRecord: urineRecordOptions[0],
+  urineAppearance: "Not observed",
+  uridomeCare: "Not applicable",
+  catheterCare: "Not applicable",
+  incontinenceSupport: "Not required during this support",
+  toiletingSupport: "Not required during this support",
+  personalCareNotes: "Privacy, dignity, consent, hygiene, infection-control steps, and participant response recorded where applicable."
+};
+
 export function ProgressNoteGenerator() {
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
   const [finalNote, setFinalNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+  const [supportType, setSupportType] = useState("Community access");
+  const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const quality = scoreNoteQuality();
+  const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support"].includes(supportType);
+
+  function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
+    setContinenceRecord((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleApplicableSupport(value: string) {
+    setContinenceRecord((current) => ({
+      ...current,
+      applicableSupports: current.applicableSupports.includes(value)
+        ? current.applicableSupports.filter((item) => item !== value)
+        : [...current.applicableSupports, value]
+    }));
+  }
+
+  function formatContinenceSummary() {
+    if (!showPersonalCareRecord) return "";
+
+    return [
+      "Personal care continence/toileting record:",
+      `Applicable support: ${continenceRecord.applicableSupports.length ? continenceRecord.applicableSupports.join(", ") : "Not selected"}.`,
+      `Bowel movement: ${continenceRecord.bowelMovement}. Bristol Stool Chart: ${continenceRecord.bristolType}.`,
+      `Urination record: ${continenceRecord.urineRecord}. Appearance/concerns: ${continenceRecord.urineAppearance}.`,
+      `Uridome care: ${continenceRecord.uridomeCare}.`,
+      `Catheter care: ${continenceRecord.catheterCare}.`,
+      `Incontinence support: ${continenceRecord.incontinenceSupport}.`,
+      `Toileting support: ${continenceRecord.toiletingSupport}.`,
+      `Additional personal care notes: ${continenceRecord.personalCareNotes}.`
+    ].join("\n");
+  }
 
   async function improve() {
     setLoading(true);
     const improved = await improveTranscriptToProgressNote(roughNote);
-    setFinalNote(improved);
-    setMissing(checkMissingDetails(improved));
+    const continenceSummary = formatContinenceSummary();
+    const improvedWithCareRecord = continenceSummary ? `${improved}\n\n${continenceSummary}` : improved;
+    setFinalNote(improvedWithCareRecord);
+    setMissing([
+      ...checkMissingDetails(improvedWithCareRecord),
+      ...(showPersonalCareRecord && continenceRecord.applicableSupports.length === 0 ? ["Select applicable continence/toileting support"] : [])
+    ]);
     setLoading(false);
   }
 
@@ -44,7 +137,7 @@ export function ProgressNoteGenerator() {
           </label>
           <label className="text-sm font-semibold text-slate-700">
             Support type
-            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm">
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={supportType} onChange={(event) => setSupportType(event.target.value)}>
               {supportTypes.map((type) => <option key={type}>{type}</option>)}
             </select>
           </label>
@@ -67,6 +160,67 @@ export function ProgressNoteGenerator() {
           Rough note or dictated text
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 shadow-inner" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
+        {showPersonalCareRecord ? (
+          <div className="mt-5 rounded-md border border-teal-100 bg-teal-50/60 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-sea">Personal care record</p>
+                <h3 className="mt-1 text-xl font-bold text-ink">Continence, toileting, bowel and urinary support</h3>
+              </div>
+              <span className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-teal-900">Choose what applies</span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {continenceSupportOptions.map((option) => (
+                <label key={option} className="flex min-h-11 items-center gap-2 rounded-md border border-teal-100 bg-white px-3 text-sm font-semibold text-slate-700">
+                  <input type="checkbox" checked={continenceRecord.applicableSupports.includes(option)} onChange={() => toggleApplicableSupport(option)} />
+                  {option}
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <label className="text-sm font-semibold text-slate-700">
+                Bowel movement
+                <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.bowelMovement} onChange={(event) => updateContinenceField("bowelMovement", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Bristol Stool Chart
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.bristolType} onChange={(event) => updateContinenceField("bristolType", event.target.value)}>
+                  {bristolStoolOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Urination / uridome / catheter record
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineRecord} onChange={(event) => updateContinenceField("urineRecord", event.target.value)}>
+                  {urineRecordOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Urine appearance / concerns
+                <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineAppearance} onChange={(event) => updateContinenceField("urineAppearance", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Uridome care
+                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.uridomeCare} onChange={(event) => updateContinenceField("uridomeCare", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Catheter care
+                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.catheterCare} onChange={(event) => updateContinenceField("catheterCare", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Incontinence support provided
+                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.incontinenceSupport} onChange={(event) => updateContinenceField("incontinenceSupport", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Toileting support provided
+                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.toiletingSupport} onChange={(event) => updateContinenceField("toiletingSupport", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700 lg:col-span-2">
+                Privacy, dignity, consent, hygiene and follow-up notes
+                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.personalCareNotes} onChange={(event) => updateContinenceField("personalCareNotes", event.target.value)} />
+              </label>
+            </div>
+          </div>
+        ) : null}
         <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
           {loading ? "Improving note..." : "Improve Note"}
         </button>
