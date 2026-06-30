@@ -23,13 +23,22 @@ type ContinenceCareRecord = {
   personalCareNotes: string;
 };
 
+type FluidIntakeEntry = {
+  id: string;
+  time: string;
+  drinkType: string;
+  amountMl: string;
+  notes: string;
+};
+
 const continenceSupportOptions = [
   "Incontinence support",
   "Toileting support",
   "Bowel movement record",
   "Urination record",
   "Uridome care",
-  "Catheter care"
+  "Catheter care",
+  "Fluid intake"
 ];
 
 const bristolStoolOptions = [
@@ -53,6 +62,8 @@ const urineRecordOptions = [
   "No urine passed during support"
 ];
 
+const drinkTypeOptions = ["Water", "Tea", "Coffee", "Juice", "Soft drink", "Milk", "Supplement drink", "Other"];
+
 const initialContinenceRecord: ContinenceCareRecord = {
   applicableSupports: [],
   bowelMovement: "Not observed during support",
@@ -66,6 +77,11 @@ const initialContinenceRecord: ContinenceCareRecord = {
   personalCareNotes: "Privacy, dignity, consent, hygiene, infection-control steps, and participant response recorded where applicable."
 };
 
+const initialFluidIntake: FluidIntakeEntry[] = [
+  { id: "fluid-1", time: "08:00", drinkType: "Water", amountMl: "250", notes: "With breakfast" },
+  { id: "fluid-2", time: "10:30", drinkType: "Tea", amountMl: "200", notes: "Morning tea" }
+];
+
 export function ProgressNoteGenerator() {
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
   const [finalNote, setFinalNote] = useState("");
@@ -73,8 +89,9 @@ export function ProgressNoteGenerator() {
   const [missing, setMissing] = useState<string[]>([]);
   const [supportType, setSupportType] = useState("Community access");
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
+  const [fluidIntake, setFluidIntake] = useState<FluidIntakeEntry[]>(initialFluidIntake);
   const quality = scoreNoteQuality();
-  const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support"].includes(supportType);
+  const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
 
   function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
     setContinenceRecord((current) => ({ ...current, [field]: value }));
@@ -89,14 +106,34 @@ export function ProgressNoteGenerator() {
     }));
   }
 
+  function updateFluidIntake(id: string, patch: Partial<FluidIntakeEntry>) {
+    setFluidIntake((current) => current.map((entry) => entry.id === id ? { ...entry, ...patch } : entry));
+  }
+
+  function addFluidIntake() {
+    setFluidIntake((current) => [
+      ...current,
+      { id: `fluid-${Date.now()}`, time: "", drinkType: "Water", amountMl: "", notes: "" }
+    ]);
+  }
+
+  function removeFluidIntake(id: string) {
+    setFluidIntake((current) => current.filter((entry) => entry.id !== id));
+  }
+
   function formatContinenceSummary() {
     if (!showPersonalCareRecord) return "";
+
+    const fluidSummary = fluidIntake.length
+      ? fluidIntake.map((entry) => `${entry.time || "Time not recorded"} - ${entry.amountMl || "Amount not recorded"}mL ${entry.drinkType}${entry.notes ? ` (${entry.notes})` : ""}`).join("; ")
+      : "No fluid intake recorded";
 
     return [
       "Personal care continence/toileting record:",
       `Applicable support: ${continenceRecord.applicableSupports.length ? continenceRecord.applicableSupports.join(", ") : "Not selected"}.`,
       `Bowel movement: ${continenceRecord.bowelMovement}. Bristol Stool Chart: ${continenceRecord.bristolType}.`,
       `Urination record: ${continenceRecord.urineRecord}. Appearance/concerns: ${continenceRecord.urineAppearance}.`,
+      `Fluid intake: ${fluidSummary}.`,
       `Uridome care: ${continenceRecord.uridomeCare}.`,
       `Catheter care: ${continenceRecord.catheterCare}.`,
       `Incontinence support: ${continenceRecord.incontinenceSupport}.`,
@@ -198,6 +235,40 @@ export function ProgressNoteGenerator() {
                 Urine appearance / concerns
                 <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineAppearance} onChange={(event) => updateContinenceField("urineAppearance", event.target.value)} />
               </label>
+              <div className="rounded-md border border-sky-100 bg-white p-4 lg:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-ink">Fluid intake</h4>
+                    <p className="mt-1 text-sm text-slate-600">Record fluids by time, drink type, and amount in mL, including drinks taken with meals.</p>
+                  </div>
+                  <button type="button" onClick={addFluidIntake} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-lift">Add fluid</button>
+                </div>
+                <div className="mt-4 grid gap-3">
+                  {fluidIntake.map((entry) => (
+                    <div key={entry.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_1fr_1fr_1.5fr_auto]">
+                      <label className="text-sm font-semibold text-slate-700">
+                        Time
+                        <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" type="time" value={entry.time} onChange={(event) => updateFluidIntake(entry.id, { time: event.target.value })} />
+                      </label>
+                      <label className="text-sm font-semibold text-slate-700">
+                        Fluid
+                        <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.drinkType} onChange={(event) => updateFluidIntake(entry.id, { drinkType: event.target.value })}>
+                          {drinkTypeOptions.map((option) => <option key={option}>{option}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-sm font-semibold text-slate-700">
+                        Amount (mL)
+                        <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" inputMode="numeric" value={entry.amountMl} onChange={(event) => updateFluidIntake(entry.id, { amountMl: event.target.value })} />
+                      </label>
+                      <label className="text-sm font-semibold text-slate-700">
+                        Meal/context
+                        <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.notes} onChange={(event) => updateFluidIntake(entry.id, { notes: event.target.value })} placeholder="Breakfast, lunch, morning tea..." />
+                      </label>
+                      <button type="button" onClick={() => removeFluidIntake(entry.id)} className="min-h-10 self-end rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <label className="text-sm font-semibold text-slate-700">
                 Uridome care
                 <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.uridomeCare} onChange={(event) => updateContinenceField("uridomeCare", event.target.value)} />
