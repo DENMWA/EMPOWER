@@ -3,8 +3,8 @@ import { getClientColourScheme } from "@/lib/client-colours";
 import type { Participant } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
-export function ParticipantProfile({ participant }: { participant: Participant }) {
-  const colour = getClientColourScheme(participant.id);
+export function ParticipantProfile({ participant, colourSchemeId }: { participant: Participant; colourSchemeId?: string }) {
+  const colour = getClientColourScheme(participant.id, colourSchemeId);
 
   return (
     <Card className={cn("border-l-4", colour.border)}>
