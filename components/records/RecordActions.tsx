@@ -11,9 +11,10 @@ type RecordActionsProps = {
   body: string;
   filename: string;
   className?: string;
+  allowDownload?: boolean;
 };
 
-export function RecordActions({ recordId, recordType, title, body, filename, className }: RecordActionsProps) {
+export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true }: RecordActionsProps) {
   const [saved, setSaved] = useState(false);
 
   function saveRecord() {
@@ -47,10 +48,12 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
         <Save size={17} aria-hidden="true" />
         {saved ? "Saved locally" : "Save record"}
       </button>
-      <button type="button" onClick={downloadRecord} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">
-        <Download size={17} aria-hidden="true" />
-        Download
-      </button>
+      {allowDownload ? (
+        <button type="button" onClick={downloadRecord} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">
+          <Download size={17} aria-hidden="true" />
+          Download
+        </button>
+      ) : null}
     </div>
   );
 }
