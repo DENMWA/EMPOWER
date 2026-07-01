@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { FileUp, UserRoundCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
@@ -5,6 +8,22 @@ import { participants } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
 export function DocumentUploadCard() {
+  const [clientId, setClientId] = useState("joseph-k");
+  const [documentType, setDocumentType] = useState("NDIS Plan");
+  const [message, setMessage] = useState("");
+  const selectedClient = participants.find((participant) => participant.id === clientId);
+
+  function saveUploadMetadata() {
+    const record = {
+      clientId,
+      clientName: selectedClient?.name ?? clientId,
+      documentType,
+      savedAt: new Date().toISOString()
+    };
+    window.localStorage.setItem(`empowernotes-document-upload:${Date.now()}`, JSON.stringify(record));
+    setMessage(`${documentType} metadata saved for ${record.clientName}.`);
+  }
+
   return (
     <Card className="border-teal-100">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -19,13 +38,13 @@ export function DocumentUploadCard() {
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
         <label className="text-sm font-semibold text-slate-700">
           Client
-          <select className="mt-2 w-full rounded-md border border-slate-300 p-3" required defaultValue="joseph-k">
+          <select className="mt-2 w-full rounded-md border border-slate-300 p-3" required value={clientId} onChange={(event) => setClientId(event.target.value)}>
             {participants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Document type
-          <select className="mt-2 w-full rounded-md border border-slate-300 p-3">
+          <select className="mt-2 w-full rounded-md border border-slate-300 p-3" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
             {["NDIS Plan", "Behaviour support plan", "Risk assessment", "Communication profile", "Medical documents", "CHAP", "Service agreement", "Other"].map((type) => <option key={type}>{type}</option>)}
           </select>
         </label>
@@ -66,15 +85,16 @@ export function DocumentUploadCard() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={saveUploadMetadata} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
           <FileUp size={18} aria-hidden="true" />
           Upload to client
         </button>
-        <button className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
+        <a href="/documents" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <UserRoundCheck size={18} aria-hidden="true" />
           Check client file list
-        </button>
+        </a>
       </div>
+      {message ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
       <p className="mt-3 text-sm text-slate-600">Demo mode stores metadata only. Production storage should use private Supabase buckets, client-specific document paths, and server-side processing.</p>
     </Card>
   );

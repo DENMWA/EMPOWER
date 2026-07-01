@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -49,6 +49,19 @@ export function PlatformDashboard() {
   const [activeArea, setActiveArea] = useState<PlatformAreaId>("overview");
   const active = consoleAreas.find((area) => area.id === activeArea) ?? consoleAreas[0];
 
+  useEffect(() => {
+    function syncFromHash() {
+      const hashArea = window.location.hash.replace("#", "") as PlatformAreaId;
+      if (consoleAreas.some((area) => area.id === hashArea)) {
+        setActiveArea(hashArea);
+      }
+    }
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
+
   return (
     <>
       <PageHeader
@@ -72,7 +85,10 @@ export function PlatformDashboard() {
                 <button
                   key={area.id}
                   type="button"
-                  onClick={() => setActiveArea(area.id)}
+                  onClick={() => {
+                    setActiveArea(area.id);
+                    window.history.replaceState(null, "", `#${area.id}`);
+                  }}
                   className={cn(
                     "rounded-md border p-4 text-left transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-teal-700",
                     activeArea === area.id ? "border-teal-400 bg-teal-50 shadow-lift" : "border-slate-200 bg-white hover:border-teal-300"

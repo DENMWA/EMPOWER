@@ -1,6 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 
 export function SelfCertificationPanel() {
+  const [certifiedAt, setCertifiedAt] = useState("");
+
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -9,7 +14,10 @@ export function SelfCertificationPanel() {
       </div>
       <p className="mt-3 rounded-md bg-slate-50 p-4 font-semibold text-ink">I confirm this record is accurate, complete, and reflects the support delivered.</p>
       <p className="mt-3 text-sm leading-6 text-slate-700">When self-certified, the note is timestamped, locked, marked owner-approved, preserved with the original rough note/transcript, checked for invoice readiness, and logged in the audit trail.</p>
-      <button className="mt-4 rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Self-certify and lock note</button>
+      <button type="button" onClick={() => setCertifiedAt(new Date().toLocaleString("en-AU"))} className="mt-4 rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">
+        {certifiedAt ? "Self-certified and locked" : "Self-certify and lock note"}
+      </button>
+      {certifiedAt ? <p className="mt-3 text-sm font-semibold text-emerald-700">Locked {certifiedAt}</p> : null}
     </Card>
   );
 }

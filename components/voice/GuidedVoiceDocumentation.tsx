@@ -11,12 +11,24 @@ export function GuidedVoiceDocumentation() {
   const [transcript, setTranscript] = useState("");
   const [finalNote, setFinalNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
 
   async function improve() {
     setLoading(true);
     const improved = await improveTranscriptToProgressNote(transcript);
     setFinalNote(improved);
     setLoading(false);
+  }
+
+  function saveFinalNote(status: string) {
+    window.localStorage.setItem(`empower-retained-record:voice-note-${Date.now()}`, JSON.stringify({
+      id: `voice-note-${Date.now()}`,
+      type: "progress-note",
+      title: `Voice note - ${status}`,
+      body: finalNote,
+      savedAt: new Date().toISOString()
+    }));
+    setActionMessage(status);
   }
 
   return (
@@ -52,10 +64,11 @@ export function GuidedVoiceDocumentation() {
           </div>
           <ReadBackControls text={finalNote} />
           <div className="flex flex-wrap gap-3">
-            <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Submit for manager approval</button>
-            <button className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Self-certify note</button>
-            <button className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Save draft</button>
+            <button type="button" onClick={() => saveFinalNote("Submitted for manager approval")} className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Submit for manager approval</button>
+            <button type="button" onClick={() => saveFinalNote("Self-certified")} className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Self-certify note</button>
+            <button type="button" onClick={() => saveFinalNote("Draft saved")} className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Save draft</button>
           </div>
+          {actionMessage ? <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{actionMessage}</p> : null}
         </div>
       ) : null}
     </Card>

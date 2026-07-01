@@ -138,10 +138,10 @@ export function AddClientForm() {
           <Save size={18} aria-hidden="true" />
           Save client
         </button>
-        <button type="button" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
+        <a href="/documents" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <FilePlus2 size={18} aria-hidden="true" />
           Add document later
-        </button>
+        </a>
       </div>
     </Card>
   );

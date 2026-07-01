@@ -1,9 +1,22 @@
+"use client";
+
+import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants } from "@/lib/sample-data";
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { MailPlus, ShieldCheck } from "lucide-react";
 
 export function InviteTeamMemberForm() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+
+  function saveInvite(action: "sent" | "saved") {
+    const record = { name, email, action, savedAt: new Date().toISOString() };
+    window.localStorage.setItem(`empowernotes-team-invite:${Date.now()}`, JSON.stringify(record));
+    setMessage(action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.");
+  }
+
   return (
     <Card className="border-teal-100">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -17,11 +30,11 @@ export function InviteTeamMemberForm() {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <label className="block text-sm font-semibold text-slate-700">
           Full name
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. Amina Joseph" />
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. Amina Joseph" value={name} onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="block text-sm font-semibold text-slate-700">
           Email
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="email" placeholder="amina@example.com" />
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="email" placeholder="amina@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
         </label>
         <RoleSelector />
         <label className="block text-sm font-semibold text-slate-700">
@@ -48,15 +61,16 @@ export function InviteTeamMemberForm() {
         </div>
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
-        <button className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={() => saveInvite("sent")} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
           <MailPlus size={18} aria-hidden="true" />
           Send invite
         </button>
-        <button className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
+        <button type="button" onClick={() => saveInvite("saved")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <ShieldCheck size={18} aria-hidden="true" />
           Save permissions
         </button>
       </div>
+      {message ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
     </Card>
   );
 }

@@ -62,9 +62,9 @@ export function TeamMembersTable() {
                   </td>
                   <td className="py-4 pr-4"><StatusBadge label={status.label} tone={status.tone} /></td>
                   <td className="py-4 pr-4">
-                    <button className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Manage ${user.name}`}>
+                    <a href="/admin/staff/new" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Manage ${user.name}`}>
                       <MoreHorizontal size={18} aria-hidden="true" />
-                    </button>
+                    </a>
                   </td>
                 </tr>
               );

@@ -1,8 +1,27 @@
+"use client";
+
+import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getInvoiceSummaryDemo } from "@/lib/invoice-readiness";
 
 export function InvoiceSummaryCard() {
   const summary = getInvoiceSummaryDemo();
+  const [message, setMessage] = useState("");
+
+  function downloadSummary() {
+    const lines = Object.entries(summary).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`);
+    const blob = new Blob([`EmpowerNotes Invoice Summary\n\n${lines.join("\n")}`], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "empowernotes-invoice-summary.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setMessage("Invoice summary downloaded.");
+  }
+
   return (
     <Card>
       <h2 className="text-xl font-semibold text-ink">Invoice Summary</h2>
@@ -15,9 +34,10 @@ export function InvoiceSummaryCard() {
         ))}
       </dl>
       <div className="mt-4 flex flex-wrap gap-3">
-        <button className="rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white">Read invoice summary</button>
-        <button className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Mock send invoice</button>
+        <button type="button" onClick={downloadSummary} className="rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white">Read invoice summary</button>
+        <button type="button" onClick={() => setMessage("Demo invoice marked as sent. Connect accounting software before live sending.")} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Mock send invoice</button>
       </div>
+      {message ? <p className="mt-3 rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800">{message}</p> : null}
       <div className="mt-3"><StatusBadge label="No accounting engine connected" tone="blue" /></div>
     </Card>
   );

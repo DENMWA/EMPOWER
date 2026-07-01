@@ -55,9 +55,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isPlatform ? (
           <nav className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3" aria-label="Platform navigation">
             {["Overview", "Organisations", "Subscriptions", "Payments", "Diagnostics", "Analytics", "Security", "Support"].map((item) => (
-              <span key={item} className="inline-flex min-h-11 items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-slate-700">
+              <Link key={item} href={`/platform#${item.toLowerCase()}`} className="inline-flex min-h-11 items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-skySoft hover:text-teal-900">
                 {item}
-              </span>
+              </Link>
             ))}
           </nav>
         ) : (
