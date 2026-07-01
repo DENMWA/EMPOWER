@@ -124,7 +124,7 @@ export function AdminDashboard() {
           {adminTools.map((tool) => {
             const Icon = tool.icon;
             return (
-              <Link
+              <a
                 key={tool.title}
                 href={tool.href}
                 className="group rounded-md border border-slate-200 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-teal-500 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700"
@@ -137,7 +137,10 @@ export function AdminDashboard() {
                 </div>
                 <h2 className="mt-5 text-lg font-semibold text-ink">{tool.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{tool.detail}</p>
-              </Link>
+                <span className="mt-4 inline-flex min-h-10 items-center rounded-md bg-slate-50 px-3 text-sm font-semibold text-teal-900 transition group-hover:bg-teal-700 group-hover:text-white">
+                  Open
+                </span>
+              </a>
             );
           })}
         </div>

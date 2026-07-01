@@ -31,7 +31,7 @@ export function ClientReportColourCards() {
           const completion = Math.max(18, Math.min(100, averageScore || 64));
 
           return (
-            <div key={participant.id} className={cn("rounded-md border bg-white p-4", colour.border)}>
+            <Link key={participant.id} href="/participants" className={cn("group rounded-md border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700", colour.border)}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className={cn("grid h-11 w-11 place-items-center rounded-md text-sm font-bold", colour.avatar)}>{participant.initials}</span>
@@ -52,7 +52,10 @@ export function ClientReportColourCards() {
                 <Signal icon={ShieldAlert} label="Risk signals" value={incidentSignals} />
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-600">{participant.supportNeeds}</p>
-            </div>
+              <span className="mt-4 inline-flex min-h-10 items-center rounded-md bg-slate-50 px-3 text-sm font-semibold text-teal-900 transition group-hover:bg-teal-700 group-hover:text-white">
+                Open profile
+              </span>
+            </Link>
           );
         })}
       </div>
