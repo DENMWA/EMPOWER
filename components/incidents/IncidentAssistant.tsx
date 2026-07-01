@@ -21,7 +21,7 @@ export function IncidentAssistant() {
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             ["Body map", "Mark front or back body locations with injury notes."],
-            ["Save/download", "Retain a local draft and export the report."],
+            ["Save/export", "Retain local drafts and download incident collections by period."],
             ["Review", "Send incidents through a manager review path."]
           ].map(([title, body]) => (
             <div key={title} className="rounded-md border border-slate-200 bg-slate-50 p-4">

@@ -165,18 +165,6 @@ export function IncidentReportForm() {
     setSavedAt(new Date().toLocaleString("en-AU"));
   }
 
-  function downloadReport() {
-    const blob = new Blob([`Incident Report ${report.incidentId}\n\n${exportText}`], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `empowernotes-${report.incidentId}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
       <aside className="rounded-md border border-slate-200 bg-white p-4 shadow-soft lg:sticky lg:top-4 lg:self-start">
@@ -204,7 +192,6 @@ export function IncidentReportForm() {
               <h2 className="mt-1 text-2xl font-bold text-ink">Incident report</h2>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={downloadReport} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400"><Download size={17} />Download</button>
               <button type="button" onClick={() => window.print()} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400"><Download size={17} />Print / PDF</button>
             </div>
           </div>
