@@ -25,9 +25,9 @@ function localFidelityOptions(transcript: string) {
   const cleaned = personCentredLanguage(originalNote);
 
   return [
-    `The participant was supported with the activity described in the shift note. ${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response. Any missing details, including exact time, location, goal link, or follow-up owner, should be confirmed before approval.`,
-    `During the shift, staff supported the participant with the recorded activity and documented the participant's presentation and response. ${cleaned} The note has been written in objective, person-centred language while staying within the facts provided by the worker.`,
-    `Staff provided support as described in the original shift note. ${cleaned} The record should be reviewed for any missing operational details, such as support duration, location, goal connection, notifications, and follow-up actions, before it is finalised.`
+    `${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response.`,
+    `${cleaned} Staff used objective, person-centred support and documented the participant's presentation, response, and engagement during the shift.`,
+    `${cleaned} The record reflects the support provided, the participant's response, and the outcome documented by the worker.`
   ];
 }
 
@@ -78,6 +78,8 @@ export async function POST(request: Request) {
             "Write exactly three rephrased professional note options.",
             "Each option must be a clean final note the worker can click and use directly.",
             "Do not include headings, disclaimers, boundaries, AI service notes, markdown, or bullet lists.",
+            "Do not start with meta phrases such as 'Staff provided support as described', 'The participant was supported with the activity described', 'During the shift', 'The worker recorded', or 'The note has been written'.",
+            "Start naturally as if the worker wrote the final note, with the participant/client and the support activity or observation.",
             "Preserve fidelity to the worker's original note while expanding professionally.",
             "Do not invent facts, times, injuries, notifications, goals, risks, diagnoses, or outcomes.",
             "Expand the note into a richer professional progress note using only reasonable structure and wording based on what is documented.",

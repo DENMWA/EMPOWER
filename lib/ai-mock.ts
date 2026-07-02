@@ -47,9 +47,9 @@ export async function getProgressNoteRewriteOptions(transcript: string) {
   }
 
   return [
-    `The participant was supported with the activity described in the shift note. ${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response.`,
-    `During the shift, staff supported the participant with the recorded activity. ${cleaned} The note has been written in objective, person-centred language while preserving the worker's documented facts.`,
-    `Staff provided support as described in the original shift note. ${cleaned} The record should be reviewed for any missing operational details before it is finalised.`
+    `${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response.`,
+    `${cleaned} Staff used objective, person-centred support and documented the participant's presentation, response, and engagement during the shift.`,
+    `${cleaned} The record reflects the support provided, the participant's response, and the outcome documented by the worker.`
   ];
 }
 
