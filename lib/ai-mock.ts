@@ -16,7 +16,7 @@ export async function transcribeVoiceNote(blobLabel = "demo voice note") {
   return `Transcript from ${blobLabel}: Went with Joseph to shops. He was upset and refused to listen. I helped him calm down and then we bought food. He was ok after.`;
 }
 
-export async function improveTranscriptToProgressNote(transcript: string) {
+export async function getProgressNoteRewriteOptions(transcript: string) {
   if (typeof window !== "undefined") {
     try {
       const response = await fetch("/api/ai/improve-note", {
@@ -26,8 +26,8 @@ export async function improveTranscriptToProgressNote(transcript: string) {
       });
       const data = await response.json();
 
-      if (data?.note) {
-        return data.warning ? `${data.note}\n\nAI service note:\n${data.warning}` : data.note;
+      if (Array.isArray(data?.options) && data.options.length > 0) {
+        return data.options as string[];
       }
     } catch {
       // Fall through to local fidelity rewrite so the demo remains usable offline.
@@ -36,34 +36,26 @@ export async function improveTranscriptToProgressNote(transcript: string) {
 
   const originalNote = transcript.trim() || "No original shift note entered.";
   const hasJoseph = transcript.toLowerCase().includes("joseph");
-  const professionalRewrite = hasJoseph
-    ? [
-        "Joseph was supported with community access to purchase groceries. The original note records that Joseph became upset during the outing and declined staff prompts at that time.",
-        "",
-        "Staff responded by supporting Joseph to calm and continue the activity. Joseph later re-engaged with the shopping task and purchased food. This wording expands the worker's note into a clearer professional record while keeping to the documented facts.",
-        "",
-        "The note would be stronger if the worker confirms the exact location, support times, specific calming strategy used, Joseph's communication or choice-making, goal link, and any follow-up owner."
-      ].join("\n")
-    : [
-        "The participant was supported with the activity described in the original shift note. The worker's note has been rephrased below using more objective, person-centred language while preserving the documented facts.",
-        "",
-        rewritePersonCentredLanguage(originalNote),
-        "",
-        "Before approval, the worker or manager should confirm any missing details such as location, times, support purpose, participant response, risks, notifications, and follow-up actions."
-      ].join("\n");
+  const cleaned = rewritePersonCentredLanguage(originalNote);
+
+  if (hasJoseph) {
+    return [
+      "Joseph was supported with community access to purchase groceries. During the outing, Joseph became upset and declined staff prompts at that time. Staff supported Joseph to calm and continue the activity, and Joseph later re-engaged with the shopping task and purchased food.",
+      "Staff supported Joseph during a community access activity to purchase groceries. The worker recorded that Joseph became upset during the outing and initially declined staff prompts. Staff provided support to help Joseph settle, and Joseph later re-engaged with the activity and completed the grocery purchase.",
+      "Joseph attended a community access support activity to purchase groceries. The worker noted that Joseph became upset and declined prompts during the outing. Staff supported Joseph to calm, and Joseph was later able to re-engage and purchase food."
+    ];
+  }
 
   return [
-    "Original shift note preserved:",
-    originalNote,
-    "",
-    "Professional rewrite within documented facts:",
-    professionalRewrite,
-    "",
-    "Clear boundaries for review:",
-    "- This rewrite expands the note into a professional structure while staying inside the worker's documented facts.",
-    "- Any missing details, such as exact location, times, goal links, injuries, notifications, or follow-up owner, must be confirmed by the worker or manager before approval.",
-    "- Suggested language changes are for clarity, person-centred wording, and objective documentation only."
-  ].join("\n");
+    `The participant was supported with the activity described in the shift note. ${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response.`,
+    `During the shift, staff supported the participant with the recorded activity. ${cleaned} The note has been written in objective, person-centred language while preserving the worker's documented facts.`,
+    `Staff provided support as described in the original shift note. ${cleaned} The record should be reviewed for any missing operational details before it is finalised.`
+  ];
+}
+
+export async function improveTranscriptToProgressNote(transcript: string) {
+  const options = await getProgressNoteRewriteOptions(transcript);
+  return options[0] ?? transcript;
 }
 
 export function runGuidedVoiceInterview(answers: string[]) {

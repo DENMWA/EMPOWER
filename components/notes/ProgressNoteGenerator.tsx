@@ -9,7 +9,7 @@ import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCol
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { participants, sampleRoughNote, supportTypes } from "@/lib/sample-data";
-import { checkMissingDetails, improveTranscriptToProgressNote, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
+import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 
 type ContinenceCareRecord = {
   applicableSupports: string[];
@@ -86,6 +86,7 @@ const initialFluidIntake: FluidIntakeEntry[] = [
 export function ProgressNoteGenerator() {
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
   const [finalNote, setFinalNote] = useState("");
+  const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
   const [supportType, setSupportType] = useState("Community access");
@@ -145,15 +146,21 @@ export function ProgressNoteGenerator() {
 
   async function improve() {
     setLoading(true);
-    const improved = await improveTranscriptToProgressNote(roughNote);
+    const options = await getProgressNoteRewriteOptions(roughNote);
+    setRewriteOptions(options);
+    setFinalNote("");
+    setMissing([]);
+    setLoading(false);
+  }
+
+  function useRewriteOption(option: string) {
     const continenceSummary = formatContinenceSummary();
-    const improvedWithCareRecord = continenceSummary ? `${improved}\n\n${continenceSummary}` : improved;
-    setFinalNote(improvedWithCareRecord);
+    const noteWithCareRecord = continenceSummary ? `${option}\n\n${continenceSummary}` : option;
+    setFinalNote(noteWithCareRecord);
     setMissing([
-      ...checkMissingDetails(improvedWithCareRecord),
+      ...checkMissingDetails(noteWithCareRecord),
       ...(showPersonalCareRecord && continenceRecord.applicableSupports.length === 0 ? ["Select applicable continence/toileting support"] : [])
     ]);
-    setLoading(false);
   }
 
   return (
@@ -301,10 +308,38 @@ export function ProgressNoteGenerator() {
           {loading ? "Improving note..." : "Improve Note with Fidelity"}
         </button>
       </Card>
+      {rewriteOptions.length ? (
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sea">Rephrased options</p>
+              <h2 className="mt-1 text-xl font-semibold text-ink">Choose the version that best fits the shift</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Click one option to populate the professional note card. You can still edit the final note after selection.</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3">
+            {rewriteOptions.map((option, index) => (
+              <button
+                key={`${option}-${index}`}
+                type="button"
+                onClick={() => useRewriteOption(option)}
+                className="rounded-md border border-slate-200 bg-slate-50 p-4 text-left text-sm leading-7 text-slate-800 transition hover:border-teal-400 hover:bg-white focus:outline focus:outline-2 focus:outline-teal-700"
+              >
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-sea">Option {index + 1}</span>
+                {option}
+              </button>
+            ))}
+          </div>
+        </Card>
+      ) : null}
       {finalNote ? (
         <Card>
           <h2 className="text-xl font-semibold text-ink">Professional Progress Note</h2>
-          <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-50 p-4 font-sans text-sm leading-7 text-slate-800">{finalNote}</pre>
+          <textarea
+            className="mt-3 min-h-56 w-full rounded-md border border-slate-300 bg-slate-50 p-4 text-sm leading-7 text-slate-800 shadow-inner"
+            value={finalNote}
+            onChange={(event) => setFinalNote(event.target.value)}
+          />
           <RecordActions
             className="mt-4"
             recordId="progress-note-draft"

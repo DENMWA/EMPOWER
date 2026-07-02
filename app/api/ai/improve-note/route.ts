@@ -6,9 +6,8 @@ type ImproveNoteRequest = {
 
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-function localFidelityRewrite(transcript: string) {
-  const originalNote = transcript.trim() || "No original shift note entered.";
-  const personCentredNote = originalNote
+function personCentredLanguage(text: string) {
+  return text
     .replace(/aggressive/gi, "presented as distressed and raised their voice")
     .replace(/difficult/gi, "needed additional support at that time")
     .replace(/manipulative/gi, "communicated a need in a way staff found unclear")
@@ -19,27 +18,30 @@ function localFidelityRewrite(transcript: string) {
     .replace(/lazy/gi, "did not engage with the task at that time")
     .replace(/naughty/gi, "required support to follow the routine")
     .replace(/meltdown/gi, "period of visible distress");
+}
 
-  const professionalRewrite = [
-    "The participant was supported with the activity described in the original shift note. The worker's note indicates what occurred, the participant's presentation or response, and the support provided by staff.",
-    "",
-    `Expanded person-centred wording: ${personCentredNote}`,
-    "",
-    "Staff actions and support provided should be read only from the original note above. Any additional operational details, clinical details, risk ratings, notifications, or outcomes must be confirmed before this record is approved."
-  ].join("\n");
+function localFidelityOptions(transcript: string) {
+  const originalNote = transcript.trim() || "No original shift note entered.";
+  const cleaned = personCentredLanguage(originalNote);
 
   return [
-    "Original shift note preserved:",
-    originalNote,
-    "",
-    "Professional rewrite within documented facts:",
-    professionalRewrite,
-    "",
-    "Clear boundaries for review:",
-    "- This rewrite expands the note into a professional structure while staying inside the worker's documented facts.",
-    "- Any missing details, such as exact location, times, goal links, injuries, notifications, or follow-up owner, must be confirmed by the worker or manager before approval.",
-    "- Suggested language changes are for clarity, person-centred wording, and objective documentation only."
-  ].join("\n");
+    `The participant was supported with the activity described in the shift note. ${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response. Any missing details, including exact time, location, goal link, or follow-up owner, should be confirmed before approval.`,
+    `During the shift, staff supported the participant with the recorded activity and documented the participant's presentation and response. ${cleaned} The note has been written in objective, person-centred language while staying within the facts provided by the worker.`,
+    `Staff provided support as described in the original shift note. ${cleaned} The record should be reviewed for any missing operational details, such as support duration, location, goal connection, notifications, and follow-up actions, before it is finalised.`
+  ];
+}
+
+function parseOptionsFromContent(content: string) {
+  try {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed?.options)) {
+      return parsed.options.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 3);
+    }
+  } catch {
+    return content.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean).slice(0, 3);
+  }
+
+  return [];
 }
 
 export async function POST(request: Request) {
@@ -52,9 +54,8 @@ export async function POST(request: Request) {
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({
-      note: localFidelityRewrite(cleanTranscript),
-      source: "local-fallback",
-      warning: "OPENAI_API_KEY is not configured, so EmpowerNotes used the local fidelity rewrite."
+      options: localFidelityOptions(cleanTranscript),
+      source: "local-fallback"
     });
   }
 
@@ -67,20 +68,22 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model,
       temperature: 0.2,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content: [
             "You improve Australian disability support and NDIS-style shift notes.",
-            "Preserve fidelity to the worker's original note.",
+            "Return JSON only in this shape: {\"options\":[\"...\",\"...\",\"...\"]}.",
+            "Write exactly three rephrased professional note options.",
+            "Each option must be a clean final note the worker can click and use directly.",
+            "Do not include headings, disclaimers, boundaries, AI service notes, markdown, or bullet lists.",
+            "Preserve fidelity to the worker's original note while expanding professionally.",
             "Do not invent facts, times, injuries, notifications, goals, risks, diagnoses, or outcomes.",
             "Expand the note into a richer professional progress note using only reasonable structure and wording based on what is documented.",
             "You may add professional structure such as support provided, participant response, staff actions, outcome, evidence quality, and follow-up prompts, but only where those sections are grounded in the original note.",
-            "If a detail is not present, write that it requires confirmation instead of inventing it.",
-            "Use objective, person-centred, audit-ready language suitable for disability support documentation.",
-            "Always return these exact headings: Original shift note preserved:, Professional rewrite within documented facts:, Clear boundaries for review:.",
-            "Under the professional rewrite heading, write a complete expanded note in paragraphs.",
-            "Under the boundaries heading, list missing details that require worker or manager confirmation."
+            "If a detail is not present, do not mention it unless a short confirmation sentence is clinically useful.",
+            "Use objective, person-centred, audit-ready language suitable for disability support documentation."
           ].join(" ")
         },
         {
@@ -92,24 +95,22 @@ export async function POST(request: Request) {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
     return NextResponse.json({
-      note: localFidelityRewrite(cleanTranscript),
-      source: "local-fallback",
-      warning: `OpenAI request failed, so EmpowerNotes used the local fidelity rewrite. ${detail.slice(0, 240)}`
+      options: localFidelityOptions(cleanTranscript),
+      source: "local-fallback"
     }, { status: 200 });
   }
 
   const data = await response.json();
-  const note = data?.choices?.[0]?.message?.content;
+  const content = data?.choices?.[0]?.message?.content;
+  const options = typeof content === "string" ? parseOptionsFromContent(content) : [];
 
-  if (!note) {
+  if (!options.length) {
     return NextResponse.json({
-      note: localFidelityRewrite(cleanTranscript),
-      source: "local-fallback",
-      warning: "OpenAI returned no note content, so EmpowerNotes used the local fidelity rewrite."
+      options: localFidelityOptions(cleanTranscript),
+      source: "local-fallback"
     });
   }
 
-  return NextResponse.json({ note, source: "openai-chat", model });
+  return NextResponse.json({ options, source: "openai-chat", model });
 }
