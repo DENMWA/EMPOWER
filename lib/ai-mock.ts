@@ -12,10 +12,6 @@ export type NoteQuality = {
   improvements: string[];
 };
 
-export async function transcribeVoiceNote(blobLabel = "demo voice note") {
-  return `Transcript from ${blobLabel}: Went with Joseph to shops. He was upset and refused to listen. I helped him calm down and then we bought food. He was ok after.`;
-}
-
 export async function getProgressNoteRewriteOptions(transcript: string) {
   if (typeof window !== "undefined") {
     try {
