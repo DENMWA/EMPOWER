@@ -87,6 +87,62 @@ function TextArea({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
+function HumanBodyFigure({ view }: { view: BodyView }) {
+  const gradientId = `incident-body-${view}`;
+  const guide = view === "front";
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 240 520" className="pointer-events-none h-full max-h-[450px] w-full">
+      <defs>
+        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#eef6f8" />
+        </linearGradient>
+      </defs>
+      <g fill={`url(#${gradientId})`} stroke="#94a3b8" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3">
+        <path d="M94 91c5 16 47 16 52 0l3 31c20 5 35 17 43 34l24 95c3 12-4 24-16 27-11 2-21-4-25-15l-21-68-5 84 17 178c1 15-9 28-24 29-13 1-24-8-27-21l-16-129-16 129c-3 13-14 22-27 21-15-1-25-14-24-29l17-178-5-84-21 68c-4 11-14 17-25 15-12-3-19-15-16-27l24-95c8-17 23-29 43-34l3-31Z" />
+        <ellipse cx="120" cy="54" rx="33" ry="39" />
+        <path d="M96 488c14 7 34 7 48 0l10 13c-9 9-24 13-34 11-10 2-25-2-34-11l10-13Z" />
+      </g>
+      <g fill="none" stroke="#cbd5e1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+        <path d="M85 129c19 12 51 12 70 0" />
+        <path d="M83 279c22 11 52 11 74 0" />
+        <path d="M92 305c14 13 42 13 56 0" />
+        <path d="M70 191c15 15 30 22 50 22s35-7 50-22" />
+        <path d="M83 335c10 12 26 17 37 17s27-5 37-17" />
+        <path d="M57 279c-11 20-14 45-8 75" />
+        <path d="M183 279c11 20 14 45 8 75" />
+      </g>
+      {guide ? (
+        <g fill="none" stroke="#7dd3fc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" opacity="0.75">
+          <path d="M106 51c4-3 9-3 13 0" />
+          <path d="M128 51c4-3 9-3 13 0" />
+          <path d="M113 69c5 4 10 4 15 0" />
+          <path d="M120 137v138" strokeDasharray="5 7" />
+          <path d="M98 162c8 8 36 8 44 0" />
+          <path d="M101 220c9 6 29 6 38 0" />
+        </g>
+      ) : (
+        <g fill="none" stroke="#7dd3fc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" opacity="0.75">
+          <path d="M120 95v184" strokeDasharray="5 7" />
+          <path d="M91 158c13-13 27-17 43-11" />
+          <path d="M149 158c-13-13-27-17-43-11" />
+          <path d="M93 197c18 12 36 12 54 0" />
+          <path d="M96 259c17 10 31 10 48 0" />
+        </g>
+      )}
+      <g fill="#64748b" fontFamily="Arial, sans-serif" fontSize="11" fontWeight="700" letterSpacing="0">
+        <text x="21" y="161">arm</text>
+        <text x="176" y="161">arm</text>
+        <text x="100" y="188">{guide ? "chest" : "back"}</text>
+        <text x="91" y="249">{guide ? "abdomen" : "lower back"}</text>
+        <text x="57" y="398">leg</text>
+        <text x="159" y="398">leg</text>
+      </g>
+    </svg>
+  );
+}
+
 function BodyMap({ view, markers, onAdd, onSelect }: { view: BodyView; markers: BodyMarker[]; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
   return (
     <button
@@ -95,16 +151,13 @@ function BodyMap({ view, markers, onAdd, onSelect }: { view: BodyView; markers: 
         const rect = event.currentTarget.getBoundingClientRect();
         onAdd(view, Math.round(((event.clientX - rect.left) / rect.width) * 100), Math.round(((event.clientY - rect.top) / rect.height) * 100));
       }}
-      className="relative min-h-[360px] overflow-hidden rounded-md border border-slate-200 bg-slate-50 text-left shadow-inner"
+      className="relative min-h-[460px] overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-white to-slate-50 text-left shadow-inner"
       aria-label={`Add ${view} body marker`}
     >
-      <div className="absolute inset-x-[38%] top-[8%] h-[12%] rounded-full border-2 border-slate-300 bg-white" />
-      <div className="absolute inset-x-[32%] top-[21%] h-[36%] rounded-[42%] border-2 border-slate-300 bg-white" />
-      <div className="absolute left-[22%] top-[24%] h-[34%] w-[9%] rounded-full border-2 border-slate-300 bg-white" />
-      <div className="absolute right-[22%] top-[24%] h-[34%] w-[9%] rounded-full border-2 border-slate-300 bg-white" />
-      <div className="absolute left-[36%] top-[56%] h-[36%] w-[10%] rounded-full border-2 border-slate-300 bg-white" />
-      <div className="absolute right-[36%] top-[56%] h-[36%] w-[10%] rounded-full border-2 border-slate-300 bg-white" />
-      <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600">{view}</span>
+      <div className="absolute inset-4 flex items-center justify-center">
+        <HumanBodyFigure view={view} />
+      </div>
+      <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">{view}</span>
       {markers.filter((marker) => marker.view === view).map((marker) => (
         <span
           key={marker.id}
