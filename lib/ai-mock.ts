@@ -17,10 +17,24 @@ export async function transcribeVoiceNote(blobLabel = "demo voice note") {
 }
 
 export async function improveTranscriptToProgressNote(transcript: string) {
+  const originalNote = transcript.trim() || "No original shift note entered.";
   const hasJoseph = transcript.toLowerCase().includes("joseph");
-  return hasJoseph
-    ? "Joseph was supported with community access to purchase groceries. During the outing, Joseph presented as distressed and declined staff prompts at that time. Staff maintained a calm tone, allowed space, and followed Joseph's support strategies. Joseph later re-engaged with the activity and completed the grocery purchase. Follow-up is required to monitor triggers during community access and review preferred calming strategies."
-    : "The participant was supported with the documented activity. Staff used calm, person-centred prompts and recorded the participant's response. Additional details are required before this note should be approved.";
+  const professionalRewrite = hasJoseph
+    ? "Joseph was supported with community access to purchase groceries. The worker recorded that Joseph became upset during the outing and declined staff prompts at that time. Staff provided support to help Joseph settle, and Joseph later re-engaged with the shopping task and purchased food."
+    : rewritePersonCentredLanguage(originalNote);
+
+  return [
+    "Original shift note preserved:",
+    originalNote,
+    "",
+    "Professional rewrite within documented facts:",
+    professionalRewrite,
+    "",
+    "Clear boundaries for review:",
+    "- This rewrite keeps to the worker's original note and does not add unobserved facts.",
+    "- Any missing details, such as exact location, times, goal links, injuries, notifications, or follow-up owner, must be confirmed by the worker or manager before approval.",
+    "- Suggested language changes are for clarity, person-centred wording, and objective documentation only."
+  ].join("\n");
 }
 
 export function runGuidedVoiceInterview(answers: string[]) {

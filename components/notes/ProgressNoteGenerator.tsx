@@ -162,9 +162,13 @@ export function ProgressNoteGenerator() {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Progress note studio</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">Turn rough notes into professional records</h2>
+            <h2 className="mt-1 text-2xl font-bold text-ink">Improve shift notes without changing the facts</h2>
           </div>
-          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">Audit trail preserved</span>
+          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">Original note preserved</span>
+        </div>
+        <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
+          <p className="font-semibold">Fidelity-first improvement</p>
+          <p className="mt-1">EmpowerNotes keeps the worker's original shift note first, then expands only within the documented facts. Missing details are flagged for confirmation instead of being invented.</p>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
@@ -195,7 +199,7 @@ export function ProgressNoteGenerator() {
           </div>
         </div>
         <label className="mt-5 block text-sm font-semibold text-slate-700">
-          Rough note or dictated text
+          Original shift note or dictated text
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 shadow-inner" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
         {showPersonalCareRecord ? (
@@ -294,13 +298,13 @@ export function ProgressNoteGenerator() {
           </div>
         ) : null}
         <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
-          {loading ? "Improving note..." : "Improve Note"}
+          {loading ? "Improving note..." : "Improve Note with Fidelity"}
         </button>
       </Card>
       {finalNote ? (
         <Card>
           <h2 className="text-xl font-semibold text-ink">Professional Progress Note</h2>
-          <p className="mt-3 leading-7 text-slate-800">{finalNote}</p>
+          <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-50 p-4 font-sans text-sm leading-7 text-slate-800">{finalNote}</pre>
           <RecordActions
             className="mt-4"
             recordId="progress-note-draft"
