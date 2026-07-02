@@ -37,8 +37,20 @@ export async function improveTranscriptToProgressNote(transcript: string) {
   const originalNote = transcript.trim() || "No original shift note entered.";
   const hasJoseph = transcript.toLowerCase().includes("joseph");
   const professionalRewrite = hasJoseph
-    ? "Joseph was supported with community access to purchase groceries. The worker recorded that Joseph became upset during the outing and declined staff prompts at that time. Staff provided support to help Joseph settle, and Joseph later re-engaged with the shopping task and purchased food."
-    : rewritePersonCentredLanguage(originalNote);
+    ? [
+        "Joseph was supported with community access to purchase groceries. The original note records that Joseph became upset during the outing and declined staff prompts at that time.",
+        "",
+        "Staff responded by supporting Joseph to calm and continue the activity. Joseph later re-engaged with the shopping task and purchased food. This wording expands the worker's note into a clearer professional record while keeping to the documented facts.",
+        "",
+        "The note would be stronger if the worker confirms the exact location, support times, specific calming strategy used, Joseph's communication or choice-making, goal link, and any follow-up owner."
+      ].join("\n")
+    : [
+        "The participant was supported with the activity described in the original shift note. The worker's note has been rephrased below using more objective, person-centred language while preserving the documented facts.",
+        "",
+        rewritePersonCentredLanguage(originalNote),
+        "",
+        "Before approval, the worker or manager should confirm any missing details such as location, times, support purpose, participant response, risks, notifications, and follow-up actions."
+      ].join("\n");
 
   return [
     "Original shift note preserved:",
@@ -48,7 +60,7 @@ export async function improveTranscriptToProgressNote(transcript: string) {
     professionalRewrite,
     "",
     "Clear boundaries for review:",
-    "- This rewrite keeps to the worker's original note and does not add unobserved facts.",
+    "- This rewrite expands the note into a professional structure while staying inside the worker's documented facts.",
     "- Any missing details, such as exact location, times, goal links, injuries, notifications, or follow-up owner, must be confirmed by the worker or manager before approval.",
     "- Suggested language changes are for clarity, person-centred wording, and objective documentation only."
   ].join("\n");
