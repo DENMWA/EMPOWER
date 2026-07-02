@@ -17,6 +17,23 @@ export async function transcribeVoiceNote(blobLabel = "demo voice note") {
 }
 
 export async function improveTranscriptToProgressNote(transcript: string) {
+  if (typeof window !== "undefined") {
+    try {
+      const response = await fetch("/api/ai/improve-note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript })
+      });
+      const data = await response.json();
+
+      if (data?.note) {
+        return data.warning ? `${data.note}\n\nAI service note:\n${data.warning}` : data.note;
+      }
+    } catch {
+      // Fall through to local fidelity rewrite so the demo remains usable offline.
+    }
+  }
+
   const originalNote = transcript.trim() || "No original shift note entered.";
   const hasJoseph = transcript.toLowerCase().includes("joseph");
   const professionalRewrite = hasJoseph
