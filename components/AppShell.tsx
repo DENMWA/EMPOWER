@@ -6,10 +6,11 @@ import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal } from "lucide-react";
+import { LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal, ListChecks } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/trial", label: "Trial Run", icon: ListChecks },
   { href: "/admin", label: "Admin", icon: SlidersHorizontal },
   { href: "/notes/new", label: "Progress Note", icon: Mic },
   { href: "/participants", label: "Participants", icon: Users },
