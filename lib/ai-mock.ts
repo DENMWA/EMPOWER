@@ -41,15 +41,13 @@ export async function getProgressNoteRewriteOptions(transcript: string) {
   if (hasJoseph) {
     return [
       "Joseph was supported with community access to purchase groceries. During the outing, Joseph became upset and declined staff prompts at that time. Staff supported Joseph to calm and continue the activity, and Joseph later re-engaged with the shopping task and purchased food.",
-      "Staff supported Joseph during a community access activity to purchase groceries. The worker recorded that Joseph became upset during the outing and initially declined staff prompts. Staff provided support to help Joseph settle, and Joseph later re-engaged with the activity and completed the grocery purchase.",
-      "Joseph attended a community access support activity to purchase groceries. The worker noted that Joseph became upset and declined prompts during the outing. Staff supported Joseph to calm, and Joseph was later able to re-engage and purchase food."
+      "Joseph attended a community access activity to purchase groceries. Joseph became upset during the outing and declined staff prompts at that time. Staff supported Joseph to settle, and Joseph later re-engaged with the activity and completed the grocery purchase."
     ];
   }
 
   return [
-    `${cleaned} Staff provided support in line with the documented interaction and recorded the participant's response.`,
-    `${cleaned} Staff used objective, person-centred support and documented the participant's presentation, response, and engagement during the shift.`,
-    `${cleaned} The record reflects the support provided, the participant's response, and the outcome documented by the worker.`
+    `${cleaned} Staff provided support in line with the participant's presentation and response during the shift.`,
+    `${cleaned} Staff used objective, person-centred support and recorded the participant's engagement, response, and outcome for the shift.`
   ];
 }
 

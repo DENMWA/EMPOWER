@@ -85,7 +85,6 @@ const initialFluidIntake: FluidIntakeEntry[] = [
 
 export function ProgressNoteGenerator() {
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
-  const [finalNote, setFinalNote] = useState("");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
@@ -148,7 +147,6 @@ export function ProgressNoteGenerator() {
     setLoading(true);
     const options = await getProgressNoteRewriteOptions(roughNote);
     setRewriteOptions(options);
-    setFinalNote("");
     setMissing([]);
     setLoading(false);
   }
@@ -156,7 +154,8 @@ export function ProgressNoteGenerator() {
   function useRewriteOption(option: string) {
     const continenceSummary = formatContinenceSummary();
     const noteWithCareRecord = continenceSummary ? `${option}\n\n${continenceSummary}` : option;
-    setFinalNote(noteWithCareRecord);
+    setRoughNote(noteWithCareRecord);
+    setRewriteOptions([]);
     setMissing([
       ...checkMissingDetails(noteWithCareRecord),
       ...(showPersonalCareRecord && continenceRecord.applicableSupports.length === 0 ? ["Select applicable continence/toileting support"] : [])
@@ -206,7 +205,7 @@ export function ProgressNoteGenerator() {
           </div>
         </div>
         <label className="mt-5 block text-sm font-semibold text-slate-700">
-          Original shift note or dictated text
+          Shift note
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 shadow-inner" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
         {showPersonalCareRecord ? (
@@ -307,6 +306,15 @@ export function ProgressNoteGenerator() {
         <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
           {loading ? "Improving note..." : "Improve Note with Fidelity"}
         </button>
+        <RecordActions
+          className="mt-3"
+          recordId="progress-note-draft"
+          recordType="progress-note"
+          title="Professional Progress Note"
+          body={roughNote}
+          filename="empower-notes-progress-note"
+          allowDownload={false}
+        />
       </Card>
       {rewriteOptions.length ? (
         <Card>
@@ -314,10 +322,10 @@ export function ProgressNoteGenerator() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-sea">Rephrased options</p>
               <h2 className="mt-1 text-xl font-semibold text-ink">Choose the version that best fits the shift</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Click one option to populate the professional note card. You can still edit the final note after selection.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Click one option to place it into the note pad above, then edit or save it.</p>
             </div>
           </div>
-          <div className="mt-5 grid gap-3">
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
             {rewriteOptions.map((option, index) => (
               <button
                 key={`${option}-${index}`}
@@ -330,26 +338,6 @@ export function ProgressNoteGenerator() {
               </button>
             ))}
           </div>
-        </Card>
-      ) : null}
-      {finalNote ? (
-        <Card>
-          <h2 className="text-xl font-semibold text-ink">Professional Progress Note</h2>
-          <textarea
-            className="mt-3 min-h-56 w-full rounded-md border border-slate-300 bg-slate-50 p-4 text-sm leading-7 text-slate-800 shadow-inner"
-            value={finalNote}
-            onChange={(event) => setFinalNote(event.target.value)}
-          />
-          <RecordActions
-            className="mt-4"
-            recordId="progress-note-draft"
-            recordType="progress-note"
-            title="Professional Progress Note"
-            body={finalNote}
-            filename="empower-notes-progress-note"
-            allowDownload={false}
-          />
-          <p className="mt-3 text-sm text-slate-600">Demo save keeps the record in this browser. Downloads are handled through the period-based collection export below.</p>
         </Card>
       ) : null}
       <ProgressNoteCollectionExport />
