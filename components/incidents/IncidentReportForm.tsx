@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, Lock, Maximize2, Minimize2, Plus, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
 
-type BodyView = "front" | "back";
+type BodyView = "front" | "left" | "right" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
 
 type BodyMarker = {
@@ -63,8 +63,8 @@ const initialReport: IncidentReport = {
   followUp: "Monitor pain, review bathroom threshold risk, and update the support plan if required.",
   managerReview: "Pending manager review. Consider whether escalation or reportable incident assessment is required.",
   markers: [
-    { id: "marker-1", view: "front", x: 61, y: 34, area: "Left arm", injury: "Bruise", severity: "Mild", notes: "Approx. 3cm purple/blue bruising observed." },
-    { id: "marker-2", view: "back", x: 57, y: 31, area: "Upper back", injury: "Redness", severity: "Mild", notes: "Approx. 4cm red area observed, no open skin." }
+    { id: "marker-1", view: "front", x: 20, y: 35, area: "Left arm", injury: "Bruise", severity: "Mild", notes: "Approx. 3cm purple/blue bruising observed." },
+    { id: "marker-2", view: "back", x: 82, y: 33, area: "Upper back", injury: "Redness", severity: "Mild", notes: "Approx. 4cm red area observed, no open skin." }
   ],
   attachments: [{ id: "attachment-1", name: "fall-body-map-export.pdf", type: "Body map export", notes: "Attach body map/photo evidence to the participant incident record in production." }]
 };
@@ -87,78 +87,108 @@ function TextArea({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
-function HumanBodyFigure({ view }: { view: BodyView }) {
-  const gradientId = `incident-body-${view}`;
-  const guide = view === "front";
+function getBodyViewFromPoint(x: number): BodyView {
+  if (x < 25) return "front";
+  if (x < 50) return "left";
+  if (x < 75) return "right";
+  return "back";
+}
 
+function ClinicalBodyChart() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 240 520" className="pointer-events-none h-full max-h-[450px] w-full">
-      <defs>
-        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#eef6f8" />
-        </linearGradient>
-      </defs>
-      <g fill={`url(#${gradientId})`} stroke="#94a3b8" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3">
-        <path d="M94 91c5 16 47 16 52 0l3 31c20 5 35 17 43 34l24 95c3 12-4 24-16 27-11 2-21-4-25-15l-21-68-5 84 17 178c1 15-9 28-24 29-13 1-24-8-27-21l-16-129-16 129c-3 13-14 22-27 21-15-1-25-14-24-29l17-178-5-84-21 68c-4 11-14 17-25 15-12-3-19-15-16-27l24-95c8-17 23-29 43-34l3-31Z" />
-        <ellipse cx="120" cy="54" rx="33" ry="39" />
-        <path d="M96 488c14 7 34 7 48 0l10 13c-9 9-24 13-34 11-10 2-25-2-34-11l10-13Z" />
-      </g>
-      <g fill="none" stroke="#cbd5e1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-        <path d="M85 129c19 12 51 12 70 0" />
-        <path d="M83 279c22 11 52 11 74 0" />
-        <path d="M92 305c14 13 42 13 56 0" />
-        <path d="M70 191c15 15 30 22 50 22s35-7 50-22" />
-        <path d="M83 335c10 12 26 17 37 17s27-5 37-17" />
-        <path d="M57 279c-11 20-14 45-8 75" />
-        <path d="M183 279c11 20 14 45 8 75" />
-      </g>
-      {guide ? (
-        <g fill="none" stroke="#7dd3fc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" opacity="0.75">
-          <path d="M106 51c4-3 9-3 13 0" />
-          <path d="M128 51c4-3 9-3 13 0" />
-          <path d="M113 69c5 4 10 4 15 0" />
-          <path d="M120 137v138" strokeDasharray="5 7" />
-          <path d="M98 162c8 8 36 8 44 0" />
-          <path d="M101 220c9 6 29 6 38 0" />
+    <svg aria-hidden="true" viewBox="0 0 640 420" className="pointer-events-none h-full w-full">
+      <g fill="none" stroke="#334155" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4">
+        <g transform="translate(36 22)">
+          <ellipse cx="48" cy="34" rx="18" ry="25" />
+          <path d="M31 54c-5 16-5 32 2 45" />
+          <path d="M65 54c5 16 5 32-2 45" />
+          <path d="M32 88c-8 20-13 46-17 82-2 18-8 42-14 65" />
+          <path d="M64 88c8 20 13 46 17 82 2 18 8 42 14 65" />
+          <path d="M31 92c-9 28-12 83-12 132 0 55 10 95 10 128" />
+          <path d="M65 92c9 28 12 83 12 132 0 55-10 95-10 128" />
+          <path d="M48 119c-9 52-9 101 0 148" />
+          <path d="M48 268c-15 34-24 63-26 100" />
+          <path d="M48 268c15 34 24 63 26 100" />
+          <path d="M29 352c-9 7-16 11-24 10" />
+          <path d="M67 352c9 7 16 11 24 10" />
+          <path d="M2 235c4 12 10 17 19 15" />
+          <path d="M94 235c-4 12-10 17-19 15" />
+          <path d="M40 366c-10 12-23 16-34 12" />
+          <path d="M56 366c10 12 23 16 34 12" />
         </g>
-      ) : (
-        <g fill="none" stroke="#7dd3fc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" opacity="0.75">
-          <path d="M120 95v184" strokeDasharray="5 7" />
-          <path d="M91 158c13-13 27-17 43-11" />
-          <path d="M149 158c-13-13-27-17-43-11" />
-          <path d="M93 197c18 12 36 12 54 0" />
-          <path d="M96 259c17 10 31 10 48 0" />
+        <g transform="translate(190 22)">
+          <ellipse cx="45" cy="35" rx="17" ry="24" />
+          <path d="M31 45c16-8 28-5 37 10" />
+          <path d="M48 60c-9 30-12 72-9 126" />
+          <path d="M39 91c-24 12-38 40-41 85" />
+          <path d="M44 91c29 20 44 49 45 87" />
+          <path d="M4 177c9 13 19 16 31 9" />
+          <path d="M88 178c-1 25 4 46 15 64" />
+          <path d="M40 185c-9 40-9 92-2 156" />
+          <path d="M52 184c17 52 27 108 29 167" />
+          <path d="M38 341c-9 16-17 24-30 24" />
+          <path d="M81 351c9 12 20 16 33 15" />
+          <path d="M45 67c7 6 10 14 9 24" />
         </g>
-      )}
-      <g fill="#64748b" fontFamily="Arial, sans-serif" fontSize="11" fontWeight="700" letterSpacing="0">
-        <text x="21" y="161">arm</text>
-        <text x="176" y="161">arm</text>
-        <text x="100" y="188">{guide ? "chest" : "back"}</text>
-        <text x="91" y="249">{guide ? "abdomen" : "lower back"}</text>
-        <text x="57" y="398">leg</text>
-        <text x="159" y="398">leg</text>
+        <g transform="translate(342 22)">
+          <ellipse cx="45" cy="35" rx="17" ry="24" />
+          <path d="M59 45c-16-8-28-5-37 10" />
+          <path d="M42 60c9 30 12 72 9 126" />
+          <path d="M51 91c24 12 38 40 41 85" />
+          <path d="M46 91c-29 20-44 49-45 87" />
+          <path d="M86 177c-9 13-19 16-31 9" />
+          <path d="M2 178c1 25-4 46-15 64" />
+          <path d="M50 185c9 40 9 92 2 156" />
+          <path d="M38 184c-17 52-27 108-29 167" />
+          <path d="M52 341c9 16 17 24 30 24" />
+          <path d="M9 351c-9 12-20 16-33 15" />
+          <path d="M45 67c-7 6-10 14-9 24" />
+        </g>
+        <g transform="translate(506 22)">
+          <ellipse cx="48" cy="34" rx="18" ry="25" />
+          <path d="M31 55c-4 18-3 34 2 48" />
+          <path d="M65 55c4 18 3 34-2 48" />
+          <path d="M33 96c-9 24-14 62-15 115-1 39-5 78-9 118" />
+          <path d="M63 96c9 24 14 62 15 115 1 39 5 78 9 118" />
+          <path d="M18 119c-12 35-17 72-16 111" />
+          <path d="M78 119c12 35 17 72 16 111" />
+          <path d="M48 103c-4 40-3 82 0 127" />
+          <path d="M48 232c-16 37-25 83-26 137" />
+          <path d="M48 232c16 37 25 83 26 137" />
+          <path d="M9 329c-4 11-11 18-21 20" />
+          <path d="M87 329c4 11 11 18 21 20" />
+          <path d="M37 365c-8 11-19 15-32 12" />
+          <path d="M59 365c8 11 19 15 32 12" />
+        </g>
+      </g>
+      <g fill="#64748b" fontFamily="Arial, sans-serif" fontSize="16" fontWeight="700" letterSpacing="0">
+        <text x="64" y="405">Front</text>
+        <text x="208" y="405">Left side</text>
+        <text x="358" y="405">Right side</text>
+        <text x="528" y="405">Back</text>
       </g>
     </svg>
   );
 }
 
-function BodyMap({ view, markers, expanded, onAdd, onSelect }: { view: BodyView; markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
+function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
   return (
     <button
       type="button"
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
-        onAdd(view, Math.round(((event.clientX - rect.left) / rect.width) * 100), Math.round(((event.clientY - rect.top) / rect.height) * 100));
+        const x = Math.round(((event.clientX - rect.left) / rect.width) * 100);
+        const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
+        onAdd(getBodyViewFromPoint(x), x, y);
       }}
-      className={`${expanded ? "min-h-[620px]" : "min-h-[460px]"} relative overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-white to-slate-50 text-left shadow-inner transition-all`}
-      aria-label={`Add ${view} body marker`}
+      className={`${expanded ? "min-h-[560px]" : "min-h-[430px]"} relative overflow-hidden rounded-md border border-slate-200 bg-white text-left shadow-inner transition-all`}
+      aria-label="Add body map marker"
     >
       <div className="absolute inset-4 flex items-center justify-center">
-        <HumanBodyFigure view={view} />
+        <ClinicalBodyChart />
       </div>
-      <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">{view}</span>
-      {markers.filter((marker) => marker.view === view).map((marker) => (
+      <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">Clinical body chart</span>
+      {markers.map((marker) => (
         <span
           key={marker.id}
           role="button"
@@ -167,7 +197,7 @@ function BodyMap({ view, markers, expanded, onAdd, onSelect }: { view: BodyView;
           onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSelect(marker.id); }}
           className="absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-red-600 text-xs font-bold text-white shadow-lift ring-4 ring-red-100"
           style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
-          title={`${marker.area}: ${marker.injury}`}
+          title={`${marker.view} - ${marker.area}: ${marker.injury}`}
         >
           !
         </span>
@@ -284,7 +314,7 @@ export function IncidentReportForm() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-xl font-bold text-ink">Body map</h3>
-              <p className="mt-1 text-sm text-slate-600">Click the front or back figure to add a marker, then update the details below.</p>
+              <p className="mt-1 text-sm text-slate-600">Click the front, side, or back figure to add a marker, then update the details below.</p>
             </div>
             <button
               type="button"
@@ -301,9 +331,8 @@ export function IncidentReportForm() {
               Larger view is open for clearer injury placement.
             </div>
           ) : null}
-          <div className={`${bodyMapExpanded ? "gap-5" : "gap-4"} grid md:grid-cols-2`}>
-            <BodyMap view="front" markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
-            <BodyMap view="back" markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
+          <div>
+            <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
           </div>
           {selectedMarker ? (
             <div className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4 md:grid-cols-2">
