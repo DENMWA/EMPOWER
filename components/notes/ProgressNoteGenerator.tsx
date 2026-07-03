@@ -214,6 +214,7 @@ export function ProgressNoteGenerator() {
           Shift note
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 shadow-inner" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
+        <GuidedVoiceDocumentation embedded onUseTranscript={useVoiceTranscript} />
         {showPersonalCareRecord ? (
           <div className="mt-5 rounded-md border border-teal-100 bg-teal-50/60 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -358,7 +359,6 @@ export function ProgressNoteGenerator() {
           {suggestGoalLinks().map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
         </div>
       </Card>
-      <GuidedVoiceDocumentation onUseTranscript={useVoiceTranscript} />
     </div>
   );
 }

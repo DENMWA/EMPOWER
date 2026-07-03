@@ -7,7 +7,7 @@ import { GuidedInterview } from "@/components/voice/GuidedInterview";
 import { ReadBackControls } from "@/components/voice/ReadBackControls";
 import { improveTranscriptToProgressNote } from "@/lib/ai-mock";
 
-export function GuidedVoiceDocumentation({ onUseTranscript }: { onUseTranscript?: (transcript: string) => void }) {
+export function GuidedVoiceDocumentation({ embedded = false, onUseTranscript }: { embedded?: boolean; onUseTranscript?: (transcript: string) => void }) {
   const [transcript, setTranscript] = useState("");
   const [finalNote, setFinalNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,12 +63,14 @@ export function GuidedVoiceDocumentation({ onUseTranscript }: { onUseTranscript?
     setActionMessage(status);
   }
 
-  return (
-    <Card className="space-y-6 border-teal-100 bg-white" id="voice">
+  const content = (
+    <>
       <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Guided Voice Documentation</p>
-          <h2 className="mt-1 text-3xl font-bold text-ink">A premium voice-to-compliant-documentation workflow</h2>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">{embedded ? "Voice note option" : "Guided Voice Documentation"}</p>
+          <h2 className={`${embedded ? "text-xl" : "text-3xl"} mt-1 font-bold text-ink`}>
+            {embedded ? "Record or paste a transcript for this progress note" : "A premium voice-to-compliant-documentation workflow"}
+          </h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">Capture natural speech, keep the transcript for audit trail, then convert it into objective, person-centred support documentation with risk and evidence prompts.</p>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -111,6 +113,20 @@ export function GuidedVoiceDocumentation({ onUseTranscript }: { onUseTranscript?
           </div>
         </div>
       ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="mt-5 space-y-5 rounded-md border border-teal-100 bg-teal-50/50 p-4" id="voice">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="space-y-6 border-teal-100 bg-white" id="voice">
+      {content}
     </Card>
   );
 }
