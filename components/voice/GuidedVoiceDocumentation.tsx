@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
-import { GuidedInterview } from "@/components/voice/GuidedInterview";
 import { ReadBackControls } from "@/components/voice/ReadBackControls";
 import { improveTranscriptToProgressNote } from "@/lib/ai-mock";
 
@@ -79,9 +78,8 @@ export function GuidedVoiceDocumentation({ embedded = false, onUseTranscript }: 
           <StatusBadge label="Mock AI safe" tone="slate" />
         </div>
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div>
         <VoiceRecorder onTranscript={setTranscript} />
-        <GuidedInterview onComplete={setTranscript} />
       </div>
       <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
         <label className="text-sm font-semibold text-slate-700" htmlFor="transcript">Transcript preview and edit</label>
