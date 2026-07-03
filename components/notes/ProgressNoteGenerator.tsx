@@ -134,6 +134,7 @@ export function ProgressNoteGenerator() {
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const quality = scoreNoteQuality();
   const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
+  const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
     `Client: ${selectedParticipant}`,
@@ -379,37 +380,39 @@ export function ProgressNoteGenerator() {
           allowDownload={false}
         />
       </Card>
-      <Card className="border-sky-100">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Key worker monthly report</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">Monthly support summary for {selectedParticipant}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Use these headings to summarise progress, patterns, concerns, and next actions for the client you support.</p>
+      {showMonthlyReport ? (
+        <Card className="border-sky-100">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sea">Key worker monthly report</p>
+              <h2 className="mt-1 text-2xl font-bold text-ink">Monthly support summary for {selectedParticipant}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Use these headings to summarise progress, patterns, concerns, and next actions for the client you support.</p>
+            </div>
+            <span className="rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Client monthly view</span>
           </div>
-          <span className="rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Client monthly view</span>
-        </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          {monthlyReportFields.map((field) => (
-            <label key={field.key} className="grid gap-2 text-sm font-semibold text-slate-700">
-              <span>{field.title}</span>
-              <span className="text-xs font-medium leading-5 text-slate-500">{field.prompt}</span>
-              <textarea
-                className="min-h-32 rounded-md border border-slate-300 bg-slate-50 p-3 text-sm leading-6 text-ink shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
-                value={monthlyReport[field.key]}
-                onChange={(event) => updateMonthlyReport(field.key, event.target.value)}
-              />
-            </label>
-          ))}
-        </div>
-        <RecordActions
-          className="mt-5"
-          recordId={`monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-          recordType="key-worker-monthly-report"
-          title={`Key Worker Monthly Report - ${selectedParticipant}`}
-          body={monthlyReportBody}
-          filename={`empowernotes-monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-        />
-      </Card>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {monthlyReportFields.map((field) => (
+              <label key={field.key} className="grid gap-2 text-sm font-semibold text-slate-700">
+                <span>{field.title}</span>
+                <span className="text-xs font-medium leading-5 text-slate-500">{field.prompt}</span>
+                <textarea
+                  className="min-h-32 rounded-md border border-slate-300 bg-slate-50 p-3 text-sm leading-6 text-ink shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                  value={monthlyReport[field.key]}
+                  onChange={(event) => updateMonthlyReport(field.key, event.target.value)}
+                />
+              </label>
+            ))}
+          </div>
+          <RecordActions
+            className="mt-5"
+            recordId={`monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            recordType="key-worker-monthly-report"
+            title={`Key Worker Monthly Report - ${selectedParticipant}`}
+            body={monthlyReportBody}
+            filename={`empowernotes-monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+          />
+        </Card>
+      ) : null}
       {rewriteOptions.length ? (
         <Card>
           <div className="flex flex-wrap items-start justify-between gap-3">

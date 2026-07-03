@@ -65,6 +65,7 @@ export const supportTypes = [
   "Meal preparation",
   "Medication prompting",
   "Behaviour support implementation",
+  "Key Worker Monthly Report",
   "Youth support",
   "Social work session"
 ];
