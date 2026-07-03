@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
+import { withOrganisationReportHeader } from "@/lib/organisation-profile";
 import { participants, progressNotes } from "@/lib/sample-data";
 
 type RetainedRecord = {
@@ -66,13 +67,12 @@ export function ProgressNoteCollectionExport() {
       ].join("\n");
     });
 
-    const content = [
-      "EmpowerNotes Progress Note Collection",
+    const content = withOrganisationReportHeader("EmpowerNotes Progress Note Collection", [
       `Period: ${fromDate} to ${toDate}`,
       `Exported: ${new Date().toLocaleString("en-AU")}`,
       "",
       [...sampleContent, ...retainedContent].join("\n\n---\n\n") || "No progress notes found for this period."
-    ].join("\n");
+    ].join("\n"));
 
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);

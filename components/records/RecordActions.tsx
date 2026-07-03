@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Download, Save } from "lucide-react";
+import { withOrganisationReportHeader } from "@/lib/organisation-profile";
 import { cn } from "@/lib/utils";
 
 type RecordActionsProps = {
@@ -30,7 +31,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
   }
 
   function downloadRecord() {
-    const content = `${title}\n\n${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`;
+    const content = withOrganisationReportHeader(title, `${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`);
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

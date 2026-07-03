@@ -1,6 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
+import { getOrganisationReportHeader } from "@/lib/organisation-profile";
 import { cn } from "@/lib/utils";
 
 type PdfDownloadButtonProps = {
@@ -12,7 +13,9 @@ type PdfDownloadButtonProps = {
 
 export function PdfDownloadButton({ filename, title, lines, variant = "secondary" }: PdfDownloadButtonProps) {
   function download() {
-    const pdf = buildSimplePdf(title, lines);
+    const header = getOrganisationReportHeader();
+    const brandedLines = header ? [...header.split("\n"), ...lines] : lines;
+    const pdf = buildSimplePdf(title, brandedLines);
     const blob = new Blob([pdf], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

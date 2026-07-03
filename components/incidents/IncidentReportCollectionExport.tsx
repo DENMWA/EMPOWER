@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
+import { withOrganisationReportHeader } from "@/lib/organisation-profile";
 
 type StoredIncidentReport = {
   incidentId: string;
@@ -115,13 +116,12 @@ export function IncidentReportCollectionExport() {
       : [];
 
     const reports = [...sampleReportsInRange, ...storedReports];
-    const content = [
-      "EmpowerNotes Incident Report Collection",
+    const content = withOrganisationReportHeader("EmpowerNotes Incident Report Collection", [
       `Period: ${fromDate} to ${toDate}`,
       `Exported: ${new Date().toLocaleString("en-AU")}`,
       "",
       reports.map(formatIncidentReport).join("\n\n---\n\n") || "No incident reports found for this period."
-    ].join("\n");
+    ].join("\n"));
 
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);

@@ -2,19 +2,19 @@
 
 import { Card, StatusBadge } from "@/components/ui";
 import { generateAuditPack } from "@/lib/ai-mock";
+import { withOrganisationReportHeader } from "@/lib/organisation-profile";
 
 export function AuditPackGenerator() {
   const pack = generateAuditPack();
 
   function downloadAuditPack() {
-    const content = [
-      "EmpowerNotes Audit Pack",
+    const content = withOrganisationReportHeader("EmpowerNotes Audit Pack", [
       `Client: ${pack.participant}`,
       `Generated: ${new Date().toLocaleString("en-AU")}`,
       "",
       "Sections:",
       ...pack.sections.map((section) => `- ${section}`)
-    ].join("\n");
+    ].join("\n"));
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

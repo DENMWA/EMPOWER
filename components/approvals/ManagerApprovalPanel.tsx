@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
+import { withOrganisationReportHeader } from "@/lib/organisation-profile";
 import { progressNotes, users } from "@/lib/sample-data";
 
 export function ManagerApprovalPanel() {
@@ -12,7 +13,8 @@ export function ManagerApprovalPanel() {
   }
 
   function exportNote(noteId: string, title: string, body: string) {
-    const blob = new Blob([`${title}\n\n${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`], { type: "text/plain;charset=utf-8" });
+    const content = withOrganisationReportHeader(title, `${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`);
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
