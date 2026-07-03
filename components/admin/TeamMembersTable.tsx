@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
-import { participants, users } from "@/lib/sample-data";
+import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getStoredClients, type ClientRecord } from "@/lib/client-records";
 import { getStoredStaff, type StaffRecord } from "@/lib/staff-records";
 import { MoreHorizontal } from "lucide-react";
@@ -14,10 +14,12 @@ const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "b
   "james-patel": { label: "Invite sent", tone: "amber" }
 };
 
+type TeamMember = StaffUser & { inviteStatus?: StaffRecord["inviteStatus"] };
+
 export function TeamMembersTable() {
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allUsers = [...users, ...storedStaff];
+  const allUsers: TeamMember[] = [...users, ...storedStaff];
   const allParticipants = [...participants, ...storedClients];
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function TeamMembersTable() {
           <tbody>
             {allUsers.map((user) => {
               const assigned = allParticipants.filter((participant) => user.assignedParticipants.includes(participant.id));
-              const storedStatus = "inviteStatus" in user ? user.inviteStatus : "";
+              const storedStatus = user.inviteStatus;
               const status = storedStatus
                 ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : "amber" as const }
                 : inviteStatus[user.id] ?? { label: "Pending", tone: "amber" as const };
