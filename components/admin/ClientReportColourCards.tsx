@@ -7,12 +7,14 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getStoredClients, type ClientRecord } from "@/lib/client-records";
-import { documents, participants, progressNotes } from "@/lib/sample-data";
+import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
+
+type ReportClient = Participant & { colourSchemeId?: string };
 
 export function ClientReportColourCards() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allParticipants = [...participants, ...storedClients];
+  const allParticipants: ReportClient[] = [...participants, ...storedClients];
 
   useEffect(() => {
     setStoredClients(getStoredClients());
@@ -34,7 +36,7 @@ export function ClientReportColourCards() {
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {allParticipants.map((participant) => {
-          const colour = getClientColourScheme(participant.id, "colourSchemeId" in participant ? participant.colourSchemeId : undefined);
+          const colour = getClientColourScheme(participant.id, participant.colourSchemeId);
           const notes = progressNotes.filter((note) => note.participantId === participant.id);
           const participantDocuments = documents.filter((document) => document.participantId === participant.id);
           const incidentSignals = notes.reduce((total, note) => total + note.incidentFlags.length, 0) + participant.riskAlerts.length;
