@@ -1,11 +1,12 @@
 "use client";
 
 import { FilePlus2, Palette, Save } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
 import { addStoredClient, createClientId } from "@/lib/client-records";
 import { sampleGoals, users } from "@/lib/sample-data";
+import { getStoredStaff, type StaffRecord } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +18,16 @@ export function AddClientForm() {
   const [communication, setCommunication] = useState("");
   const [riskAlerts, setRiskAlerts] = useState("");
   const [selectedGoals, setSelectedGoals] = useState(sampleGoals.slice(0, 2));
+  const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
   const [assignedWorkers, setAssignedWorkers] = useState(users.slice(0, 1).map((user) => user.id));
   const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
   const [saved, setSaved] = useState(false);
+  const [message, setMessage] = useState("");
+  const allStaff = [...users, ...storedStaff];
+
+  useEffect(() => {
+    setStoredStaff(getStoredStaff());
+  }, []);
 
   function toggleGoal(goal: string) {
     setSelectedGoals((current) => current.includes(goal) ? current.filter((item) => item !== goal) : [...current, goal]);
@@ -31,7 +39,11 @@ export function AddClientForm() {
 
   function saveClient() {
     const cleanName = name.trim();
-    if (!cleanName) return;
+    if (!cleanName) {
+      setSaved(false);
+      setMessage("Add the client's full name before saving.");
+      return;
+    }
 
     addStoredClient({
       id: createClientId(cleanName),
@@ -49,6 +61,7 @@ export function AddClientForm() {
 
     setSaved(true);
     markTrialStepComplete("add-client");
+    setMessage(`${cleanName} saved as a client profile.`);
     setName("");
     setInitials("");
     setSupportNeeds("");
@@ -106,7 +119,7 @@ export function AddClientForm() {
         <div>
           <p className="text-sm font-semibold text-slate-700">Assign staff access</p>
           <div className="mt-3 grid gap-3">
-            {users.map((user) => (
+            {allStaff.map((user) => (
               <label key={user.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
                 <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={assignedWorkers.includes(user.id)} onChange={() => toggleWorker(user.id)} />
                 <span>
@@ -145,6 +158,7 @@ export function AddClientForm() {
           Add document later
         </a>
       </div>
+      {message ? <p className={cn("mt-3 rounded-md px-3 py-2 text-sm font-semibold", saved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-900")}>{message}</p> : null}
     </Card>
   );
 }

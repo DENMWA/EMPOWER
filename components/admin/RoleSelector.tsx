@@ -8,11 +8,11 @@ const roleOptions: Array<{ value: UserRole; label: string; description: string }
   { value: "admin", label: "Admin", description: "Manage team access, billing visibility, and settings." }
 ];
 
-export function RoleSelector() {
+export function RoleSelector({ value = "support_worker", onChange }: { value?: UserRole; onChange?: (value: UserRole) => void }) {
   return (
     <label className="block text-sm font-semibold text-slate-700">
       Role
-      <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" defaultValue="support_worker">
+      <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={value} onChange={(event) => onChange?.(event.target.value as UserRole)}>
         {roleOptions.map((role) => (
           <option key={role.value} value={role.value}>{role.label} - {role.description}</option>
         ))}

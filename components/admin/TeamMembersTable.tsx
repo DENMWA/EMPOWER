@@ -1,5 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants, users } from "@/lib/sample-data";
+import { getStoredClients, type ClientRecord } from "@/lib/client-records";
+import { getStoredStaff, type StaffRecord } from "@/lib/staff-records";
 import { MoreHorizontal } from "lucide-react";
 
 const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" }> = {
@@ -10,6 +15,16 @@ const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "b
 };
 
 export function TeamMembersTable() {
+  const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
+  const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const allUsers = [...users, ...storedStaff];
+  const allParticipants = [...participants, ...storedClients];
+
+  useEffect(() => {
+    setStoredStaff(getStoredStaff());
+    setStoredClients(getStoredClients());
+  }, []);
+
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -17,7 +32,7 @@ export function TeamMembersTable() {
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Team directory</p>
           <h2 className="mt-1 text-2xl font-bold text-ink">Staff access and documentation quality</h2>
         </div>
-        <StatusBadge label={`${users.length} active demo users`} tone="blue" />
+        <StatusBadge label={`${allUsers.length} staff records`} tone="blue" />
       </div>
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[860px] text-left text-sm">
@@ -32,9 +47,12 @@ export function TeamMembersTable() {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => {
-              const assigned = participants.filter((participant) => user.assignedParticipants.includes(participant.id));
-              const status = inviteStatus[user.id] ?? { label: "Pending", tone: "amber" as const };
+            {allUsers.map((user) => {
+              const assigned = allParticipants.filter((participant) => user.assignedParticipants.includes(participant.id));
+              const storedStatus = "inviteStatus" in user ? user.inviteStatus : "";
+              const status = storedStatus
+                ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : "amber" as const }
+                : inviteStatus[user.id] ?? { label: "Pending", tone: "amber" as const };
               return (
                 <tr key={user.id} className="border-b border-slate-100 align-top">
                   <td className="py-4 pr-4">

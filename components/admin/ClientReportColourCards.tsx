@@ -1,12 +1,23 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { FileText, ShieldAlert, UserRoundPlus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
+import { getStoredClients, type ClientRecord } from "@/lib/client-records";
 import { documents, participants, progressNotes } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
 export function ClientReportColourCards() {
+  const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const allParticipants = [...participants, ...storedClients];
+
+  useEffect(() => {
+    setStoredClients(getStoredClients());
+  }, []);
+
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -22,8 +33,8 @@ export function ClientReportColourCards() {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {participants.map((participant) => {
-          const colour = getClientColourScheme(participant.id);
+        {allParticipants.map((participant) => {
+          const colour = getClientColourScheme(participant.id, "colourSchemeId" in participant ? participant.colourSchemeId : undefined);
           const notes = progressNotes.filter((note) => note.participantId === participant.id);
           const participantDocuments = documents.filter((document) => document.participantId === participant.id);
           const incidentSignals = notes.reduce((total, note) => total + note.incidentFlags.length, 0) + participant.riskAlerts.length;
