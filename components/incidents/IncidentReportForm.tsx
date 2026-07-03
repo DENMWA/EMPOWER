@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Lock, Plus, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
+import { Download, Lock, Maximize2, Minimize2, Plus, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
 
 type BodyView = "front" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
@@ -143,7 +143,7 @@ function HumanBodyFigure({ view }: { view: BodyView }) {
   );
 }
 
-function BodyMap({ view, markers, onAdd, onSelect }: { view: BodyView; markers: BodyMarker[]; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
+function BodyMap({ view, markers, expanded, onAdd, onSelect }: { view: BodyView; markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
   return (
     <button
       type="button"
@@ -151,7 +151,7 @@ function BodyMap({ view, markers, onAdd, onSelect }: { view: BodyView; markers: 
         const rect = event.currentTarget.getBoundingClientRect();
         onAdd(view, Math.round(((event.clientX - rect.left) / rect.width) * 100), Math.round(((event.clientY - rect.top) / rect.height) * 100));
       }}
-      className="relative min-h-[460px] overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-white to-slate-50 text-left shadow-inner"
+      className={`${expanded ? "min-h-[620px]" : "min-h-[460px]"} relative overflow-hidden rounded-md border border-slate-200 bg-gradient-to-b from-white to-slate-50 text-left shadow-inner transition-all`}
       aria-label={`Add ${view} body marker`}
     >
       <div className="absolute inset-4 flex items-center justify-center">
@@ -180,6 +180,7 @@ export function IncidentReportForm() {
   const [report, setReport] = useState(initialReport);
   const [selectedMarkerId, setSelectedMarkerId] = useState(initialReport.markers[0]?.id ?? "");
   const [savedAt, setSavedAt] = useState("");
+  const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const exportText = useMemo(() => JSON.stringify(report, null, 2), [report]);
@@ -279,14 +280,30 @@ export function IncidentReportForm() {
           <TextArea label="Notifications" value={report.notifications} onChange={(value) => update("notifications", value)} />
         </section>
 
-        <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
-          <div>
-            <h3 className="text-xl font-bold text-ink">Body map</h3>
-            <p className="mt-1 text-sm text-slate-600">Click the front or back figure to add a marker, then update the details below.</p>
+        <section className={`${bodyMapExpanded ? "border-teal-200 bg-teal-50/30" : "border-slate-200 bg-white"} grid gap-4 rounded-md border p-5 shadow-soft transition-all`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-bold text-ink">Body map</h3>
+              <p className="mt-1 text-sm text-slate-600">Click the front or back figure to add a marker, then update the details below.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBodyMapExpanded((current) => !current)}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink shadow-sm"
+              aria-expanded={bodyMapExpanded}
+            >
+              {bodyMapExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {bodyMapExpanded ? "Close larger view" : "Open larger view"}
+            </button>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <BodyMap view="front" markers={report.markers} onAdd={addMarker} onSelect={setSelectedMarkerId} />
-            <BodyMap view="back" markers={report.markers} onAdd={addMarker} onSelect={setSelectedMarkerId} />
+          {bodyMapExpanded ? (
+            <div className="rounded-md border border-teal-100 bg-white px-3 py-2 text-sm font-semibold text-teal-900">
+              Larger view is open for clearer injury placement.
+            </div>
+          ) : null}
+          <div className={`${bodyMapExpanded ? "gap-5" : "gap-4"} grid md:grid-cols-2`}>
+            <BodyMap view="front" markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
+            <BodyMap view="back" markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
           </div>
           {selectedMarker ? (
             <div className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4 md:grid-cols-2">
