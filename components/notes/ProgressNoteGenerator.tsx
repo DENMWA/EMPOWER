@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
@@ -30,6 +30,19 @@ type FluidIntakeEntry = {
   drinkType: string;
   amountMl: string;
   notes: string;
+};
+
+type MonthlyReport = {
+  wellbeing: string;
+  goals: string;
+  dailyLiving: string;
+  communityAccess: string;
+  health: string;
+  behaviours: string;
+  familyTeam: string;
+  risks: string;
+  recommendations: string;
+  nextMonth: string;
 };
 
 const continenceSupportOptions = [
@@ -83,7 +96,34 @@ const initialFluidIntake: FluidIntakeEntry[] = [
   { id: "fluid-2", time: "10:30", drinkType: "Tea", amountMl: "200", notes: "Morning tea" }
 ];
 
+const monthlyReportFields: { key: keyof MonthlyReport; title: string; prompt: string }[] = [
+  { key: "wellbeing", title: "Overall wellbeing and presentation", prompt: "Mood, engagement, emotional wellbeing, communication, routines, and any notable changes this month." },
+  { key: "goals", title: "NDIS goals and progress", prompt: "Progress toward goals, skills practised, barriers, achievements, and evidence observed by staff." },
+  { key: "dailyLiving", title: "Daily living and personal care", prompt: "Personal care, meals, continence/toileting, medication prompts, sleep/routine, hygiene, and independence." },
+  { key: "communityAccess", title: "Community access and participation", prompt: "Outings, appointments, social connection, transport, confidence, choice-making, and community safety." },
+  { key: "health", title: "Health, appointments and therapy", prompt: "Medical updates, allied health input, therapy recommendations, medication or health concerns to monitor." },
+  { key: "behaviours", title: "Behaviours, incidents and irregular supports", prompt: "Incident themes, triggers, de-escalation strategies, irregular support patterns, and what worked well." },
+  { key: "familyTeam", title: "Family, guardian and team communication", prompt: "Key communication, requests, feedback, consent issues, handovers, and stakeholder updates." },
+  { key: "risks", title: "Risks, safeguards and restrictive practices", prompt: "Current risks, safeguarding actions, environmental concerns, restrictive-practice considerations, and follow-up." },
+  { key: "recommendations", title: "Key worker recommendations", prompt: "Support changes, roster considerations, plan review issues, documentation needs, referrals, or escalation." },
+  { key: "nextMonth", title: "Priorities for next month", prompt: "Focus areas, goals to reinforce, appointments to prepare for, family/team actions, and due dates." }
+];
+
+const initialMonthlyReport: MonthlyReport = {
+  wellbeing: "",
+  goals: "",
+  dailyLiving: "",
+  communityAccess: "",
+  health: "",
+  behaviours: "",
+  familyTeam: "",
+  risks: "",
+  recommendations: "",
+  nextMonth: ""
+};
+
 export function ProgressNoteGenerator() {
+  const [selectedParticipant, setSelectedParticipant] = useState(participants[0]?.name ?? "Client");
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,8 +131,20 @@ export function ProgressNoteGenerator() {
   const [supportType, setSupportType] = useState("Community access");
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const [fluidIntake, setFluidIntake] = useState<FluidIntakeEntry[]>(initialFluidIntake);
+  const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const quality = scoreNoteQuality();
   const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
+  const monthlyReportBody = useMemo(() => [
+    `Key Worker Monthly Report`,
+    `Client: ${selectedParticipant}`,
+    `Generated: ${new Date().toLocaleDateString("en-AU")}`,
+    "",
+    ...monthlyReportFields.flatMap((field) => [
+      field.title,
+      monthlyReport[field.key] || "Not completed",
+      ""
+    ])
+  ].join("\n"), [monthlyReport, selectedParticipant]);
 
   function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
     setContinenceRecord((current) => ({ ...current, [field]: value }));
@@ -120,6 +172,10 @@ export function ProgressNoteGenerator() {
 
   function removeFluidIntake(id: string) {
     setFluidIntake((current) => current.filter((entry) => entry.id !== id));
+  }
+
+  function updateMonthlyReport(field: keyof MonthlyReport, value: string) {
+    setMonthlyReport((current) => ({ ...current, [field]: value }));
   }
 
   function formatContinenceSummary() {
@@ -185,7 +241,7 @@ export function ProgressNoteGenerator() {
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
             Participant/client
-            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm">
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipant} onChange={(event) => setSelectedParticipant(event.target.value)}>
               {participants.map((participant) => <option key={participant.id}>{participant.name}</option>)}
             </select>
           </label>
@@ -321,6 +377,37 @@ export function ProgressNoteGenerator() {
           body={roughNote}
           filename="empower-notes-progress-note"
           allowDownload={false}
+        />
+      </Card>
+      <Card className="border-sky-100">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Key worker monthly report</p>
+            <h2 className="mt-1 text-2xl font-bold text-ink">Monthly support summary for {selectedParticipant}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Use these headings to summarise progress, patterns, concerns, and next actions for the client you support.</p>
+          </div>
+          <span className="rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Client monthly view</span>
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {monthlyReportFields.map((field) => (
+            <label key={field.key} className="grid gap-2 text-sm font-semibold text-slate-700">
+              <span>{field.title}</span>
+              <span className="text-xs font-medium leading-5 text-slate-500">{field.prompt}</span>
+              <textarea
+                className="min-h-32 rounded-md border border-slate-300 bg-slate-50 p-3 text-sm leading-6 text-ink shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                value={monthlyReport[field.key]}
+                onChange={(event) => updateMonthlyReport(field.key, event.target.value)}
+              />
+            </label>
+          ))}
+        </div>
+        <RecordActions
+          className="mt-5"
+          recordId={`monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+          recordType="key-worker-monthly-report"
+          title={`Key Worker Monthly Report - ${selectedParticipant}`}
+          body={monthlyReportBody}
+          filename={`empowernotes-monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
         />
       </Card>
       {rewriteOptions.length ? (
