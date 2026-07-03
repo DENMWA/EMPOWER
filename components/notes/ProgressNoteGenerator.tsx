@@ -365,7 +365,7 @@ export function ProgressNoteGenerator() {
         </div>
         <label className="mt-5 block text-sm font-semibold text-slate-700">
           Shift note
-          <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 shadow-inner" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
+          <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
         <GuidedVoiceDocumentation embedded onUseTranscript={useVoiceTranscript} />
         {showPersonalCareRecord ? (
