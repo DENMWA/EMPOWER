@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ClipboardCheck, ExternalLink, RotateCcw } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
+import { getTrialRunCompletedSteps, saveTrialRunCompletedSteps } from "@/lib/trial-run";
 import { cn } from "@/lib/utils";
 
 type TrialStep = {
@@ -27,21 +28,15 @@ const trialSteps: TrialStep[] = [
   { id: "platform", area: "Developer", title: "Check developer admin", detail: "Review subscriptions, payments, diagnostics, analytics, security, and support.", href: "/platform" }
 ];
 
-const storageKey = "empowernotes-trial-run-completed";
-
 export function TrialRunChecklist() {
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    try {
-      setCompleted(JSON.parse(window.localStorage.getItem(storageKey) || "{}"));
-    } catch {
-      setCompleted({});
-    }
+    setCompleted(getTrialRunCompletedSteps());
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(completed));
+    saveTrialRunCompletedSteps(completed);
   }, [completed]);
 
   const completedCount = useMemo(() => trialSteps.filter((step) => completed[step.id]).length, [completed]);

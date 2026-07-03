@@ -6,6 +6,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
 import { addStoredClient, createClientId } from "@/lib/client-records";
 import { sampleGoals, users } from "@/lib/sample-data";
+import { markTrialStepComplete } from "@/lib/trial-run";
 import { cn } from "@/lib/utils";
 
 export function AddClientForm() {
@@ -47,6 +48,7 @@ export function AddClientForm() {
     });
 
     setSaved(true);
+    markTrialStepComplete("add-client");
     setName("");
     setInitials("");
     setSupportNeeds("");
