@@ -7,7 +7,7 @@ import { GuidedInterview } from "@/components/voice/GuidedInterview";
 import { ReadBackControls } from "@/components/voice/ReadBackControls";
 import { improveTranscriptToProgressNote } from "@/lib/ai-mock";
 
-export function GuidedVoiceDocumentation() {
+export function GuidedVoiceDocumentation({ onUseTranscript }: { onUseTranscript?: (transcript: string) => void }) {
   const [transcript, setTranscript] = useState("");
   const [finalNote, setFinalNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,13 +20,45 @@ export function GuidedVoiceDocumentation() {
     setLoading(false);
   }
 
+  function useTranscriptInNote() {
+    const text = transcript.trim();
+    if (!text) {
+      setActionMessage("Add a transcript first.");
+      return;
+    }
+    onUseTranscript?.(text);
+    setActionMessage(onUseTranscript ? "Transcript placed into the note pad." : "Transcript is ready to improve or save.");
+  }
+
+  function saveTranscriptDraft() {
+    const text = transcript.trim();
+    if (!text) {
+      setActionMessage("Add a transcript first.");
+      return;
+    }
+    const savedAt = new Date().toISOString();
+    const id = `voice-transcript-${Date.now()}`;
+    window.localStorage.setItem(`empower-retained-record:${id}`, JSON.stringify({
+      id,
+      type: "voice-transcript",
+      title: "Voice transcript draft",
+      body: text,
+      transcript: text,
+      savedAt
+    }));
+    setActionMessage("Transcript draft saved.");
+  }
+
   function saveFinalNote(status: string) {
-    window.localStorage.setItem(`empower-retained-record:voice-note-${Date.now()}`, JSON.stringify({
-      id: `voice-note-${Date.now()}`,
+    const savedAt = new Date().toISOString();
+    const id = `voice-note-${Date.now()}`;
+    window.localStorage.setItem(`empower-retained-record:${id}`, JSON.stringify({
+      id,
       type: "progress-note",
       title: `Voice note - ${status}`,
       body: finalNote,
-      savedAt: new Date().toISOString()
+      transcript,
+      savedAt
     }));
     setActionMessage(status);
   }
@@ -49,13 +81,22 @@ export function GuidedVoiceDocumentation() {
         <VoiceRecorder onTranscript={setTranscript} />
         <GuidedInterview onComplete={setTranscript} />
       </div>
-      <div>
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
         <label className="text-sm font-semibold text-slate-700" htmlFor="transcript">Transcript preview and edit</label>
-        <textarea id="transcript" className="mt-2 min-h-36 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 shadow-inner" value={transcript} onChange={(event) => setTranscript(event.target.value)} />
+        <textarea id="transcript" className="mt-2 min-h-36 w-full rounded-md border border-slate-300 bg-white p-4 leading-7 shadow-inner" value={transcript} onChange={(event) => setTranscript(event.target.value)} />
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button type="button" onClick={useTranscriptInNote} disabled={!transcript.trim()} className="inline-flex min-h-11 items-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
+            Use transcript in note
+          </button>
+          <button type="button" onClick={saveTranscriptDraft} disabled={!transcript.trim()} className="inline-flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+            Save transcript draft
+          </button>
+          <button type="button" onClick={improve} disabled={!transcript.trim() || loading} className="inline-flex min-h-11 items-center rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
+            {loading ? "Improving..." : "Improve transcript"}
+          </button>
+        </div>
+        {actionMessage ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{actionMessage}</p> : null}
       </div>
-      <button type="button" onClick={improve} disabled={!transcript || loading} className="inline-flex min-h-12 items-center rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
-        {loading ? "Improving and checking risk..." : "Improve Note"}
-      </button>
       {finalNote ? (
         <div className="space-y-4">
           <div className="rounded-md border border-teal-100 bg-teal-50 p-5">
@@ -68,7 +109,6 @@ export function GuidedVoiceDocumentation() {
             <button type="button" onClick={() => saveFinalNote("Self-certified")} className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Self-certify note</button>
             <button type="button" onClick={() => saveFinalNote("Draft saved")} className="rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink">Save draft</button>
           </div>
-          {actionMessage ? <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{actionMessage}</p> : null}
         </div>
       ) : null}
     </Card>

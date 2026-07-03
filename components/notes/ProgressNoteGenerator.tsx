@@ -162,6 +162,12 @@ export function ProgressNoteGenerator() {
     ]);
   }
 
+  function useVoiceTranscript(transcript: string) {
+    setRoughNote(transcript);
+    setRewriteOptions([]);
+    setMissing(checkMissingDetails(transcript));
+  }
+
   return (
     <div className="space-y-6">
       <Card className="border-teal-100">
@@ -352,7 +358,7 @@ export function ProgressNoteGenerator() {
           {suggestGoalLinks().map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
         </div>
       </Card>
-      <GuidedVoiceDocumentation />
+      <GuidedVoiceDocumentation onUseTranscript={useVoiceTranscript} />
     </div>
   );
 }
