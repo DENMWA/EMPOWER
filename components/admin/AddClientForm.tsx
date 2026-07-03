@@ -4,9 +4,9 @@ import { FilePlus2, Palette, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
-import { addStoredClient, createClientId } from "@/lib/client-records";
+import { createClientId, saveTenantClient } from "@/lib/client-records";
 import { sampleGoals, users } from "@/lib/sample-data";
-import { getStoredStaff, type StaffRecord } from "@/lib/staff-records";
+import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ export function AddClientForm() {
   const allStaff = [...users, ...storedStaff];
 
   useEffect(() => {
-    setStoredStaff(getStoredStaff());
+    getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
   }, []);
 
   function toggleGoal(goal: string) {
@@ -37,7 +37,7 @@ export function AddClientForm() {
     setAssignedWorkers((current) => current.includes(userId) ? current.filter((item) => item !== userId) : [...current, userId]);
   }
 
-  function saveClient() {
+  async function saveClient() {
     const cleanName = name.trim();
     if (!cleanName) {
       setSaved(false);
@@ -45,7 +45,7 @@ export function AddClientForm() {
       return;
     }
 
-    addStoredClient({
+    const result = await saveTenantClient({
       id: createClientId(cleanName),
       name: cleanName,
       initials: (initials.trim() || cleanName.split(/\s+/).map((part) => part[0]).join("")).slice(0, 4).toUpperCase(),
@@ -61,7 +61,7 @@ export function AddClientForm() {
 
     setSaved(true);
     markTrialStepComplete("add-client");
-    setMessage(`${cleanName} saved as a client profile.`);
+    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. Sign in to save it to this organisation's Supabase space.`);
     setName("");
     setInitials("");
     setSupportNeeds("");

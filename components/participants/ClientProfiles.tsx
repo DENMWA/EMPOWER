@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui";
 import { ParticipantProfile } from "@/components/participants/ParticipantProfile";
-import { getStoredClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 
 export function ClientProfiles() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
 
   useEffect(() => {
-    setClients(getStoredClients());
+    getTenantClients().then(setClients).catch(() => setClients([]));
   }, []);
 
   if (!clients.length) {

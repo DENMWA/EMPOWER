@@ -1,4 +1,5 @@
 import type { StaffUser, UserRole } from "@/lib/sample-data";
+import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 
 export type StaffRecord = StaffUser & {
   inviteStatus: "Invite sent" | "Draft" | "Active";
@@ -49,4 +50,59 @@ export function saveStoredStaff(staff: StaffRecord[]) {
 export function addStoredStaff(staff: StaffRecord) {
   const currentStaff = getStoredStaff();
   saveStoredStaff([...currentStaff, staff]);
+}
+
+export async function saveTenantStaffInvite(staff: StaffRecord) {
+  addStoredStaff(staff);
+
+  const organisationId = await getCurrentOrganisationId();
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+
+  const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
+    method: "POST",
+    body: {
+      organisation_id: organisationId,
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      invite_status: staff.inviteStatus,
+      assigned_participant_ids: staff.assignedParticipants
+    }
+  });
+
+  return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+}
+
+type SupabaseStaffInviteRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  invite_status: StaffRecord["inviteStatus"];
+  assigned_participant_ids: string[] | null;
+  created_at: string;
+};
+
+function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    roleLabel: roleLabelFor(row.role),
+    email: row.email,
+    providerType: "organisation",
+    qualityTrend: [0],
+    assignedParticipants: row.assigned_participant_ids || [],
+    inviteStatus: row.invite_status,
+    createdAt: row.created_at
+  };
+}
+
+export async function getTenantStaffInvites() {
+  const result = await supabaseRequest<SupabaseStaffInviteRow[]>("staff_invites", {
+    query: "select=id,name,email,role,invite_status,assigned_participant_ids,created_at&order=created_at.desc"
+  });
+
+  if (!result.data || result.error) return getStoredStaff();
+  return result.data.map(toStaffRecord);
 }

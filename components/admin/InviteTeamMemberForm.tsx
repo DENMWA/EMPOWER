@@ -5,8 +5,8 @@ import { Card, StatusBadge } from "@/components/ui";
 import { participants, type UserRole } from "@/lib/sample-data";
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { MailPlus, ShieldCheck } from "lucide-react";
-import { getStoredClients, type ClientRecord } from "@/lib/client-records";
-import { addStoredStaff, createStaffId, roleLabelFor } from "@/lib/staff-records";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 
 export function InviteTeamMemberForm() {
@@ -21,14 +21,14 @@ export function InviteTeamMemberForm() {
   const allParticipants = [...participants, ...storedClients];
 
   useEffect(() => {
-    setStoredClients(getStoredClients());
+    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
   }, []);
 
   function toggleParticipant(participantId: string) {
     setAssignedParticipants((current) => current.includes(participantId) ? current.filter((item) => item !== participantId) : [...current, participantId]);
   }
 
-  function saveInvite(action: "sent" | "saved") {
+  async function saveInvite(action: "sent" | "saved") {
     const cleanName = name.trim();
     const cleanEmail = email.trim();
 
@@ -51,10 +51,11 @@ export function InviteTeamMemberForm() {
       createdAt: new Date().toISOString()
     };
 
-    addStoredStaff(record);
+    const result = await saveTenantStaffInvite(record);
     markTrialStepComplete("add-staff");
     setSaved(true);
-    setMessage(action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.");
+    const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
+    setMessage(result.savedToCloud ? `${localMessage} Saved to this organisation.` : `${localMessage} Sign in to save it to this organisation's Supabase space.`);
     setName("");
     setEmail("");
   }

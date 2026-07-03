@@ -1,3 +1,5 @@
+import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
+
 export type OrganisationProfile = {
   organisationName: string;
   providerNumber: string;
@@ -37,6 +39,34 @@ export function getOrganisationProfile() {
 
 export function saveOrganisationProfile(profile: OrganisationProfile) {
   window.localStorage.setItem(organisationProfileKey, JSON.stringify(profile));
+}
+
+export async function saveTenantOrganisationProfile(profile: OrganisationProfile) {
+  saveOrganisationProfile(profile);
+
+  const organisationId = await getCurrentOrganisationId();
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+
+  const result = await supabaseRequest<Array<{ organisation_id: string }>>("organisation_profiles", {
+    method: "POST",
+    query: "on_conflict=organisation_id",
+    prefer: "resolution=merge-duplicates,return=representation",
+    body: {
+      organisation_id: organisationId,
+      organisation_name: profile.organisationName,
+      provider_number: profile.providerNumber,
+      phone: profile.phone,
+      email: profile.email,
+      website: profile.website,
+      address: profile.address,
+      logo_name: profile.logoName,
+      logo_data_url: profile.logoDataUrl,
+      include_in_downloads: profile.includeInDownloads,
+      updated_at: new Date().toISOString()
+    }
+  });
+
+  return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
 }
 
 export function getOrganisationReportHeader() {

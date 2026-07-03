@@ -15,7 +15,26 @@ create table organisations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   provider_type provider_type not null default 'organisation',
+  contact_email text,
+  contact_phone text,
+  website text,
+  address text,
+  provider_number text,
   created_at timestamptz not null default now()
+);
+
+create table organisation_profiles (
+  organisation_id uuid primary key references organisations(id) on delete cascade,
+  organisation_name text not null,
+  provider_number text,
+  phone text,
+  email text,
+  website text,
+  address text,
+  logo_name text,
+  logo_data_url text,
+  include_in_downloads boolean not null default false,
+  updated_at timestamptz not null default now()
 );
 
 create table users (
@@ -37,8 +56,21 @@ create table participants_or_clients (
   support_needs text,
   communication_preferences text,
   risk_alerts text[] not null default '{}',
+  colour_scheme_id text,
   behaviour_support_notes text,
   emergency_contacts jsonb not null default '[]',
+  created_at timestamptz not null default now()
+);
+
+create table staff_invites (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  name text not null,
+  email text not null,
+  role user_role not null default 'support_worker',
+  invite_status text not null default 'draft',
+  assigned_participant_ids text[] not null default '{}',
+  created_by uuid references users(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -261,6 +293,17 @@ create table invoice_summaries (
   created_at timestamptz not null default now()
 );
 
+create table retained_records (
+  id text not null,
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  record_type text not null,
+  title text not null,
+  body text not null,
+  saved_by uuid references users(id) on delete set null,
+  saved_at timestamptz not null default now(),
+  primary key (organisation_id, id)
+);
+
 create or replace function current_user_profile()
 returns users
 language sql
@@ -268,6 +311,60 @@ stable
 as $$
   select * from users where id = auth.uid()
 $$;
+
+create or replace function current_user_organisation_id()
+returns uuid
+language sql
+stable
+as $$
+  select organisation_id from users where id = auth.uid()
+$$;
+
+create or replace function create_organisation_for_current_user(
+  organisation_name text,
+  owner_name text,
+  owner_email text,
+  selected_provider_type provider_type default 'organisation'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_organisation_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in to create an organisation.';
+  end if;
+
+  if exists (select 1 from users where id = auth.uid()) then
+    select organisation_id into new_organisation_id from users where id = auth.uid();
+    return new_organisation_id;
+  end if;
+
+  insert into organisations (name, provider_type, contact_email)
+  values (organisation_name, selected_provider_type, owner_email)
+  returning id into new_organisation_id;
+
+  insert into users (id, organisation_id, name, email, role, provider_type)
+  values (
+    auth.uid(),
+    new_organisation_id,
+    owner_name,
+    owner_email,
+    case when selected_provider_type = 'sole_provider' then 'sole_provider'::user_role else 'owner'::user_role end,
+    selected_provider_type
+  );
+
+  insert into organisation_profiles (organisation_id, organisation_name, email, include_in_downloads)
+  values (new_organisation_id, organisation_name, owner_email, true);
+
+  return new_organisation_id;
+end;
+$$;
+
+grant execute on function create_organisation_for_current_user(text, text, text, provider_type) to authenticated;
 
 create or replace function current_user_is_manager()
 returns boolean
@@ -305,9 +402,11 @@ as $$
 $$;
 
 alter table organisations enable row level security;
+alter table organisation_profiles enable row level security;
 alter table users enable row level security;
 alter table participants_or_clients enable row level security;
 alter table participant_assignments enable row level security;
+alter table staff_invites enable row level security;
 alter table goals enable row level security;
 alter table progress_notes enable row level security;
 alter table roster_shifts enable row level security;
@@ -322,15 +421,47 @@ alter table templates enable row level security;
 alter table voice_sessions enable row level security;
 alter table invoice_evidence_checks enable row level security;
 alter table invoice_summaries enable row level security;
+alter table retained_records enable row level security;
 
 -- Organisation-level separation.
 create policy "users can view own organisation" on organisations for select using (id = (select organisation_id from users where id = auth.uid()));
 create policy "users can view org users" on users for select using (organisation_id = (select organisation_id from users where id = auth.uid()));
+create policy "admins update own organisation" on organisations for update using (
+  id = current_user_organisation_id() and current_user_is_manager()
+) with check (
+  id = current_user_organisation_id() and current_user_is_manager()
+);
+
+create policy "users view own organisation profile" on organisation_profiles for select using (organisation_id = current_user_organisation_id());
+create policy "admins manage own organisation profile" on organisation_profiles for all using (
+  organisation_id = current_user_organisation_id() and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id() and current_user_is_manager()
+);
 
 -- Workers can access assigned participants; managers/admins can access organisation records.
 create policy "participant access by assignment or manager" on participants_or_clients for select using (
   organisation_id = (select organisation_id from users where id = auth.uid())
   and (current_user_is_manager() or assigned_to_participant(id))
+);
+create policy "managers create organisation participants" on participants_or_clients for insert with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+create policy "managers update organisation participants" on participants_or_clients for update using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "managers manage staff invites" on staff_invites for all using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
 );
 
 create policy "progress note access by assignment or manager" on progress_notes for select using (
@@ -342,6 +473,13 @@ create policy "workers create own notes for assigned participants" on progress_n
   organisation_id = (select organisation_id from users where id = auth.uid())
   and staff_id = auth.uid()
   and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "workers update own draft notes" on progress_notes for update using (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or staff_id = auth.uid())
+) with check (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or staff_id = auth.uid())
 );
 
 create policy "roster shifts visible to admins only" on roster_shifts for select using (
@@ -399,12 +537,27 @@ create policy "org scoped templates" on templates for select using (organisation
 create policy "org scoped voice sessions" on voice_sessions for select using (organisation_id = (select organisation_id from users where id = auth.uid()) and (current_user_is_manager() or staff_id = auth.uid()));
 create policy "org scoped invoice checks" on invoice_evidence_checks for select using (organisation_id = (select organisation_id from users where id = auth.uid()));
 create policy "org scoped invoice summaries" on invoice_summaries for select using (organisation_id = (select organisation_id from users where id = auth.uid()) and current_user_is_manager());
+create policy "org scoped retained records" on retained_records for select using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+create policy "users save retained records in own organisation" on retained_records for insert with check (
+  organisation_id = current_user_organisation_id()
+);
+create policy "users update retained records in own organisation" on retained_records for update using (
+  organisation_id = current_user_organisation_id()
+) with check (
+  organisation_id = current_user_organisation_id()
+);
 
 create index if not exists idx_roster_shifts_organisation_id on roster_shifts(organisation_id);
 create index if not exists idx_roster_shifts_participant_id on roster_shifts(participant_id);
 create index if not exists idx_roster_shifts_worker_id on roster_shifts(worker_id);
 create index if not exists idx_roster_shifts_shift_date on roster_shifts(shift_date);
 create index if not exists idx_roster_shifts_status on roster_shifts(status);
+create index if not exists idx_participants_or_clients_organisation_id on participants_or_clients(organisation_id);
+create index if not exists idx_staff_invites_organisation_id on staff_invites(organisation_id);
+create index if not exists idx_retained_records_organisation_id on retained_records(organisation_id);
 
 -- Roster audit actions:
 -- roster_shift_created

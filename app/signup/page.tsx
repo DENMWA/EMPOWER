@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { OrganisationAccountSetup } from "@/components/onboarding/OrganisationAccountSetup";
 import { PlanRecommendation } from "@/components/onboarding/PlanRecommendation";
 import { PageHeader, Section } from "@/components/ui";
 
@@ -15,7 +16,10 @@ export default function SignupPage() {
   return (
     <>
       <PageHeader title="Start Free Trial" description="Demo onboarding recommends a plan for Australian care teams before production auth and billing are connected." />
-      <Section><PlanRecommendation /></Section>
+      <Section className="space-y-6">
+        <OrganisationAccountSetup />
+        <PlanRecommendation />
+      </Section>
     </>
   );
 }

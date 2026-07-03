@@ -6,7 +6,7 @@ import { FileText, ShieldAlert, UserRoundPlus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
-import { getStoredClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ export function ClientReportColourCards() {
   const allParticipants: ReportClient[] = [...participants, ...storedClients];
 
   useEffect(() => {
-    setStoredClients(getStoredClients());
+    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
   }, []);
 
   return (

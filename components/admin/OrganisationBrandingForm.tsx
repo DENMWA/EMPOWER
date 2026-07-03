@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ImagePlus, Save } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
-import { defaultOrganisationProfile, getOrganisationProfile, saveOrganisationProfile, type OrganisationProfile } from "@/lib/organisation-profile";
+import { defaultOrganisationProfile, getOrganisationProfile, saveTenantOrganisationProfile, type OrganisationProfile } from "@/lib/organisation-profile";
 
 export function OrganisationBrandingForm() {
   const [profile, setProfile] = useState<OrganisationProfile>(defaultOrganisationProfile);
@@ -29,9 +29,9 @@ export function OrganisationBrandingForm() {
     reader.readAsDataURL(file);
   }
 
-  function saveProfile() {
-    saveOrganisationProfile(profile);
-    setMessage("Organisation branding saved for downloadable reports.");
+  async function saveProfile() {
+    const result = await saveTenantOrganisationProfile(profile);
+    setMessage(result.savedToCloud ? "Organisation branding saved to this organisation." : "Branding saved locally. Sign in to save it to this organisation's Supabase space.");
   }
 
   return (

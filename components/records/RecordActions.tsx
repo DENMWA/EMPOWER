@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, Save } from "lucide-react";
 import { withOrganisationReportHeader } from "@/lib/organisation-profile";
+import { saveTenantRetainedRecord } from "@/lib/retained-records";
 import { cn } from "@/lib/utils";
 
 type RecordActionsProps = {
@@ -17,8 +18,9 @@ type RecordActionsProps = {
 
 export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true }: RecordActionsProps) {
   const [saved, setSaved] = useState(false);
+  const [message, setMessage] = useState("");
 
-  function saveRecord() {
+  async function saveRecord() {
     const record = {
       id: recordId,
       type: recordType,
@@ -26,8 +28,9 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
       body,
       savedAt: new Date().toISOString()
     };
-    window.localStorage.setItem(`empower-retained-record:${recordId}`, JSON.stringify(record));
+    const result = await saveTenantRetainedRecord(record);
     setSaved(true);
+    setMessage(result.savedToCloud ? "Saved to this organisation." : "Saved locally. Sign in to save it to this organisation's Supabase space.");
   }
 
   function downloadRecord() {
@@ -55,6 +58,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
           Download
         </button>
       ) : null}
+      {message ? <p className="basis-full rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
     </div>
   );
 }

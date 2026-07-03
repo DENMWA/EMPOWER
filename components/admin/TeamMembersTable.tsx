@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
-import { getStoredClients, type ClientRecord } from "@/lib/client-records";
-import { getStoredStaff, type StaffRecord } from "@/lib/staff-records";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { MoreHorizontal } from "lucide-react";
 
 const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" }> = {
@@ -23,8 +23,8 @@ export function TeamMembersTable() {
   const allParticipants = [...participants, ...storedClients];
 
   useEffect(() => {
-    setStoredStaff(getStoredStaff());
-    setStoredClients(getStoredClients());
+    getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
+    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
   }, []);
 
   return (

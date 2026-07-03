@@ -8,7 +8,7 @@ import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCollectionExport";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
-import { getStoredClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 
@@ -234,7 +234,7 @@ export function ProgressNoteGenerator() {
   ].join("\n"), [monthlyReport, selectedParticipantName]);
 
   useEffect(() => {
-    setStoredClients(getStoredClients());
+    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
   }, []);
 
   useEffect(() => {
