@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
@@ -8,7 +8,8 @@ import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCollectionExport";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
-import { participants, sampleRoughNote, supportTypes } from "@/lib/sample-data";
+import { getStoredClients, type ClientRecord } from "@/lib/client-records";
+import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 
 type ContinenceCareRecord = {
@@ -44,6 +45,8 @@ type MonthlyReport = {
   recommendations: string;
   nextMonth: string;
 };
+
+type NoteClient = Participant & { colourSchemeId?: string };
 
 const continenceSupportOptions = [
   "Incontinence support",
@@ -202,7 +205,9 @@ function StoolShape({ shape }: { shape: string }) {
 }
 
 export function ProgressNoteGenerator() {
-  const [selectedParticipant, setSelectedParticipant] = useState(participants[0]?.name ?? "Client");
+  const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const allParticipants = useMemo<NoteClient[]>(() => [...participants, ...storedClients], [storedClients]);
+  const [selectedParticipantId, setSelectedParticipantId] = useState(participants[0]?.id ?? "");
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -211,12 +216,14 @@ export function ProgressNoteGenerator() {
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const [fluidIntake, setFluidIntake] = useState<FluidIntakeEntry[]>(initialFluidIntake);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
+  const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
+  const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const quality = scoreNoteQuality();
   const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
-    `Client: ${selectedParticipant}`,
+    `Client: ${selectedParticipantName}`,
     `Generated: ${new Date().toLocaleDateString("en-AU")}`,
     "",
     ...monthlyReportFields.flatMap((field) => [
@@ -224,7 +231,17 @@ export function ProgressNoteGenerator() {
       monthlyReport[field.key] || "Not completed",
       ""
     ])
-  ].join("\n"), [monthlyReport, selectedParticipant]);
+  ].join("\n"), [monthlyReport, selectedParticipantName]);
+
+  useEffect(() => {
+    setStoredClients(getStoredClients());
+  }, []);
+
+  useEffect(() => {
+    if (!selectedParticipantId && allParticipants[0]) {
+      setSelectedParticipantId(allParticipants[0].id);
+    }
+  }, [allParticipants, selectedParticipantId]);
 
   function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
     setContinenceRecord((current) => ({ ...current, [field]: value }));
@@ -321,8 +338,8 @@ export function ProgressNoteGenerator() {
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
             Participant/client
-            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipant} onChange={(event) => setSelectedParticipant(event.target.value)}>
-              {participants.map((participant) => <option key={participant.id}>{participant.name}</option>)}
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipantId} onChange={(event) => setSelectedParticipantId(event.target.value)}>
+              {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
@@ -465,7 +482,7 @@ export function ProgressNoteGenerator() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-sea">Key worker monthly report</p>
-              <h2 className="mt-1 text-2xl font-bold text-ink">Monthly support summary for {selectedParticipant}</h2>
+              <h2 className="mt-1 text-2xl font-bold text-ink">Monthly support summary for {selectedParticipantName}</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Use these headings to summarise progress, patterns, concerns, and next actions for the client you support.</p>
             </div>
             <span className="rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Client monthly view</span>
@@ -485,11 +502,11 @@ export function ProgressNoteGenerator() {
           </div>
           <RecordActions
             className="mt-5"
-            recordId={`monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            recordId={`monthly-report-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
             recordType="key-worker-monthly-report"
-            title={`Key Worker Monthly Report - ${selectedParticipant}`}
+            title={`Key Worker Monthly Report - ${selectedParticipantName}`}
             body={monthlyReportBody}
-            filename={`empowernotes-monthly-report-${selectedParticipant.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            filename={`empowernotes-monthly-report-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
           />
         </Card>
       ) : null}
