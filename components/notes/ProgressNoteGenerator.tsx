@@ -66,6 +66,16 @@ const bristolStoolOptions = [
   "Type 7 - Watery, no solid pieces"
 ];
 
+const bristolStoolChartReference = [
+  { type: "Type 1", label: "Separate hard lumps, like nuts", note: "Hard to pass", shape: "lumps" },
+  { type: "Type 2", label: "Sausage-shaped but lumpy", note: "Firm and uneven", shape: "lumpy-log" },
+  { type: "Type 3", label: "Like a sausage with cracks", note: "Cracked surface", shape: "cracked-log" },
+  { type: "Type 4", label: "Like a sausage or snake", note: "Smooth and soft", shape: "smooth-log" },
+  { type: "Type 5", label: "Soft blobs with clear-cut edges", note: "Passed easily", shape: "soft-blobs" },
+  { type: "Type 6", label: "Fluffy pieces with ragged edges", note: "Mushy stool", shape: "mushy" },
+  { type: "Type 7", label: "Watery, no solid pieces", note: "Entirely liquid", shape: "liquid" }
+];
+
 const urineRecordOptions = [
   "Not applicable / not observed",
   "Passed urine independently",
@@ -121,6 +131,75 @@ const initialMonthlyReport: MonthlyReport = {
   recommendations: "",
   nextMonth: ""
 };
+
+function BristolStoolChartReference() {
+  return (
+    <div className="rounded-md border border-amber-200 bg-white p-4 lg:col-span-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="font-bold text-ink">Bristol Stool Chart reference</h4>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Use this quick visual guide when selecting the bowel movement type.</p>
+        </div>
+        <span className="rounded-md bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-900">Type 1-7</span>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {bristolStoolChartReference.map((item) => (
+          <div key={item.type} className="grid gap-3 rounded-md border border-amber-100 bg-amber-50/40 p-3 sm:grid-cols-[76px_130px_minmax(0,1fr)] sm:items-center">
+            <p className="text-sm font-bold text-amber-950">{item.type}</p>
+            <StoolShape shape={item.shape} />
+            <p className="text-sm leading-5 text-slate-700">
+              <span className="font-semibold text-ink">{item.label}</span>
+              <span className="block text-slate-600">{item.note}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StoolShape({ shape }: { shape: string }) {
+  const lump = "block h-5 w-5 rounded-full bg-amber-900 shadow-sm";
+  const smallLump = "block h-4 w-6 rounded-full bg-amber-900 shadow-sm";
+
+  if (shape === "lumps") {
+    return (
+      <div className="flex h-12 flex-wrap content-center gap-1">
+        {Array.from({ length: 7 }).map((_, index) => <span key={index} className={lump} />)}
+      </div>
+    );
+  }
+
+  if (shape === "lumpy-log") {
+    return (
+      <div className="flex h-12 items-center">
+        {Array.from({ length: 7 }).map((_, index) => <span key={index} className="-ml-1 block h-7 w-7 rounded-full bg-amber-900 shadow-sm first:ml-0" />)}
+      </div>
+    );
+  }
+
+  if (shape === "cracked-log") {
+    return <div className="h-7 w-28 rounded-[999px] bg-amber-900 shadow-sm ring-2 ring-amber-800/40" />;
+  }
+
+  if (shape === "smooth-log") {
+    return <div className="h-5 w-32 rounded-[999px] bg-amber-900 shadow-sm" />;
+  }
+
+  if (shape === "soft-blobs") {
+    return (
+      <div className="flex h-12 flex-wrap content-center gap-1">
+        {Array.from({ length: 6 }).map((_, index) => <span key={index} className={smallLump} />)}
+      </div>
+    );
+  }
+
+  if (shape === "mushy") {
+    return <div className="h-8 w-28 rounded-[50%] bg-amber-800 shadow-sm ring-4 ring-amber-700/20" />;
+  }
+
+  return <div className="h-9 w-28 rounded-[45%] bg-amber-700/80 shadow-sm ring-4 ring-amber-700/15" />;
+}
 
 export function ProgressNoteGenerator() {
   const [selectedParticipant, setSelectedParticipant] = useState(participants[0]?.name ?? "Client");
@@ -300,6 +379,7 @@ export function ProgressNoteGenerator() {
                   {bristolStoolOptions.map((option) => <option key={option}>{option}</option>)}
                 </select>
               </label>
+              <BristolStoolChartReference />
               <label className="text-sm font-semibold text-slate-700">
                 Urination / uridome / catheter record
                 <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineRecord} onChange={(event) => updateContinenceField("urineRecord", event.target.value)}>
