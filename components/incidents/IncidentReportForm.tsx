@@ -96,7 +96,7 @@ function getBodyViewFromPoint(x: number): BodyView {
 
 function ClinicalBodyChart() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 640 420" className="pointer-events-none h-full w-full">
+    <svg aria-hidden="true" viewBox="18 8 604 392" preserveAspectRatio="xMidYMid meet" className="pointer-events-none h-full w-full">
       <g fill="none" stroke="#0f172a" strokeLinecap="round" strokeLinejoin="round" strokeWidth="5">
         <g transform="translate(36 22)">
           <ellipse cx="48" cy="34" rx="18" ry="25" />
@@ -181,10 +181,10 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
         onAdd(getBodyViewFromPoint(x), x, y);
       }}
-      className={`${expanded ? "min-h-[980px] lg:min-h-[calc(100vh-80px)]" : "min-h-[820px] lg:min-h-[calc(100vh-140px)]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
+      className={`${expanded ? "min-h-[760px]" : "min-h-[620px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
       aria-label="Add body map marker"
     >
-      <div className="absolute inset-2 flex items-center justify-center rounded-md bg-slate-50 sm:inset-4">
+      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-slate-50">
         <ClinicalBodyChart />
       </div>
       <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">Clinical body chart</span>
