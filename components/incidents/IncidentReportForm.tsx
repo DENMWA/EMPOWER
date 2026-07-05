@@ -97,7 +97,7 @@ function getBodyViewFromPoint(x: number): BodyView {
 function ClinicalBodyChart() {
   return (
     <svg aria-hidden="true" viewBox="0 0 640 420" className="pointer-events-none h-full w-full">
-      <g fill="none" stroke="#334155" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4">
+      <g fill="none" stroke="#0f172a" strokeLinecap="round" strokeLinejoin="round" strokeWidth="5">
         <g transform="translate(36 22)">
           <ellipse cx="48" cy="34" rx="18" ry="25" />
           <path d="M31 54c-5 16-5 32 2 45" />
@@ -181,10 +181,10 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
         onAdd(getBodyViewFromPoint(x), x, y);
       }}
-      className={`${expanded ? "min-h-[560px]" : "min-h-[430px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
+      className={`${expanded ? "min-h-[820px]" : "min-h-[700px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
       aria-label="Add body map marker"
     >
-      <div className="absolute inset-4 flex items-center justify-center rounded-md bg-slate-50">
+      <div className="absolute inset-2 flex items-center justify-center rounded-md bg-slate-50 sm:inset-4">
         <ClinicalBodyChart />
       </div>
       <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">Clinical body chart</span>
@@ -331,15 +331,12 @@ export function IncidentReportForm() {
               Larger view is open for clearer injury placement.
             </div>
           ) : null}
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)] xl:items-start">
-            <div className="min-w-0">
-              <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
-            </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)] xl:items-start">
             <aside className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4 xl:sticky xl:top-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Injury marker details</p>
                 <h4 className="mt-1 text-lg font-bold text-ink">{selectedMarker ? `${selectedMarker.area} - ${selectedMarker.injury}` : "Select or add a marker"}</h4>
-                <p className="mt-1 text-sm leading-6 text-slate-600">Click the body map on the left to add a marker, or click an existing red marker to edit it here.</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Click the larger body map on the right to add a marker, or click an existing red marker to edit it here.</p>
               </div>
               {selectedMarker ? (
                 <div className="grid gap-4">
@@ -351,6 +348,9 @@ export function IncidentReportForm() {
                 </div>
               ) : null}
             </aside>
+            <div className="min-w-0">
+              <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
+            </div>
           </div>
         </section>
 
