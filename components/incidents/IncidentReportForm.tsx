@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Download, Lock, Maximize2, Minimize2, Plus, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
 
@@ -94,83 +95,6 @@ function getBodyViewFromPoint(x: number): BodyView {
   return "back";
 }
 
-function ClinicalBodyChart() {
-  return (
-    <svg aria-hidden="true" viewBox="18 8 604 392" preserveAspectRatio="xMidYMid meet" className="pointer-events-none h-full w-full">
-      <g fill="none" stroke="#0f172a" strokeLinecap="round" strokeLinejoin="round" strokeWidth="5">
-        <g transform="translate(36 22)">
-          <ellipse cx="48" cy="34" rx="18" ry="25" />
-          <path d="M31 54c-5 16-5 32 2 45" />
-          <path d="M65 54c5 16 5 32-2 45" />
-          <path d="M32 88c-8 20-13 46-17 82-2 18-8 42-14 65" />
-          <path d="M64 88c8 20 13 46 17 82 2 18 8 42 14 65" />
-          <path d="M31 92c-9 28-12 83-12 132 0 55 10 95 10 128" />
-          <path d="M65 92c9 28 12 83 12 132 0 55-10 95-10 128" />
-          <path d="M48 119c-9 52-9 101 0 148" />
-          <path d="M48 268c-15 34-24 63-26 100" />
-          <path d="M48 268c15 34 24 63 26 100" />
-          <path d="M29 352c-9 7-16 11-24 10" />
-          <path d="M67 352c9 7 16 11 24 10" />
-          <path d="M2 235c4 12 10 17 19 15" />
-          <path d="M94 235c-4 12-10 17-19 15" />
-          <path d="M40 366c-10 12-23 16-34 12" />
-          <path d="M56 366c10 12 23 16 34 12" />
-        </g>
-        <g transform="translate(190 22)">
-          <ellipse cx="45" cy="35" rx="17" ry="24" />
-          <path d="M31 45c16-8 28-5 37 10" />
-          <path d="M48 60c-9 30-12 72-9 126" />
-          <path d="M39 91c-24 12-38 40-41 85" />
-          <path d="M44 91c29 20 44 49 45 87" />
-          <path d="M4 177c9 13 19 16 31 9" />
-          <path d="M88 178c-1 25 4 46 15 64" />
-          <path d="M40 185c-9 40-9 92-2 156" />
-          <path d="M52 184c17 52 27 108 29 167" />
-          <path d="M38 341c-9 16-17 24-30 24" />
-          <path d="M81 351c9 12 20 16 33 15" />
-          <path d="M45 67c7 6 10 14 9 24" />
-        </g>
-        <g transform="translate(342 22)">
-          <ellipse cx="45" cy="35" rx="17" ry="24" />
-          <path d="M59 45c-16-8-28-5-37 10" />
-          <path d="M42 60c9 30 12 72 9 126" />
-          <path d="M51 91c24 12 38 40 41 85" />
-          <path d="M46 91c-29 20-44 49-45 87" />
-          <path d="M86 177c-9 13-19 16-31 9" />
-          <path d="M2 178c1 25-4 46-15 64" />
-          <path d="M50 185c9 40 9 92 2 156" />
-          <path d="M38 184c-17 52-27 108-29 167" />
-          <path d="M52 341c9 16 17 24 30 24" />
-          <path d="M9 351c-9 12-20 16-33 15" />
-          <path d="M45 67c-7 6-10 14-9 24" />
-        </g>
-        <g transform="translate(506 22)">
-          <ellipse cx="48" cy="34" rx="18" ry="25" />
-          <path d="M31 55c-4 18-3 34 2 48" />
-          <path d="M65 55c4 18 3 34-2 48" />
-          <path d="M33 96c-9 24-14 62-15 115-1 39-5 78-9 118" />
-          <path d="M63 96c9 24 14 62 15 115 1 39 5 78 9 118" />
-          <path d="M18 119c-12 35-17 72-16 111" />
-          <path d="M78 119c12 35 17 72 16 111" />
-          <path d="M48 103c-4 40-3 82 0 127" />
-          <path d="M48 232c-16 37-25 83-26 137" />
-          <path d="M48 232c16 37 25 83 26 137" />
-          <path d="M9 329c-4 11-11 18-21 20" />
-          <path d="M87 329c4 11 11 18 21 20" />
-          <path d="M37 365c-8 11-19 15-32 12" />
-          <path d="M59 365c8 11 19 15 32 12" />
-        </g>
-      </g>
-      <g fill="#64748b" fontFamily="Arial, sans-serif" fontSize="16" fontWeight="700" letterSpacing="0">
-        <text x="64" y="405">Front</text>
-        <text x="208" y="405">Left side</text>
-        <text x="358" y="405">Right side</text>
-        <text x="528" y="405">Back</text>
-      </g>
-    </svg>
-  );
-}
-
 function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
   return (
     <button
@@ -181,11 +105,18 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
         onAdd(getBodyViewFromPoint(x), x, y);
       }}
-      className={`${expanded ? "min-h-[860px]" : "min-h-[760px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
+      className={`${expanded ? "min-h-[640px]" : "min-h-[540px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
       aria-label="Add body map marker"
     >
-      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-slate-50">
-        <ClinicalBodyChart />
+      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-white">
+        <Image
+          src="/incident-body-map-reference.png"
+          alt="Body map with front, side, and back views"
+          fill
+          priority
+          sizes="(min-width: 1280px) 900px, 100vw"
+          className="object-contain"
+        />
       </div>
       <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">Clinical body chart</span>
       {markers.map((marker) => (
