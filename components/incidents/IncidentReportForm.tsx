@@ -181,7 +181,7 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
         onAdd(getBodyViewFromPoint(x), x, y);
       }}
-      className={`${expanded ? "min-h-[820px]" : "min-h-[700px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
+      className={`${expanded ? "min-h-[980px] lg:min-h-[calc(100vh-80px)]" : "min-h-[820px] lg:min-h-[calc(100vh-140px)]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
       aria-label="Add body map marker"
     >
       <div className="absolute inset-2 flex items-center justify-center rounded-md bg-slate-50 sm:inset-4">
@@ -331,26 +331,24 @@ export function IncidentReportForm() {
               Larger view is open for clearer injury placement.
             </div>
           ) : null}
-          <div className="grid gap-4 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)] xl:items-start">
-            <aside className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4 xl:sticky xl:top-4">
+          <div className="grid gap-4">
+            <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
+            <aside className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Injury marker details</p>
                 <h4 className="mt-1 text-lg font-bold text-ink">{selectedMarker ? `${selectedMarker.area} - ${selectedMarker.injury}` : "Select or add a marker"}</h4>
-                <p className="mt-1 text-sm leading-6 text-slate-600">Click the larger body map on the right to add a marker, or click an existing red marker to edit it here.</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Click the full-width body map above to add a marker, or click an existing red marker to edit it here.</p>
               </div>
               {selectedMarker ? (
-                <div className="grid gap-4">
+                <div className="grid gap-4 lg:grid-cols-4">
                   <label className="grid gap-2 text-sm font-semibold text-slate-700"><span>Body area</span><select value={selectedMarker.area} onChange={(event) => updateMarker({ area: event.target.value })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">{bodyAreas.map((item) => <option key={item}>{item}</option>)}</select></label>
                   <label className="grid gap-2 text-sm font-semibold text-slate-700"><span>Injury type</span><select value={selectedMarker.injury} onChange={(event) => updateMarker({ injury: event.target.value })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">{injuryTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
                   <Field label="Severity" value={selectedMarker.severity} onChange={(value) => updateMarker({ severity: value })} />
-                  <TextArea label="Marker notes" value={selectedMarker.notes} onChange={(value) => updateMarker({ notes: value })} />
-                  <button type="button" onClick={() => deleteMarker(selectedMarker.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700"><Trash2 size={17} />Delete marker</button>
+                  <button type="button" onClick={() => deleteMarker(selectedMarker.id)} className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700"><Trash2 size={17} />Delete marker</button>
+                  <div className="lg:col-span-4"><TextArea label="Marker notes" value={selectedMarker.notes} onChange={(value) => updateMarker({ notes: value })} /></div>
                 </div>
               ) : null}
             </aside>
-            <div className="min-w-0">
-              <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
-            </div>
           </div>
         </section>
 
