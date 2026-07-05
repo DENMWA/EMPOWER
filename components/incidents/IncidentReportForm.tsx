@@ -105,7 +105,7 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
         onAdd(getBodyViewFromPoint(x), x, y);
       }}
-      className={`${expanded ? "min-h-[640px]" : "min-h-[540px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all`}
+      className={`${expanded ? "min-h-[620px]" : "min-h-[520px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all xl:aspect-[306/220] xl:min-h-0`}
       aria-label="Add body map marker"
     >
       <div className="absolute inset-0 flex items-center justify-center rounded-md bg-white">
@@ -115,7 +115,7 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
           fill
           priority
           sizes="(min-width: 1280px) 900px, 100vw"
-          className="object-contain"
+          className="scale-[1.08] object-cover"
         />
       </div>
       <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm">Clinical body chart</span>
