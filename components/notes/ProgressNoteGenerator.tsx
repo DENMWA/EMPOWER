@@ -70,13 +70,13 @@ const bristolStoolOptions = [
 ];
 
 const bristolStoolChartReference = [
-  { type: "Type 1", label: "Separate hard lumps, like nuts", note: "Hard to pass", shape: "lumps" },
-  { type: "Type 2", label: "Sausage-shaped but lumpy", note: "Firm and uneven", shape: "lumpy-log" },
-  { type: "Type 3", label: "Like a sausage with cracks", note: "Cracked surface", shape: "cracked-log" },
-  { type: "Type 4", label: "Like a sausage or snake", note: "Smooth and soft", shape: "smooth-log" },
-  { type: "Type 5", label: "Soft blobs with clear-cut edges", note: "Passed easily", shape: "soft-blobs" },
-  { type: "Type 6", label: "Fluffy pieces with ragged edges", note: "Mushy stool", shape: "mushy" },
-  { type: "Type 7", label: "Watery, no solid pieces", note: "Entirely liquid", shape: "liquid" }
+  { option: "Type 1 - Separate hard lumps", type: "Type 1", label: "Separate hard lumps, like nuts", note: "Hard to pass", shape: "lumps" },
+  { option: "Type 2 - Lumpy and sausage-like", type: "Type 2", label: "Sausage-shaped but lumpy", note: "Firm and uneven", shape: "lumpy-log" },
+  { option: "Type 3 - Sausage shape with cracks", type: "Type 3", label: "Like a sausage with cracks", note: "Cracked surface", shape: "cracked-log" },
+  { option: "Type 4 - Smooth, soft sausage/snake", type: "Type 4", label: "Like a sausage or snake", note: "Smooth and soft", shape: "smooth-log" },
+  { option: "Type 5 - Soft blobs with clear edges", type: "Type 5", label: "Soft blobs with clear-cut edges", note: "Passed easily", shape: "soft-blobs" },
+  { option: "Type 6 - Mushy consistency", type: "Type 6", label: "Fluffy pieces with ragged edges", note: "Mushy stool", shape: "mushy" },
+  { option: "Type 7 - Watery, no solid pieces", type: "Type 7", label: "Watery, no solid pieces", note: "Entirely liquid", shape: "liquid" }
 ];
 
 const urineRecordOptions = [
@@ -135,26 +135,31 @@ const initialMonthlyReport: MonthlyReport = {
   nextMonth: ""
 };
 
-function BristolStoolChartReference() {
+function BristolStoolChartReference({ selectedType, onSelect }: { selectedType: string; onSelect: (value: string) => void }) {
   return (
-    <div className="rounded-md border border-amber-200 bg-white p-4 lg:col-span-2">
+    <div className="rounded-md border border-amber-300 bg-white p-4 shadow-inner lg:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="font-bold text-ink">Bristol Stool Chart reference</h4>
-          <p className="mt-1 text-sm leading-6 text-slate-600">Use this quick visual guide when selecting the bowel movement type.</p>
+          <h4 className="font-bold text-ink">Bristol Stool Chart reference for bowel care</h4>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Select a type from the chart or the dropdown above. The selected type is highlighted for the note.</p>
         </div>
-        <span className="rounded-md bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-900">Type 1-7</span>
+        <span className="rounded-md bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{selectedType.startsWith("Type") ? selectedType.split(" - ")[0] : "Type 1-7"}</span>
       </div>
       <div className="mt-4 grid gap-2">
         {bristolStoolChartReference.map((item) => (
-          <div key={item.type} className="grid gap-3 rounded-md border border-amber-100 bg-amber-50/40 p-3 sm:grid-cols-[76px_130px_minmax(0,1fr)] sm:items-center">
+          <button
+            key={item.type}
+            type="button"
+            onClick={() => onSelect(item.option)}
+            className={`grid w-full gap-3 rounded-md border p-3 text-left transition sm:grid-cols-[76px_150px_minmax(0,1fr)] sm:items-center ${selectedType === item.option ? "border-amber-700 bg-amber-100 ring-2 ring-amber-300" : "border-amber-100 bg-amber-50/40 hover:border-amber-300 hover:bg-amber-50"}`}
+          >
             <p className="text-sm font-bold text-amber-950">{item.type}</p>
             <StoolShape shape={item.shape} />
             <p className="text-sm leading-5 text-slate-700">
               <span className="font-semibold text-ink">{item.label}</span>
               <span className="block text-slate-600">{item.note}</span>
             </p>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -219,7 +224,7 @@ export function ProgressNoteGenerator() {
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const quality = scoreNoteQuality();
-  const showPersonalCareRecord = ["Personal care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
+  const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
@@ -396,7 +401,7 @@ export function ProgressNoteGenerator() {
                   {bristolStoolOptions.map((option) => <option key={option}>{option}</option>)}
                 </select>
               </label>
-              <BristolStoolChartReference />
+              <BristolStoolChartReference selectedType={continenceRecord.bristolType} onSelect={(value) => updateContinenceField("bristolType", value)} />
               <label className="text-sm font-semibold text-slate-700">
                 Urination / uridome / catheter record
                 <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineRecord} onChange={(event) => updateContinenceField("urineRecord", event.target.value)}>

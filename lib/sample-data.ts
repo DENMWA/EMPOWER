@@ -58,6 +58,7 @@ export type SupportDocument = {
 export const supportTypes = [
   "Community access",
   "Personal care",
+  "Bowel care",
   "Incontinence support",
   "Toileting support",
   "Domestic assistance",
