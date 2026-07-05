@@ -331,18 +331,27 @@ export function IncidentReportForm() {
               Larger view is open for clearer injury placement.
             </div>
           ) : null}
-          <div>
-            <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
-          </div>
-          {selectedMarker ? (
-            <div className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold text-slate-700"><span>Body area</span><select value={selectedMarker.area} onChange={(event) => updateMarker({ area: event.target.value })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">{bodyAreas.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label className="grid gap-2 text-sm font-semibold text-slate-700"><span>Injury type</span><select value={selectedMarker.injury} onChange={(event) => updateMarker({ injury: event.target.value })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">{injuryTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <Field label="Severity" value={selectedMarker.severity} onChange={(value) => updateMarker({ severity: value })} />
-              <button type="button" onClick={() => deleteMarker(selectedMarker.id)} className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700"><Trash2 size={17} />Delete marker</button>
-              <div className="md:col-span-2"><TextArea label="Marker notes" value={selectedMarker.notes} onChange={(value) => updateMarker({ notes: value })} /></div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)] xl:items-start">
+            <div className="min-w-0">
+              <BodyMap markers={report.markers} expanded={bodyMapExpanded} onAdd={addMarker} onSelect={setSelectedMarkerId} />
             </div>
-          ) : null}
+            <aside className="grid gap-4 rounded-md border border-red-100 bg-red-50 p-4 xl:sticky xl:top-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Injury marker details</p>
+                <h4 className="mt-1 text-lg font-bold text-ink">{selectedMarker ? `${selectedMarker.area} - ${selectedMarker.injury}` : "Select or add a marker"}</h4>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Click the body map on the left to add a marker, or click an existing red marker to edit it here.</p>
+              </div>
+              {selectedMarker ? (
+                <div className="grid gap-4">
+                  <label className="grid gap-2 text-sm font-semibold text-slate-700"><span>Body area</span><select value={selectedMarker.area} onChange={(event) => updateMarker({ area: event.target.value })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">{bodyAreas.map((item) => <option key={item}>{item}</option>)}</select></label>
+                  <label className="grid gap-2 text-sm font-semibold text-slate-700"><span>Injury type</span><select value={selectedMarker.injury} onChange={(event) => updateMarker({ injury: event.target.value })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">{injuryTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
+                  <Field label="Severity" value={selectedMarker.severity} onChange={(value) => updateMarker({ severity: value })} />
+                  <TextArea label="Marker notes" value={selectedMarker.notes} onChange={(value) => updateMarker({ notes: value })} />
+                  <button type="button" onClick={() => deleteMarker(selectedMarker.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700"><Trash2 size={17} />Delete marker</button>
+                </div>
+              ) : null}
+            </aside>
+          </div>
         </section>
 
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
