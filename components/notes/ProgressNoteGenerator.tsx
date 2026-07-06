@@ -19,6 +19,7 @@ type ContinenceCareRecord = {
   urineAppearance: string;
   uridomeCare: string;
   catheterCare: string;
+  colostomyBagCare: string;
   incontinenceSupport: string;
   toiletingSupport: string;
   personalCareNotes: string;
@@ -56,7 +57,8 @@ const continenceSupportOptions = [
   "Bowel movement record",
   "Urination record",
   "Uridome care",
-  "Catheter care"
+  "Catheter care",
+  "Colostomy bag care"
 ];
 
 const bristolStoolOptions = [
@@ -100,6 +102,7 @@ const initialContinenceRecord: ContinenceCareRecord = {
   urineAppearance: "Not observed",
   uridomeCare: "Not applicable",
   catheterCare: "Not applicable",
+  colostomyBagCare: "Not applicable",
   incontinenceSupport: "Not required during this support",
   toiletingSupport: "Not required during this support",
   personalCareNotes: "Privacy, dignity, consent, hygiene, infection-control steps, and participant response recorded where applicable."
@@ -225,7 +228,7 @@ export function ProgressNoteGenerator() {
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const quality = scoreNoteQuality();
-  const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support"].includes(supportType);
+  const showPersonalCareRecord = ["Personal care", "Bowel care"].includes(supportType);
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
@@ -292,6 +295,7 @@ export function ProgressNoteGenerator() {
       `Urination record: ${continenceRecord.urineRecord}. Appearance/concerns: ${continenceRecord.urineAppearance}.`,
       `Uridome care: ${continenceRecord.uridomeCare}.`,
       `Catheter care: ${continenceRecord.catheterCare}.`,
+      `Colostomy bag care: ${continenceRecord.colostomyBagCare}.`,
       `Incontinence support: ${continenceRecord.incontinenceSupport}.`,
       `Toileting support: ${continenceRecord.toiletingSupport}.`,
       `Additional personal care notes: ${continenceRecord.personalCareNotes}.`
@@ -395,7 +399,7 @@ export function ProgressNoteGenerator() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-sea">Personal care record</p>
-                <h3 className="mt-1 text-xl font-bold text-ink">Continence, toileting, bowel and urinary support</h3>
+                <h3 className="mt-1 text-xl font-bold text-ink">Bowel, continence, toileting and urinary support</h3>
               </div>
               <span className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-teal-900">Choose what applies</span>
             </div>
@@ -436,6 +440,10 @@ export function ProgressNoteGenerator() {
               <label className="text-sm font-semibold text-slate-700">
                 Catheter care
                 <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.catheterCare} onChange={(event) => updateContinenceField("catheterCare", event.target.value)} />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Colostomy bag care
+                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.colostomyBagCare} onChange={(event) => updateContinenceField("colostomyBagCare", event.target.value)} />
               </label>
               <label className="text-sm font-semibold text-slate-700">
                 Incontinence support provided

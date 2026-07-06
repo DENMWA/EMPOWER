@@ -59,7 +59,6 @@ export const supportTypes = [
   "Community access",
   "Personal care",
   "Bowel care",
-  "Incontinence support",
   "Domestic assistance",
   "Appointment support",
   "Meals and fluid log",
