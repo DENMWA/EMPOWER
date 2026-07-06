@@ -1,5 +1,6 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { ClientReportColourCards } from "@/components/admin/ClientReportColourCards";
+import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCollectionExport";
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { ReportingInsightsChart } from "@/components/admin/ReportingInsightsChart";
 import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
@@ -26,6 +27,7 @@ export default function AdminReportsPage() {
       <Section className="space-y-6">
         <ReportingInsightsChart />
         <ClientReportColourCards />
+        <ProgressNoteCollectionExport />
 
         <div className="grid gap-4 lg:grid-cols-3">
           {periods.map((period) => {

@@ -21,7 +21,7 @@ const trialSteps: TrialStep[] = [
   { id: "add-client", area: "Admin", title: "Add client profile", detail: "Add one client with goals, risks, staff access, and a reporting colour.", href: "/admin/clients/new" },
   { id: "upload-document", area: "Documents", title: "Upload client document", detail: "Save one document against a specific client, with start and expiry dates.", href: "/documents" },
   { id: "progress-note", area: "Notes", title: "Improve shift note with fidelity", detail: "Create a note and confirm the original worker note is preserved before the rewrite.", href: "/notes/new" },
-  { id: "progress-export", area: "Notes", title: "Download progress note collection", detail: "Use the date-range export instead of individual note downloads.", href: "/notes/new" },
+  { id: "progress-export", area: "Admin", title: "Download progress note collection", detail: "Use the admin-only date-range export instead of individual note downloads.", href: "/admin/reports" },
   { id: "incident-report", area: "Incidents", title: "Create incident report", detail: "Save an incident, add body map detail, manager review, and PDF/print output.", href: "/incidents/new" },
   { id: "incident-export", area: "Incidents", title: "Download incident collection", detail: "Use the incident reports date-range collection export.", href: "/incidents" },
   { id: "admin-reports", area: "Reports", title: "Review admin reports", detail: "Check weekly, fortnightly, monthly reports, PDF downloads, and live chart.", href: "/admin/reports" },

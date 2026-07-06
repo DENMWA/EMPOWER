@@ -5,7 +5,6 @@ import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocument
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
 import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
-import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCollectionExport";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -580,7 +579,6 @@ export function ProgressNoteGenerator() {
           </div>
         </Card>
       ) : null}
-      <ProgressNoteCollectionExport />
       <div className="grid gap-6 lg:grid-cols-2">
         <NoteQualityScore quality={quality} />
         <MissingDetailChecker missing={missing.length ? missing : ["Location", "Exact start and finish time", "Goal link", "Specific follow-up owner"]} />

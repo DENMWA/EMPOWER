@@ -92,7 +92,7 @@ export function ProgressNoteCollectionExport() {
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Collection export</p>
           <h2 className="mt-1 text-xl font-semibold text-ink">Download progress notes by period</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Progress notes are exported as a date-range collection for audit packs, plan reviews, billing evidence, and manager review.
+            Admin-only export for audit packs, plan reviews, billing evidence, and manager review.
           </p>
         </div>
         <StatusBadge label={`${sampleNotesInRange.length} sample notes`} tone="blue" />
