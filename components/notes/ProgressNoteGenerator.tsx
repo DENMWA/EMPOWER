@@ -226,7 +226,7 @@ export function ProgressNoteGenerator() {
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const quality = scoreNoteQuality();
   const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support"].includes(supportType);
-  const showMealsAndFluidLog = ["Meal preparation", "Meals and fluid log"].includes(supportType);
+  const showMealsAndFluidLog = supportType === "Meals and fluid log";
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
@@ -457,7 +457,7 @@ export function ProgressNoteGenerator() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-sea">Meals and fluid log</p>
-                <h3 className="mt-1 text-xl font-bold text-ink">Meal preparation and fluid intake</h3>
+                <h3 className="mt-1 text-xl font-bold text-ink">Meals, food intake and fluid intake</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-600">Record meals, food intake, percentage eaten, and fluids taken with meals, snacks, or medication prompts.</p>
               </div>
               <button type="button" onClick={addMealAndFluidEntry} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-lift">Add meal/fluid</button>
