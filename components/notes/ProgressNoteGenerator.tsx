@@ -50,7 +50,6 @@ type NoteClient = Participant & { colourSchemeId?: string };
 
 const continenceSupportOptions = [
   "Incontinence support",
-  "Toileting support",
   "Bowel movement record",
   "Urination record",
   "Uridome care",
@@ -224,7 +223,7 @@ export function ProgressNoteGenerator() {
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const quality = scoreNoteQuality();
-  const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support", "Toileting support", "Meal preparation"].includes(supportType);
+  const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support", "Meal preparation"].includes(supportType);
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
