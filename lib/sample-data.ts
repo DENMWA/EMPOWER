@@ -63,6 +63,7 @@ export const supportTypes = [
   "Domestic assistance",
   "Appointment support",
   "Meal preparation",
+  "Meals and fluid log",
   "Medication prompting",
   "Behaviour support implementation",
   "Key Worker Monthly Report",

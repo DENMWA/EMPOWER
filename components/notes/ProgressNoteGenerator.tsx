@@ -53,8 +53,7 @@ const continenceSupportOptions = [
   "Bowel movement record",
   "Urination record",
   "Uridome care",
-  "Catheter care",
-  "Fluid intake"
+  "Catheter care"
 ];
 
 const bristolStoolOptions = [
@@ -223,7 +222,8 @@ export function ProgressNoteGenerator() {
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const quality = scoreNoteQuality();
-  const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support", "Meal preparation"].includes(supportType);
+  const showPersonalCareRecord = ["Personal care", "Bowel care", "Incontinence support"].includes(supportType);
+  const showMealsAndFluidLog = ["Meal preparation", "Meals and fluid log"].includes(supportType);
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
@@ -282,21 +282,29 @@ export function ProgressNoteGenerator() {
   function formatContinenceSummary() {
     if (!showPersonalCareRecord) return "";
 
-    const fluidSummary = fluidIntake.length
-      ? fluidIntake.map((entry) => `${entry.time || "Time not recorded"} - ${entry.amountMl || "Amount not recorded"}mL ${entry.drinkType}${entry.notes ? ` (${entry.notes})` : ""}`).join("; ")
-      : "No fluid intake recorded";
-
     return [
       "Personal care continence/toileting record:",
       `Applicable support: ${continenceRecord.applicableSupports.length ? continenceRecord.applicableSupports.join(", ") : "Not selected"}.`,
       `Bowel movement: ${continenceRecord.bowelMovement}. Bristol Stool Chart: ${continenceRecord.bristolType}.`,
       `Urination record: ${continenceRecord.urineRecord}. Appearance/concerns: ${continenceRecord.urineAppearance}.`,
-      `Fluid intake: ${fluidSummary}.`,
       `Uridome care: ${continenceRecord.uridomeCare}.`,
       `Catheter care: ${continenceRecord.catheterCare}.`,
       `Incontinence support: ${continenceRecord.incontinenceSupport}.`,
       `Toileting support: ${continenceRecord.toiletingSupport}.`,
       `Additional personal care notes: ${continenceRecord.personalCareNotes}.`
+    ].join("\n");
+  }
+
+  function formatMealsAndFluidSummary() {
+    if (!showMealsAndFluidLog) return "";
+
+    const fluidSummary = fluidIntake.length
+      ? fluidIntake.map((entry) => `${entry.time || "Time not recorded"} - ${entry.amountMl || "Amount not recorded"}mL ${entry.drinkType}${entry.notes ? ` (${entry.notes})` : ""}`).join("; ")
+      : "No fluid intake recorded";
+
+    return [
+      "Meals and fluid log:",
+      `Fluid intake: ${fluidSummary}.`
     ].join("\n");
   }
 
@@ -310,7 +318,9 @@ export function ProgressNoteGenerator() {
 
   function useRewriteOption(option: string) {
     const continenceSummary = formatContinenceSummary();
-    const noteWithCareRecord = continenceSummary ? `${option}\n\n${continenceSummary}` : option;
+    const mealsAndFluidSummary = formatMealsAndFluidSummary();
+    const careSummaries = [continenceSummary, mealsAndFluidSummary].filter(Boolean).join("\n\n");
+    const noteWithCareRecord = careSummaries ? `${option}\n\n${careSummaries}` : option;
     setRoughNote(noteWithCareRecord);
     setRewriteOptions([]);
     setMissing([
@@ -411,40 +421,6 @@ export function ProgressNoteGenerator() {
                 Urine appearance / concerns
                 <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineAppearance} onChange={(event) => updateContinenceField("urineAppearance", event.target.value)} />
               </label>
-              <div className="rounded-md border border-sky-100 bg-white p-4 lg:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h4 className="font-bold text-ink">Fluid intake</h4>
-                    <p className="mt-1 text-sm text-slate-600">Record fluids by time, drink type, and amount in mL, including drinks taken with meals.</p>
-                  </div>
-                  <button type="button" onClick={addFluidIntake} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-lift">Add fluid</button>
-                </div>
-                <div className="mt-4 grid gap-3">
-                  {fluidIntake.map((entry) => (
-                    <div key={entry.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_1fr_1fr_1.5fr_auto]">
-                      <label className="text-sm font-semibold text-slate-700">
-                        Time
-                        <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" type="time" value={entry.time} onChange={(event) => updateFluidIntake(entry.id, { time: event.target.value })} />
-                      </label>
-                      <label className="text-sm font-semibold text-slate-700">
-                        Fluid
-                        <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.drinkType} onChange={(event) => updateFluidIntake(entry.id, { drinkType: event.target.value })}>
-                          {drinkTypeOptions.map((option) => <option key={option}>{option}</option>)}
-                        </select>
-                      </label>
-                      <label className="text-sm font-semibold text-slate-700">
-                        Amount (mL)
-                        <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" inputMode="numeric" value={entry.amountMl} onChange={(event) => updateFluidIntake(entry.id, { amountMl: event.target.value })} />
-                      </label>
-                      <label className="text-sm font-semibold text-slate-700">
-                        Meal/context
-                        <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.notes} onChange={(event) => updateFluidIntake(entry.id, { notes: event.target.value })} placeholder="Breakfast, lunch, morning tea..." />
-                      </label>
-                      <button type="button" onClick={() => removeFluidIntake(entry.id)} className="min-h-10 self-end rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700">Remove</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
               <label className="text-sm font-semibold text-slate-700">
                 Uridome care
                 <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.uridomeCare} onChange={(event) => updateContinenceField("uridomeCare", event.target.value)} />
@@ -465,6 +441,43 @@ export function ProgressNoteGenerator() {
                 Privacy, dignity, consent, hygiene and follow-up notes
                 <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.personalCareNotes} onChange={(event) => updateContinenceField("personalCareNotes", event.target.value)} />
               </label>
+            </div>
+          </div>
+        ) : null}
+        {showMealsAndFluidLog ? (
+          <div className="mt-5 rounded-md border border-sky-100 bg-sky-50/70 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-sea">Meals and fluid log</p>
+                <h3 className="mt-1 text-xl font-bold text-ink">Meal preparation and fluid intake</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Record fluids by time, drink type, and amount in mL, including drinks taken with meals, snacks, or medication prompts.</p>
+              </div>
+              <button type="button" onClick={addFluidIntake} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-lift">Add fluid</button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {fluidIntake.map((entry) => (
+                <div key={entry.id} className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_1fr_1fr_1.5fr_auto]">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Time
+                    <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" type="time" value={entry.time} onChange={(event) => updateFluidIntake(entry.id, { time: event.target.value })} />
+                  </label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    Fluid
+                    <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.drinkType} onChange={(event) => updateFluidIntake(entry.id, { drinkType: event.target.value })}>
+                      {drinkTypeOptions.map((option) => <option key={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    Amount (mL)
+                    <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" inputMode="numeric" value={entry.amountMl} onChange={(event) => updateFluidIntake(entry.id, { amountMl: event.target.value })} />
+                  </label>
+                  <label className="text-sm font-semibold text-slate-700">
+                    Meal/context
+                    <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.notes} onChange={(event) => updateFluidIntake(entry.id, { notes: event.target.value })} placeholder="Breakfast, lunch, morning tea..." />
+                  </label>
+                  <button type="button" onClick={() => removeFluidIntake(entry.id)} className="min-h-10 self-end rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700">Remove</button>
+                </div>
+              ))}
             </div>
           </div>
         ) : null}
