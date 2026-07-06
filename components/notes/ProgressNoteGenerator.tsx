@@ -25,12 +25,16 @@ type ContinenceCareRecord = {
   personalCareNotes: string;
 };
 
-type FluidIntakeEntry = {
+type MealAndFluidEntry = {
   id: string;
   time: string;
+  mealContext: string;
+  foodName: string;
+  portionPercent: string;
+  foodNotes: string;
   drinkType: string;
   amountMl: string;
-  notes: string;
+  fluidNotes: string;
 };
 
 type MonthlyReport = {
@@ -102,9 +106,9 @@ const initialContinenceRecord: ContinenceCareRecord = {
   personalCareNotes: "Privacy, dignity, consent, hygiene, infection-control steps, and participant response recorded where applicable."
 };
 
-const initialFluidIntake: FluidIntakeEntry[] = [
-  { id: "fluid-1", time: "08:00", drinkType: "Water", amountMl: "250", notes: "With breakfast" },
-  { id: "fluid-2", time: "10:30", drinkType: "Tea", amountMl: "200", notes: "Morning tea" }
+const initialMealAndFluidLog: MealAndFluidEntry[] = [
+  { id: "meal-fluid-1", time: "08:00", mealContext: "Breakfast", foodName: "Toast and fruit", portionPercent: "75", foodNotes: "Ate independently with verbal prompting", drinkType: "Water", amountMl: "250", fluidNotes: "With breakfast" },
+  { id: "meal-fluid-2", time: "10:30", mealContext: "Morning tea", foodName: "Biscuit", portionPercent: "100", foodNotes: "No concerns observed", drinkType: "Tea", amountMl: "200", fluidNotes: "Morning tea" }
 ];
 
 const monthlyReportFields: { key: keyof MonthlyReport; title: string; prompt: string }[] = [
@@ -217,7 +221,7 @@ export function ProgressNoteGenerator() {
   const [missing, setMissing] = useState<string[]>([]);
   const [supportType, setSupportType] = useState("Community access");
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
-  const [fluidIntake, setFluidIntake] = useState<FluidIntakeEntry[]>(initialFluidIntake);
+  const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
@@ -260,19 +264,19 @@ export function ProgressNoteGenerator() {
     }));
   }
 
-  function updateFluidIntake(id: string, patch: Partial<FluidIntakeEntry>) {
-    setFluidIntake((current) => current.map((entry) => entry.id === id ? { ...entry, ...patch } : entry));
+  function updateMealAndFluidEntry(id: string, patch: Partial<MealAndFluidEntry>) {
+    setMealAndFluidLog((current) => current.map((entry) => entry.id === id ? { ...entry, ...patch } : entry));
   }
 
-  function addFluidIntake() {
-    setFluidIntake((current) => [
+  function addMealAndFluidEntry() {
+    setMealAndFluidLog((current) => [
       ...current,
-      { id: `fluid-${Date.now()}`, time: "", drinkType: "Water", amountMl: "", notes: "" }
+      { id: `meal-fluid-${Date.now()}`, time: "", mealContext: "", foodName: "", portionPercent: "", foodNotes: "", drinkType: "Water", amountMl: "", fluidNotes: "" }
     ]);
   }
 
-  function removeFluidIntake(id: string) {
-    setFluidIntake((current) => current.filter((entry) => entry.id !== id));
+  function removeMealAndFluidEntry(id: string) {
+    setMealAndFluidLog((current) => current.filter((entry) => entry.id !== id));
   }
 
   function updateMonthlyReport(field: keyof MonthlyReport, value: string) {
@@ -298,12 +302,17 @@ export function ProgressNoteGenerator() {
   function formatMealsAndFluidSummary() {
     if (!showMealsAndFluidLog) return "";
 
-    const fluidSummary = fluidIntake.length
-      ? fluidIntake.map((entry) => `${entry.time || "Time not recorded"} - ${entry.amountMl || "Amount not recorded"}mL ${entry.drinkType}${entry.notes ? ` (${entry.notes})` : ""}`).join("; ")
+    const foodSummary = mealAndFluidLog.length
+      ? mealAndFluidLog.map((entry) => `${entry.time || "Time not recorded"} - ${entry.mealContext || "Meal/context not recorded"}: ${entry.foodName || "Food not recorded"}; portion eaten ${entry.portionPercent || "not recorded"}%${entry.foodNotes ? ` (${entry.foodNotes})` : ""}`).join("; ")
+      : "No food intake recorded";
+
+    const fluidSummary = mealAndFluidLog.length
+      ? mealAndFluidLog.map((entry) => `${entry.time || "Time not recorded"} - ${entry.amountMl || "Amount not recorded"}mL ${entry.drinkType}${entry.fluidNotes ? ` (${entry.fluidNotes})` : ""}`).join("; ")
       : "No fluid intake recorded";
 
     return [
       "Meals and fluid log:",
+      `Food intake: ${foodSummary}.`,
       `Fluid intake: ${fluidSummary}.`
     ].join("\n");
   }
@@ -450,32 +459,52 @@ export function ProgressNoteGenerator() {
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-sea">Meals and fluid log</p>
                 <h3 className="mt-1 text-xl font-bold text-ink">Meal preparation and fluid intake</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">Record fluids by time, drink type, and amount in mL, including drinks taken with meals, snacks, or medication prompts.</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Record meals, food intake, percentage eaten, and fluids taken with meals, snacks, or medication prompts.</p>
               </div>
-              <button type="button" onClick={addFluidIntake} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-lift">Add fluid</button>
+              <button type="button" onClick={addMealAndFluidEntry} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-lift">Add meal/fluid</button>
             </div>
             <div className="mt-4 grid gap-3">
-              {fluidIntake.map((entry) => (
-                <div key={entry.id} className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_1fr_1fr_1.5fr_auto]">
-                  <label className="text-sm font-semibold text-slate-700">
-                    Time
-                    <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" type="time" value={entry.time} onChange={(event) => updateFluidIntake(entry.id, { time: event.target.value })} />
-                  </label>
-                  <label className="text-sm font-semibold text-slate-700">
-                    Fluid
-                    <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.drinkType} onChange={(event) => updateFluidIntake(entry.id, { drinkType: event.target.value })}>
-                      {drinkTypeOptions.map((option) => <option key={option}>{option}</option>)}
-                    </select>
-                  </label>
-                  <label className="text-sm font-semibold text-slate-700">
-                    Amount (mL)
-                    <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" inputMode="numeric" value={entry.amountMl} onChange={(event) => updateFluidIntake(entry.id, { amountMl: event.target.value })} />
-                  </label>
-                  <label className="text-sm font-semibold text-slate-700">
-                    Meal/context
-                    <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.notes} onChange={(event) => updateFluidIntake(entry.id, { notes: event.target.value })} placeholder="Breakfast, lunch, morning tea..." />
-                  </label>
-                  <button type="button" onClick={() => removeFluidIntake(entry.id)} className="min-h-10 self-end rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700">Remove</button>
+              {mealAndFluidLog.map((entry) => (
+                <div key={entry.id} className="rounded-md border border-slate-200 bg-white p-3">
+                  <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_1.6fr_1fr_auto]">
+                    <label className="text-sm font-semibold text-slate-700">
+                      Time
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" type="time" value={entry.time} onChange={(event) => updateMealAndFluidEntry(entry.id, { time: event.target.value })} />
+                    </label>
+                    <label className="text-sm font-semibold text-slate-700">
+                      Meal/context
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.mealContext} onChange={(event) => updateMealAndFluidEntry(entry.id, { mealContext: event.target.value })} placeholder="Breakfast, lunch, snack..." />
+                    </label>
+                    <label className="text-sm font-semibold text-slate-700">
+                      Food name
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.foodName} onChange={(event) => updateMealAndFluidEntry(entry.id, { foodName: event.target.value })} placeholder="Sandwich, soup, yoghurt..." />
+                    </label>
+                    <label className="text-sm font-semibold text-slate-700">
+                      Eaten (%)
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" inputMode="numeric" min="0" max="100" type="number" value={entry.portionPercent} onChange={(event) => updateMealAndFluidEntry(entry.id, { portionPercent: event.target.value })} placeholder="75" />
+                    </label>
+                    <button type="button" onClick={() => removeMealAndFluidEntry(entry.id)} className="min-h-10 self-end rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700">Remove</button>
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_1.5fr_1.5fr]">
+                    <label className="text-sm font-semibold text-slate-700">
+                      Fluid
+                      <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.drinkType} onChange={(event) => updateMealAndFluidEntry(entry.id, { drinkType: event.target.value })}>
+                        {drinkTypeOptions.map((option) => <option key={option}>{option}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-sm font-semibold text-slate-700">
+                      Amount (mL)
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" inputMode="numeric" value={entry.amountMl} onChange={(event) => updateMealAndFluidEntry(entry.id, { amountMl: event.target.value })} />
+                    </label>
+                    <label className="text-sm font-semibold text-slate-700">
+                      Food notes
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.foodNotes} onChange={(event) => updateMealAndFluidEntry(entry.id, { foodNotes: event.target.value })} placeholder="Prompting, assistance, swallowing concerns..." />
+                    </label>
+                    <label className="text-sm font-semibold text-slate-700">
+                      Fluid notes
+                      <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-2 shadow-sm" value={entry.fluidNotes} onChange={(event) => updateMealAndFluidEntry(entry.id, { fluidNotes: event.target.value })} placeholder="With meal, refused, encouraged..." />
+                    </label>
+                  </div>
                 </div>
               ))}
             </div>
