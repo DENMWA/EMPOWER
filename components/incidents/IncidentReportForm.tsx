@@ -95,7 +95,35 @@ function getBodyViewFromPoint(x: number): BodyView {
   return "back";
 }
 
-function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number) => void; onSelect: (id: string) => void }) {
+function getBodyAreaFromPoint(view: BodyView, x: number, y: number) {
+  const side = view === "front" || view === "back" ? (x < 12.5 || (x >= 75 && x < 87.5) ? "Right" : "Left") : view === "left" ? "Left" : "Right";
+
+  if (y < 18) return "Head";
+  if (y < 26) return view === "back" ? "Upper back" : "Neck";
+
+  if (view === "front") {
+    if ((x < 8 || x > 18) && y < 58) return `${side} arm`;
+    if (y < 42) return "Chest";
+    if (y < 55) return "Abdomen";
+  }
+
+  if (view === "back") {
+    if ((x < 82 || x > 92) && y < 58) return `${side} arm`;
+    if (y < 43) return "Upper back";
+    if (y < 57) return "Lower back";
+  }
+
+  if (view === "left" || view === "right") {
+    const bodySide = view === "left" ? "Left" : "Right";
+    if (y < 58 && (x < 32 || x > 67)) return `${bodySide} arm`;
+    if (y < 52) return view === "left" ? "Chest" : "Upper back";
+  }
+
+  if (y < 88) return `${side} leg`;
+  return `${side} foot`;
+}
+
+function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number, area: string) => void; onSelect: (id: string) => void }) {
   return (
     <button
       type="button"
@@ -103,7 +131,8 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
         const rect = event.currentTarget.getBoundingClientRect();
         const x = Math.round(((event.clientX - rect.left) / rect.width) * 100);
         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
-        onAdd(getBodyViewFromPoint(x), x, y);
+        const view = getBodyViewFromPoint(x);
+        onAdd(view, x, y, getBodyAreaFromPoint(view, x, y));
       }}
       className={`${expanded ? "min-h-[700px]" : "min-h-[600px]"} relative block w-full overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-inner transition-all xl:aspect-[306/220] xl:min-h-0`}
       aria-label="Add body map marker"
@@ -154,8 +183,17 @@ export function IncidentReportForm() {
     update("incidentTypes", report.incidentTypes.includes(value) ? report.incidentTypes.filter((item) => item !== value) : [...report.incidentTypes, value]);
   }
 
-  function addMarker(view: BodyView, x: number, y: number) {
-    const marker: BodyMarker = { id: `marker-${Date.now()}`, view, x, y, area: "Other", injury: "Pain", severity: "Unknown", notes: "" };
+  function addMarker(view: BodyView, x: number, y: number, area: string) {
+    const marker: BodyMarker = {
+      id: `marker-${Date.now()}`,
+      view,
+      x,
+      y,
+      area,
+      injury: "Pain",
+      severity: "To be assessed",
+      notes: `Marker added to ${area.toLowerCase()} on the ${view} body-map view. Add visible signs, size, colour, pain reported, first aid, and monitoring details.`
+    };
     update("markers", [...report.markers, marker]);
     setSelectedMarkerId(marker.id);
   }
@@ -268,6 +306,7 @@ export function IncidentReportForm() {
                 <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Injury marker details</p>
                 <h4 className="mt-1 text-lg font-bold text-ink">{selectedMarker ? `${selectedMarker.area} - ${selectedMarker.injury}` : "Select or add a marker"}</h4>
                 <p className="mt-1 text-sm leading-6 text-slate-600">Click the expanded body map on the right to add a marker, or click an existing red marker to edit it here.</p>
+                <p className="mt-2 rounded-md bg-white px-3 py-2 text-xs font-semibold leading-5 text-red-800">Smart autofill suggests the body area from where the marker is placed. Staff should confirm and edit before saving.</p>
               </div>
               {selectedMarker ? (
                 <div className="grid gap-4">
