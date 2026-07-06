@@ -7,6 +7,29 @@ import { getClientColourScheme } from "@/lib/client-colours";
 import { participants } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
+const coreDocumentTypes = [
+  "NDIS Plan",
+  "Behaviour support plan",
+  "Risk assessment",
+  "Communication profile",
+  "Medical documents",
+  "CHAP",
+  "Service agreement"
+];
+
+const alliedHealthReportTypes = [
+  "Allied Health Report",
+  "Occupational Therapy Report",
+  "Physiotherapy Report",
+  "Speech Pathology Report",
+  "Psychology Report",
+  "Behaviour Support Practitioner Report",
+  "Dietitian Report",
+  "Exercise Physiology Report",
+  "Podiatry Report",
+  "Nursing Assessment Report"
+];
+
 export function DocumentUploadCard() {
   const [clientId, setClientId] = useState("joseph-k");
   const [documentType, setDocumentType] = useState("NDIS Plan");
@@ -45,7 +68,13 @@ export function DocumentUploadCard() {
         <label className="text-sm font-semibold text-slate-700">
           Document type
           <select className="mt-2 w-full rounded-md border border-slate-300 p-3" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
-            {["NDIS Plan", "Behaviour support plan", "Risk assessment", "Communication profile", "Medical documents", "CHAP", "Service agreement", "Other"].map((type) => <option key={type}>{type}</option>)}
+            <optgroup label="Core documents">
+              {coreDocumentTypes.map((type) => <option key={type}>{type}</option>)}
+            </optgroup>
+            <optgroup label="Allied health reports">
+              {alliedHealthReportTypes.map((type) => <option key={type}>{type}</option>)}
+            </optgroup>
+            <option>Other</option>
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">

@@ -106,7 +106,7 @@ export const participants: Participant[] = [
     goals: [sampleGoals[0], sampleGoals[3]],
     riskAlerts: ["Medication prompting requires documentation"],
     assignedWorkers: ["mary-wanjiku", "james-patel"],
-    documents: ["Communication Profile", "NDIS Plan"]
+    documents: ["Communication Profile", "NDIS Plan", "Occupational Therapy Report"]
   },
   {
     id: "joseph-k",
@@ -203,7 +203,8 @@ export const documents: SupportDocument[] = [
   { id: "doc-003", participantId: "amelia-r", type: "Communication Profile", status: "Manager verified", visibility: "worker-visible", confidence: 93, startDate: "2026-03-01", expiryDate: "2027-03-01" },
   { id: "doc-004", participantId: "sarah-t", type: "Risk Assessment", status: "Manager verified", visibility: "manager-only", confidence: 88, startDate: "2025-06-01", expiryDate: "2026-06-20" },
   { id: "doc-005", participantId: "amelia-r", type: "Service Agreement", status: "Manager verified", visibility: "manager-only", confidence: 89, startDate: "2026-02-10", expiryDate: "2026-07-27" },
-  { id: "doc-006", participantId: "sarah-t", type: "CHAP", status: "Manager verified", visibility: "worker-visible", confidence: 90, startDate: "2026-04-05", expiryDate: "2026-08-05" }
+  { id: "doc-006", participantId: "sarah-t", type: "CHAP", status: "Manager verified", visibility: "worker-visible", confidence: 90, startDate: "2026-04-05", expiryDate: "2026-08-05" },
+  { id: "doc-007", participantId: "amelia-r", type: "Occupational Therapy Report", status: "AI extracted, awaiting verification", visibility: "worker-visible", confidence: 86, startDate: "2026-05-12", expiryDate: "2027-05-12" }
 ];
 
 export const templates = [
