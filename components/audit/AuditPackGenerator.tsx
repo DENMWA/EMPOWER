@@ -2,28 +2,20 @@
 
 import { Card, StatusBadge } from "@/components/ui";
 import { generateAuditPack } from "@/lib/ai-mock";
-import { withOrganisationReportHeader } from "@/lib/organisation-profile";
+import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 
 export function AuditPackGenerator() {
   const pack = generateAuditPack();
 
   function downloadAuditPack() {
-    const content = withOrganisationReportHeader("EmpowerNotes Audit Pack", [
+    const content = [
       `Client: ${pack.participant}`,
       `Generated: ${new Date().toLocaleString("en-AU")}`,
       "",
       "Sections:",
       ...pack.sections.map((section) => `- ${section}`)
-    ].join("\n"));
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "empowernotes-audit-pack.txt";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    ].join("\n");
+    downloadOrganisationReportHtml("empowernotes-audit-pack.html", "EmpowerNotes Audit Pack", content);
   }
 
   return (
@@ -35,7 +27,7 @@ export function AuditPackGenerator() {
         <label className="text-sm font-semibold text-slate-700">End date<input className="mt-2 w-full rounded-md border border-slate-300 p-3" type="date" defaultValue="2026-06-30" /></label>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">{pack.sections.map((section) => <StatusBadge key={section} label={section} tone="blue" />)}</div>
-      <button type="button" onClick={downloadAuditPack} className="mt-4 rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white">Generate PDF audit pack</button>
+      <button type="button" onClick={downloadAuditPack} className="mt-4 rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white">Generate branded audit pack</button>
     </Card>
   );
 }

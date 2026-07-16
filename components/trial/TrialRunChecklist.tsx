@@ -24,7 +24,7 @@ const trialSteps: TrialStep[] = [
   { id: "progress-export", area: "Admin", title: "Download progress note collection", detail: "Use the admin-only date-range export instead of individual note downloads.", href: "/admin/reports" },
   { id: "incident-report", area: "Incidents", title: "Create incident report", detail: "Save an incident, add body map detail, manager review, and PDF/print output.", href: "/incidents/new" },
   { id: "incident-export", area: "Incidents", title: "Download incident collection", detail: "Use the incident reports date-range collection export.", href: "/incidents" },
-  { id: "admin-reports", area: "Reports", title: "Review admin reports", detail: "Check weekly, fortnightly, monthly reports, PDF downloads, and live chart.", href: "/admin/reports" },
+  { id: "admin-reports", area: "Reports", title: "Review admin reports", detail: "Check weekly, fortnightly, monthly reports, branded downloads, and live chart.", href: "/admin/reports" },
   { id: "platform", area: "Developer", title: "Check developer admin", detail: "Review subscriptions, payments, diagnostics, analytics, security, and support.", href: "/platform" }
 ];
 

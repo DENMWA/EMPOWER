@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
-import { withOrganisationReportHeader } from "@/lib/organisation-profile";
+import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { progressNotes, users } from "@/lib/sample-data";
 
 export function ManagerApprovalPanel() {
@@ -13,16 +13,7 @@ export function ManagerApprovalPanel() {
   }
 
   function exportNote(noteId: string, title: string, body: string) {
-    const content = withOrganisationReportHeader(title, `${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`);
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `empowernotes-${noteId}-approval-record.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadOrganisationReportHtml(`empowernotes-${noteId}-approval-record.html`, title, `${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`);
   }
 
   return (
@@ -45,7 +36,7 @@ export function ManagerApprovalPanel() {
                 <button type="button" onClick={() => updateStatus(note.id, "Approved")} className="rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white">Approve</button>
                 <button type="button" onClick={() => updateStatus(note.id, "Needs Review")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold">Send back</button>
                 <button type="button" onClick={() => updateStatus(note.id, "Locked")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold">Lock final note</button>
-                <button type="button" onClick={() => exportNote(note.id, `${note.supportType} approval record`, note.finalNote)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold">Export PDF</button>
+                <button type="button" onClick={() => exportNote(note.id, `${note.supportType} approval record`, note.finalNote)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold">Export report</button>
               </div>
             </div>
           );

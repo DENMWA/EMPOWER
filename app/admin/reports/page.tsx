@@ -52,7 +52,7 @@ export default function AdminReportsPage() {
                   <span>Cancelled/no-show: <strong>{report.cancelledOrNoShow}</strong></span>
                 </div>
                 <div className="mt-4">
-                  <PdfDownloadButton filename={`empower-notes-${period}-status-report.pdf`} title={`Empower Notes ${report.label}`} lines={reportLines} />
+                  <PdfDownloadButton filename={`empower-notes-${period}-status-report.html`} title={`Empower Notes ${report.label}`} lines={reportLines} />
                 </div>
               </Card>
             );

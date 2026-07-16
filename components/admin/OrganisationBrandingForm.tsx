@@ -40,7 +40,7 @@ export function OrganisationBrandingForm() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Report branding</p>
           <h2 className="mt-1 text-2xl font-bold text-ink">Logo and contact details</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Save your provider details once, then include them in downloadable reports, billing summaries, audit packs, notes, documents, and incident collections.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Save your provider logo and details once, then include them in downloadable reports, billing summaries, audit packs, notes, documents, and incident collections.</p>
         </div>
         <StatusBadge label={profile.includeInDownloads ? "Included in downloads" : "Optional"} tone={profile.includeInDownloads ? "green" : "blue"} />
       </div>
@@ -74,7 +74,7 @@ export function OrganisationBrandingForm() {
 
       <label className="mt-5 flex items-start gap-3 rounded-md border border-teal-100 bg-teal-50/70 p-3 text-sm font-semibold text-teal-950">
         <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={profile.includeInDownloads} onChange={(event) => update("includeInDownloads", event.target.checked)} />
-        Include these organisation details in downloadable reports.
+        Include this logo and organisation details in downloadable reports.
       </label>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">

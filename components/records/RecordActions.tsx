@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download, Save } from "lucide-react";
-import { withOrganisationReportHeader } from "@/lib/organisation-profile";
+import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { saveTenantRetainedRecord } from "@/lib/retained-records";
 import { cn } from "@/lib/utils";
 
@@ -34,16 +34,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
   }
 
   function downloadRecord() {
-    const content = withOrganisationReportHeader(title, `${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`);
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename.endsWith(".txt") ? filename : `${filename}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadOrganisationReportHtml(filename, title, `${body}\n\nExported: ${new Date().toLocaleString("en-AU")}`);
   }
 
   return (

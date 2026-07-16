@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getInvoiceSummaryDemo } from "@/lib/invoice-readiness";
-import { withOrganisationReportHeader } from "@/lib/organisation-profile";
+import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 
 export function InvoiceSummaryCard() {
   const summary = getInvoiceSummaryDemo();
@@ -11,16 +11,7 @@ export function InvoiceSummaryCard() {
 
   function downloadSummary() {
     const lines = Object.entries(summary).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`);
-    const content = withOrganisationReportHeader("EmpowerNotes Invoice Summary", lines.join("\n"));
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "empowernotes-invoice-summary.txt";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadOrganisationReportHtml("empowernotes-invoice-summary.html", "EmpowerNotes Invoice Summary", lines.join("\n"));
     setMessage("Invoice summary downloaded.");
   }
 
