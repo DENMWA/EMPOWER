@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
-import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary } from "@/lib/platform-data";
+import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary, type PlatformOrganisationStatus } from "@/lib/platform-data";
+import { clearPlatformAccessStatus, getEffectivePlatformStatus, getPlatformAccessOverride, isAccessBlocked, setDemoCurrentOrganisation, setPlatformAccessStatus } from "@/lib/platform-access";
 import { cn } from "@/lib/utils";
 
 type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "diagnostics" | "analytics" | "security" | "support";
@@ -118,11 +119,14 @@ export function PlatformDashboard() {
 function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
   if (activeArea === "overview") {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <PlatformMetric label="Organisations" value={platformSummary.organisations} detail={`${platformSummary.trialAccounts} trials active`} icon={Building2} />
-        <PlatformMetric label="Active users" value={platformSummary.activeUsers} detail={`${platformSummary.activeClients} active clients`} icon={Users} tone="blue" />
-        <PlatformMetric label="MRR" value={platformSummary.monthlyRecurringRevenue} detail={`${platformSummary.annualRecurringRevenue} ARR`} icon={ReceiptText} tone="green" />
-        <PlatformMetric label="Failed payments" value={platformSummary.failedPayments} detail={`${platformSummary.aiSpendMonth} AI spend this month`} icon={AlertTriangle} tone="amber" />
+      <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <PlatformMetric label="Organisations" value={platformSummary.organisations} detail={`${platformSummary.trialAccounts} trials active`} icon={Building2} />
+          <PlatformMetric label="Active users" value={platformSummary.activeUsers} detail={`${platformSummary.activeClients} active clients`} icon={Users} tone="blue" />
+          <PlatformMetric label="MRR" value={platformSummary.monthlyRecurringRevenue} detail={`${platformSummary.annualRecurringRevenue} ARR`} icon={ReceiptText} tone="green" />
+          <PlatformMetric label="Failed payments" value={platformSummary.failedPayments} detail={`${platformSummary.aiSpendMonth} AI spend this month`} icon={AlertTriangle} tone="amber" />
+        </div>
+        <AccountInsightsPanel />
       </div>
     );
   }
@@ -145,12 +149,49 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
 
   if (activeArea === "payments") return <PaymentSchedulePanel />;
   if (activeArea === "diagnostics") return <PlatformPanel title="Diagnostics Console" badge="Live health" items={diagnosticEvents.map((item) => `${item.area}: ${item.event} (${item.time})`)} />;
-  if (activeArea === "analytics") return <PlatformPanel title="Data Analytics" badge="Usage" items={analyticsSignals.map((item) => `${item.label}: ${item.value} (${item.change})`)} />;
+  if (activeArea === "analytics") {
+    return (
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <PlatformPanel title="Data Analytics" badge="Usage" items={analyticsSignals.map((item) => `${item.label}: ${item.value} (${item.change})`)} />
+        <AccountInsightsPanel />
+      </div>
+    );
+  }
   if (activeArea === "security") return <PlatformPanel title="Security Audit" badge="Audit" items={securityEvents} />;
   return <PlatformPanel title="Support Operations" badge="Ops" items={supportEvents} />;
 }
 
+function AccountInsightsPanel() {
+  const largest = [...platformOrganisations].sort((a, b) => b.clients - a.clients)[0];
+  const highestAi = [...platformOrganisations].sort((a, b) => b.aiCalls - a.aiCalls)[0];
+  const incidentRisk = [...platformOrganisations].sort((a, b) => b.incidents - a.incidents)[0];
+  const paymentRisk = platformOrganisations.filter((organisation) => getEffectivePlatformStatus(organisation.id) === "Payment risk");
+
+  const insights = [
+    `${largest.name} has the highest client volume at ${largest.clients} clients across ${largest.users} users.`,
+    `${highestAi.name} is the heaviest AI user with ${highestAi.aiCalls} AI calls and ${highestAi.notesCreated} notes created.`,
+    `${incidentRisk.name} has the highest incident count at ${incidentRisk.incidents}; monitor reporting quality and follow-up completion.`,
+    paymentRisk.length ? `${paymentRisk.length} account needs payment follow-up before renewal or suspension.` : "No payment-risk account is currently active.",
+    "Production wiring should write these metrics from Supabase usage tables and Stripe subscription/webhook events."
+  ];
+
+  return <PlatformPanel title="Account insights" badge="Live-readiness" items={insights} />;
+}
+
 function OrganisationHealthTable({ title = "Organisation health", badge = "Cross-account view" }: { title?: string; badge?: string }) {
+  const [version, setVersion] = useState(0);
+  const [reason, setReason] = useState("Payment overdue or trial access review required.");
+
+  function updateAccess(organisationId: string, status: PlatformOrganisationStatus) {
+    setPlatformAccessStatus(organisationId, status, reason);
+    setVersion((current) => current + 1);
+  }
+
+  function reactivate(organisationId: string) {
+    clearPlatformAccessStatus(organisationId);
+    setVersion((current) => current + 1);
+  }
+
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -159,6 +200,13 @@ function OrganisationHealthTable({ title = "Organisation health", badge = "Cross
           <h2 className="mt-1 text-xl font-semibold text-ink">{title}</h2>
         </div>
         <StatusBadge label={badge} tone="red" />
+      </div>
+      <div className="mt-4 grid gap-3 rounded-md border border-amber-100 bg-amber-50/70 p-3 lg:grid-cols-[1fr_auto] lg:items-end">
+        <label className="grid gap-2 text-sm font-semibold text-amber-950">
+          Access action reason
+          <input className="min-h-11 rounded-md border border-amber-200 bg-white px-3 text-sm text-ink" value={reason} onChange={(event) => setReason(event.target.value)} />
+        </label>
+        <p className="text-sm leading-6 text-amber-950">Use suspend for payment failure, cancellation, breach, or manual account review. Production should enforce this server-side.</p>
       </div>
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
@@ -171,20 +219,48 @@ function OrganisationHealthTable({ title = "Organisation health", badge = "Cross
               <th className="py-3 pr-4">Renewal</th>
               <th className="py-3 pr-4">MRR</th>
               <th className="py-3 pr-4">Status</th>
+              <th className="py-3 pr-4">Insights</th>
+              <th className="py-3 pr-4">Access</th>
             </tr>
           </thead>
           <tbody>
-            {platformOrganisations.map((organisation) => (
-              <tr key={organisation.name} className="border-b border-slate-100">
-                <td className="py-3 pr-4 font-semibold text-ink">{organisation.name}</td>
-                <td className="py-3 pr-4">{organisation.plan}</td>
-                <td className="py-3 pr-4">{organisation.users}</td>
-                <td className="py-3 pr-4">{organisation.clients}</td>
-                <td className="py-3 pr-4">{organisation.renewal}</td>
-                <td className="py-3 pr-4 font-semibold">{organisation.mrr}</td>
-                <td className="py-3 pr-4"><StatusBadge label={organisation.status} tone={organisation.status.includes("risk") ? "amber" : organisation.status === "Trial" ? "blue" : "green"} /></td>
-              </tr>
-            ))}
+            {platformOrganisations.map((organisation) => {
+              const status = getEffectivePlatformStatus(organisation.id);
+              const override = getPlatformAccessOverride(organisation.id);
+              const notesPerUser = Math.round(organisation.notesCreated / organisation.users);
+              const clientLoad = Math.round(organisation.clients / organisation.users);
+              const blocked = isAccessBlocked(status);
+
+              return (
+                <tr key={`${organisation.id}-${version}`} className={cn("border-b border-slate-100 align-top", blocked && "bg-red-50/50")}>
+                  <td className="py-3 pr-4">
+                    <p className="font-semibold text-ink">{organisation.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">Last active: {organisation.lastActive}</p>
+                    {override ? <p className="mt-1 text-xs text-red-700">Override: {override.reason}</p> : null}
+                  </td>
+                  <td className="py-3 pr-4">{organisation.plan}</td>
+                  <td className="py-3 pr-4">{organisation.users}</td>
+                  <td className="py-3 pr-4">{organisation.clients}</td>
+                  <td className="py-3 pr-4">{organisation.renewal}</td>
+                  <td className="py-3 pr-4 font-semibold">{organisation.mrr}</td>
+                  <td className="py-3 pr-4"><StatusBadge label={status} tone={status === "Payment risk" ? "amber" : blocked ? "red" : status === "Trial" ? "blue" : "green"} /></td>
+                  <td className="py-3 pr-4 text-xs leading-5 text-slate-600">
+                    <p>{notesPerUser} notes/user</p>
+                    <p>{clientLoad} clients/user</p>
+                    <p>{organisation.incidents} incidents</p>
+                    <p>{organisation.aiCalls} AI calls</p>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => setDemoCurrentOrganisation(organisation.id)} className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-ink hover:border-teal-400">Demo org</button>
+                      <button type="button" onClick={() => updateAccess(organisation.id, "Suspended")} className="rounded-md border border-red-200 bg-white px-2.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Suspend</button>
+                      <button type="button" onClick={() => updateAccess(organisation.id, "Payment risk")} className="rounded-md border border-amber-200 bg-white px-2.5 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50">Payment risk</button>
+                      <button type="button" onClick={() => reactivate(organisation.id)} className="rounded-md border border-emerald-200 bg-white px-2.5 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">Reactivate</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { PlanBadge } from "@/components/billing/PlanBadge";
+import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal, ListChecks } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal, ListChecks } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,12 +23,14 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
+  const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
+    setOrganisationAccess(getDemoOrganisationAccess());
   }, []);
 
   useEffect(() => {
@@ -84,7 +87,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         )}
       </header>
-      <main>{children}</main>
+      <main>
+        {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
+          <section className="mx-auto max-w-3xl px-4 py-16">
+            <div className="rounded-md border border-red-200 bg-white p-6 shadow-soft">
+              <div className="flex items-start gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-md bg-red-50 text-red-700">
+                  <AlertTriangle size={22} aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Access paused</p>
+                  <h1 className="mt-1 text-2xl font-bold text-ink">This organisation is currently {organisationAccess.status.toLowerCase()}.</h1>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Access has been paused by the EmpowerNotes platform console. Contact the platform owner or billing contact to reactivate this account.
+                  </p>
+                  {organisationAccess.override?.reason ? (
+                    <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">Reason: {organisationAccess.override.reason}</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : children}
+      </main>
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-7 text-sm leading-6 text-slate-600">
           <p>{complianceDisclaimer}</p>
