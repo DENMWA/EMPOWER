@@ -8,10 +8,10 @@ import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { MoreHorizontal } from "lucide-react";
 
 const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" }> = {
-  "dennis-mwangi": { label: "Owner", tone: "green" },
-  "mary-wanjiku": { label: "Active", tone: "green" },
-  "sarah-collins": { label: "Active", tone: "green" },
-  "james-patel": { label: "Invite sent", tone: "amber" }
+  "provider-owner": { label: "Owner", tone: "green" },
+  "support-worker-a": { label: "Active", tone: "green" },
+  "service-manager-a": { label: "Active", tone: "green" },
+  "team-lead-a": { label: "Invite sent", tone: "amber" }
 };
 
 type TeamMember = StaffUser & { inviteStatus?: StaffRecord["inviteStatus"] };

@@ -1,4 +1,5 @@
 import type { Participant } from "@/lib/sample-data";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 
 export type ClientRecord = Participant & {
@@ -20,6 +21,7 @@ export function createClientId(name: string) {
 
 export function getStoredClients() {
   if (typeof window === "undefined") return [];
+  if (isPresentationModeEnabled()) return [];
 
   try {
     const stored = window.localStorage.getItem(clientStorageKey);
@@ -65,6 +67,8 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
 }
 
 export async function getTenantClients() {
+  if (isPresentationModeEnabled()) return [];
+
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,created_at&order=created_at.desc"
   });

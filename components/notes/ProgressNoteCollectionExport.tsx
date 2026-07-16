@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { participants, progressNotes } from "@/lib/sample-data";
 
 type RetainedRecord = {
@@ -16,6 +17,7 @@ type RetainedRecord = {
 
 function getRetainedProgressNotes() {
   if (typeof window === "undefined") return [];
+  if (isPresentationModeEnabled()) return [];
 
   return Object.keys(window.localStorage)
     .filter((key) => key.startsWith("empower-retained-record:"))

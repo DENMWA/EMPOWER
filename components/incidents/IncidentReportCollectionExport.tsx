@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 
 type StoredIncidentReport = {
   incidentId: string;
@@ -39,8 +40,8 @@ const sampleIncidentReports: StoredIncidentReport[] = [
     date: "2026-06-25",
     time: "09:35",
     location: "Bathroom doorway, supported accommodation",
-    participant: "Sarah T.",
-    reporter: "Mary Wanjiku",
+    participant: "Client D",
+    reporter: "Support Worker A",
     status: "Needs Review",
     incidentTypes: ["Fall", "Injury"],
     whatHappened: "Participant slipped while walking to the bathroom and fell to the floor. Staff supported the participant to remain calm, checked for visible injury, provided first aid, notified the manager, and commenced monitoring.",
@@ -59,6 +60,7 @@ const sampleIncidentReports: StoredIncidentReport[] = [
 
 function getStoredIncidentReports() {
   if (typeof window === "undefined") return [];
+  if (isPresentationModeEnabled()) return [];
 
   return Object.keys(window.localStorage)
     .filter((key) => key.startsWith("empowernotes-incident:"))

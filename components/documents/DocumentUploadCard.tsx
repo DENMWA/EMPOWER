@@ -31,7 +31,7 @@ const alliedHealthReportTypes = [
 ];
 
 export function DocumentUploadCard() {
-  const [clientId, setClientId] = useState("joseph-k");
+  const [clientId, setClientId] = useState("client-b");
   const [documentType, setDocumentType] = useState("NDIS Plan");
   const [message, setMessage] = useState("");
   const selectedClient = participants.find((participant) => participant.id === clientId);

@@ -97,7 +97,7 @@ export default function HomePage() {
                 <div className="flex items-center gap-3">
                   <span className="grid h-11 w-11 place-items-center rounded-md bg-mint text-teal-900"><TrendingUp size={20} aria-hidden="true" /></span>
                   <div>
-                    <p className="font-semibold text-ink">Joseph K. community access note</p>
+                    <p className="font-semibold text-ink">Client B community access note</p>
                     <p className="text-sm text-slate-600">Risk wording improved, goal link suggested, missing details flagged.</p>
                   </div>
                 </div>

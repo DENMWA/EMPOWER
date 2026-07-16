@@ -15,7 +15,7 @@ export function InviteTeamMemberForm() {
   const [role, setRole] = useState<UserRole>("support_worker");
   const [inviteStatus, setInviteStatus] = useState("pending");
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const [assignedParticipants, setAssignedParticipants] = useState<string[]>(["joseph-k"]);
+  const [assignedParticipants, setAssignedParticipants] = useState<string[]>(["client-b"]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
   const allParticipants = [...participants, ...storedClients];
@@ -73,11 +73,11 @@ export function InviteTeamMemberForm() {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <label className="block text-sm font-semibold text-slate-700">
           Full name
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. Amina Joseph" value={name} onChange={(event) => setName(event.target.value)} />
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. Support Worker B" value={name} onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="block text-sm font-semibold text-slate-700">
           Email
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="email" placeholder="amina@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="email" placeholder="worker.b@demo.empowernotes.com" value={email} onChange={(event) => setEmail(event.target.value)} />
         </label>
         <RoleSelector value={role} onChange={setRole} />
         <label className="block text-sm font-semibold text-slate-700">

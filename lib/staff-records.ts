@@ -1,4 +1,5 @@
 import type { StaffUser, UserRole } from "@/lib/sample-data";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 
 export type StaffRecord = StaffUser & {
@@ -34,6 +35,7 @@ export function roleLabelFor(role: UserRole) {
 
 export function getStoredStaff() {
   if (typeof window === "undefined") return [];
+  if (isPresentationModeEnabled()) return [];
 
   try {
     const stored = window.localStorage.getItem(staffStorageKey);
@@ -99,6 +101,8 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
 }
 
 export async function getTenantStaffInvites() {
+  if (isPresentationModeEnabled()) return [];
+
   const result = await supabaseRequest<SupabaseStaffInviteRow[]>("staff_invites", {
     query: "select=id,name,email,role,invite_status,assigned_participant_ids,created_at&order=created_at.desc"
   });

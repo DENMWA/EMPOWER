@@ -40,9 +40,9 @@ export type EmployeeColourScheme = {
 };
 
 const employeeColours: Record<string, EmployeeColourScheme> = {
-  "mary-wanjiku": {
-    key: "mary-wanjiku",
-    label: "Mary",
+  "support-worker-a": {
+    key: "support-worker-a",
+    label: "Worker A",
     border: "border-teal-500",
     bg: "bg-teal-600",
     softBg: "bg-teal-50",
@@ -50,9 +50,9 @@ const employeeColours: Record<string, EmployeeColourScheme> = {
     ring: "ring-teal-200",
     dot: "bg-teal-500"
   },
-  "james-patel": {
-    key: "james-patel",
-    label: "James",
+  "team-lead-a": {
+    key: "team-lead-a",
+    label: "Team Lead",
     border: "border-sky-500",
     bg: "bg-sky-600",
     softBg: "bg-sky-50",
@@ -60,9 +60,9 @@ const employeeColours: Record<string, EmployeeColourScheme> = {
     ring: "ring-sky-200",
     dot: "bg-sky-500"
   },
-  "dennis-mwangi": {
-    key: "dennis-mwangi",
-    label: "Dennis",
+  "provider-owner": {
+    key: "provider-owner",
+    label: "Owner",
     border: "border-indigo-500",
     bg: "bg-indigo-600",
     softBg: "bg-indigo-50",
@@ -70,9 +70,9 @@ const employeeColours: Record<string, EmployeeColourScheme> = {
     ring: "ring-indigo-200",
     dot: "bg-indigo-500"
   },
-  "sarah-collins": {
-    key: "sarah-collins",
-    label: "Sarah",
+  "service-manager-a": {
+    key: "service-manager-a",
+    label: "Manager",
     border: "border-purple-500",
     bg: "bg-purple-600",
     softBg: "bg-purple-50",
@@ -111,10 +111,10 @@ export const rosterStatuses: RosterStatus[] = ["Scheduled", "In Progress", "Comp
 export const rosterShifts: RosterShift[] = [
   {
     id: "shift-001",
-    participantId: "joseph-k",
-    participantName: "Joseph K.",
-    workerId: "mary-wanjiku",
-    workerName: "Mary Wanjiku",
+    participantId: "client-b",
+    participantName: "Client B",
+    workerId: "support-worker-a",
+    workerName: "Support Worker A",
     supportType: "Community access",
     shiftDate: today,
     startTime: "10:00",
@@ -127,16 +127,16 @@ export const rosterShifts: RosterShift[] = [
   },
   {
     id: "shift-002",
-    participantId: "amelia-r",
-    participantName: "Amelia R.",
-    workerId: "james-patel",
-    workerName: "James Patel",
+    participantId: "client-a",
+    participantName: "Client A",
+    workerId: "team-lead-a",
+    workerName: "Team Lead A",
     supportType: "Personal care",
     shiftDate: today,
     startTime: "07:00",
     endTime: "09:00",
     location: "Home",
-    shiftInstructions: "Follow Amelia's visual choices and allow processing time before each task.",
+    shiftInstructions: "Follow the client's visual choices and allow processing time before each task.",
     status: "Note Completed",
     noteRequired: true,
     noteCompleted: true,
@@ -144,26 +144,26 @@ export const rosterShifts: RosterShift[] = [
   },
   {
     id: "shift-003",
-    participantId: "daniel-m",
-    participantName: "Daniel M.",
-    workerId: "mary-wanjiku",
-    workerName: "Mary Wanjiku",
+    participantId: "client-c",
+    participantName: "Client C",
+    workerId: "support-worker-a",
+    workerName: "Support Worker A",
     supportType: "Behaviour support implementation",
     shiftDate: today,
     startTime: "15:00",
     endTime: "17:00",
     location: "SIL residence",
-    shiftInstructions: "Record strategies used, Daniel's response, and any follow-up needed.",
+    shiftInstructions: "Record strategies used, the client's response, and any follow-up needed.",
     status: "Scheduled",
     noteRequired: true,
     noteCompleted: false
   },
   {
     id: "shift-004",
-    participantId: "sarah-t",
-    participantName: "Sarah T.",
-    workerId: "dennis-mwangi",
-    workerName: "Dennis Mwangi",
+    participantId: "client-d",
+    participantName: "Client D",
+    workerId: "provider-owner",
+    workerName: "Provider Owner",
     supportType: "Social work session",
     shiftDate: tomorrow,
     startTime: "13:00",
@@ -176,10 +176,10 @@ export const rosterShifts: RosterShift[] = [
   },
   {
     id: "shift-005",
-    participantId: "joseph-k",
-    participantName: "Joseph K.",
-    workerId: "sarah-collins",
-    workerName: "Sarah Collins",
+    participantId: "client-b",
+    participantName: "Client B",
+    workerId: "service-manager-a",
+    workerName: "Service Manager A",
     supportType: "Appointment support",
     shiftDate: thisWeek,
     startTime: "09:00",

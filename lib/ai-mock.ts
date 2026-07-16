@@ -31,13 +31,13 @@ export async function getProgressNoteRewriteOptions(transcript: string) {
   }
 
   const originalNote = transcript.trim() || "No original shift note entered.";
-  const hasJoseph = transcript.toLowerCase().includes("joseph");
+  const hasClientB = transcript.toLowerCase().includes("client b");
   const cleaned = rewritePersonCentredLanguage(originalNote);
 
-  if (hasJoseph) {
+  if (hasClientB) {
     return [
-      "Joseph was supported with community access to purchase groceries. During the outing, Joseph became upset and declined staff prompts at that time. Staff supported Joseph to calm and continue the activity, and Joseph later re-engaged with the shopping task and purchased food.",
-      "Joseph attended a community access activity to purchase groceries. Joseph became upset during the outing and declined staff prompts at that time. Staff supported Joseph to settle, and Joseph later re-engaged with the activity and completed the grocery purchase."
+      "Client B was supported with community access to purchase groceries. During the outing, Client B became upset and declined staff prompts at that time. Staff supported Client B to calm and continue the activity, and Client B later re-engaged with the shopping task and purchased food.",
+      "Client B attended a community access activity to purchase groceries. Client B became upset during the outing and declined staff prompts at that time. Staff supported Client B to settle, and Client B later re-engaged with the activity and completed the grocery purchase."
     ];
   }
 
@@ -119,7 +119,7 @@ export function checkInvoiceReadiness(score: number, approved: boolean, hasGoal:
 
 export function generateInvoiceSummary() {
   return {
-    participant: "Joseph K.",
+    participant: "Client B",
     dateRange: "25 Jun 2026",
     supportType: "Community access",
     totalDuration: "2.0 hours",
@@ -164,7 +164,7 @@ export function generateIncidentSummary() {
 
 export function generateAuditPack() {
   return {
-    participant: "Joseph K.",
+    participant: "Client B",
     range: "June 2026",
     sections: ["Progress note summary", "Goal progress evidence", "Incident summary", "Manager approval trail", "Document evidence summary", "Invoice-readiness evidence"]
   };

@@ -80,8 +80,8 @@ const clientColourSchemes: Record<string, ClientColourScheme> = {
     bar: "bg-violet-500",
     text: "text-violet-900"
   },
-  "amelia-r": {
-    id: "amelia-r",
+  "client-a": {
+    id: "client-a",
     label: "Sky",
     avatar: "bg-sky-100 text-sky-900",
     border: "border-sky-300",
@@ -90,8 +90,8 @@ const clientColourSchemes: Record<string, ClientColourScheme> = {
     bar: "bg-sky-500",
     text: "text-sky-900"
   },
-  "joseph-k": {
-    id: "joseph-k",
+  "client-b": {
+    id: "client-b",
     label: "Teal",
     avatar: "bg-teal-100 text-teal-900",
     border: "border-teal-300",
@@ -100,8 +100,8 @@ const clientColourSchemes: Record<string, ClientColourScheme> = {
     bar: "bg-teal-600",
     text: "text-teal-900"
   },
-  "daniel-m": {
-    id: "daniel-m",
+  "client-c": {
+    id: "client-c",
     label: "Indigo",
     avatar: "bg-indigo-100 text-indigo-900",
     border: "border-indigo-300",
@@ -110,8 +110,8 @@ const clientColourSchemes: Record<string, ClientColourScheme> = {
     bar: "bg-indigo-500",
     text: "text-indigo-900"
   },
-  "sarah-t": {
-    id: "sarah-t",
+  "client-d": {
+    id: "client-d",
     label: "Rose",
     avatar: "bg-rose-100 text-rose-900",
     border: "border-rose-300",
