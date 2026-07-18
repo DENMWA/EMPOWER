@@ -16,7 +16,7 @@ export function ClientProfiles() {
   if (!clients.length) {
     return (
       <Card className="border-teal-100">
-        <p className="text-sm font-semibold uppercase tracking-wide text-sea">No mock clients loaded</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-sea">No saved clients yet</p>
         <h2 className="mt-1 text-2xl font-bold text-ink">Add your first real client profile</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
           Client profiles will appear here after an admin adds them. Each profile keeps its selected reporting colour across profiles, documents, notes, and admin dashboards.

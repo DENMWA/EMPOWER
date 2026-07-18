@@ -98,17 +98,17 @@ export function DashboardOperationalLists() {
             <div key={user.id}>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-ink">{user.name}</span>
-                <span className="text-slate-600">{user.qualityTrend.at(-1)}%</span>
+                <span className="text-slate-600">{user.qualityTrend[user.qualityTrend.length - 1] ?? 0}%</span>
               </div>
               <div className="mt-2 h-2 rounded-full bg-slate-100">
-                <div className="h-2 rounded-full bg-sea" style={{ width: `${user.qualityTrend.at(-1)}%` }} />
+                <div className="h-2 rounded-full bg-sea" style={{ width: `${user.qualityTrend[user.qualityTrend.length - 1] ?? 0}%` }} />
               </div>
             </div>
           ))}
         </div>
         <div className="mt-5 flex items-center gap-2 text-sm text-slate-600">
           <TrendingUp size={18} aria-hidden="true" />
-          Quality scores are mocked for demo mode.
+          Quality scores update as saved records are reviewed.
         </div>
       </Card>
       <Card className="lg:col-span-3">

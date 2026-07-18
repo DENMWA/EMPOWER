@@ -1,7 +1,7 @@
 "use client";
 
 import { FilePlus2, Palette, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
 import { createClientId, saveTenantClient } from "@/lib/client-records";
@@ -23,11 +23,17 @@ export function AddClientForm() {
   const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
   const [saved, setSaved] = useState(false);
   const [message, setMessage] = useState("");
-  const allStaff = [...users, ...storedStaff];
+  const allStaff = useMemo(() => storedStaff.length ? storedStaff : users, [storedStaff]);
 
   useEffect(() => {
     getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
   }, []);
+
+  useEffect(() => {
+    if (allStaff.length && !assignedWorkers.some((workerId) => allStaff.some((staff) => staff.id === workerId))) {
+      setAssignedWorkers([allStaff[0].id]);
+    }
+  }, [allStaff, assignedWorkers]);
 
   function toggleGoal(goal: string) {
     setSelectedGoals((current) => current.includes(goal) ? current.filter((item) => item !== goal) : [...current, goal]);

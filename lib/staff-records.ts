@@ -102,11 +102,15 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
 
 export async function getTenantStaffInvites() {
   if (isPresentationModeEnabled()) return [];
+  const localStaff = getStoredStaff();
 
   const result = await supabaseRequest<SupabaseStaffInviteRow[]>("staff_invites", {
     query: "select=id,name,email,role,invite_status,assigned_participant_ids,created_at&order=created_at.desc"
   });
 
-  if (!result.data || result.error) return getStoredStaff();
-  return result.data.map(toStaffRecord);
+  if (!result.data || result.error) return localStaff;
+
+  const cloudStaff = result.data.map(toStaffRecord);
+  const localOnlyStaff = localStaff.filter((localRecord) => !cloudStaff.some((cloudRecord) => cloudRecord.id === localRecord.id));
+  return [...cloudStaff, ...localOnlyStaff];
 }

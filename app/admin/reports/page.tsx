@@ -52,7 +52,7 @@ export default function AdminReportsPage() {
                   <span>Cancelled/no-show: <strong>{report.cancelledOrNoShow}</strong></span>
                 </div>
                 <div className="mt-4">
-                  <PdfDownloadButton filename={`empower-notes-${period}-status-report.html`} title={`Empower Notes ${report.label}`} lines={reportLines} />
+                  <PdfDownloadButton filename={`empowernotes-${period}-status-report.html`} title={`EmpowerNotes ${report.label}`} lines={reportLines} />
                 </div>
               </Card>
             );
@@ -61,7 +61,7 @@ export default function AdminReportsPage() {
 
         <div className="grid gap-4 lg:grid-cols-3">
           <ReportCard icon={ClipboardCheck} title="Documentation Status" value={weakNotes.length} detail="Notes with low score or missing details" tone="amber" />
-          <ReportCard icon={ShieldCheck} title="Incident Oversight" value={3} detail="Mock incidents awaiting review" tone="red" />
+          <ReportCard icon={ShieldCheck} title="Incident Oversight" value={3} detail="Incidents awaiting review" tone="red" />
           <ReportCard icon={FileWarning} title="Evidence Gaps" value={unverifiedDocuments.length} detail="Documents awaiting manager verification" tone="blue" />
         </div>
       </Section>

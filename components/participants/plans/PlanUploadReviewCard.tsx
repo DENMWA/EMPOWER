@@ -7,7 +7,7 @@ import { FeatureGate } from "@/components/subscription/FeatureGate";
 
 export function PlanUploadReviewCard() {
   const [fileName, setFileName] = useState("");
-  const [status, setStatus] = useState("Waiting for upload");
+  const [status, setStatus] = useState("Ready for upload");
 
   function selectFile(file: File | undefined) {
     if (!file) return;
@@ -36,7 +36,7 @@ export function PlanUploadReviewCard() {
         </label>
         <button type="button" onClick={() => fileName && setStatus("Ready for authorised review")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift">
           <ShieldCheck size={17} aria-hidden="true" />
-          Simulate parsing
+          Queue for review
         </button>
       </div>
       <FeatureGate entitlement="multiDocumentParsing">

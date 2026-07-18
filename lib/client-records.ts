@@ -68,13 +68,17 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
 
 export async function getTenantClients() {
   if (isPresentationModeEnabled()) return [];
+  const localClients = getStoredClients();
 
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,created_at&order=created_at.desc"
   });
 
-  if (!result.data || result.error) return getStoredClients();
-  return result.data.map(toClientRecord);
+  if (!result.data || result.error) return localClients;
+
+  const cloudClients = result.data.map(toClientRecord);
+  const localOnlyClients = localClients.filter((localClient) => !cloudClients.some((cloudClient) => cloudClient.id === localClient.id));
+  return [...cloudClients, ...localOnlyClients];
 }
 
 export async function saveTenantClient(client: ClientRecord) {

@@ -15,6 +15,11 @@ type RetainedRecord = {
   savedAt: string;
 };
 
+function getRecordSupportDate(record: RetainedRecord) {
+  const match = record.body.match(/^Date:\s*(\d{4}-\d{2}-\d{2})/m);
+  return match?.[1] || record.savedAt.slice(0, 10);
+}
+
 function getRetainedProgressNotes() {
   if (typeof window === "undefined") return [];
   if (isPresentationModeEnabled()) return [];
@@ -43,8 +48,8 @@ export function ProgressNoteCollectionExport() {
   function downloadCollection() {
     const retained = includeSavedDrafts
       ? getRetainedProgressNotes().filter((record) => {
-          const savedDate = record.savedAt.slice(0, 10);
-          return savedDate >= fromDate && savedDate <= toDate;
+          const supportDate = getRecordSupportDate(record);
+          return supportDate >= fromDate && supportDate <= toDate;
         })
       : [];
     const sampleContent = sampleNotesInRange.map((note) => {
@@ -60,10 +65,11 @@ export function ProgressNoteCollectionExport() {
     });
 
     const retainedContent = retained.map((record) => {
-      const savedDate = record.savedAt.slice(0, 10);
+      const supportDate = getRecordSupportDate(record);
       return [
-        `Saved: ${savedDate}`,
+        `Date: ${supportDate}`,
         `Title: ${record.title}`,
+        `Saved: ${new Date(record.savedAt).toLocaleString("en-AU")}`,
         "",
         record.body
       ].join("\n");
@@ -89,7 +95,7 @@ export function ProgressNoteCollectionExport() {
             Admin-only export for audit packs, plan reviews, billing evidence, and manager review.
           </p>
         </div>
-        <StatusBadge label={`${sampleNotesInRange.length} sample notes`} tone="blue" />
+        <StatusBadge label={`${sampleNotesInRange.length} starter notes`} tone="blue" />
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <label className="grid gap-2 text-sm font-semibold text-slate-700">

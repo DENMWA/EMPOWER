@@ -12,7 +12,7 @@ const billingLines = [
   "Guided Voice: Enabled",
   "Document Intelligence: Enabled",
   "Invoice-readiness: Enabled",
-  "Payment processing: Not connected in demo mode"
+  "Payment processing: Ready for Stripe connection"
 ];
 
 export default function AdminBillingPage() {
@@ -22,7 +22,7 @@ export default function AdminBillingPage() {
         eyebrow="Admin billing"
         title="Billing, plan, and usage"
         description="Admin-only view of subscription plan, feature usage, and billing report exports."
-        actions={<PdfDownloadButton filename="empower-notes-billing-summary.html" title="Empower Notes Billing Summary" lines={billingLines} variant="primary" />}
+        actions={<PdfDownloadButton filename="empowernotes-billing-summary.html" title="EmpowerNotes Billing Summary" lines={billingLines} variant="primary" />}
       />
       <Section className="grid gap-6 lg:grid-cols-2">
         <UsageSummary />
@@ -35,7 +35,7 @@ export default function AdminBillingPage() {
               <h2 className="text-xl font-semibold text-ink">Billing export</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">Download a branded copy of the current billing and usage summary for admin records.</p>
             </div>
-            <StatusBadge label="Demo billing" tone="blue" />
+            <StatusBadge label="Billing summary" tone="blue" />
           </div>
         </Card>
       </Section>

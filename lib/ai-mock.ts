@@ -42,8 +42,8 @@ export async function getProgressNoteRewriteOptions(transcript: string) {
   }
 
   return [
-    `${cleaned} Staff provided support in line with the participant's presentation and response during the shift.`,
-    `${cleaned} Staff used objective, person-centred support and recorded the participant's engagement, response, and outcome for the shift.`
+    `${cleaned} The support record has been clarified using objective, person-centred language and should be reviewed to confirm the exact location, goal link, follow-up owner, and any manager notification required.`,
+    `${cleaned} The note describes the participant's presentation, support provided, response, and outcome based on the facts entered. Any missing operational details should be confirmed before approval.`
   ];
 }
 

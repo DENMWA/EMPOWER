@@ -5,7 +5,7 @@ import { ProgressIntelligenceSettings } from "@/components/settings/progress/Pro
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
 const settings = [
-  { label: "Organisation name", value: "Empower Notes Demo Provider" },
+  { label: "Organisation name", value: "EmpowerNotes Provider" },
   { label: "Provider mode", value: "Organisation" },
   { label: "Default documentation style", value: "Person-centred, objective, evidence-ready" },
   { label: "Worker roster access", value: "Locked" },
@@ -19,8 +19,8 @@ export default function AdminSettingsPage() {
       <PageHeader
         eyebrow="Admin settings"
         title="Organisation controls and default settings"
-        description="A mock settings surface for business details, access defaults, templates, documentation wording, and compliance preferences."
-        actions={<StatusBadge label="Mock settings" tone="blue" />}
+        description="Business details, access defaults, templates, documentation wording, and compliance preferences for testing and rollout."
+        actions={<StatusBadge label="Admin settings" tone="blue" />}
       />
       <Section className="grid gap-4 md:grid-cols-2">
         <OrganisationBrandingForm />

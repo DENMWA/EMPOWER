@@ -28,7 +28,7 @@ export function InvoiceSummaryCard() {
       </dl>
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" onClick={downloadSummary} className="rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white">Read invoice summary</button>
-        <button type="button" onClick={() => setMessage("Demo invoice marked as sent. Connect accounting software before live sending.")} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Mock send invoice</button>
+        <button type="button" onClick={() => setMessage("Invoice marked as ready to send. Connect accounting software before live sending.")} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Mark ready to send</button>
       </div>
       {message ? <p className="mt-3 rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800">{message}</p> : null}
       <div className="mt-3"><StatusBadge label="No accounting engine connected" tone="blue" /></div>

@@ -8,7 +8,7 @@ export default function AddStaffPage() {
       <PageHeader
         eyebrow="Add staff"
         title="Invite a new staff member"
-        description="Add workers, managers, and admins, then assign participant access before they start using Empower Notes."
+        description="Add workers, managers, and admins, then assign participant access before they start using EmpowerNotes."
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
       <Section>

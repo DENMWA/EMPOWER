@@ -5,6 +5,7 @@ type ImproveNoteRequest = {
 };
 
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const openAiApiKey = process.env.OPENAI_API_KEY || process.env.EMPOWERNOTES_CHAT_KEY || process.env["EmpowerNotes chat-key"];
 
 function personCentredLanguage(text: string) {
   return text
@@ -25,8 +26,8 @@ function localFidelityOptions(transcript: string) {
   const cleaned = personCentredLanguage(originalNote);
 
   return [
-    `${cleaned} Staff provided support in line with the participant's presentation and response during the shift.`,
-    `${cleaned} Staff used objective, person-centred support and recorded the participant's engagement, response, and outcome for the shift.`
+    `${cleaned} The support record has been clarified using objective, person-centred language and should be reviewed to confirm the exact location, goal link, follow-up owner, and any manager notification required.`,
+    `${cleaned} The note describes the participant's presentation, support provided, response, and outcome based on the facts entered. Any missing operational details should be confirmed before approval.`
   ];
 }
 
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter an original shift note first." }, { status: 400 });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!openAiApiKey) {
     return NextResponse.json({
       options: localFidelityOptions(cleanTranscript),
       source: "local-fallback"
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Authorization": `Bearer ${openAiApiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
           role: "system",
           content: [
             "You improve Australian disability support and NDIS-style shift notes.",
-            "Return JSON only in this shape: {\"options\":[\"...\",\"...\",\"...\"]}.",
+            "Return JSON only in this shape: {\"options\":[\"...\",\"...\"]}.",
             "Write exactly two rephrased professional note options.",
             "Each option must be a clean final note the worker can click and use directly.",
             "Do not include headings, disclaimers, boundaries, AI service notes, markdown, or bullet lists.",

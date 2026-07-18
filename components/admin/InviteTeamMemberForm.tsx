@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants, type UserRole } from "@/lib/sample-data";
 import { RoleSelector } from "@/components/admin/RoleSelector";
@@ -18,11 +18,17 @@ export function InviteTeamMemberForm() {
   const [assignedParticipants, setAssignedParticipants] = useState<string[]>(["client-b"]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
-  const allParticipants = [...participants, ...storedClients];
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : participants, [storedClients]);
 
   useEffect(() => {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
   }, []);
+
+  useEffect(() => {
+    if (allParticipants.length && !assignedParticipants.some((participantId) => allParticipants.some((participant) => participant.id === participantId))) {
+      setAssignedParticipants([allParticipants[0].id]);
+    }
+  }, [allParticipants, assignedParticipants]);
 
   function toggleParticipant(participantId: string) {
     setAssignedParticipants((current) => current.includes(participantId) ? current.filter((item) => item !== participantId) : [...current, participantId]);

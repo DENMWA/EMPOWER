@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -14,8 +17,10 @@ import {
 } from "lucide-react";
 import { ClientReportColourCards } from "@/components/admin/ClientReportColourCards";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getRosterSummary } from "@/lib/roster";
 import { participants, progressNotes, users } from "@/lib/sample-data";
+import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 
 const adminTools = [
   {
@@ -98,22 +103,31 @@ const adminTools = [
 ];
 
 export function AdminDashboard() {
+  const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
+  const [savedStaff, setSavedStaff] = useState<StaffRecord[]>([]);
   const rosterSummary = getRosterSummary();
   const weakNotes = progressNotes.filter((note) => note.score < 80 || note.missingDetails.length > 0).length;
+  const clientCount = savedClients.length || participants.length;
+  const staffCount = savedStaff.length || users.length;
+
+  useEffect(() => {
+    getTenantClients().then(setSavedClients).catch(() => setSavedClients([]));
+    getTenantStaffInvites().then(setSavedStaff).catch(() => setSavedStaff([]));
+  }, []);
 
   return (
     <>
       <PageHeader
         eyebrow="Admin control centre"
-        title="Manage the people, evidence, and reporting behind Empower Notes"
+        title="Manage the people, evidence, and reporting behind EmpowerNotes"
         description="A locked admin workspace for roster planning, team access, note review, incident oversight, documents, audit packs, settings, and reporting."
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
 
       <Section className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminMetric label="Active staff" value={users.length} detail="Sample team members" />
-          <AdminMetric label="Active clients" value={participants.length} detail="Colour-coded profiles" tone="blue" />
+          <AdminMetric label="Active staff" value={staffCount} detail={savedStaff.length ? "Saved staff records" : "Starter team records"} />
+          <AdminMetric label="Active clients" value={clientCount} detail={savedClients.length ? "Saved colour-coded profiles" : "Starter colour-coded profiles"} tone="blue" />
           <AdminMetric label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
           <AdminMetric label="Notes needing review" value={weakNotes} detail="Quality or detail risk" tone="amber" />
         </div>

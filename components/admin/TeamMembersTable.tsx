@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -19,8 +19,8 @@ type TeamMember = StaffUser & { inviteStatus?: StaffRecord["inviteStatus"] };
 export function TeamMembersTable() {
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allUsers: TeamMember[] = [...users, ...storedStaff];
-  const allParticipants = [...participants, ...storedClients];
+  const allUsers: TeamMember[] = useMemo(() => storedStaff.length ? storedStaff : users, [storedStaff]);
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : participants, [storedClients]);
 
   useEffect(() => {
     getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
@@ -51,6 +51,7 @@ export function TeamMembersTable() {
           <tbody>
             {allUsers.map((user) => {
               const assigned = allParticipants.filter((participant) => user.assignedParticipants.includes(participant.id));
+              const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;
               const storedStatus = user.inviteStatus;
               const status = storedStatus
                 ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : "amber" as const }
@@ -73,10 +74,10 @@ export function TeamMembersTable() {
                     <div className="w-32">
                       <div className="flex justify-between text-xs text-slate-600">
                         <span>Score</span>
-                        <span>{user.qualityTrend.at(-1)}%</span>
+                        <span>{latestQualityScore}%</span>
                       </div>
                       <div className="mt-2 h-2 rounded-full bg-slate-100">
-                        <div className="h-2 rounded-full bg-sea" style={{ width: `${user.qualityTrend.at(-1)}%` }} />
+                        <div className="h-2 rounded-full bg-sea" style={{ width: `${latestQualityScore}%` }} />
                       </div>
                     </div>
                   </td>

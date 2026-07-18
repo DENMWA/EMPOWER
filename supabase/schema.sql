@@ -217,6 +217,8 @@ create table documents (
   visibility document_visibility not null default 'worker-visible',
   status text not null default 'uploaded',
   manager_verified boolean not null default false,
+  start_date date,
+  expiry_date date,
   created_at timestamptz not null default now()
 );
 
@@ -663,6 +665,12 @@ create policy "document access respects visibility" on documents for select usin
     current_user_is_manager()
     or (visibility = 'worker-visible' and assigned_to_participant(participant_id))
   )
+);
+
+create policy "users upload documents for assigned clients" on documents for insert with check (
+  organisation_id = (select organisation_id from users where id = auth.uid())
+  and uploaded_by = auth.uid()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
 );
 
 create policy "document summaries follow document access" on document_ai_summaries for select using (

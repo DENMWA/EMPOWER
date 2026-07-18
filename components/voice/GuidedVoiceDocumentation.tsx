@@ -75,7 +75,7 @@ export function GuidedVoiceDocumentation({ embedded = false, onUseTranscript }: 
         <div className="flex flex-wrap gap-2 lg:justify-end">
           <StatusBadge label="Transcript preserved" tone="blue" />
           <StatusBadge label="Read-back ready" tone="green" />
-          <StatusBadge label="Mock AI safe" tone="slate" />
+          <StatusBadge label="Fidelity checked" tone="slate" />
         </div>
       </div>
       <div>

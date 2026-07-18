@@ -10,6 +10,7 @@ import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
+import { markTrialStepComplete } from "@/lib/trial-run";
 
 type ContinenceCareRecord = {
   applicableSupports: string[];
@@ -21,7 +22,6 @@ type ContinenceCareRecord = {
   catheterCare: string;
   colostomyBagCare: string;
   incontinenceSupport: string;
-  toiletingSupport: string;
   personalCareNotes: string;
 };
 
@@ -104,7 +104,6 @@ const initialContinenceRecord: ContinenceCareRecord = {
   catheterCare: "Not applicable",
   colostomyBagCare: "Not applicable",
   incontinenceSupport: "Not required during this support",
-  toiletingSupport: "Not required during this support",
   personalCareNotes: "Privacy, dignity, consent, hygiene, infection-control steps, and participant response recorded where applicable."
 };
 
@@ -215,13 +214,16 @@ function StoolShape({ shape }: { shape: string }) {
 
 export function ProgressNoteGenerator() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allParticipants = useMemo<NoteClient[]>(() => [...participants, ...storedClients], [storedClients]);
+  const allParticipants = useMemo<NoteClient[]>(() => storedClients.length ? storedClients : participants, [storedClients]);
   const [selectedParticipantId, setSelectedParticipantId] = useState(participants[0]?.id ?? "");
   const [roughNote, setRoughNote] = useState(sampleRoughNote);
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
   const [supportType, setSupportType] = useState("Community access");
+  const [supportDate, setSupportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startTime, setStartTime] = useState("10:00");
+  const [finishTime, setFinishTime] = useState("12:00");
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
@@ -248,7 +250,7 @@ export function ProgressNoteGenerator() {
   }, []);
 
   useEffect(() => {
-    if (!selectedParticipantId && allParticipants[0]) {
+    if ((!selectedParticipantId || !allParticipants.some((participant) => participant.id === selectedParticipantId)) && allParticipants[0]) {
       setSelectedParticipantId(allParticipants[0].id);
     }
   }, [allParticipants, selectedParticipantId]);
@@ -297,7 +299,6 @@ export function ProgressNoteGenerator() {
       `Catheter care: ${continenceRecord.catheterCare}.`,
       `Colostomy bag care: ${continenceRecord.colostomyBagCare}.`,
       `Incontinence support: ${continenceRecord.incontinenceSupport}.`,
-      `Toileting support: ${continenceRecord.toiletingSupport}.`,
       `Additional personal care notes: ${continenceRecord.personalCareNotes}.`
     ].join("\n");
   }
@@ -339,6 +340,7 @@ export function ProgressNoteGenerator() {
       ...checkMissingDetails(noteWithCareRecord),
       ...(showPersonalCareRecord && continenceRecord.applicableSupports.length === 0 ? ["Select applicable continence/toileting support"] : [])
     ]);
+    markTrialStepComplete("progress-note");
   }
 
   function useVoiceTranscript(transcript: string) {
@@ -346,6 +348,17 @@ export function ProgressNoteGenerator() {
     setRewriteOptions([]);
     setMissing(checkMissingDetails(transcript));
   }
+
+  const noteRecordBody = [
+    `Client: ${selectedParticipantName}`,
+    `Support type: ${supportType}`,
+    `Date: ${supportDate}`,
+    `Time: ${startTime} to ${finishTime}`,
+    "",
+    roughNote
+  ].join("\n");
+
+  const noteRecordId = `progress-note-${selectedParticipantId || "client"}-${supportDate}-${startTime.replace(":", "")}-${finishTime.replace(":", "")}`;
 
   return (
     <div className="space-y-6">
@@ -376,16 +389,16 @@ export function ProgressNoteGenerator() {
           </label>
           <label className="text-sm font-semibold text-slate-700">
             Date
-            <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="date" defaultValue="2026-06-25" />
+            <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="date" value={supportDate} onChange={(event) => setSupportDate(event.target.value)} />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm font-semibold text-slate-700">
               Start
-              <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="time" defaultValue="10:00" />
+              <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
             </label>
             <label className="text-sm font-semibold text-slate-700">
               Finish
-              <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="time" defaultValue="12:00" />
+              <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="time" value={finishTime} onChange={(event) => setFinishTime(event.target.value)} />
             </label>
           </div>
         </div>
@@ -399,7 +412,7 @@ export function ProgressNoteGenerator() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-sea">Personal care record</p>
-                <h3 className="mt-1 text-xl font-bold text-ink">Bowel, continence, toileting and urinary support</h3>
+                <h3 className="mt-1 text-xl font-bold text-ink">Bowel, continence and urinary support</h3>
               </div>
               <span className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-teal-900">Choose what applies</span>
             </div>
@@ -448,10 +461,6 @@ export function ProgressNoteGenerator() {
               <label className="text-sm font-semibold text-slate-700">
                 Incontinence support provided
                 <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.incontinenceSupport} onChange={(event) => updateContinenceField("incontinenceSupport", event.target.value)} />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Toileting support provided
-                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.toiletingSupport} onChange={(event) => updateContinenceField("toiletingSupport", event.target.value)} />
               </label>
               <label className="text-sm font-semibold text-slate-700 lg:col-span-2">
                 Privacy, dignity, consent, hygiene and follow-up notes
@@ -522,11 +531,11 @@ export function ProgressNoteGenerator() {
         </button>
         <RecordActions
           className="mt-3"
-          recordId="progress-note-draft"
+          recordId={noteRecordId}
           recordType="progress-note"
-          title="Professional Progress Note"
-          body={roughNote}
-          filename="empower-notes-progress-note"
+          title={`Professional Progress Note - ${selectedParticipantName}`}
+          body={noteRecordBody}
+          filename={`empower-notes-progress-note-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${supportDate}`}
           allowDownload={false}
         />
       </Card>
