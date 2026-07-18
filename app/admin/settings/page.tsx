@@ -1,6 +1,7 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { OrganisationBrandingForm } from "@/components/admin/OrganisationBrandingForm";
 import { PresentationModeCard } from "@/components/admin/PresentationModeCard";
+import { ProgressIntelligenceSettings } from "@/components/settings/progress/ProgressIntelligenceSettings";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
 const settings = [
@@ -24,6 +25,7 @@ export default function AdminSettingsPage() {
       <Section className="grid gap-4 md:grid-cols-2">
         <OrganisationBrandingForm />
         <PresentationModeCard />
+        <ProgressIntelligenceSettings />
         {settings.map((item) => (
           <Card key={item.label}>
             <p className="text-sm font-semibold text-slate-500">{item.label}</p>

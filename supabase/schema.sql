@@ -293,6 +293,151 @@ create table invoice_summaries (
   created_at timestamptz not null default now()
 );
 
+-- Plan-to-Progress Intelligence
+-- Private storage bucket to create: participant-plans.
+-- Recommended storage path: participant-plans/{organisation_id}/{participant_id}/{plan_id}/{filename}
+
+create table if not exists participant_plans (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid not null references participants_or_clients(id) on delete cascade,
+  document_id uuid references documents(id) on delete set null,
+  document_type text not null,
+  plan_name text,
+  plan_version text,
+  effective_from date,
+  effective_to date,
+  review_date date,
+  status text not null default 'processing' check (status in ('processing','ready_for_review','verified','rejected','superseded','archived','failed')),
+  is_current boolean not null default false,
+  extraction_status text not null default 'pending',
+  verification_status text not null default 'pending',
+  uploaded_by uuid references users(id) on delete set null,
+  verified_by uuid references users(id) on delete set null,
+  verified_at timestamptz,
+  superseded_by uuid references participant_plans(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists plan_extractions (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid not null references participants_or_clients(id) on delete cascade,
+  participant_plan_id uuid not null references participant_plans(id) on delete cascade,
+  extraction_type text not null check (extraction_type in ('goal','support_need','risk','support_strategy','communication_preference','baseline_indicator','review_date','participant_preference','health_information','mealtime_support','behaviour_support','other')),
+  title text,
+  original_text text,
+  interpreted_text text,
+  structured_data jsonb not null default '{}'::jsonb,
+  source_page integer,
+  source_section text,
+  source_paragraph text,
+  confidence_score numeric,
+  verification_status text not null default 'pending',
+  reviewed_value jsonb,
+  rejection_reason text,
+  reviewed_by uuid references users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists participant_goals (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid not null references participants_or_clients(id) on delete cascade,
+  participant_plan_id uuid references participant_plans(id) on delete set null,
+  source_extraction_id uuid references plan_extractions(id) on delete set null,
+  title text not null,
+  original_wording text,
+  plain_language_description text,
+  category text,
+  expected_outcome text,
+  observable_indicators jsonb not null default '[]'::jsonb,
+  status text not null default 'active',
+  effective_from date,
+  target_review_date date,
+  created_by uuid references users(id) on delete set null,
+  verified_by uuid references users(id) on delete set null,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists goal_baselines (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid not null references participants_or_clients(id) on delete cascade,
+  participant_goal_id uuid not null references participant_goals(id) on delete cascade,
+  baseline_date date not null,
+  baseline_description text not null,
+  support_level text,
+  baseline_score numeric,
+  scoring_framework_id uuid,
+  barriers jsonb not null default '[]'::jsonb,
+  strengths jsonb not null default '[]'::jsonb,
+  observable_indicators jsonb not null default '[]'::jsonb,
+  status text not null default 'draft' check (status in ('draft','pending_verification','verified','superseded','archived')),
+  source_plan_id uuid references participant_plans(id) on delete set null,
+  created_by uuid references users(id) on delete set null,
+  verified_by uuid references users(id) on delete set null,
+  verified_at timestamptz,
+  superseded_by uuid references goal_baselines(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists goal_evidence (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid not null references participants_or_clients(id) on delete cascade,
+  participant_goal_id uuid not null references participant_goals(id) on delete cascade,
+  source_type text not null check (source_type in ('progress_note','incident','meal_record','fluid_record','handover','assessment','manager_review','manual_observation')),
+  source_id uuid not null,
+  evidence_date timestamptz not null,
+  evidence_text text not null,
+  baseline_comparison text,
+  suggested_progress_status text,
+  suggested_score numeric,
+  ai_confidence_score numeric,
+  verification_status text not null default 'pending',
+  verified_progress_status text,
+  verified_score numeric,
+  contradiction_flag boolean not null default false,
+  contradiction_details text,
+  verified_by uuid references users(id) on delete set null,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists progress_scales (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid references organisations(id) on delete cascade,
+  name text not null,
+  description text,
+  scale_type text not null,
+  levels jsonb not null,
+  is_system_default boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists organisation_usage (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  usage_period_start date not null,
+  usage_period_end date not null,
+  active_participants integer not null default 0,
+  ai_analysed_notes integer not null default 0,
+  plan_documents_processed integer not null default 0,
+  storage_bytes bigint not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organisation_id, usage_period_start, usage_period_end)
+);
+
 create table retained_records (
   id text not null,
   organisation_id uuid not null references organisations(id) on delete cascade,
@@ -416,6 +561,13 @@ alter table approvals enable row level security;
 alter table audit_logs enable row level security;
 alter table documents enable row level security;
 alter table document_ai_summaries enable row level security;
+alter table participant_plans enable row level security;
+alter table plan_extractions enable row level security;
+alter table participant_goals enable row level security;
+alter table goal_baselines enable row level security;
+alter table goal_evidence enable row level security;
+alter table progress_scales enable row level security;
+alter table organisation_usage enable row level security;
 alter table document_note_links enable row level security;
 alter table templates enable row level security;
 alter table voice_sessions enable row level security;
@@ -541,6 +693,86 @@ create policy "org scoped retained records" on retained_records for select using
   organisation_id = current_user_organisation_id()
   and current_user_is_manager()
 );
+
+create policy "plans visible by participant access" on participant_plans for select using (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "managers upload and verify participant plans" on participant_plans for all using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "plan extractions visible by participant access" on plan_extractions for select using (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "managers review plan extractions" on plan_extractions for all using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "participant goals visible by participant access" on participant_goals for select using (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "managers verify participant goals" on participant_goals for all using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "goal baselines visible by participant access" on goal_baselines for select using (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "managers verify goal baselines" on goal_baselines for all using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "goal evidence visible by participant access" on goal_evidence for select using (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "users create goal evidence for assigned participants" on goal_evidence for insert with check (
+  organisation_id = current_user_organisation_id()
+  and (current_user_is_manager() or assigned_to_participant(participant_id))
+);
+create policy "managers verify goal evidence" on goal_evidence for update using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "progress scales visible to organisation" on progress_scales for select using (
+  organisation_id is null or organisation_id = current_user_organisation_id()
+);
+create policy "managers configure organisation progress scales" on progress_scales for all using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+) with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
+
+create policy "organisation usage visible to managers" on organisation_usage for select using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+);
 create policy "users save retained records in own organisation" on retained_records for insert with check (
   organisation_id = current_user_organisation_id()
 );
@@ -558,6 +790,12 @@ create index if not exists idx_roster_shifts_status on roster_shifts(status);
 create index if not exists idx_participants_or_clients_organisation_id on participants_or_clients(organisation_id);
 create index if not exists idx_staff_invites_organisation_id on staff_invites(organisation_id);
 create index if not exists idx_retained_records_organisation_id on retained_records(organisation_id);
+create index if not exists idx_participant_plans_org_participant on participant_plans(organisation_id, participant_id);
+create index if not exists idx_plan_extractions_plan on plan_extractions(participant_plan_id);
+create index if not exists idx_participant_goals_participant on participant_goals(participant_id);
+create index if not exists idx_goal_baselines_goal on goal_baselines(participant_goal_id);
+create index if not exists idx_goal_evidence_goal_date on goal_evidence(participant_goal_id, evidence_date);
+create index if not exists idx_organisation_usage_period on organisation_usage(organisation_id, usage_period_start, usage_period_end);
 
 -- Roster audit actions:
 -- roster_shift_created
