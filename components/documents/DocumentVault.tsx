@@ -113,8 +113,9 @@ function getExpiryReminder(expiryDate: string) {
   return { label: `Active: ${daysUntilExpiry} days left`, tone: "green" as const };
 }
 
-function getDocumentFileName(document: { fileName?: string }) {
-  return typeof document.fileName === "string" && document.fileName.trim() ? document.fileName : undefined;
+function getDocumentFileName(document: object) {
+  const fileName = "fileName" in document ? document.fileName : undefined;
+  return typeof fileName === "string" && fileName.trim() ? fileName : undefined;
 }
 
 function formatDate(value: string) {
