@@ -1,17 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Save } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { createCurrentUserOrganisation } from "@/lib/supabase-rest";
+import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
+import { subscriptionTiers } from "@/lib/subscriptions/tiers";
+
+const useCaseStorageKey = "empowernotes:onboarding-use-cases";
+const trialStorageKey = "empowernotes:trial";
 
 export function OrganisationAccountSetup() {
   const [organisationName, setOrganisationName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [providerType, setProviderType] = useState<"organisation" | "sole_provider">("organisation");
+  const [selectedPlan, setSelectedPlan] = useState(subscriptionTiers.practice.name);
+  const [trialEndsAt, setTrialEndsAt] = useState("");
+  const [selectedUseCases, setSelectedUseCases] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    function loadTrialSetup() {
+      setSelectedPlan(subscriptionTiers[getCurrentSubscriptionTier()].name);
+      try {
+        const stored = window.localStorage.getItem(useCaseStorageKey);
+        setSelectedUseCases(stored ? JSON.parse(stored) as string[] : []);
+        const trial = window.localStorage.getItem(trialStorageKey);
+        const parsedTrial = trial ? JSON.parse(trial) as { endsAt?: string } : null;
+        setTrialEndsAt(parsedTrial?.endsAt || "");
+      } catch {
+        setSelectedUseCases([]);
+        setTrialEndsAt("");
+      }
+    }
+
+    loadTrialSetup();
+    window.addEventListener("empowernotes:trial-updated", loadTrialSetup);
+    return () => window.removeEventListener("empowernotes:trial-updated", loadTrialSetup);
+  }, []);
 
   async function createAccount() {
     if (!organisationName.trim() || !ownerName.trim() || !ownerEmail.trim()) {
@@ -24,12 +52,14 @@ export function OrganisationAccountSetup() {
       organisationName: organisationName.trim(),
       ownerName: ownerName.trim(),
       ownerEmail: ownerEmail.trim(),
-      providerType
+      providerType,
+      subscriptionTier: getCurrentSubscriptionTier(),
+      trialEndsAt: trialEndsAt || undefined
     });
 
     setSaved(Boolean(result.data && !result.error));
     setMessage(result.data && !result.error
-      ? "Organisation account created. Future clients, staff, notes, reports, and documents will stay inside this organisation."
+      ? `Organisation account created on ${selectedPlan}. Future clients, staff, notes, reports, and documents will stay inside this organisation.`
       : "Sign in with Supabase Auth first, then create the organisation account.");
   }
 
@@ -55,6 +85,16 @@ export function OrganisationAccountSetup() {
             <option value="sole_provider">Sole provider</option>
           </select>
         </label>
+      </div>
+
+      <div className="mt-5 rounded-md border border-sky-100 bg-sky-50 p-4">
+        <p className="text-sm font-semibold text-ink">Selected trial setup</p>
+        <p className="mt-1 text-sm leading-6 text-slate-700">
+          {selectedPlan} with a 14-day free trial{trialEndsAt ? ` ending ${new Date(trialEndsAt).toLocaleDateString("en-AU")}` : ""}.
+        </p>
+        <p className="mt-1 text-sm leading-6 text-slate-700">
+          Workflows: {selectedUseCases.length ? selectedUseCases.join(", ") : "Choose workflows in the trial setup above."}
+        </p>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">

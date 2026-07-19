@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 export default function SignupPage() {
   return (
     <>
-      <PageHeader title="Start Free Trial" description="Set up an organisation workspace and choose the right EmpowerNotes plan for your Australian care team." />
+      <PageHeader title="Start a 14-day free trial" description="Choose a starting tier, select the workflows to trial, and create a private EmpowerNotes workspace for your Australian care service." />
       <Section className="space-y-6">
-        <OrganisationAccountSetup />
         <PlanRecommendation />
+        <OrganisationAccountSetup />
       </Section>
     </>
   );

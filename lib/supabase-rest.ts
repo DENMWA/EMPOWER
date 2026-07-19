@@ -1,3 +1,5 @@
+import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
+
 type SupabaseMethod = "GET" | "POST" | "PATCH";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -109,11 +111,27 @@ export async function createCurrentUserOrganisation(input: {
   ownerName: string;
   ownerEmail: string;
   providerType: "organisation" | "sole_provider";
+  subscriptionTier?: SubscriptionTier;
+  trialEndsAt?: string;
 }) {
-  return supabaseRpc<string>("create_organisation_for_current_user", {
+  const result = await supabaseRpc<string>("create_organisation_for_current_user", {
     organisation_name: input.organisationName,
     owner_name: input.ownerName,
     owner_email: input.ownerEmail,
     selected_provider_type: input.providerType
   });
+
+  if (result.data && input.subscriptionTier) {
+    await supabaseRequest("organisations", {
+      method: "PATCH",
+      query: `id=eq.${encodeURIComponent(result.data)}`,
+      body: {
+        subscription_tier: input.subscriptionTier,
+        subscription_status: "trialing",
+        subscription_current_period_end: input.trialEndsAt || null
+      }
+    });
+  }
+
+  return result;
 }
