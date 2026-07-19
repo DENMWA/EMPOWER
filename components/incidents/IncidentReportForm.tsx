@@ -27,6 +27,15 @@ type Attachment = {
   notes: string;
 };
 
+type PropertyDamageDetails = {
+  involved: boolean;
+  items: string[];
+  otherItem: string;
+  description: string;
+  estimatedCost: string;
+  immediateAction: string;
+};
+
 type IncidentReport = {
   incidentId: string;
   date: string;
@@ -42,13 +51,15 @@ type IncidentReport = {
   notifications: string;
   followUp: string;
   managerReview: string;
+  propertyDamage: PropertyDamageDetails;
   markers: BodyMarker[];
   attachments: Attachment[];
 };
 
-const incidentTypes = ["Fall", "Injury", "Medication incident", "Behaviour/distress incident", "Near miss", "Safeguarding concern", "Medical event", "Other"];
+const incidentTypes = ["Fall", "Injury", "Medication incident", "Behaviour/distress incident", "Property damage/destruction", "Near miss", "Safeguarding concern", "Medical event", "Other"];
 const bodyAreas = ["Head", "Face", "Neck", "Left arm", "Right arm", "Chest", "Abdomen", "Upper back", "Lower back", "Left leg", "Right leg", "Left foot", "Right foot", "Other"];
 const injuryTypes = ["Bruise", "Cut", "Swelling", "Redness", "Pain", "Scratch", "Skin tear", "Other"];
+const propertyDamageItems = ["Car / vehicle", "House / property", "Window / door", "Furniture", "Appliance", "Assistive equipment", "Personal belongings", "Other"];
 
 const initialReport: IncidentReport = {
   incidentId: "INC-2026-0007",
@@ -65,6 +76,14 @@ const initialReport: IncidentReport = {
   notifications: "Manager notified at 09:50. Case manager notified through internal handover note.",
   followUp: "Monitor pain, review bathroom threshold risk, and update the support plan if required.",
   managerReview: "Pending manager review. Consider whether escalation or reportable incident assessment is required.",
+  propertyDamage: {
+    involved: false,
+    items: [],
+    otherItem: "",
+    description: "",
+    estimatedCost: "",
+    immediateAction: ""
+  },
   markers: [
     { id: "marker-1", view: "front", x: 20, y: 35, area: "Left arm", injury: "Bruise", severity: "Mild", notes: "Approx. 3cm purple/blue bruising observed." },
     { id: "marker-2", view: "back", x: 82, y: 33, area: "Upper back", injury: "Redness", severity: "Mild", notes: "Approx. 4cm red area observed, no open skin." }
@@ -183,7 +202,26 @@ export function IncidentReportForm() {
   }
 
   function toggleType(value: string) {
-    update("incidentTypes", report.incidentTypes.includes(value) ? report.incidentTypes.filter((item) => item !== value) : [...report.incidentTypes, value]);
+    const selected = report.incidentTypes.includes(value);
+    update("incidentTypes", selected ? report.incidentTypes.filter((item) => item !== value) : [...report.incidentTypes, value]);
+    if (value === "Property damage/destruction") {
+      updatePropertyDamage({ involved: !selected });
+    }
+  }
+
+  function updatePropertyDamage(patch: Partial<PropertyDamageDetails>) {
+    update("propertyDamage", { ...report.propertyDamage, ...patch });
+  }
+
+  function togglePropertyDamageItem(value: string) {
+    const items = report.propertyDamage.items.includes(value)
+      ? report.propertyDamage.items.filter((item) => item !== value)
+      : [...report.propertyDamage.items, value];
+
+    updatePropertyDamage({ involved: true, items });
+    if (!report.incidentTypes.includes("Property damage/destruction")) {
+      update("incidentTypes", [...report.incidentTypes, "Property damage/destruction"]);
+    }
   }
 
   function addMarker(view: BodyView, x: number, y: number, area: string) {
@@ -292,6 +330,46 @@ export function IncidentReportForm() {
           <TextArea label="Injury / harm summary" value={report.injurySummary} onChange={(value) => update("injurySummary", value)} />
           <TextArea label="Immediate response" value={report.immediateAction} onChange={(value) => update("immediateAction", value)} />
           <TextArea label="Notifications" value={report.notifications} onChange={(value) => update("notifications", value)} />
+        </section>
+
+        <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-bold text-ink">Property damage / destruction</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Record damage to vehicles, houses, furniture, equipment, personal belongings, or other property linked to the incident.</p>
+            </div>
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={report.propertyDamage.involved}
+                onChange={(event) => {
+                  const involved = event.target.checked;
+                  updatePropertyDamage({ involved });
+                  if (involved && !report.incidentTypes.includes("Property damage/destruction")) {
+                    update("incidentTypes", [...report.incidentTypes, "Property damage/destruction"]);
+                  }
+                  if (!involved && report.incidentTypes.includes("Property damage/destruction")) {
+                    update("incidentTypes", report.incidentTypes.filter((type) => type !== "Property damage/destruction"));
+                  }
+                }}
+              />
+              Property damage involved
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {propertyDamageItems.map((item) => (
+              <label key={item} className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+                <input type="checkbox" checked={report.propertyDamage.items.includes(item)} onChange={() => togglePropertyDamageItem(item)} />
+                {item}
+              </label>
+            ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Other property item" value={report.propertyDamage.otherItem} onChange={(value) => updatePropertyDamage({ otherItem: value })} />
+            <Field label="Estimated cost / value if known" value={report.propertyDamage.estimatedCost} onChange={(value) => updatePropertyDamage({ estimatedCost: value })} />
+          </div>
+          <TextArea label="Property damage details" value={report.propertyDamage.description} onChange={(value) => updatePropertyDamage({ description: value })} />
+          <TextArea label="Immediate action for property damage" value={report.propertyDamage.immediateAction} onChange={(value) => updatePropertyDamage({ immediateAction: value })} />
         </section>
 
         <section className={`${bodyMapExpanded ? "border-teal-200 bg-teal-50/30" : "border-slate-200 bg-white"} grid gap-4 rounded-md border p-5 shadow-soft transition-all`}>

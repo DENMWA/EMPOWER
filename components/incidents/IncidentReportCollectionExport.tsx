@@ -22,6 +22,14 @@ type StoredIncidentReport = {
   notifications: string;
   followUp: string;
   managerReview: string;
+  propertyDamage?: {
+    involved: boolean;
+    items: string[];
+    otherItem: string;
+    description: string;
+    estimatedCost: string;
+    immediateAction: string;
+  };
   markers?: Array<{
     area: string;
     injury: string;
@@ -51,6 +59,14 @@ const sampleIncidentReports: StoredIncidentReport[] = [
     notifications: "Manager notified at 09:50. Case manager notified through internal handover note.",
     followUp: "Monitor pain, review bathroom threshold risk, and update the support plan if required.",
     managerReview: "Pending manager review. Consider whether escalation or reportable incident assessment is required.",
+    propertyDamage: {
+      involved: false,
+      items: [],
+      otherItem: "",
+      description: "",
+      estimatedCost: "",
+      immediateAction: ""
+    },
     markers: [
       { area: "Left arm", injury: "Bruise", severity: "Mild", notes: "Approx. 3cm purple/blue bruising observed." },
       { area: "Upper back", injury: "Redness", severity: "Mild", notes: "Approx. 4cm red area observed, no open skin." }
@@ -92,6 +108,15 @@ function formatIncidentReport(report: StoredIncidentReport) {
     ? report.attachments.map((attachment) => `${attachment.name} (${attachment.type}) - ${attachment.notes}`).join("; ")
     : "No attachments recorded.";
 
+  const propertyDamage = report.propertyDamage?.involved
+    ? [
+        `Items: ${[...(report.propertyDamage.items || []), report.propertyDamage.otherItem].filter(Boolean).join(", ") || "Not specified"}`,
+        `Details: ${report.propertyDamage.description || "Not recorded"}`,
+        `Estimated cost/value: ${report.propertyDamage.estimatedCost || "Not recorded"}`,
+        `Immediate action: ${report.propertyDamage.immediateAction || "Not recorded"}`
+      ].join("; ")
+    : "No property damage recorded.";
+
   return [
     `Incident ID: ${report.incidentId}`,
     `Date/time: ${report.date} ${report.time}`,
@@ -104,6 +129,7 @@ function formatIncidentReport(report: StoredIncidentReport) {
     `What happened: ${report.whatHappened}`,
     `Injury/harm summary: ${report.injurySummary}`,
     `Immediate response: ${report.immediateAction}`,
+    `Property damage/destruction: ${propertyDamage}`,
     `Notifications: ${report.notifications}`,
     `Follow-up: ${report.followUp}`,
     `Manager review: ${report.managerReview}`,
