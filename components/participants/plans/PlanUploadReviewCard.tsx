@@ -5,7 +5,7 @@ import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import type { PlanExtraction } from "@/lib/plan-progress/types";
 
-export function PlanUploadReviewCard() {
+export function PlanUploadReviewCard({ participantName }: { participantName?: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [status, setStatus] = useState("Ready for upload");
@@ -74,7 +74,9 @@ export function PlanUploadReviewCard() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Plan upload</p>
           <h2 className="mt-1 text-xl font-semibold text-ink">Private participant plan intake</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Plans are uploaded against a specific participant, parsed with ChatGPT, then held for authorised human verification before goals or baselines are created.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            {participantName ? `Plans uploaded here are held against ${participantName}, parsed with ChatGPT, then held for authorised human verification before goals or baselines are created.` : "Plans are uploaded against a specific participant, parsed with ChatGPT, then held for authorised human verification before goals or baselines are created."}
+          </p>
         </div>
         <StatusBadge label={status} tone={fileName ? "amber" : "blue"} />
       </div>
