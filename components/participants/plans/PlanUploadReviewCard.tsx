@@ -3,33 +3,70 @@
 import { useState } from "react";
 import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
-import { samplePlanExtractions } from "@/lib/plan-progress/sample-data";
+import type { PlanExtraction } from "@/lib/plan-progress/types";
 import { FeatureGate } from "@/components/subscription/FeatureGate";
 
 export function PlanUploadReviewCard() {
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [status, setStatus] = useState("Ready for upload");
   const [message, setMessage] = useState("");
   const [parsed, setParsed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [extractions, setExtractions] = useState<PlanExtraction[]>([]);
+  const [source, setSource] = useState("");
 
   function selectFile(file: File | undefined) {
     if (!file) return;
+    setFile(file);
     setFileName(file.name);
     setParsed(false);
+    setExtractions([]);
+    setSource("");
     setMessage("");
     setStatus("Ready to parse");
   }
 
-  function parsePlanForReview() {
-    if (!fileName) {
+  async function parsePlanForReview() {
+    if (!file) {
       setStatus("Choose a file first");
       setMessage("Choose a PDF or DOCX plan before parsing.");
       return;
     }
 
-    setParsed(true);
-    setStatus("Ready for authorised review");
-    setMessage(`${fileName} was parsed into review-ready plan evidence. Review each item before accepting it as a baseline.`);
+    setLoading(true);
+    setParsed(false);
+    setStatus("Parsing document");
+    setMessage("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/plan-progress/parse", {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStatus("Parsing failed");
+        setMessage(data?.error || "Plan parsing failed. Try a text-based PDF, DOCX, or TXT file.");
+        return;
+      }
+
+      const items = Array.isArray(data?.items) ? data.items as PlanExtraction[] : [];
+      setExtractions(items);
+      setSource(typeof data?.source === "string" ? data.source : "");
+      setParsed(true);
+      setStatus("Ready for authorised review");
+      setMessage(`${fileName} was parsed into ${items.length} review-ready item${items.length === 1 ? "" : "s"}. Review each item before accepting it as a baseline.`);
+    } catch {
+      setStatus("Parsing failed");
+      setMessage("Plan parsing could not reach the server. Check deployment logs and try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -47,13 +84,13 @@ export function PlanUploadReviewCard() {
           Upload plan document
           <span className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink hover:border-teal-400">
             <FileUp size={17} aria-hidden="true" />
-            {fileName || "Choose PDF or DOCX"}
-            <input type="file" accept=".pdf,.doc,.docx" className="sr-only" onChange={(event) => selectFile(event.target.files?.[0])} />
+            {fileName || "Choose PDF, DOCX, or TXT"}
+            <input type="file" accept=".pdf,.docx,.txt,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="sr-only" onChange={(event) => selectFile(event.target.files?.[0])} />
           </span>
         </label>
-        <button type="button" onClick={parsePlanForReview} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={parsePlanForReview} disabled={loading} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
           <ShieldCheck size={17} aria-hidden="true" />
-          Parse plan for review
+          {loading ? "Parsing..." : "Parse plan for review"}
         </button>
       </div>
       {message ? (
@@ -67,17 +104,20 @@ export function PlanUploadReviewCard() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">Parsed evidence</p>
               <h3 className="mt-1 text-lg font-semibold text-ink">Review before creating baseline</h3>
+              {source ? <p className="mt-1 text-sm text-slate-600">Parser source: {source === "openai-chat" ? "OpenAI assisted extraction" : "Local document parser"}</p> : null}
             </div>
-            <StatusBadge label={`${samplePlanExtractions.length} items found`} tone="green" />
+            <StatusBadge label={`${extractions.length} items found`} tone="green" />
           </div>
           <div className="mt-4 grid gap-3">
-            {samplePlanExtractions.map((item) => (
+            {extractions.map((item) => (
               <div key={item.id} className="rounded-md border border-emerald-100 bg-white p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{item.title}</p>
+                  <StatusBadge label={item.extractionType.replace(/_/g, " ")} tone="green" />
                   <StatusBadge label={`${Math.round(item.confidenceScore * 100)}% confidence`} tone="blue" />
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{item.interpretedText}</p>
+                <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs leading-5 text-slate-600">Original: {item.originalText}</p>
                 <p className="mt-2 text-xs text-slate-500">Source: page {item.sourcePage}, {item.sourceSection}.</p>
               </div>
             ))}
