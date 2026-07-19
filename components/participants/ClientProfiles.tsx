@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ButtonLink, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { ParticipantProfile } from "@/components/participants/ParticipantProfile";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 
@@ -30,9 +30,6 @@ export function ClientProfiles() {
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
-        <ButtonLink href="/participants/progress" variant="secondary">Progress & Outcomes</ButtonLink>
-      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         {clients.map((client) => <ParticipantProfile key={client.id} participant={client} colourSchemeId={client.colourSchemeId} />)}
       </div>

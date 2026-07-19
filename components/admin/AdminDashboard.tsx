@@ -9,6 +9,7 @@ import {
   FileCheck2,
   FileWarning,
   FolderLock,
+  LineChart,
   ReceiptText,
   Settings,
   ShieldCheck,
@@ -57,6 +58,13 @@ const adminTools = [
     href: "/admin/reports",
     icon: ClipboardCheck,
     badge: "Reports"
+  },
+  {
+    title: "Progress Intelligence",
+    detail: "Review plan-to-progress evidence, baselines, goal movement, and outcome signals.",
+    href: "/admin/progress",
+    icon: LineChart,
+    badge: "Outcomes"
   },
   {
     title: "Billing",
