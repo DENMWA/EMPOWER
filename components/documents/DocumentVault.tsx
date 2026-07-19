@@ -48,6 +48,7 @@ export function DocumentVault() {
           const colourSchemeId = participant && "colourSchemeId" in participant && typeof participant.colourSchemeId === "string" ? participant.colourSchemeId : undefined;
           const colour = getClientColourScheme(doc.participantId, colourSchemeId);
           const reminder = getExpiryReminder(doc.expiryDate);
+          const fileName = getDocumentFileName(doc);
           return (
             <div key={doc.id} className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border border-l-4 p-4", colour.border)}>
               <div className="flex items-start gap-3">
@@ -55,7 +56,7 @@ export function DocumentVault() {
                 <div>
                   <p className="font-semibold text-ink">{doc.type}</p>
                   <p className="text-sm text-slate-600">{participant?.name ?? doc.clientName ?? "Unassigned client"} - {doc.confidence ? `${doc.confidence}% extraction confidence` : "Awaiting AI extraction"}</p>
-                  {"fileName" in doc && doc.fileName ? <p className="mt-1 text-sm text-slate-600">File: {doc.fileName}</p> : null}
+                  {fileName ? <p className="mt-1 text-sm text-slate-600">File: {fileName}</p> : null}
                   <p className="mt-1 text-sm text-slate-600">Start: {formatDate(doc.startDate)} | Expiry: {formatDate(doc.expiryDate)}</p>
                   <span className={cn("mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold", colour.badge)}>{colour.label} client file</span>
                   <RecordActions
@@ -68,7 +69,7 @@ export function DocumentVault() {
                       `Document type: ${doc.type}`,
                       `Status: ${doc.status}`,
                       `Visibility: ${doc.visibility}`,
-                      "fileName" in doc && doc.fileName ? `File name: ${doc.fileName}` : "",
+                      fileName ? `File name: ${fileName}` : "",
                       `Start date: ${formatDate(doc.startDate)}`,
                       `Expiry date: ${formatDate(doc.expiryDate)}`,
                       `Reminder: ${reminder.label}`,
@@ -110,6 +111,10 @@ function getExpiryReminder(expiryDate: string) {
   }
 
   return { label: `Active: ${daysUntilExpiry} days left`, tone: "green" as const };
+}
+
+function getDocumentFileName(document: { fileName?: string }) {
+  return typeof document.fileName === "string" && document.fileName.trim() ? document.fileName : undefined;
 }
 
 function formatDate(value: string) {
