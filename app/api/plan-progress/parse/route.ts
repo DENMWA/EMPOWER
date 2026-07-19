@@ -83,7 +83,7 @@ function parseOpenAiItems(content: string): ParsedPlanItem[] {
 
 async function extractWithAi(text: string) {
   if (!openAiApiKey) {
-    throw new Error("ChatGPT parsing is not configured. Add OPENAI_API_KEY or EMPOWERNOTES_CHAT_KEY in Vercel environment variables, then redeploy.");
+    throw new Error("ChatGPT parsing is not configured. In Vercel, create an Environment Variable named exactly OPENAI_API_KEY or EMPOWERNOTES_CHAT_KEY and paste the OpenAI secret key as the value, then redeploy. A display label such as 'EmpowerNotes chat-key' will not be read by the server unless the environment variable key is one of those exact names.");
   }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {

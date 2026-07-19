@@ -4,7 +4,6 @@ import { useState } from "react";
 import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import type { PlanExtraction } from "@/lib/plan-progress/types";
-import { FeatureGate } from "@/components/subscription/FeatureGate";
 
 export function PlanUploadReviewCard() {
   const [file, setFile] = useState<File | null>(null);
@@ -128,9 +127,9 @@ export function PlanUploadReviewCard() {
           </button>
         </div>
       ) : null}
-      <FeatureGate entitlement="multiDocumentParsing">
-        <p className="mt-4 rounded-md bg-sky-50 p-3 text-sm leading-6 text-sky-900">Multi-document plan intelligence is enabled on this tier. Imported documents still enter the same review queue.</p>
-      </FeatureGate>
+      <p className="mt-4 rounded-md bg-sky-50 p-3 text-sm leading-6 text-sky-900">
+        Single-plan parsing is available for testing when the server has a valid OpenAI key. Multi-document batch processing can remain a higher-plan feature later.
+      </p>
     </Card>
   );
 }
