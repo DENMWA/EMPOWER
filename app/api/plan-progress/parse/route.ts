@@ -16,10 +16,16 @@ type ParsedPlanItem = {
   verificationStatus: "pending";
 };
 
+type ChatMessage = {
+  role: "system" | "user";
+  content: string;
+};
+
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const openAiApiKey = process.env.OPENAI_API_KEY || process.env.EMPOWERNOTES_CHAT_KEY || process.env["EmpowerNotes chat-key"];
 const maxFileBytes = 10 * 1024 * 1024;
 const maxTextChars = 24000;
+const extractionTypes: ExtractionType[] = ["goal", "support_need", "risk", "support_strategy", "baseline_indicator"];
 
 function fileExtension(fileName: string) {
   return fileName.toLowerCase().split(".").pop() || "";
@@ -70,7 +76,7 @@ function parseOpenAiItems(content: string): ParsedPlanItem[] {
     .slice(0, 10)
     .map((item, index) => ({
       id: `plan-extraction-${Date.now()}-${index + 1}`,
-      extractionType: item.extractionType || "support_need",
+      extractionType: extractionTypes.includes(item.extractionType as ExtractionType) ? item.extractionType as ExtractionType : "support_need",
       title: item.title || "Plan item",
       originalText: item.originalText || item.interpretedText || "",
       interpretedText: item.interpretedText || "",
@@ -81,7 +87,7 @@ function parseOpenAiItems(content: string): ParsedPlanItem[] {
     }));
 }
 
-async function extractWithAi(text: string) {
+async function requestChatGptExtraction(messages: ChatMessage[]) {
   if (!openAiApiKey) {
     throw new Error("ChatGPT parsing is not configured. In Vercel, create an Environment Variable named exactly OPENAI_API_KEY or EMPOWERNOTES_CHAT_KEY and paste the OpenAI secret key as the value, then redeploy. A display label such as 'EmpowerNotes chat-key' will not be read by the server unless the environment variable key is one of those exact names.");
   }
@@ -96,24 +102,7 @@ async function extractWithAi(text: string) {
       model,
       temperature: 0.1,
       response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: [
-            "You extract structured plan evidence from Australian disability, NDIS, allied health, and support plan documents.",
-            "Return JSON only as {\"items\":[...]}.",
-            "Each item must include extractionType, title, originalText, interpretedText, sourcePage, sourceSection, confidenceScore.",
-            "Allowed extractionType values are goal, support_need, risk, support_strategy, baseline_indicator.",
-            "Do not invent plan content. Only extract information present in the supplied text.",
-            "Keep originalText as close as possible to the source wording.",
-            "Use interpretedText to make the item clear for human verification."
-          ].join(" ")
-        },
-        {
-          role: "user",
-          content: `Uploaded plan text:\n${text}`
-        }
-      ]
+      messages
     })
   });
 
@@ -128,15 +117,50 @@ async function extractWithAi(text: string) {
     throw new Error("ChatGPT did not return readable extraction content.");
   }
 
-  let items: ParsedPlanItem[] = [];
   try {
-    items = parseOpenAiItems(content);
+    return parseOpenAiItems(content);
   } catch {
     throw new Error("ChatGPT returned an invalid extraction format.");
   }
+}
+
+function buildExtractionMessages(text: string, mode: "primary" | "broad"): ChatMessage[] {
+  const guidance =
+    mode === "primary"
+      ? "Prioritise participant goals, support needs, risks, support strategies, and baseline indicators. If the document is a policy, behaviour support assessment guide, allied-health report, or provider guidance rather than a participant plan, still extract the practical requirements that can guide staff review."
+      : "The first pass returned no usable items. Extract any practical, review-ready content from this document that could guide disability support documentation, behaviour support review, risk review, staff actions, assessment requirements, data collection, or baseline monitoring.";
+
+  return [
+    {
+      role: "system",
+      content: [
+        "You extract structured evidence from Australian disability, NDIS, allied health, behaviour support, support plan, and provider guidance documents for EmpowerNotes.",
+        "Return JSON only as {\"items\":[...]}.",
+        "Return between 3 and 10 items whenever the uploaded text contains any usable support, risk, assessment, monitoring, reporting, or care guidance.",
+        "Each item must include extractionType, title, originalText, interpretedText, sourcePage, sourceSection, confidenceScore.",
+        "Allowed extractionType values are goal, support_need, risk, support_strategy, baseline_indicator.",
+        "Do not invent names, diagnoses, events, dates, injuries, or participant-specific facts that are not in the text.",
+        "Keep originalText short and close to the source wording.",
+        "Use interpretedText to explain how the extracted item can be reviewed by a human before being used as a baseline or support guide.",
+        guidance
+      ].join(" ")
+    },
+    {
+      role: "user",
+      content: `Uploaded document text:\n${text}`
+    }
+  ];
+}
+
+async function extractWithAi(text: string) {
+  let items = await requestChatGptExtraction(buildExtractionMessages(text, "primary"));
 
   if (!items.length) {
-    throw new Error("ChatGPT did not return any extraction items.");
+    items = await requestChatGptExtraction(buildExtractionMessages(text, "broad"));
+  }
+
+  if (!items.length) {
+    throw new Error("ChatGPT did not find review-ready plan, risk, support strategy, or baseline items in this document. Try a participant plan, behaviour support plan, allied-health report, or a text-based PDF with selectable text.");
   }
 
   return { items, source: "chatgpt" };
