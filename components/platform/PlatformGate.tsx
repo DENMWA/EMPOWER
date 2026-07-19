@@ -19,7 +19,7 @@ export function PlatformGate({ children }: { children: ReactNode }) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const expected = process.env.NEXT_PUBLIC_PLATFORM_DEMO_PASSWORD || fallbackPassword;
+    const expected = process.env.NEXT_PUBLIC_PLATFORM_PASSWORD || process.env.NEXT_PUBLIC_PLATFORM_DEMO_PASSWORD || fallbackPassword;
 
     if (password.trim() === expected) {
       window.localStorage.setItem(storageKey, "true");
@@ -72,7 +72,7 @@ export function PlatformGate({ children }: { children: ReactNode }) {
           </form>
 
           <p className="mt-5 text-xs leading-5 text-slate-500">
-            Demo password: {fallbackPassword}. Production should use owner-only authentication, MFA, IP controls, and server-side authorization.
+            Testing password: {fallbackPassword}. Use owner-only authentication, MFA, IP controls, and server-side authorization before live use.
           </p>
         </Card>
       </Section>

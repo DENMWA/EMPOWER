@@ -3,6 +3,7 @@ import { ClientReportColourCards } from "@/components/admin/ClientReportColourCa
 import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCollectionExport";
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { ReportingInsightsChart } from "@/components/admin/ReportingInsightsChart";
+import { SavedRecordsSummary } from "@/components/admin/SavedRecordsSummary";
 import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
@@ -26,6 +27,7 @@ export default function AdminReportsPage() {
       />
       <Section className="space-y-6">
         <ReportingInsightsChart />
+        <SavedRecordsSummary />
         <ClientReportColourCards />
         <ProgressNoteCollectionExport />
 

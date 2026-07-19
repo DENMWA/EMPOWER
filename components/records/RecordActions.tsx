@@ -31,6 +31,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
     const result = await saveTenantRetainedRecord(record);
     setSaved(true);
     setMessage(result.savedToCloud ? "Saved to this organisation." : "Saved locally. Sign in to save it to this organisation's Supabase space.");
+    window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 
   function downloadRecord() {
@@ -41,7 +42,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
     <div className={cn("flex flex-wrap gap-3", className)}>
       <button type="button" onClick={saveRecord} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift">
         <Save size={17} aria-hidden="true" />
-        {saved ? "Saved locally" : "Save record"}
+        {saved ? "Saved" : "Save record"}
       </button>
       {allowDownload ? (
         <button type="button" onClick={downloadRecord} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">

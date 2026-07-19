@@ -19,7 +19,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const expected = process.env.NEXT_PUBLIC_ADMIN_DEMO_PASSWORD || fallbackPassword;
+    const expected = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_DEMO_PASSWORD || fallbackPassword;
 
     if (password.trim() === expected) {
       window.localStorage.setItem(storageKey, "true");
@@ -72,7 +72,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
           </form>
 
           <p className="mt-5 text-xs leading-5 text-slate-500">
-            Demo password: {fallbackPassword}. In production this should be replaced with real user login, roles, and server-side access control.
+            Testing password: {fallbackPassword}. Use Supabase Auth, roles, and server-side access control before taking live client data.
           </p>
         </Card>
       </Section>

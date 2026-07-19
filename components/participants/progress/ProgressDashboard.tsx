@@ -26,7 +26,7 @@ export function ProgressDashboard() {
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-[240px_1fr]">
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Demo subscription tier
+            Subscription tier for testing
             <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={tier} onChange={(event) => setTier(event.target.value as SubscriptionTier)}>
               {Object.entries(subscriptionTiers).map(([key, value]) => <option key={key} value={key}>{value.name}</option>)}
             </select>

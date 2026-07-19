@@ -91,7 +91,7 @@ export function InviteTeamMemberForm() {
           <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={inviteStatus} onChange={(event) => setInviteStatus(event.target.value)}>
             <option value="pending">Send invite email</option>
             <option value="draft">Save as draft</option>
-            <option value="active">Create active demo user</option>
+            <option value="active">Create active user</option>
           </select>
         </label>
       </div>

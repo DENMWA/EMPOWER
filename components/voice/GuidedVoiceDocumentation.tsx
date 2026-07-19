@@ -5,6 +5,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
 import { ReadBackControls } from "@/components/voice/ReadBackControls";
 import { improveTranscriptToProgressNote } from "@/lib/ai-mock";
+import { saveTenantRetainedRecord } from "@/lib/retained-records";
 
 export function GuidedVoiceDocumentation({ embedded = false, onUseTranscript }: { embedded?: boolean; onUseTranscript?: (transcript: string) => void }) {
   const [transcript, setTranscript] = useState("");
@@ -29,7 +30,7 @@ export function GuidedVoiceDocumentation({ embedded = false, onUseTranscript }: 
     setActionMessage(onUseTranscript ? "Transcript placed into the note pad." : "Transcript is ready to improve or save.");
   }
 
-  function saveTranscriptDraft() {
+  async function saveTranscriptDraft() {
     const text = transcript.trim();
     if (!text) {
       setActionMessage("Add a transcript first.");
@@ -37,29 +38,33 @@ export function GuidedVoiceDocumentation({ embedded = false, onUseTranscript }: 
     }
     const savedAt = new Date().toISOString();
     const id = `voice-transcript-${Date.now()}`;
-    window.localStorage.setItem(`empower-retained-record:${id}`, JSON.stringify({
+    const result = await saveTenantRetainedRecord({
       id,
       type: "voice-transcript",
       title: "Voice transcript draft",
       body: text,
-      transcript: text,
       savedAt
-    }));
-    setActionMessage("Transcript draft saved.");
+    });
+    setActionMessage(result.savedToCloud ? "Transcript saved to this organisation." : "Transcript draft saved locally.");
+    window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 
-  function saveFinalNote(status: string) {
+  async function saveFinalNote(status: string) {
+    if (!finalNote.trim()) {
+      setActionMessage("Improve or write a final note first.");
+      return;
+    }
     const savedAt = new Date().toISOString();
     const id = `voice-note-${Date.now()}`;
-    window.localStorage.setItem(`empower-retained-record:${id}`, JSON.stringify({
+    const result = await saveTenantRetainedRecord({
       id,
       type: "progress-note",
       title: `Voice note - ${status}`,
-      body: finalNote,
-      transcript,
+      body: [`Transcript:`, transcript, "", `Final note:`, finalNote].join("\n"),
       savedAt
-    }));
-    setActionMessage(status);
+    });
+    setActionMessage(result.savedToCloud ? `${status}. Saved to this organisation.` : `${status}. Saved locally.`);
+    window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 
   const content = (

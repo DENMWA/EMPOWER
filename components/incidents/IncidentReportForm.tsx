@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Download, Lock, Maximize2, Minimize2, Plus, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
+import { saveTenantRetainedRecord } from "@/lib/retained-records";
+import { markTrialStepComplete } from "@/lib/trial-run";
 
 type BodyView = "front" | "left" | "right" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
@@ -170,6 +172,7 @@ export function IncidentReportForm() {
   const [report, setReport] = useState(initialReport);
   const [selectedMarkerId, setSelectedMarkerId] = useState(initialReport.markers[0]?.id ?? "");
   const [savedAt, setSavedAt] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
@@ -213,9 +216,20 @@ export function IncidentReportForm() {
     update("attachments", [...report.attachments, { id: `attachment-${Date.now()}`, name: "supporting-file.pdf", type: "Medical / body map / photo", notes: "Store against this specific client and incident record." }]);
   }
 
-  function saveDraft() {
+  async function saveDraft() {
+    const savedIso = new Date().toISOString();
+    const result = await saveTenantRetainedRecord({
+      id: `incident-${report.incidentId}`,
+      type: "incident-report",
+      title: `Incident Report - ${report.incidentId}`,
+      body: exportText,
+      savedAt: savedIso
+    });
     window.localStorage.setItem(`empowernotes-incident:${report.incidentId}`, exportText);
-    setSavedAt(new Date().toLocaleString("en-AU"));
+    setSavedAt(new Date(savedIso).toLocaleString("en-AU"));
+    setSaveMessage(result.savedToCloud ? "Incident saved to this organisation." : "Incident saved locally. Sign in to save it to this organisation's Supabase space.");
+    window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
+    markTrialStepComplete("incident-report");
   }
 
   return (
@@ -229,6 +243,7 @@ export function IncidentReportForm() {
           <p>Reporter: <strong className="text-ink">{report.reporter}</strong></p>
           <p>{savedAt ? `Saved ${savedAt}` : "Unsaved local draft"}</p>
         </div>
+        {saveMessage ? <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{saveMessage}</p> : null}
         <div className="mt-5 grid gap-2">
           <button type="button" onClick={saveDraft} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift"><Save size={17} />Save draft</button>
           <button type="button" onClick={() => update("status", "Submitted")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift"><Send size={17} />Submit</button>

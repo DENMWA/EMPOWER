@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
+import { getTenantRetainedRecords } from "@/lib/retained-records";
 import { participants, progressNotes } from "@/lib/sample-data";
 
 type RetainedRecord = {
@@ -40,6 +41,17 @@ export function ProgressNoteCollectionExport() {
   const [fromDate, setFromDate] = useState("2026-06-01");
   const [toDate, setToDate] = useState("2026-06-30");
   const [includeSavedDrafts, setIncludeSavedDrafts] = useState(true);
+  const [retainedProgressNotes, setRetainedProgressNotes] = useState<RetainedRecord[]>([]);
+
+  useEffect(() => {
+    function loadRecords() {
+      getTenantRetainedRecords("progress-note").then(setRetainedProgressNotes).catch(() => setRetainedProgressNotes([]));
+    }
+
+    loadRecords();
+    window.addEventListener("empowernotes:retained-records-updated", loadRecords);
+    return () => window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
+  }, []);
 
   const sampleNotesInRange = useMemo(() => {
     return progressNotes.filter((note) => note.supportDate >= fromDate && note.supportDate <= toDate);
@@ -47,7 +59,9 @@ export function ProgressNoteCollectionExport() {
 
   function downloadCollection() {
     const retained = includeSavedDrafts
-      ? getRetainedProgressNotes().filter((record) => {
+      ? [...retainedProgressNotes, ...getRetainedProgressNotes()]
+        .filter((record, index, records) => records.findIndex((item) => item.id === record.id) === index)
+        .filter((record) => {
           const supportDate = getRecordSupportDate(record);
           return supportDate >= fromDate && supportDate <= toDate;
         })
@@ -95,7 +109,7 @@ export function ProgressNoteCollectionExport() {
             Admin-only export for audit packs, plan reviews, billing evidence, and manager review.
           </p>
         </div>
-        <StatusBadge label={`${sampleNotesInRange.length} starter notes`} tone="blue" />
+        <StatusBadge label={`${sampleNotesInRange.length + retainedProgressNotes.length} available notes`} tone="blue" />
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <label className="grid gap-2 text-sm font-semibold text-slate-700">

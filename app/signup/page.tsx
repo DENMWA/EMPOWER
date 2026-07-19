@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function SignupPage() {
   return (
     <>
-      <PageHeader title="Start Free Trial" description="Demo onboarding recommends a plan for Australian care teams before production auth and billing are connected." />
+      <PageHeader title="Start Free Trial" description="Set up an organisation workspace and choose the right EmpowerNotes plan for your Australian care team." />
       <Section className="space-y-6">
         <OrganisationAccountSetup />
         <PlanRecommendation />

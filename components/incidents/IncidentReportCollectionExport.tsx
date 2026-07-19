@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
+import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
 type StoredIncidentReport = {
   incidentId: string;
@@ -74,6 +75,14 @@ function getStoredIncidentReports() {
     .filter((report): report is StoredIncidentReport => Boolean(report?.incidentId && report.date));
 }
 
+function incidentFromRetainedRecord(record: RetainedRecord) {
+  try {
+    return JSON.parse(record.body) as StoredIncidentReport;
+  } catch {
+    return null;
+  }
+}
+
 function formatIncidentReport(report: StoredIncidentReport) {
   const markers = report.markers?.length
     ? report.markers.map((marker) => `${marker.area}: ${marker.injury}, ${marker.severity}. ${marker.notes}`).join("; ")
@@ -107,6 +116,19 @@ export function IncidentReportCollectionExport() {
   const [fromDate, setFromDate] = useState("2026-06-01");
   const [toDate, setToDate] = useState("2026-06-30");
   const [includeSavedDrafts, setIncludeSavedDrafts] = useState(true);
+  const [retainedIncidentReports, setRetainedIncidentReports] = useState<StoredIncidentReport[]>([]);
+
+  useEffect(() => {
+    function loadRecords() {
+      getTenantRetainedRecords("incident-report")
+        .then((records) => setRetainedIncidentReports(records.map(incidentFromRetainedRecord).filter((report): report is StoredIncidentReport => Boolean(report?.incidentId && report.date))))
+        .catch(() => setRetainedIncidentReports([]));
+    }
+
+    loadRecords();
+    window.addEventListener("empowernotes:retained-records-updated", loadRecords);
+    return () => window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
+  }, []);
 
   const sampleReportsInRange = useMemo(() => {
     return sampleIncidentReports.filter((report) => report.date >= fromDate && report.date <= toDate);
@@ -114,7 +136,9 @@ export function IncidentReportCollectionExport() {
 
   function downloadCollection() {
     const storedReports = includeSavedDrafts
-      ? getStoredIncidentReports().filter((report) => report.date >= fromDate && report.date <= toDate)
+      ? [...retainedIncidentReports, ...getStoredIncidentReports()]
+          .filter((report, index, reports) => reports.findIndex((item) => item.incidentId === report.incidentId) === index)
+          .filter((report) => report.date >= fromDate && report.date <= toDate)
       : [];
 
     const reports = [...sampleReportsInRange, ...storedReports];
@@ -138,7 +162,7 @@ export function IncidentReportCollectionExport() {
             Incident downloads are grouped by date range for manager review, trend reporting, audit packs, and safeguarding follow-up.
           </p>
         </div>
-        <StatusBadge label={`${sampleReportsInRange.length} sample reports`} tone="amber" />
+        <StatusBadge label={`${sampleReportsInRange.length + retainedIncidentReports.length} available reports`} tone="amber" />
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
