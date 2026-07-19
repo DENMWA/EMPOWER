@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
+import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { Card, StatusBadge } from "@/components/ui";
 import type { PlanExtraction } from "@/lib/plan-progress/types";
 
@@ -44,6 +45,9 @@ export function PlanUploadReviewCard({ participantName }: { participantName?: st
     try {
       const response = await fetch("/api/plan-progress/parse", {
         method: "POST",
+        headers: {
+          "x-empowernotes-tier": getCurrentSubscriptionTier()
+        },
         body: formData
       });
       const data = await response.json();

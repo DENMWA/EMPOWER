@@ -58,10 +58,16 @@ export function InviteTeamMemberForm() {
     };
 
     const result = await saveTenantStaffInvite(record);
+    if (result.error && result.error.includes("allows")) {
+      setSaved(false);
+      setMessage(result.error);
+      return;
+    }
+
     markTrialStepComplete("add-staff");
     setSaved(true);
     const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
-    setMessage(result.savedToCloud ? `${localMessage} Saved to this organisation.` : `${localMessage} Sign in to save it to this organisation's Supabase space.`);
+    setMessage(result.savedToCloud ? `${localMessage} Saved to this organisation.` : `${localMessage} ${result.error || "Sign in to save it to this organisation's Supabase space."}`);
     setName("");
     setEmail("");
   }
@@ -119,7 +125,7 @@ export function InviteTeamMemberForm() {
           Save permissions
         </button>
       </div>
-      {message ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
+      {message ? <p className={`mt-3 rounded-md px-3 py-2 text-sm font-semibold ${saved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-900"}`}>{message}</p> : null}
     </Card>
   );
 }

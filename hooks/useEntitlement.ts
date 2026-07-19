@@ -3,35 +3,7 @@
 import { useEffect, useState } from "react";
 import { getPlanToProgressEntitlements, type PlanToProgressEntitlementKey } from "@/lib/subscriptions/entitlements";
 import { defaultSubscriptionTier, type SubscriptionTier } from "@/lib/subscriptions/tiers";
-
-const tierStorageKey = "empowernotes:subscription-tier";
-const subscriptionTierKeys: SubscriptionTier[] = ["solo", "practice", "provider", "enterprise"];
-
-function migrateLegacyTier(value: string | null): SubscriptionTier | null {
-  if (value === "team") return "practice";
-  if (value === "growth") return "provider";
-  return null;
-}
-
-function isSubscriptionTier(value: string | null): value is SubscriptionTier {
-  return Boolean(value && subscriptionTierKeys.includes(value as SubscriptionTier));
-}
-
-export function getCurrentSubscriptionTier(): SubscriptionTier {
-  if (typeof window === "undefined") return defaultSubscriptionTier;
-  const stored = window.localStorage.getItem(tierStorageKey);
-  const migrated = migrateLegacyTier(stored);
-  if (migrated) {
-    setCurrentSubscriptionTier(migrated);
-    return migrated;
-  }
-  return isSubscriptionTier(stored) ? stored : defaultSubscriptionTier;
-}
-
-export function setCurrentSubscriptionTier(tier: SubscriptionTier) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(tierStorageKey, tier);
-}
+import { getCurrentSubscriptionTier, setCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 
 export function useEntitlement(entitlement?: PlanToProgressEntitlementKey) {
   const [tier, setTier] = useState<SubscriptionTier>(defaultSubscriptionTier);

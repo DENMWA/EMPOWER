@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRequestEntitlement } from "@/lib/subscriptions/server-gate";
 
 type ImproveNoteRequest = {
   transcript?: string;
@@ -45,6 +46,11 @@ function parseOptionsFromContent(content: string) {
 }
 
 export async function POST(request: Request) {
+  const gate = checkRequestEntitlement(request, "enabled");
+  if (!gate.allowed) {
+    return NextResponse.json({ error: gate.message, tier: gate.tierName }, { status: 403 });
+  }
+
   const { transcript = "" } = await request.json() as ImproveNoteRequest;
   const cleanTranscript = transcript.trim();
 
@@ -115,5 +121,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ options, source: "openai-chat", model });
+  return NextResponse.json({ options, source: "openai-chat", model, tier: gate.tierName });
 }

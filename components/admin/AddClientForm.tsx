@@ -65,9 +65,15 @@ export function AddClientForm() {
       createdAt: new Date().toISOString()
     });
 
+    if (result.error && result.error.includes("allows")) {
+      setSaved(false);
+      setMessage(result.error);
+      return;
+    }
+
     setSaved(true);
     markTrialStepComplete("add-client");
-    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. Sign in to save it to this organisation's Supabase space.`);
+    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`);
     setName("");
     setInitials("");
     setSupportNeeds("");

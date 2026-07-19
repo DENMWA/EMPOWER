@@ -1,6 +1,7 @@
 import type { Participant } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
+import { checkActiveParticipantLimit } from "@/lib/subscriptions/client-limits";
 
 export type ClientRecord = Participant & {
   colourSchemeId?: string;
@@ -82,6 +83,9 @@ export async function getTenantClients() {
 }
 
 export async function saveTenantClient(client: ClientRecord) {
+  const limit = checkActiveParticipantLimit(getStoredClients().length);
+  if (!limit.allowed) return { savedToCloud: false, error: limit.message };
+
   addStoredClient(client);
 
   const organisationId = await getCurrentOrganisationId();

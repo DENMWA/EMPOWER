@@ -1,6 +1,7 @@
 import type { StaffUser, UserRole } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
+import { checkUserLimit } from "@/lib/subscriptions/client-limits";
 
 export type StaffRecord = StaffUser & {
   inviteStatus: "Invite sent" | "Draft" | "Active";
@@ -55,6 +56,9 @@ export function addStoredStaff(staff: StaffRecord) {
 }
 
 export async function saveTenantStaffInvite(staff: StaffRecord) {
+  const limit = checkUserLimit(getStoredStaff().length);
+  if (!limit.allowed) return { savedToCloud: false, error: limit.message };
+
   addStoredStaff(staff);
 
   const organisationId = await getCurrentOrganisationId();

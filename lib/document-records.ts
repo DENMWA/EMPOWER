@@ -1,6 +1,7 @@
 import type { SupportDocument } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
+import { checkDocumentsPerParticipantLimit } from "@/lib/subscriptions/client-limits";
 
 export type StoredDocumentRecord = SupportDocument & {
   clientName: string;
@@ -79,6 +80,10 @@ export async function getTenantDocumentRecords() {
 }
 
 export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
+  const existingClientDocuments = getStoredDocumentRecords().filter((document) => document.participantId === record.participantId).length;
+  const limit = checkDocumentsPerParticipantLimit(existingClientDocuments, record.clientName);
+  if (!limit.allowed) return { savedToCloud: false, error: limit.message };
+
   addStoredDocumentRecord(record);
 
   const organisationId = await getCurrentOrganisationId();

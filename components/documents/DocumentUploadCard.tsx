@@ -75,7 +75,12 @@ export function DocumentUploadCard() {
       savedAt: new Date().toISOString()
     });
 
-    const cloudText = result.savedToCloud ? "Saved to this organisation." : "Saved locally. Sign in to save it to this organisation's Supabase space.";
+    if (result.error && result.error.includes("allows")) {
+      setMessage(result.error);
+      return;
+    }
+
+    const cloudText = result.savedToCloud ? "Saved to this organisation." : `Saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`;
     setMessage(`${documentType} saved for ${selectedClient.name}. ${cloudText}`);
     markTrialStepComplete("upload-document");
     window.dispatchEvent(new Event("empowernotes:documents-updated"));

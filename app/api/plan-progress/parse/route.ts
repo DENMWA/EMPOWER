@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRequestEntitlement } from "@/lib/subscriptions/server-gate";
 
 export const runtime = "nodejs";
 
@@ -168,6 +169,11 @@ async function extractWithAi(text: string) {
 
 export async function POST(request: Request) {
   try {
+    const gate = checkRequestEntitlement(request, "basicPlanParsing");
+    if (!gate.allowed) {
+      return NextResponse.json({ error: gate.message, tier: gate.tierName }, { status: 403 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 
@@ -185,6 +191,7 @@ export async function POST(request: Request) {
       fileName: file.name,
       textPreview: text.slice(0, 600),
       source: result.source,
+      tier: gate.tierName,
       items: result.items
     });
   } catch (error) {

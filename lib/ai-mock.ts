@@ -1,4 +1,5 @@
 import { escalationWording } from "@/lib/utils";
+import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 
 export type NoteQuality = {
   auditReadiness: number;
@@ -17,7 +18,7 @@ export async function getProgressNoteRewriteOptions(transcript: string) {
     try {
       const response = await fetch("/api/ai/improve-note", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-empowernotes-tier": getCurrentSubscriptionTier() },
         body: JSON.stringify({ transcript })
       });
       const data = await response.json();
