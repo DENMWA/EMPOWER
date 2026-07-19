@@ -75,7 +75,7 @@ export function PlanUploadReviewCard() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Plan upload</p>
           <h2 className="mt-1 text-xl font-semibold text-ink">Private participant plan intake</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Plans are uploaded against a specific participant, parsed by AI, then held for authorised human verification before goals or baselines are created.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Plans are uploaded against a specific participant, parsed with ChatGPT, then held for authorised human verification before goals or baselines are created.</p>
         </div>
         <StatusBadge label={status} tone={fileName ? "amber" : "blue"} />
       </div>
@@ -104,7 +104,7 @@ export function PlanUploadReviewCard() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">Parsed evidence</p>
               <h3 className="mt-1 text-lg font-semibold text-ink">Review before creating baseline</h3>
-              {source ? <p className="mt-1 text-sm text-slate-600">Parser source: {source === "openai-chat" ? "OpenAI assisted extraction" : "Local document parser"}</p> : null}
+              {source ? <p className="mt-1 text-sm text-slate-600">Parser source: {source === "chatgpt" ? "ChatGPT powered extraction" : source}</p> : null}
             </div>
             <StatusBadge label={`${extractions.length} items found`} tone="green" />
           </div>

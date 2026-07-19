@@ -61,50 +61,6 @@ function normaliseText(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, maxTextChars);
 }
 
-function titleFromText(text: string) {
-  const clean = text.trim().replace(/\s+/g, " ");
-  return clean.length > 70 ? `${clean.slice(0, 67)}...` : clean || "Plan item";
-}
-
-function makeItem(index: number, extractionType: ExtractionType, text: string): ParsedPlanItem {
-  return {
-    id: `plan-extraction-${Date.now()}-${index}`,
-    extractionType,
-    title: titleFromText(text),
-    originalText: text,
-    interpretedText: text,
-    sourcePage: 1,
-    sourceSection: "Uploaded plan text",
-    confidenceScore: 0.62,
-    verificationStatus: "pending"
-  };
-}
-
-function localExtractPlanItems(text: string) {
-  const sentences = text
-    .split(/[.!?]\s+|\n+/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 24);
-
-  const matchers: Array<{ type: ExtractionType; patterns: RegExp[] }> = [
-    { type: "goal", patterns: [/goal/i, /increase/i, /improve/i, /develop/i, /maintain/i, /build/i] },
-    { type: "risk", patterns: [/risk/i, /incident/i, /behaviour/i, /falls?/i, /safeguard/i, /medical/i] },
-    { type: "support_strategy", patterns: [/support/i, /prompt/i, /strategy/i, /assist/i, /supervision/i] },
-    { type: "support_need", patterns: [/need/i, /requires/i, /daily living/i, /communication/i, /personal care/i] },
-    { type: "baseline_indicator", patterns: [/currently/i, /baseline/i, /requires assistance/i, /independent/i] }
-  ];
-
-  const items: ParsedPlanItem[] = [];
-  for (const matcher of matchers) {
-    const sentence = sentences.find((candidate) => matcher.patterns.some((pattern) => pattern.test(candidate)));
-    if (sentence && !items.some((item) => item.originalText === sentence)) {
-      items.push(makeItem(items.length + 1, matcher.type, sentence));
-    }
-  }
-
-  return items.length ? items.slice(0, 8) : [makeItem(1, "support_need", text.slice(0, 320) || "No readable plan text found.")];
-}
-
 function parseOpenAiItems(content: string): ParsedPlanItem[] {
   const parsed = JSON.parse(content) as { items?: Array<Partial<ParsedPlanItem>> };
   if (!Array.isArray(parsed.items)) return [];
@@ -126,7 +82,9 @@ function parseOpenAiItems(content: string): ParsedPlanItem[] {
 }
 
 async function extractWithAi(text: string) {
-  if (!openAiApiKey) return { items: localExtractPlanItems(text), source: "local-parser" };
+  if (!openAiApiKey) {
+    throw new Error("ChatGPT parsing is not configured. Add OPENAI_API_KEY or EMPOWERNOTES_CHAT_KEY in Vercel environment variables, then redeploy.");
+  }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -159,18 +117,29 @@ async function extractWithAi(text: string) {
     })
   });
 
-  if (!response.ok) return { items: localExtractPlanItems(text), source: "local-parser" };
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`ChatGPT plan parsing failed: ${detail || response.statusText}`);
+  }
 
   const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") return { items: localExtractPlanItems(text), source: "local-parser" };
-
-  try {
-    const items = parseOpenAiItems(content);
-    return { items: items.length ? items : localExtractPlanItems(text), source: items.length ? "openai-chat" : "local-parser" };
-  } catch {
-    return { items: localExtractPlanItems(text), source: "local-parser" };
+  if (typeof content !== "string") {
+    throw new Error("ChatGPT did not return readable extraction content.");
   }
+
+  let items: ParsedPlanItem[] = [];
+  try {
+    items = parseOpenAiItems(content);
+  } catch {
+    throw new Error("ChatGPT returned an invalid extraction format.");
+  }
+
+  if (!items.length) {
+    throw new Error("ChatGPT did not return any extraction items.");
+  }
+
+  return { items, source: "chatgpt" };
 }
 
 export async function POST(request: Request) {
