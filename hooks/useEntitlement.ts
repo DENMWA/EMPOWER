@@ -5,7 +5,13 @@ import { getPlanToProgressEntitlements, type PlanToProgressEntitlementKey } from
 import { defaultSubscriptionTier, type SubscriptionTier } from "@/lib/subscriptions/tiers";
 
 const tierStorageKey = "empowernotes:subscription-tier";
-const subscriptionTierKeys: SubscriptionTier[] = ["solo", "team", "growth", "enterprise"];
+const subscriptionTierKeys: SubscriptionTier[] = ["solo", "practice", "provider", "enterprise"];
+
+function migrateLegacyTier(value: string | null): SubscriptionTier | null {
+  if (value === "team") return "practice";
+  if (value === "growth") return "provider";
+  return null;
+}
 
 function isSubscriptionTier(value: string | null): value is SubscriptionTier {
   return Boolean(value && subscriptionTierKeys.includes(value as SubscriptionTier));
@@ -14,6 +20,11 @@ function isSubscriptionTier(value: string | null): value is SubscriptionTier {
 export function getCurrentSubscriptionTier(): SubscriptionTier {
   if (typeof window === "undefined") return defaultSubscriptionTier;
   const stored = window.localStorage.getItem(tierStorageKey);
+  const migrated = migrateLegacyTier(stored);
+  if (migrated) {
+    setCurrentSubscriptionTier(migrated);
+    return migrated;
+  }
   return isSubscriptionTier(stored) ? stored : defaultSubscriptionTier;
 }
 

@@ -5,7 +5,7 @@ import { UsageSummary } from "@/components/billing/UsageSummary";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
 const billingLines = [
-  "Current plan: Team Plan",
+  "Current plan: Practice Plan",
   "Active users: 8 of 10 included",
   "AI notes used this month: 142",
   "Document uploads: 26",

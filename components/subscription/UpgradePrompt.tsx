@@ -1,6 +1,6 @@
 import { Card, StatusBadge } from "@/components/ui";
 
-export function UpgradePrompt({ title, message, tier = "Growth" }: { title: string; message: string; tier?: string }) {
+export function UpgradePrompt({ title, message, tier = "Provider" }: { title: string; message: string; tier?: string }) {
   return (
     <Card className="border-amber-200 bg-amber-50/70">
       <div className="flex flex-wrap items-start justify-between gap-3">

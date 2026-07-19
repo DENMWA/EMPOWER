@@ -29,17 +29,17 @@ export type PlatformOrganisation = {
 };
 
 export const platformOrganisations: PlatformOrganisation[] = [
-  { id: "harbour-community-supports", name: "Harbour Community Supports", plan: "Team", status: "Active", users: 14, clients: 42, renewal: "2026-07-12", mrr: "$490", health: "Good", notesCreated: 386, incidents: 9, documents: 54, aiCalls: 224, lastActive: "Today" },
-  { id: "bright-path-care", name: "Bright Path Care", plan: "Growth", status: "Payment risk", users: 28, clients: 86, renewal: "2026-07-03", mrr: "$890", health: "Watch", notesCreated: 612, incidents: 18, documents: 88, aiCalls: 472, lastActive: "Today" },
-  { id: "northside-youth-services", name: "Northside Youth Services", plan: "Team", status: "Trial", users: 9, clients: 24, renewal: "2026-07-18", mrr: "$0", health: "Onboarding", notesCreated: 74, incidents: 3, documents: 19, aiCalls: 61, lastActive: "Yesterday" },
-  { id: "mosaic-support-co", name: "Mosaic Support Co", plan: "Enterprise", status: "Active", users: 52, clients: 178, renewal: "2026-08-01", mrr: "$2,400", health: "Good", notesCreated: 1346, incidents: 44, documents: 165, aiCalls: 1190, lastActive: "Today" }
+  { id: "harbour-community-supports", name: "Harbour Community Supports", plan: "Practice", status: "Active", users: 14, clients: 42, renewal: "2026-07-12", mrr: "A$249", health: "Good", notesCreated: 386, incidents: 9, documents: 54, aiCalls: 224, lastActive: "Today" },
+  { id: "bright-path-care", name: "Bright Path Care", plan: "Provider", status: "Payment risk", users: 28, clients: 86, renewal: "2026-07-03", mrr: "A$899", health: "Watch", notesCreated: 612, incidents: 18, documents: 88, aiCalls: 472, lastActive: "Today" },
+  { id: "northside-youth-services", name: "Northside Youth Services", plan: "Practice", status: "Trial", users: 9, clients: 24, renewal: "2026-07-18", mrr: "A$0", health: "Onboarding", notesCreated: 74, incidents: 3, documents: 19, aiCalls: 61, lastActive: "Yesterday" },
+  { id: "mosaic-support-co", name: "Mosaic Support Co", plan: "Enterprise", status: "Active", users: 52, clients: 178, renewal: "2026-08-01", mrr: "A$3,500", health: "Good", notesCreated: 1346, incidents: 44, documents: 165, aiCalls: 1190, lastActive: "Today" }
 ];
 
 export const paymentSchedule = [
-  { organisation: "Bright Path Care", due: "2026-07-03", amount: "$890", status: "Card retry scheduled" },
-  { organisation: "Harbour Community Supports", due: "2026-07-12", amount: "$490", status: "Upcoming" },
-  { organisation: "Northside Youth Services", due: "2026-07-18", amount: "$390", status: "Trial conversion" },
-  { organisation: "Mosaic Support Co", due: "2026-08-01", amount: "$2,400", status: "Upcoming" }
+  { organisation: "Bright Path Care", due: "2026-07-03", amount: "A$899", status: "Card retry scheduled" },
+  { organisation: "Harbour Community Supports", due: "2026-07-12", amount: "A$249", status: "Upcoming" },
+  { organisation: "Northside Youth Services", due: "2026-07-18", amount: "A$249", status: "Trial conversion" },
+  { organisation: "Mosaic Support Co", due: "2026-08-01", amount: "A$3,500", status: "Upcoming" }
 ];
 
 export const diagnosticEvents = [

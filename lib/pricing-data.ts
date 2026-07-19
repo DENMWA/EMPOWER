@@ -11,42 +11,42 @@ export type Plan = {
 export const plans: Plan[] = [
   {
     name: "EmpowerNotes Solo",
-    price: "$49/month",
-    bestFor: "Independent support workers, sole providers, social workers, support coordinators, and small practitioners.",
-    features: ["Guided voice documentation", "AI progress notes", "Self-certification", "Invoice-readiness checks", "Participant/client profiles", "Plan-to-Progress basic chart", "Basic audit pack", "Up to 10 active participants/clients"],
-    cta: "Start Free Trial",
+    price: "A$59/month",
+    bestFor: "For independent providers who need audit-ready notes, participant records, plan parsing, and basic progress evidence.",
+    features: ["1 user", "Up to 10 active participants", "AI notes and voice documentation", "Plan parsing and goal extraction", "Goal-linked notes", "Self-reviewed baselines", "Basic progress charts", "Participant progress reports"],
+    cta: "Start Solo",
     href: "/signup"
   },
   {
-    name: "EmpowerNotes Team",
-    price: "$149/month + $25 per active user/month",
-    bestFor: "Small NDIS, disability, youth work, and community service teams.",
-    features: ["Everything in Solo", "Manager approval workflow", "Incident report assistant", "Evidence strength scoring", "Goal-linking assistant", "Document Vault", "AI Evidence Reader", "Risk and missing-detail flags"],
-    cta: "Book Demo",
+    name: "EmpowerNotes Practice",
+    price: "A$249/month",
+    bestFor: "For small support teams and practices that need manager review, staff oversight, and stronger participant progress evidence.",
+    features: ["10 users included", "Up to 50 active participants", "Manager review workflow", "Evidence-strength scoring", "Staff documentation oversight", "Goal evidence alerts", "Branded reports", "Support-level trends"],
+    cta: "Start Practice",
     href: "/contact",
     highlighted: true
   },
   {
-    name: "EmpowerNotes Growth",
-    price: "$399/month + $35 per active user/month",
-    bestFor: "Growing providers needing stronger oversight, audit readiness, and manager visibility.",
-    features: ["Everything in Team", "Multi-document plan intelligence", "Custom progress scales", "Advanced document intelligence", "Scheduled progress reports", "Risk and incident trend reporting", "Priority support", "Higher AI usage allowance"],
+    name: "EmpowerNotes Provider",
+    price: "From A$899/month",
+    bestFor: "For growing providers that need standardised documentation, custom workflows, service reporting, and operational control.",
+    features: ["Multi-team operations", "Custom workflows and templates", "Multi-document participant intelligence", "Custom progress scales", "Organisation dashboards", "Scheduled reports", "Integration options", "Multi-location support"],
     cta: "Book Demo",
     href: "/contact"
   },
   {
     name: "EmpowerNotes Enterprise",
-    price: "Custom pricing from $2,500/month",
-    bestFor: "Large providers, multi-site organisations, and complex compliance workflows.",
-    features: ["Custom onboarding", "Board and executive reports", "Advanced permissions", "Data migration support", "Dedicated support", "Organisation-wide outcomes", "Organisation-specific AI wording rules"],
-    cta: "Book Demo",
+    price: "Custom annual contract",
+    bestFor: "For large and multi-site organisations requiring governance, integrations, security controls, and organisation-wide intelligence.",
+    features: ["Automated document ingestion", "Organisation-wide outcomes analytics", "Microsoft Teams integration", "Executive dashboards", "SSO and custom roles", "API and data warehouse access", "Full white-label", "Dedicated implementation"],
+    cta: "Contact Enterprise Sales",
     href: "/contact"
   }
 ];
 
 export const foundingOffer = {
   name: "Founding Provider Offer",
-  price: "$199/month for up to 10 users",
+  price: "A$199/month for up to 10 users",
   lockIn: "Locked for 12 months",
-  features: ["Guided voice notes", "Manager approvals", "Incident assistant", "Audit pack generator", "Document Vault", "AI Evidence Reader", "Invoice-readiness checks", "Up to 10 active users"]
+  features: ["Practice-style team setup", "Guided voice notes", "Manager approvals", "Incident assistant", "Audit pack generator", "Document Vault", "AI Evidence Reader", "Up to 10 active users"]
 };

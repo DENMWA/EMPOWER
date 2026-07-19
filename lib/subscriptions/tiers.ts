@@ -1,10 +1,10 @@
-export type SubscriptionTier = "solo" | "team" | "growth" | "enterprise";
+export type SubscriptionTier = "solo" | "practice" | "provider" | "enterprise";
 
 export const subscriptionTiers: Record<SubscriptionTier, { name: string; shortName: string }> = {
   solo: { name: "EmpowerNotes Solo", shortName: "Solo" },
-  team: { name: "EmpowerNotes Team", shortName: "Team" },
-  growth: { name: "EmpowerNotes Growth", shortName: "Growth" },
+  practice: { name: "EmpowerNotes Practice", shortName: "Practice" },
+  provider: { name: "EmpowerNotes Provider", shortName: "Provider" },
   enterprise: { name: "EmpowerNotes Enterprise", shortName: "Enterprise" }
 };
 
-export const defaultSubscriptionTier: SubscriptionTier = "team";
+export const defaultSubscriptionTier: SubscriptionTier = "practice";

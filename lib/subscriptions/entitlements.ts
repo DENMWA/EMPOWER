@@ -58,7 +58,7 @@ export interface PlanToProgressEntitlements {
 }
 
 const solo: PlanToProgressEntitlements = {
-  enabled: true, maxActiveParticipants: 10, maxUsers: 1, maxDocumentsPerParticipant: 2, maxAiAnalysedNotesPerMonth: 100, maxStorageBytes: 500 * 1024 * 1024, maxApprovalStages: 1,
+  enabled: true, maxActiveParticipants: 10, maxUsers: 1, maxDocumentsPerParticipant: 2, maxAiAnalysedNotesPerMonth: 200, maxStorageBytes: 2 * 1024 * 1024 * 1024, maxApprovalStages: 1,
   basicPlanParsing: true, multiDocumentParsing: false, bulkPlanProcessing: false, automatedDocumentSync: false,
   goalExtraction: true, riskExtraction: false, strategyExtraction: true, supportNeedExtraction: true, sourcePageTraceability: true, paragraphLevelTraceability: false, conflictDetection: false,
   verifiedBaseline: true, customBaselineTemplates: false, multipleBaselinesPerGoal: false, customProgressScales: false, customEvidenceRules: false,
@@ -70,28 +70,28 @@ const solo: PlanToProgressEntitlements = {
   customAiRules: false, organisationPolicyIntelligence: false, customDocumentTypes: false, whiteLabel: false
 };
 
-const team: PlanToProgressEntitlements = {
-  ...solo, maxActiveParticipants: 50, maxUsers: 10, maxDocumentsPerParticipant: 5, maxAiAnalysedNotesPerMonth: 1000, maxStorageBytes: 10 * 1024 * 1024 * 1024, maxApprovalStages: 2,
+const practice: PlanToProgressEntitlements = {
+  ...solo, maxActiveParticipants: 50, maxUsers: 10, maxDocumentsPerParticipant: 5, maxAiAnalysedNotesPerMonth: 2000, maxStorageBytes: 20 * 1024 * 1024 * 1024, maxApprovalStages: 2,
   riskExtraction: true, evidenceStrengthScoring: true, contradictionDetection: true, evidenceGapAlerts: true, longitudinalAnalysis: true, advancedCharts: true, brandedReports: true, managerVerification: true
 };
 
-const growth: PlanToProgressEntitlements = {
-  ...team, maxActiveParticipants: 250, maxUsers: 50, maxDocumentsPerParticipant: null, maxAiAnalysedNotesPerMonth: 10000, maxStorageBytes: 100 * 1024 * 1024 * 1024, maxApprovalStages: 4,
+const provider: PlanToProgressEntitlements = {
+  ...practice, maxActiveParticipants: 300, maxUsers: 50, maxDocumentsPerParticipant: null, maxAiAnalysedNotesPerMonth: 10000, maxStorageBytes: 250 * 1024 * 1024 * 1024, maxApprovalStages: 4,
   multiDocumentParsing: true, automatedDocumentSync: true, paragraphLevelTraceability: true, conflictDetection: true, customBaselineTemplates: true, customProgressScales: true, customEvidenceRules: true,
   cohortAnalytics: true, configurableDashboards: true, customReportBuilder: true, scheduledReports: true, sharePointIntegration: true, outlookIntegration: true, googleDriveIntegration: true,
   multiStageApproval: true, customAiRules: true, organisationPolicyIntelligence: true, customDocumentTypes: true
 };
 
 const enterprise: PlanToProgressEntitlements = {
-  ...growth, maxActiveParticipants: null, maxUsers: null, maxAiAnalysedNotesPerMonth: null, maxStorageBytes: null, maxApprovalStages: null,
+  ...provider, maxActiveParticipants: null, maxUsers: null, maxAiAnalysedNotesPerMonth: null, maxStorageBytes: null, maxApprovalStages: null,
   bulkPlanProcessing: true, multipleBaselinesPerGoal: true, organisationWideAnalytics: true, executiveDashboards: true, boardReports: true,
   teamsIntegration: true, apiAccess: true, dataWarehouseExport: true, customRoles: true, delegatedAdministration: true, whiteLabel: true
 };
 
 export const planToProgressEntitlements: Record<SubscriptionTier, PlanToProgressEntitlements> = {
   solo,
-  team,
-  growth,
+  practice,
+  provider,
   enterprise
 };
 

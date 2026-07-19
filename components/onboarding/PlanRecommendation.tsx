@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 
 const options = {
-  "Sole provider": "Sole Provider Plan",
-  "Small team": "Team Plan",
-  "Growing provider": "Growth Plan",
+  "Sole provider": "Solo Plan",
+  "Small team": "Practice Plan",
+  "Growing provider": "Provider Plan",
   "Large organisation": "Enterprise Plan"
 };
 

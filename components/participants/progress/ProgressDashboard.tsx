@@ -136,8 +136,8 @@ export function ProgressDashboard() {
 
       <FeatureGate entitlement="advancedCharts">
         <Card className="border-teal-100">
-          <h2 className="text-xl font-semibold text-ink">Team+ chart intelligence</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Support-level trend, evidence count, evidence-strength trend and contradiction indicators are enabled on this tier.</p>
+          <h2 className="text-xl font-semibold text-ink">Practice+ chart intelligence</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Support-level trend, evidence count, evidence-strength trend and contradiction indicators are enabled on Practice and above.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <StatusBadge label="Support trend" tone={entitlements.advancedCharts ? "green" : "amber"} />
             <StatusBadge label="Evidence strength" tone={entitlements.evidenceStrengthScoring ? "green" : "amber"} />

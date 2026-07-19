@@ -3,6 +3,7 @@
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { Card, StatusBadge } from "@/components/ui";
 import { FeatureGate } from "@/components/subscription/FeatureGate";
+import { subscriptionTiers } from "@/lib/subscriptions/tiers";
 
 const safeDefaults = [
   "AI extraction must be reviewed before it creates a verified baseline.",
@@ -22,7 +23,7 @@ export function ProgressIntelligenceSettings() {
           <h2 className="mt-1 text-2xl font-bold text-ink">Outcome tracking configuration</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Configure how participant plans become verified baselines and how future notes are compared to those baselines.</p>
         </div>
-        <StatusBadge label={tier} tone="blue" />
+        <StatusBadge label={subscriptionTiers[tier].shortName} tone="blue" />
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -37,7 +38,7 @@ export function ProgressIntelligenceSettings() {
 
       <FeatureGate entitlement="customProgressScales">
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <MiniBuilder title="Progress scale builder" detail="Growth and Enterprise can define organisation-specific labels and scoring levels." />
+          <MiniBuilder title="Progress scale builder" detail="Provider and Enterprise can define organisation-specific labels and scoring levels." />
           <MiniBuilder title="Baseline templates" detail="Create reusable baseline structures for goals, daily living skills, risk, and support routines." />
           <MiniBuilder title="Evidence rules" detail="Set minimum observations, staff variety, review intervals, and accepted evidence sources." />
         </div>
