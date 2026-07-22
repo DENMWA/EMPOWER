@@ -7,8 +7,6 @@ alter table organisations add column if not exists website text;
 alter table organisations add column if not exists address text;
 alter table organisations add column if not exists provider_number text;
 alter table participants_or_clients add column if not exists colour_scheme_id text;
-alter table staff_invites add column if not exists house_access_mode text not null default 'selected';
-alter table staff_invites add column if not exists assigned_house_ids text[] not null default '{}';
 
 create table if not exists organisation_profiles (
   organisation_id uuid primary key references organisations(id) on delete cascade,
@@ -37,6 +35,9 @@ create table if not exists staff_invites (
   created_by uuid references users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+alter table staff_invites add column if not exists house_access_mode text not null default 'selected';
+alter table staff_invites add column if not exists assigned_house_ids text[] not null default '{}';
 
 create table if not exists retained_records (
   id text not null,
