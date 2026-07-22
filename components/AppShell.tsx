@@ -7,12 +7,13 @@ import { AccessibilityToggle } from "@/components/accessibility/AccessibilityTog
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin", label: "Admin", icon: SlidersHorizontal },
   { href: "/notes/new", label: "Progress Note", icon: Mic },
+  { href: "/participants", label: "My Clients", icon: Users },
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
   { href: "/documents", label: "Documents", icon: FolderLock },
   { href: "/audit-packs", label: "Audit Packs", icon: ClipboardCheck },

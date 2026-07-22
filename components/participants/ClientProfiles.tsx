@@ -6,7 +6,7 @@ import { Card } from "@/components/ui";
 import { ParticipantProfile } from "@/components/participants/ParticipantProfile";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 
-export function ClientProfiles() {
+export function ClientProfiles({ admin = false }: { admin?: boolean }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
 
   useEffect(() => {
@@ -19,11 +19,13 @@ export function ClientProfiles() {
         <p className="text-sm font-semibold uppercase tracking-wide text-sea">No saved clients yet</p>
         <h2 className="mt-1 text-2xl font-bold text-ink">Add your first real client profile</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Client profiles will appear here after an admin adds them. Each profile keeps its selected reporting colour across profiles, documents, notes, and admin dashboards.
+          Client profiles will appear here after an admin adds them. Workers can use this page to review support context before writing notes or completing incident records.
         </p>
-        <Link href="/admin/clients/new" className="mt-5 inline-flex min-h-11 items-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift">
-          Add client
-        </Link>
+        {admin ? (
+          <Link href="/admin/clients/new" className="mt-5 inline-flex min-h-11 items-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift">
+            Add client
+          </Link>
+        ) : null}
       </Card>
     );
   }

@@ -12,7 +12,7 @@ export default function AdminClientsPage() {
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
       <Section>
-        <ClientProfiles />
+        <ClientProfiles admin />
       </Section>
     </AdminGate>
   );
