@@ -76,7 +76,7 @@ type IncidentReport = {
   attachments: Attachment[];
 };
 
-const incidentTypes = ["Fall", "Injury", "Medication incident", "Behaviour/distress incident", "Property damage/destruction", "Near miss", "Safeguarding concern", "Medical event", "Other"];
+const incidentTypes = ["Fall", "Injury", "Property damage/destruction", "Absconding / missing client", "Medication incident", "Behaviour/distress incident", "Near miss", "Safeguarding concern", "Medical event", "Other"];
 const bodyAreas = ["Head", "Face", "Neck", "Left arm", "Right arm", "Chest", "Abdomen", "Upper back", "Lower back", "Left leg", "Right leg", "Left foot", "Right foot", "Other"];
 const injuryTypes = ["Bruise", "Cut", "Swelling", "Redness", "Pain", "Scratch", "Skin tear", "Other"];
 const propertyDamageItems = ["Car / vehicle", "House / property", "Window / door", "Furniture", "Appliance", "Assistive equipment", "Personal belongings", "Other"];
@@ -112,7 +112,7 @@ const incidentTemplates: Array<{
     id: "absconding",
     title: "Absconding",
     detail: "Client left without notice, was missing, or moved away from agreed support/supervision.",
-    incidentTypes: ["Safeguarding concern"],
+    incidentTypes: ["Absconding / missing client", "Safeguarding concern"],
     bodyMap: false,
     propertyDamage: false,
     fields: [
@@ -180,6 +180,19 @@ const incidentTemplates: Array<{
     fields: [{ key: "otherDetails", label: "Additional structured details", rows: 4 }]
   }
 ];
+
+const incidentTypeToTemplate: Record<string, IncidentTemplateId> = {
+  Fall: "personalInjury",
+  Injury: "personalInjury",
+  "Property damage/destruction": "propertyDamage",
+  "Absconding / missing client": "absconding",
+  "Medication incident": "medication",
+  "Behaviour/distress incident": "behaviour",
+  "Near miss": "nearMiss",
+  "Safeguarding concern": "safeguarding",
+  "Medical event": "medical",
+  Other: "other"
+};
 
 const initialReport: IncidentReport = {
   templateId: "personalInjury",
@@ -341,7 +354,7 @@ export function IncidentReportForm() {
     setReport((current) => ({ ...current, [field]: value }));
   }
 
-  function selectTemplate(templateId: IncidentTemplateId) {
+  function selectTemplate(templateId: IncidentTemplateId, incidentTypeOverride?: string[]) {
     const template = incidentTemplates.find((item) => item.id === templateId);
     if (!template) return;
 
@@ -355,7 +368,7 @@ export function IncidentReportForm() {
     setReport((current) => ({
       ...current,
       templateId,
-      incidentTypes: template.incidentTypes,
+      incidentTypes: incidentTypeOverride ?? template.incidentTypes,
       propertyDamage: {
         ...current.propertyDamage,
         involved: template.propertyDamage,
@@ -368,9 +381,24 @@ export function IncidentReportForm() {
 
   function toggleType(value: string) {
     const selected = report.incidentTypes.includes(value);
-    update("incidentTypes", selected ? report.incidentTypes.filter((item) => item !== value) : [...report.incidentTypes, value]);
+
+    if (!selected) {
+      const templateId = incidentTypeToTemplate[value] ?? "other";
+      const template = incidentTemplates.find((item) => item.id === templateId);
+      const nextTypes = Array.from(new Set([...(template?.incidentTypes ?? []), value]));
+      selectTemplate(templateId, nextTypes);
+      return;
+    }
+
+    const nextTypes = report.incidentTypes.filter((item) => item !== value);
+    update("incidentTypes", nextTypes);
+
     if (value === "Property damage/destruction") {
-      updatePropertyDamage({ involved: !selected });
+      updatePropertyDamage({ involved: false, bodilyInjury: false });
+    }
+
+    if (value === "Injury" && report.templateId === "propertyDamage") {
+      togglePropertyDamageBodilyInjury(false);
     }
   }
 
