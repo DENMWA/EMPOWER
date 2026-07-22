@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, StatusBadge } from "@/components/ui";
 import { getRosterSummary } from "@/lib/roster";
 import { participants, progressNotes, users } from "@/lib/sample-data";
-import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, LockKeyhole, Mic, TrendingUp } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp } from "lucide-react";
 
 const managerStats = [
   { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
@@ -14,8 +14,8 @@ const managerStats = [
 const workerActions = [
   { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
   { label: "Record voice note", detail: "Speak naturally on shift", href: "/notes/new#voice", icon: Mic },
-  { label: "Start guided interview", detail: "Question-by-question capture", href: "/notes/new#guided", icon: Mic },
-  { label: "Participant profiles", detail: "Review support context", href: "/participants", icon: ClipboardList }
+  { label: "New incident report", detail: "Structured event capture", href: "/incidents/new", icon: ShieldCheck },
+  { label: "Documents", detail: "Upload to a client file", href: "/documents", icon: FolderLock }
 ];
 
 export function ManagerDashboardCards() {

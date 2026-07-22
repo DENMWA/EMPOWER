@@ -40,6 +40,13 @@ const adminTools = [
     badge: "Invite"
   },
   {
+    title: "Client Management",
+    detail: "View client profiles, colours, goals, risks, staff access, and document streams.",
+    href: "/admin/clients",
+    icon: UserRoundPlus,
+    badge: "Clients"
+  },
+  {
     title: "Add Client",
     detail: "Create a client profile with support needs, risk alerts, goals, staff access, and reporting colour.",
     href: "/admin/clients/new",

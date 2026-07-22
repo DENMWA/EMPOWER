@@ -63,7 +63,7 @@ export function ClientReportColourCards() {
           const completion = Math.max(18, Math.min(100, averageScore || 64));
 
           return (
-            <Link key={participant.id} href="/participants" className={cn("group rounded-md border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700", colour.border)}>
+            <Link key={participant.id} href="/admin/clients" className={cn("group rounded-md border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700", colour.border)}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className={cn("grid h-11 w-11 place-items-center rounded-md text-sm font-bold", colour.avatar)}>{participant.initials}</span>
