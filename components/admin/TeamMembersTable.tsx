@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { setCurrentAppUser } from "@/lib/user-access";
@@ -21,6 +22,7 @@ type TeamMember = StaffUser & { inviteStatus?: StaffRecord["inviteStatus"] };
 export function TeamMembersTable() {
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [message, setMessage] = useState("");
   const allUsers: TeamMember[] = useMemo(() => storedStaff.length ? storedStaff : realMode ? [] : users, [storedStaff, realMode]);
@@ -29,6 +31,7 @@ export function TeamMembersTable() {
   useEffect(() => {
     getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
 
   useEffect(() => {
@@ -57,6 +60,7 @@ export function TeamMembersTable() {
             <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
               <th className="py-3 pr-4">Staff member</th>
               <th className="py-3 pr-4">Role</th>
+              <th className="py-3 pr-4">House access</th>
               <th className="py-3 pr-4">Participant access</th>
               <th className="py-3 pr-4">Quality trend</th>
               <th className="py-3 pr-4">Status</th>
@@ -66,7 +70,7 @@ export function TeamMembersTable() {
           <tbody>
             {!allUsers.length ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-sm text-slate-600">
+                <td colSpan={7} className="py-8 text-center text-sm text-slate-600">
                   No staff records yet. Add a staff member to start the real team directory.
                 </td>
               </tr>
@@ -86,6 +90,16 @@ export function TeamMembersTable() {
                   </td>
                   <td className="py-4 pr-4">
                     <StatusBadge label={user.roleLabel} tone={user.role === "owner" || user.role === "service_manager" ? "green" : "blue"} />
+                  </td>
+                  <td className="py-4 pr-4">
+                    <div className="flex max-w-md flex-wrap gap-2">
+                      {user.houseAccessMode === "all" ? (
+                        <StatusBadge label="All houses/services" tone="green" />
+                      ) : (
+                        houses.filter((house) => user.assignedHouseIds?.includes(house.id)).map((house) => <StatusBadge key={house.id} label={house.name} tone="blue" />)
+                      )}
+                      {user.houseAccessMode !== "all" && !houses.some((house) => user.assignedHouseIds?.includes(house.id)) ? <StatusBadge label="No house assigned" tone="amber" /> : null}
+                    </div>
                   </td>
                   <td className="py-4 pr-4">
                     <div className="flex max-w-md flex-wrap gap-2">

@@ -70,6 +70,8 @@ create table staff_invites (
   role user_role not null default 'support_worker',
   invite_status text not null default 'draft',
   assigned_participant_ids text[] not null default '{}',
+  house_access_mode text not null default 'selected',
+  assigned_house_ids text[] not null default '{}',
   created_by uuid references users(id) on delete set null,
   created_at timestamptz not null default now()
 );

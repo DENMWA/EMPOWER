@@ -23,6 +23,8 @@ export type StaffUser = {
   providerType: ProviderType;
   qualityTrend: number[];
   assignedParticipants: string[];
+  houseAccessMode?: "all" | "selected";
+  assignedHouseIds?: string[];
 };
 
 export type ProgressNote = {

@@ -72,7 +72,9 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
       email: staff.email,
       role: staff.role,
       invite_status: staff.inviteStatus,
-      assigned_participant_ids: staff.assignedParticipants
+      assigned_participant_ids: staff.assignedParticipants,
+      house_access_mode: staff.houseAccessMode || "selected",
+      assigned_house_ids: staff.assignedHouseIds || []
     }
   });
 
@@ -86,6 +88,8 @@ type SupabaseStaffInviteRow = {
   role: UserRole;
   invite_status: StaffRecord["inviteStatus"];
   assigned_participant_ids: string[] | null;
+  assigned_house_ids?: string[] | null;
+  house_access_mode?: StaffRecord["houseAccessMode"] | null;
   created_at: string;
 };
 
@@ -99,6 +103,8 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
     providerType: "organisation",
     qualityTrend: [0],
     assignedParticipants: row.assigned_participant_ids || [],
+    houseAccessMode: row.house_access_mode || "selected",
+    assignedHouseIds: row.assigned_house_ids || [],
     inviteStatus: row.invite_status,
     createdAt: row.created_at
   };
@@ -109,7 +115,7 @@ export async function getTenantStaffInvites() {
   const localStaff = getStoredStaff();
 
   const result = await supabaseRequest<SupabaseStaffInviteRow[]>("staff_invites", {
-    query: "select=id,name,email,role,invite_status,assigned_participant_ids,created_at&order=created_at.desc"
+    query: "select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return localStaff;

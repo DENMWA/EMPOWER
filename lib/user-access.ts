@@ -1,5 +1,6 @@
 import { users, type StaffUser, type UserRole } from "@/lib/sample-data";
 import { getStoredStaff } from "@/lib/staff-records";
+import type { HouseRecord } from "@/lib/house-records";
 
 export const currentUserStorageKey = "empowernotes:current-user";
 const adminUnlockedStorageKey = "empower-notes-admin-unlocked";
@@ -48,6 +49,28 @@ export function getAvailableAppUsers() {
 export function getAccessibleParticipantIds(user = getCurrentAppUser()) {
   if (canAccessAdmin(user.role)) return null;
   return user.assignedParticipants;
+}
+
+export function getAccessibleHouseIds(user = getCurrentAppUser()) {
+  if (canAccessAdmin(user.role) || user.houseAccessMode === "all") return null;
+  return user.assignedHouseIds || [];
+}
+
+export function filterHousesByAccess(houses: HouseRecord[], user = getCurrentAppUser()) {
+  const accessibleHouseIds = getAccessibleHouseIds(user);
+  if (!accessibleHouseIds) return houses;
+  if (!accessibleHouseIds.length && user.assignedParticipants.length) {
+    return houses.filter((house) => house.clientIds.some((clientId) => user.assignedParticipants.includes(clientId)));
+  }
+  return houses.filter((house) => accessibleHouseIds.includes(house.id));
+}
+
+export function getAccessibleClientIdsForHouse(house: HouseRecord | undefined, user = getCurrentAppUser()) {
+  if (!house) return [];
+  const accessibleParticipantIds = getAccessibleParticipantIds(user);
+  const houseClientIds = house.clientIds;
+  if (!accessibleParticipantIds) return houseClientIds;
+  return houseClientIds.filter((clientId) => accessibleParticipantIds.includes(clientId));
 }
 
 export function filterByParticipantAccess<T extends { id: string }>(records: T[], user = getCurrentAppUser()) {

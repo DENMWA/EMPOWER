@@ -6,6 +6,7 @@ import { participants, type UserRole } from "@/lib/sample-data";
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { MailPlus, ShieldCheck } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
@@ -16,14 +17,24 @@ export function InviteTeamMemberForm() {
   const [role, setRole] = useState<UserRole>("support_worker");
   const [inviteStatus, setInviteStatus] = useState("pending");
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [assignedParticipants, setAssignedParticipants] = useState<string[]>([]);
+  const [houseAccessMode, setHouseAccessMode] = useState<"all" | "selected">("selected");
+  const [assignedHouseIds, setAssignedHouseIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const accessibleHouseIds = useMemo(() => houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds, [assignedHouseIds, houseAccessMode, houses]);
+  const houseScopedParticipants = useMemo(() => {
+    if (!houses.length) return allParticipants;
+    const clientIds = new Set(houses.filter((house) => accessibleHouseIds.includes(house.id)).flatMap((house) => house.clientIds));
+    return allParticipants.filter((participant) => clientIds.has(participant.id));
+  }, [accessibleHouseIds, allParticipants, houses]);
 
   useEffect(() => {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
 
   useEffect(() => {
@@ -37,18 +48,41 @@ export function InviteTeamMemberForm() {
   }, []);
 
   useEffect(() => {
-    if (allParticipants.length && !assignedParticipants.some((participantId) => allParticipants.some((participant) => participant.id === participantId))) {
-      setAssignedParticipants([allParticipants[0].id]);
+    if (!assignedHouseIds.length && houses[0]) {
+      setAssignedHouseIds([houses[0].id]);
       return;
     }
 
-    if (!allParticipants.length && assignedParticipants.length) {
+    if (!houses.length && assignedHouseIds.length) {
+      setAssignedHouseIds([]);
+    }
+  }, [assignedHouseIds, houses]);
+
+  useEffect(() => {
+    const scopedParticipantIds = new Set(houseScopedParticipants.map((participant) => participant.id));
+    const scopedAssignedParticipants = assignedParticipants.filter((participantId) => scopedParticipantIds.has(participantId));
+
+    if (houseScopedParticipants.length && scopedAssignedParticipants.length !== assignedParticipants.length) {
+      setAssignedParticipants(scopedAssignedParticipants.length ? scopedAssignedParticipants : houseScopedParticipants.map((participant) => participant.id));
+      return;
+    }
+
+    if (houseScopedParticipants.length && !assignedParticipants.length) {
+      setAssignedParticipants(houseScopedParticipants.map((participant) => participant.id));
+      return;
+    }
+
+    if (!houseScopedParticipants.length && assignedParticipants.length) {
       setAssignedParticipants([]);
     }
-  }, [allParticipants, assignedParticipants]);
+  }, [assignedParticipants, houseScopedParticipants]);
 
   function toggleParticipant(participantId: string) {
     setAssignedParticipants((current) => current.includes(participantId) ? current.filter((item) => item !== participantId) : [...current, participantId]);
+  }
+
+  function toggleHouse(houseId: string) {
+    setAssignedHouseIds((current) => current.includes(houseId) ? current.filter((item) => item !== houseId) : [...current, houseId]);
   }
 
   async function saveInvite(action: "sent" | "saved") {
@@ -70,6 +104,8 @@ export function InviteTeamMemberForm() {
       providerType: "organisation" as const,
       qualityTrend: [0],
       assignedParticipants,
+      houseAccessMode,
+      assignedHouseIds: houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds,
       inviteStatus: inviteStatus === "active" ? "Active" as const : action === "sent" ? "Invite sent" as const : "Draft" as const,
       createdAt: new Date().toISOString()
     };
@@ -119,14 +155,51 @@ export function InviteTeamMemberForm() {
         </label>
       </div>
       <div className="mt-5">
+        <p className="text-sm font-semibold text-slate-700">Assign house/service access</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+            <input type="radio" className="mt-1 h-4 w-4 accent-teal-700" checked={houseAccessMode === "all"} onChange={() => setHouseAccessMode("all")} />
+            <span>
+              <span className="block font-semibold text-ink">All houses/services</span>
+              <span className="block text-slate-600">This staff member can document across every current house/service.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+            <input type="radio" className="mt-1 h-4 w-4 accent-teal-700" checked={houseAccessMode === "selected"} onChange={() => setHouseAccessMode("selected")} />
+            <span>
+              <span className="block font-semibold text-ink">Selected houses/services</span>
+              <span className="block text-slate-600">Only clients in the selected houses will appear in notes and incidents.</span>
+            </span>
+          </label>
+        </div>
+        {houseAccessMode === "selected" ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {!houses.length ? (
+              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600 sm:col-span-2">
+                Add a house first, then return here to assign house-specific access.
+              </div>
+            ) : null}
+            {houses.map((house) => (
+              <label key={house.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={assignedHouseIds.includes(house.id)} onChange={() => toggleHouse(house.id)} />
+                <span>
+                  <span className="block font-semibold text-ink">{house.name}</span>
+                  <span className="block text-slate-600">{house.serviceType}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-5">
         <p className="text-sm font-semibold text-slate-700">Assign participants/clients</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {!allParticipants.length ? (
+          {!houseScopedParticipants.length ? (
             <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600 sm:col-span-2">
-              Add a client first, then return here to assign participant access.
+              Add clients to the selected house/service first, then return here to assign participant access.
             </div>
           ) : null}
-          {allParticipants.map((participant) => (
+          {houseScopedParticipants.map((participant) => (
             <label key={participant.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={assignedParticipants.includes(participant.id)} onChange={() => toggleParticipant(participant.id)} />
               <span>

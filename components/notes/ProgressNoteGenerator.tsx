@@ -8,12 +8,12 @@ import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
-import { filterByParticipantAccess } from "@/lib/user-access";
+import { filterByParticipantAccess, filterHousesByAccess } from "@/lib/user-access";
 
 type ContinenceCareRecord = {
   applicableSupports: string[];
@@ -219,7 +219,6 @@ export function ProgressNoteGenerator() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
-  const allParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [roughNote, setRoughNote] = useState("");
@@ -233,10 +232,15 @@ export function ProgressNoteGenerator() {
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
+  const accessibleHouses = useMemo(() => filterHousesByAccess(houses), [houses]);
+  const selectedHouse = accessibleHouses.find((house) => house.id === selectedHouseId) ?? accessibleHouses[0];
+  const baseParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
+  const allParticipants = useMemo<NoteClient[]>(() => {
+    if (!selectedHouse) return [];
+    return baseParticipants.filter((participant) => selectedHouse.clientIds.includes(participant.id));
+  }, [baseParticipants, selectedHouse]);
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
-  const serviceHouses = useMemo(() => selectedParticipant ? getHousesForClient(houses, selectedParticipant.id) : [], [houses, selectedParticipant]);
-  const selectedHouse = serviceHouses.find((house) => house.id === selectedHouseId) ?? serviceHouses[0];
   const quality = scoreNoteQuality();
   const showPersonalCareRecord = ["Personal care", "Bowel care"].includes(supportType);
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
@@ -290,15 +294,15 @@ export function ProgressNoteGenerator() {
   }, [allParticipants, selectedParticipantId]);
 
   useEffect(() => {
-    if (serviceHouses.length && !serviceHouses.some((house) => house.id === selectedHouseId)) {
-      setSelectedHouseId(serviceHouses[0].id);
+    if (accessibleHouses.length && !accessibleHouses.some((house) => house.id === selectedHouseId)) {
+      setSelectedHouseId(accessibleHouses[0].id);
       return;
     }
 
-    if (!serviceHouses.length && selectedHouseId) {
+    if (!accessibleHouses.length && selectedHouseId) {
       setSelectedHouseId("");
     }
-  }, [serviceHouses, selectedHouseId]);
+  }, [accessibleHouses, selectedHouseId]);
 
   function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
     setContinenceRecord((current) => ({ ...current, [field]: value }));
@@ -424,9 +428,16 @@ export function ProgressNoteGenerator() {
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
+            House/service
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
+              {!accessibleHouses.length ? <option value="">No house assigned</option> : null}
+              {accessibleHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
             Participant/client
             <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipantId} onChange={(event) => setSelectedParticipantId(event.target.value)}>
-              {!allParticipants.length ? <option value="">Add a client first</option> : null}
+              {!allParticipants.length ? <option value="">No clients in this house/service</option> : null}
               {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
             </select>
           </label>
@@ -434,13 +445,6 @@ export function ProgressNoteGenerator() {
             Support type
             <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={supportType} onChange={(event) => setSupportType(event.target.value)}>
               {supportTypes.map((type) => <option key={type}>{type}</option>)}
-            </select>
-          </label>
-          <label className="text-sm font-semibold text-slate-700">
-            House/service
-            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
-              {!serviceHouses.length ? <option value="">No house assigned</option> : null}
-              {serviceHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
