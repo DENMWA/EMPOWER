@@ -1,9 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { saveIncidentReport } from "@/lib/incident-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
+import { participants, type Participant } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
 
 type BodyView = "front" | "left" | "right" | "back";
@@ -57,6 +60,7 @@ type IncidentSpecificDetails = {
 type IncidentReport = {
   templateId: IncidentTemplateId;
   incidentId: string;
+  participantId: string;
   date: string;
   time: string;
   location: string;
@@ -197,6 +201,7 @@ const incidentTypeToTemplate: Record<string, IncidentTemplateId> = {
 const initialReport: IncidentReport = {
   templateId: "personalInjury",
   incidentId: "INC-2026-0007",
+  participantId: "client-d",
   date: "2026-06-25",
   time: "09:35",
   location: "Bathroom doorway, supported accommodation",
@@ -240,6 +245,8 @@ const initialReport: IncidentReport = {
   ],
   attachments: [{ id: "attachment-1", name: "fall-body-map-export.pdf", type: "Body map export", notes: "Attach body map/photo evidence to the participant incident record in production." }]
 };
+
+type IncidentClient = Participant & { colourSchemeId?: string };
 
 function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
@@ -338,19 +345,64 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
 }
 
 export function IncidentReportForm() {
+  const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const [realMode, setRealMode] = useState(false);
   const [report, setReport] = useState(initialReport);
   const [selectedMarkerId, setSelectedMarkerId] = useState(initialReport.markers[0]?.id ?? "");
   const [savedAt, setSavedAt] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
+  const allParticipants = useMemo<IncidentClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const selectedParticipant = allParticipants.find((participant) => participant.id === report.participantId) ?? allParticipants[0];
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
   const showPropertyDamage = activeTemplate.propertyDamage || report.propertyDamage.involved || report.incidentTypes.includes("Property damage/destruction");
   const showBodyMap = activeTemplate.bodyMap || report.propertyDamage.bodilyInjury || report.markers.length > 0 || report.incidentTypes.some((type) => ["Fall", "Injury", "Medical event", "Safeguarding concern"].includes(type));
 
+  useEffect(() => {
+    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+  }, []);
+
+  useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
+  useEffect(() => {
+    if (selectedParticipant && selectedParticipant.id !== report.participantId) {
+      setReport((current) => ({
+        ...current,
+        participantId: selectedParticipant.id,
+        participant: selectedParticipant.name
+      }));
+    }
+
+    if (!allParticipants.length && report.participantId) {
+      setReport((current) => ({
+        ...current,
+        participantId: "",
+        participant: ""
+      }));
+    }
+  }, [allParticipants, report.participantId, selectedParticipant]);
+
   function update<K extends keyof IncidentReport>(field: K, value: IncidentReport[K]) {
     setReport((current) => ({ ...current, [field]: value }));
+  }
+
+  function selectParticipant(participantId: string) {
+    const participant = allParticipants.find((item) => item.id === participantId);
+    setReport((current) => ({
+      ...current,
+      participantId,
+      participant: participant?.name ?? ""
+    }));
   }
 
   function selectTemplate(templateId: IncidentTemplateId, incidentTypeOverride?: string[]) {
@@ -472,6 +524,11 @@ export function IncidentReportForm() {
   }
 
   async function persistReport(nextReport = report, successMessage = "Incident saved to this organisation.") {
+    if (!nextReport.participantId) {
+      setSaveMessage("Choose a client before saving or submitting this incident.");
+      return;
+    }
+
     const result = await saveIncidentReport(nextReport);
     setReport(nextReport);
     setSavedAt(new Date(result.savedAt).toLocaleString("en-AU"));
@@ -549,7 +606,17 @@ export function IncidentReportForm() {
           <h3 className="text-xl font-bold text-ink">Incident basics</h3>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Incident ID" value={report.incidentId} onChange={(value) => update("incidentId", value)} />
-            <Field label="Participant/client" value={report.participant} onChange={(value) => update("participant", value)} />
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              <span>Participant/client</span>
+              <select
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                value={report.participantId}
+                onChange={(event) => selectParticipant(event.target.value)}
+              >
+                {!allParticipants.length ? <option value="">Add a client in Admin first</option> : null}
+                {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
+              </select>
+            </label>
             <Field label="Date" type="date" value={report.date} onChange={(value) => update("date", value)} />
             <Field label="Time" type="time" value={report.time} onChange={(value) => update("time", value)} />
             <Field label="Location" value={report.location} onChange={(value) => update("location", value)} />

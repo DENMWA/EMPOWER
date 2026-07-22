@@ -9,6 +9,7 @@ import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-re
 
 type StoredIncidentReport = {
   incidentId: string;
+  participantId: string;
   date: string;
   time: string;
   location: string;
@@ -46,6 +47,7 @@ type StoredIncidentReport = {
 const sampleIncidentReports: StoredIncidentReport[] = [
   {
     incidentId: "INC-2026-0007",
+    participantId: "client-d",
     date: "2026-06-25",
     time: "09:35",
     location: "Bathroom doorway, supported accommodation",
@@ -83,7 +85,8 @@ function getStoredIncidentReports() {
     .filter((key) => key.startsWith("empowernotes-incident:"))
     .map((key) => {
       try {
-        return JSON.parse(window.localStorage.getItem(key) || "") as StoredIncidentReport;
+        const report = JSON.parse(window.localStorage.getItem(key) || "") as StoredIncidentReport;
+        return { ...report, participantId: report.participantId || "unassigned-client" };
       } catch {
         return null;
       }
@@ -93,7 +96,8 @@ function getStoredIncidentReports() {
 
 function incidentFromRetainedRecord(record: RetainedRecord) {
   try {
-    return JSON.parse(record.body) as StoredIncidentReport;
+    const report = JSON.parse(record.body) as StoredIncidentReport;
+    return { ...report, participantId: report.participantId || "unassigned-client" };
   } catch {
     return null;
   }
@@ -121,6 +125,7 @@ function formatIncidentReport(report: StoredIncidentReport) {
     `Incident ID: ${report.incidentId}`,
     `Date/time: ${report.date} ${report.time}`,
     `Client: ${report.participant}`,
+    `Client ID: ${report.participantId}`,
     `Reporter: ${report.reporter}`,
     `Location: ${report.location}`,
     `Status: ${report.status}`,
@@ -174,7 +179,7 @@ export function IncidentReportCollectionExport() {
   function downloadCollection() {
     const storedReports = includeSavedDrafts
       ? [...retainedIncidentReports, ...getStoredIncidentReports()]
-          .filter((report, index, reports) => reports.findIndex((item) => item.incidentId === report.incidentId) === index)
+          .filter((report, index, reports) => reports.findIndex((item) => `${item.participantId}-${item.incidentId}` === `${report.participantId}-${report.incidentId}`) === index)
           .filter((report) => report.date >= fromDate && report.date <= toDate)
       : [];
 

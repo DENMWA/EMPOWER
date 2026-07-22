@@ -4,6 +4,7 @@ export type IncidentStatus = "Draft" | "Submitted" | "Needs Review" | "Locked";
 
 export type StoredIncidentReport = {
   incidentId: string;
+  participantId: string;
   date: string;
   time: string;
   location: string;
@@ -22,7 +23,12 @@ export type StoredIncidentReport = {
 export function parseIncidentRecord(record: RetainedRecord) {
   try {
     const report = JSON.parse(record.body) as StoredIncidentReport;
-    return report?.incidentId ? report : null;
+    if (!report?.incidentId) return null;
+    return {
+      ...report,
+      participantId: report.participantId || "unassigned-client",
+      participant: report.participant || "Unassigned client"
+    };
   } catch {
     return null;
   }
@@ -41,9 +47,9 @@ export async function getSavedIncidentReports() {
 export async function saveIncidentReport(report: StoredIncidentReport) {
   const savedIso = new Date().toISOString();
   const record = {
-    id: `incident-${report.incidentId}`,
+    id: `incident-${report.participantId || "unassigned-client"}-${report.incidentId}`,
     type: "incident-report",
-    title: `Incident Report - ${report.incidentId}`,
+    title: `Incident Report - ${report.participant} - ${report.incidentId}`,
     body: JSON.stringify(report, null, 2),
     savedAt: savedIso
   };
