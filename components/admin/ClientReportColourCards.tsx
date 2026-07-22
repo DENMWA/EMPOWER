@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
@@ -14,10 +15,22 @@ type ReportClient = Participant & { colourSchemeId?: string };
 
 export function ClientReportColourCards() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allParticipants: ReportClient[] = [...participants, ...storedClients];
+  const [realMode, setRealMode] = useState(false);
+  const sampleParticipants = realMode ? [] : participants;
+  const allParticipants: ReportClient[] = [...sampleParticipants, ...storedClients];
 
   useEffect(() => {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+  }, []);
+
+  useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
   }, []);
 
   return (
@@ -35,10 +48,16 @@ export function ClientReportColourCards() {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {!allParticipants.length ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 md:col-span-2 xl:col-span-4">
+            <p className="font-semibold text-ink">No client streams yet</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Add your first client to create their colour-coded reporting stream.</p>
+          </div>
+        ) : null}
         {allParticipants.map((participant) => {
           const colour = getClientColourScheme(participant.id, participant.colourSchemeId);
-          const notes = progressNotes.filter((note) => note.participantId === participant.id);
-          const participantDocuments = documents.filter((document) => document.participantId === participant.id);
+          const notes = realMode ? [] : progressNotes.filter((note) => note.participantId === participant.id);
+          const participantDocuments = realMode ? [] : documents.filter((document) => document.participantId === participant.id);
           const incidentSignals = notes.reduce((total, note) => total + note.incidentFlags.length, 0) + participant.riskAlerts.length;
           const averageScore = notes.length === 0 ? 0 : Math.round(notes.reduce((total, note) => total + note.score, 0) / notes.length);
           const completion = Math.max(18, Math.min(100, averageScore || 64));

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
 import { createClientId, saveTenantClient } from "@/lib/client-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { sampleGoals, users } from "@/lib/sample-data";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
@@ -19,19 +20,35 @@ export function AddClientForm() {
   const [riskAlerts, setRiskAlerts] = useState("");
   const [selectedGoals, setSelectedGoals] = useState(sampleGoals.slice(0, 2));
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
-  const [assignedWorkers, setAssignedWorkers] = useState(users.slice(0, 1).map((user) => user.id));
+  const [realMode, setRealMode] = useState(false);
+  const [assignedWorkers, setAssignedWorkers] = useState<string[]>([]);
   const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
   const [saved, setSaved] = useState(false);
   const [message, setMessage] = useState("");
-  const allStaff = useMemo(() => storedStaff.length ? storedStaff : users, [storedStaff]);
+  const allStaff = useMemo(() => storedStaff.length ? storedStaff : realMode ? [] : users, [storedStaff, realMode]);
 
   useEffect(() => {
     getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
   }, []);
 
   useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
+  useEffect(() => {
     if (allStaff.length && !assignedWorkers.some((workerId) => allStaff.some((staff) => staff.id === workerId))) {
       setAssignedWorkers([allStaff[0].id]);
+      return;
+    }
+
+    if (!allStaff.length && assignedWorkers.length) {
+      setAssignedWorkers([]);
     }
   }, [allStaff, assignedWorkers]);
 
@@ -131,6 +148,11 @@ export function AddClientForm() {
         <div>
           <p className="text-sm font-semibold text-slate-700">Assign staff access</p>
           <div className="mt-3 grid gap-3">
+            {!allStaff.length ? (
+              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
+                Add staff later or return here after creating your first team member.
+              </div>
+            ) : null}
             {allStaff.map((user) => (
               <label key={user.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
                 <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={assignedWorkers.includes(user.id)} onChange={() => toggleWorker(user.id)} />

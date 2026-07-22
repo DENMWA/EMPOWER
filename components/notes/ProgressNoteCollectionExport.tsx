@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
-import { isPresentationModeEnabled } from "@/lib/presentation-mode";
+import { isDemoModeEnabled } from "@/lib/presentation-mode";
 import { getTenantRetainedRecords } from "@/lib/retained-records";
 import { participants, progressNotes } from "@/lib/sample-data";
 
@@ -23,7 +23,7 @@ function getRecordSupportDate(record: RetainedRecord) {
 
 function getRetainedProgressNotes() {
   if (typeof window === "undefined") return [];
-  if (isPresentationModeEnabled()) return [];
+  if (isDemoModeEnabled()) return [];
 
   return Object.keys(window.localStorage)
     .filter((key) => key.startsWith("empower-retained-record:"))
@@ -42,6 +42,7 @@ export function ProgressNoteCollectionExport() {
   const [toDate, setToDate] = useState("2026-06-30");
   const [includeSavedDrafts, setIncludeSavedDrafts] = useState(true);
   const [retainedProgressNotes, setRetainedProgressNotes] = useState<RetainedRecord[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     function loadRecords() {
@@ -53,9 +54,19 @@ export function ProgressNoteCollectionExport() {
     return () => window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
   }, []);
 
+  useEffect(() => {
+    function syncDataMode() {
+      setDemoMode(isDemoModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
   const sampleNotesInRange = useMemo(() => {
-    return progressNotes.filter((note) => note.supportDate >= fromDate && note.supportDate <= toDate);
-  }, [fromDate, toDate]);
+    return demoMode ? progressNotes.filter((note) => note.supportDate >= fromDate && note.supportDate <= toDate) : [];
+  }, [demoMode, fromDate, toDate]);
 
   function downloadCollection() {
     const retained = includeSavedDrafts

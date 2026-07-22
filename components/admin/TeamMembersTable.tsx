@@ -5,6 +5,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { MoreHorizontal } from "lucide-react";
 
 const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" }> = {
@@ -19,12 +20,23 @@ type TeamMember = StaffUser & { inviteStatus?: StaffRecord["inviteStatus"] };
 export function TeamMembersTable() {
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allUsers: TeamMember[] = useMemo(() => storedStaff.length ? storedStaff : users, [storedStaff]);
-  const allParticipants = useMemo(() => storedClients.length ? storedClients : participants, [storedClients]);
+  const [realMode, setRealMode] = useState(false);
+  const allUsers: TeamMember[] = useMemo(() => storedStaff.length ? storedStaff : realMode ? [] : users, [storedStaff, realMode]);
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
 
   useEffect(() => {
     getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+  }, []);
+
+  useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
   }, []);
 
   return (
@@ -49,6 +61,13 @@ export function TeamMembersTable() {
             </tr>
           </thead>
           <tbody>
+            {!allUsers.length ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-sm text-slate-600">
+                  No staff records yet. Add a staff member to start the real team directory.
+                </td>
+              </tr>
+            ) : null}
             {allUsers.map((user) => {
               const assigned = allParticipants.filter((participant) => user.assignedParticipants.includes(participant.id));
               const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;

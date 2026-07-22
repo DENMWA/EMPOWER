@@ -11,6 +11,7 @@ import { GoalProgressCard } from "@/components/participants/progress/GoalProgres
 import { PlanUploadReviewCard } from "@/components/participants/plans/PlanUploadReviewCard";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
 
 type ProgressClient = Participant & { colourSchemeId?: string };
@@ -23,24 +24,34 @@ export function ProgressDashboard() {
   const { tier, setTier, entitlements } = useEntitlement();
   const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [realMode, setRealMode] = useState(false);
 
   useEffect(() => {
     getTenantClients().then((clients) => {
       setSavedClients(clients);
-      setSelectedClientId((current) => current || clients[0]?.id || participants[0]?.id || "");
+      setSelectedClientId((current) => current || clients[0]?.id || "");
     }).catch(() => {
       setSavedClients([]);
-      setSelectedClientId((current) => current || participants[0]?.id || "");
     });
   }, []);
 
-  const allClients: ProgressClient[] = savedClients.length ? savedClients : participants;
+  useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
+  const allClients: ProgressClient[] = savedClients.length ? savedClients : realMode ? [] : participants;
   const selectedClient = allClients.find((client) => client.id === selectedClientId) || allClients[0];
   const selectedColour = selectedClient ? getClientColourScheme(selectedClient.id, getColourSchemeId(selectedClient)) : getClientColourScheme("default");
-  const clientNotes = useMemo(() => progressNotes.filter((note) => note.participantId === selectedClient?.id), [selectedClient?.id]);
-  const clientDocuments = useMemo(() => documents.filter((document) => document.participantId === selectedClient?.id), [selectedClient?.id]);
-  const clientGoals = useMemo(() => participantProgressGoals.filter((goal) => goal.participantId === selectedClient?.id), [selectedClient?.id]);
-  const clientExtractions = selectedClient?.id === "client-b" ? samplePlanExtractions : [];
+  const clientNotes = useMemo(() => realMode ? [] : progressNotes.filter((note) => note.participantId === selectedClient?.id), [realMode, selectedClient?.id]);
+  const clientDocuments = useMemo(() => realMode ? [] : documents.filter((document) => document.participantId === selectedClient?.id), [realMode, selectedClient?.id]);
+  const clientGoals = useMemo(() => realMode ? [] : participantProgressGoals.filter((goal) => goal.participantId === selectedClient?.id), [realMode, selectedClient?.id]);
+  const clientExtractions = !realMode && selectedClient?.id === "client-b" ? samplePlanExtractions : [];
   const selectedGoal = clientGoals[0];
 
   return (
@@ -61,6 +72,7 @@ export function ProgressDashboard() {
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
             Client
             <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
+              {!allClients.length ? <option value="">Add a client first</option> : null}
               {allClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
             </select>
           </label>

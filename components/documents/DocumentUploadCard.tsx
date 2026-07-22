@@ -6,6 +6,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { createDocumentId, saveTenantDocumentRecord } from "@/lib/document-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { cn } from "@/lib/utils";
@@ -35,14 +36,15 @@ const alliedHealthReportTypes = [
 
 export function DocumentUploadCard() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const [clientId, setClientId] = useState("client-b");
+  const [realMode, setRealMode] = useState(false);
+  const [clientId, setClientId] = useState("");
   const [documentType, setDocumentType] = useState("NDIS Plan");
   const [visibility, setVisibility] = useState<"worker-visible" | "manager-only">("worker-visible");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState("");
   const [fileName, setFileName] = useState("");
   const [message, setMessage] = useState("");
-  const allParticipants = useMemo(() => storedClients.length ? storedClients : participants, [storedClients]);
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const selectedClient = allParticipants.find((participant) => participant.id === clientId) ?? allParticipants[0];
 
   useEffect(() => {
@@ -50,8 +52,23 @@ export function DocumentUploadCard() {
   }, []);
 
   useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
+  useEffect(() => {
     if (!allParticipants.some((participant) => participant.id === clientId) && allParticipants[0]) {
       setClientId(allParticipants[0].id);
+      return;
+    }
+
+    if (!allParticipants.length && clientId) {
+      setClientId("");
     }
   }, [allParticipants, clientId]);
 
@@ -105,6 +122,7 @@ export function DocumentUploadCard() {
         <label className="text-sm font-semibold text-slate-700">
           Client
           <select className="mt-2 w-full rounded-md border border-slate-300 p-3" required value={clientId} onChange={(event) => setClientId(event.target.value)}>
+            {!allParticipants.length ? <option value="">Add a client first</option> : null}
             {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
           </select>
         </label>

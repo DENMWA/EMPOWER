@@ -10,6 +10,7 @@ import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
 
 type ContinenceCareRecord = {
@@ -214,9 +215,10 @@ function StoolShape({ shape }: { shape: string }) {
 
 export function ProgressNoteGenerator() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const allParticipants = useMemo<NoteClient[]>(() => storedClients.length ? storedClients : participants, [storedClients]);
-  const [selectedParticipantId, setSelectedParticipantId] = useState(participants[0]?.id ?? "");
-  const [roughNote, setRoughNote] = useState(sampleRoughNote);
+  const [realMode, setRealMode] = useState(false);
+  const allParticipants = useMemo<NoteClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const [selectedParticipantId, setSelectedParticipantId] = useState("");
+  const [roughNote, setRoughNote] = useState("");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
@@ -250,8 +252,33 @@ export function ProgressNoteGenerator() {
   }, []);
 
   useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
+  useEffect(() => {
+    if (!realMode && !roughNote) {
+      setRoughNote(sampleRoughNote);
+    }
+
+    if (realMode && roughNote === sampleRoughNote) {
+      setRoughNote("");
+    }
+  }, [realMode, roughNote]);
+
+  useEffect(() => {
     if ((!selectedParticipantId || !allParticipants.some((participant) => participant.id === selectedParticipantId)) && allParticipants[0]) {
       setSelectedParticipantId(allParticipants[0].id);
+      return;
+    }
+
+    if (!allParticipants.length && selectedParticipantId) {
+      setSelectedParticipantId("");
     }
   }, [allParticipants, selectedParticipantId]);
 
@@ -378,6 +405,7 @@ export function ProgressNoteGenerator() {
           <label className="text-sm font-semibold text-slate-700">
             Participant/client
             <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipantId} onChange={(event) => setSelectedParticipantId(event.target.value)}>
+              {!allParticipants.length ? <option value="">Add a client first</option> : null}
               {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
             </select>
           </label>

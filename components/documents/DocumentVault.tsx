@@ -6,6 +6,7 @@ import { RecordActions } from "@/components/records/RecordActions";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
@@ -14,15 +15,16 @@ const dayMs = 24 * 60 * 60 * 1000;
 export function DocumentVault() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [storedDocuments, setStoredDocuments] = useState<StoredDocumentRecord[]>([]);
-  const allParticipants = useMemo(() => storedClients.length ? storedClients : participants, [storedClients]);
-  const allDocuments = useMemo(() => storedDocuments.length ? storedDocuments : documents.map((document) => {
+  const [realMode, setRealMode] = useState(false);
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const allDocuments = useMemo(() => storedDocuments.length ? storedDocuments : realMode ? [] : documents.map((document) => {
     const participant = participants.find((item) => item.id === document.participantId);
     return {
       ...document,
       clientName: participant?.name ?? "Unassigned client",
       savedAt: new Date(`${document.startDate}T00:00:00`).toISOString()
     };
-  }), [storedDocuments]);
+  }), [storedDocuments, realMode]);
 
   useEffect(() => {
     function loadRecords() {
@@ -35,6 +37,16 @@ export function DocumentVault() {
     return () => window.removeEventListener("empowernotes:documents-updated", loadRecords);
   }, []);
 
+  useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
   return (
     <Card>
       <div>
@@ -43,6 +55,12 @@ export function DocumentVault() {
         <p className="mt-2 text-sm leading-6 text-slate-600">Documents are shown with their assigned client so support evidence does not become mixed across profiles.</p>
       </div>
       <div className="mt-4 space-y-3">
+        {!allDocuments.length ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+            <p className="font-semibold text-ink">No client documents saved yet</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Add a client, then upload their documents so this vault shows only that organisation's records.</p>
+          </div>
+        ) : null}
         {allDocuments.map((doc) => {
           const participant = allParticipants.find((item) => item.id === doc.participantId);
           const colourSchemeId = participant && "colourSchemeId" in participant && typeof participant.colourSchemeId === "string" ? participant.colourSchemeId : undefined;

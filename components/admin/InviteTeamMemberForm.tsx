@@ -6,6 +6,7 @@ import { participants, type UserRole } from "@/lib/sample-data";
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { MailPlus, ShieldCheck } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 
@@ -15,18 +16,34 @@ export function InviteTeamMemberForm() {
   const [role, setRole] = useState<UserRole>("support_worker");
   const [inviteStatus, setInviteStatus] = useState("pending");
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
-  const [assignedParticipants, setAssignedParticipants] = useState<string[]>(["client-b"]);
+  const [realMode, setRealMode] = useState(false);
+  const [assignedParticipants, setAssignedParticipants] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
-  const allParticipants = useMemo(() => storedClients.length ? storedClients : participants, [storedClients]);
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
 
   useEffect(() => {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
   }, []);
 
   useEffect(() => {
+    function syncDataMode() {
+      setRealMode(isRealModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
+  useEffect(() => {
     if (allParticipants.length && !assignedParticipants.some((participantId) => allParticipants.some((participant) => participant.id === participantId))) {
       setAssignedParticipants([allParticipants[0].id]);
+      return;
+    }
+
+    if (!allParticipants.length && assignedParticipants.length) {
+      setAssignedParticipants([]);
     }
   }, [allParticipants, assignedParticipants]);
 
@@ -104,6 +121,11 @@ export function InviteTeamMemberForm() {
       <div className="mt-5">
         <p className="text-sm font-semibold text-slate-700">Assign participants/clients</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {!allParticipants.length ? (
+            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600 sm:col-span-2">
+              Add a client first, then return here to assign participant access.
+            </div>
+          ) : null}
           {allParticipants.map((participant) => (
             <label key={participant.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={assignedParticipants.includes(participant.id)} onChange={() => toggleParticipant(participant.id)} />

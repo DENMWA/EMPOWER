@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
-import { isPresentationModeEnabled } from "@/lib/presentation-mode";
+import { isDemoModeEnabled } from "@/lib/presentation-mode";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
 type StoredIncidentReport = {
@@ -77,7 +77,7 @@ const sampleIncidentReports: StoredIncidentReport[] = [
 
 function getStoredIncidentReports() {
   if (typeof window === "undefined") return [];
-  if (isPresentationModeEnabled()) return [];
+  if (isDemoModeEnabled()) return [];
 
   return Object.keys(window.localStorage)
     .filter((key) => key.startsWith("empowernotes-incident:"))
@@ -143,6 +143,7 @@ export function IncidentReportCollectionExport() {
   const [toDate, setToDate] = useState("2026-06-30");
   const [includeSavedDrafts, setIncludeSavedDrafts] = useState(true);
   const [retainedIncidentReports, setRetainedIncidentReports] = useState<StoredIncidentReport[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     function loadRecords() {
@@ -156,9 +157,19 @@ export function IncidentReportCollectionExport() {
     return () => window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
   }, []);
 
+  useEffect(() => {
+    function syncDataMode() {
+      setDemoMode(isDemoModeEnabled());
+    }
+
+    syncDataMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
+  }, []);
+
   const sampleReportsInRange = useMemo(() => {
-    return sampleIncidentReports.filter((report) => report.date >= fromDate && report.date <= toDate);
-  }, [fromDate, toDate]);
+    return demoMode ? sampleIncidentReports.filter((report) => report.date >= fromDate && report.date <= toDate) : [];
+  }, [demoMode, fromDate, toDate]);
 
   function downloadCollection() {
     const storedReports = includeSavedDrafts
