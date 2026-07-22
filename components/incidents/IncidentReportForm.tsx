@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
-import { Download, Lock, Maximize2, Minimize2, Plus, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
-import { saveTenantRetainedRecord } from "@/lib/retained-records";
+import { useState } from "react";
+import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
+import { saveIncidentReport } from "@/lib/incident-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 
 type BodyView = "front" | "left" | "right" | "back";
@@ -345,7 +345,6 @@ export function IncidentReportForm() {
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
-  const exportText = useMemo(() => JSON.stringify(report, null, 2), [report]);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
   const showPropertyDamage = activeTemplate.propertyDamage || report.propertyDamage.involved || report.incidentTypes.includes("Property damage/destruction");
   const showBodyMap = activeTemplate.bodyMap || report.propertyDamage.bodilyInjury || report.markers.length > 0 || report.incidentTypes.some((type) => ["Fall", "Injury", "Medical event", "Safeguarding concern"].includes(type));
@@ -472,20 +471,20 @@ export function IncidentReportForm() {
     update("attachments", [...report.attachments, { id: `attachment-${Date.now()}`, name: "supporting-file.pdf", type: "Medical / body map / photo", notes: "Store against this specific client and incident record." }]);
   }
 
-  async function saveDraft() {
-    const savedIso = new Date().toISOString();
-    const result = await saveTenantRetainedRecord({
-      id: `incident-${report.incidentId}`,
-      type: "incident-report",
-      title: `Incident Report - ${report.incidentId}`,
-      body: exportText,
-      savedAt: savedIso
-    });
-    window.localStorage.setItem(`empowernotes-incident:${report.incidentId}`, exportText);
-    setSavedAt(new Date(savedIso).toLocaleString("en-AU"));
-    setSaveMessage(result.savedToCloud ? "Incident saved to this organisation." : "Incident saved locally. Sign in to save it to this organisation's Supabase space.");
-    window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
+  async function persistReport(nextReport = report, successMessage = "Incident saved to this organisation.") {
+    const result = await saveIncidentReport(nextReport);
+    setReport(nextReport);
+    setSavedAt(new Date(result.savedAt).toLocaleString("en-AU"));
+    setSaveMessage(result.savedToCloud ? successMessage : "Incident saved locally. Sign in to save it to this organisation's Supabase space.");
     markTrialStepComplete("incident-report");
+  }
+
+  async function saveDraft() {
+    await persistReport({ ...report, status: "Draft" }, "Incident draft saved to this organisation.");
+  }
+
+  async function submitReport() {
+    await persistReport({ ...report, status: "Submitted" }, "Incident submitted to admin for manager response.");
   }
 
   return (
@@ -502,9 +501,7 @@ export function IncidentReportForm() {
         {saveMessage ? <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{saveMessage}</p> : null}
         <div className="mt-5 grid gap-2">
           <button type="button" onClick={saveDraft} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift"><Save size={17} />Save draft</button>
-          <button type="button" onClick={() => update("status", "Submitted")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift"><Send size={17} />Submit</button>
-          <button type="button" onClick={() => update("status", "Needs Review")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-900"><ShieldCheck size={17} />Manager review</button>
-          <button type="button" onClick={() => update("status", "Locked")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink"><Lock size={17} />Lock report</button>
+          <button type="button" onClick={submitReport} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift"><Send size={17} />Submit</button>
         </div>
       </aside>
 
@@ -727,7 +724,10 @@ export function IncidentReportForm() {
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
           <h3 className="text-xl font-bold text-ink">Follow-up and manager review</h3>
           <TextArea label="Follow-up required" value={report.followUp} onChange={(value) => update("followUp", value)} />
-          <TextArea label="Manager review notes" value={report.managerReview} onChange={(value) => update("managerReview", value)} />
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Manager response</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{report.managerReview || "No manager response has been added yet. Submit the incident for admin review."}</p>
+          </div>
           <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">This may require manager review for possible escalation or reportable incident assessment.</p>
         </section>
 

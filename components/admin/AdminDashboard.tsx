@@ -91,7 +91,7 @@ const adminTools = [
   {
     title: "Incident Review",
     detail: "Track incidents needing escalation, follow-up, manager review, or closure.",
-    href: "/incidents",
+    href: "/admin/incidents",
     icon: ShieldCheck,
     badge: "Risk"
   },
