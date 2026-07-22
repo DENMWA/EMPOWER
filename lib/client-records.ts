@@ -5,6 +5,9 @@ import { checkActiveParticipantLimit } from "@/lib/subscriptions/client-limits";
 
 export type ClientRecord = Participant & {
   colourSchemeId?: string;
+  primaryHouseId?: string;
+  primaryHouseName?: string;
+  serviceName?: string;
   createdAt: string;
 };
 

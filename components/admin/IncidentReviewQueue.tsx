@@ -5,6 +5,7 @@ import { Save, ShieldCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { getSavedIncidentReports, saveIncidentReport, type IncidentStatus, type StoredIncidentReport } from "@/lib/incident-records";
 
 const reviewStatuses: IncidentStatus[] = ["Submitted", "Needs Review", "Locked"];
@@ -19,16 +20,18 @@ function getPercentage(value: number, total: number) {
   return total ? Math.round((value / total) * 100) : 0;
 }
 
-function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentReport[]; clients: ClientRecord[] }) {
+function IncidentBaselineChart({ reports, clients, houses }: { reports: StoredIncidentReport[]; clients: ClientRecord[]; houses: HouseRecord[] }) {
   const clientRows = useMemo(() => {
-    const clientIds = new Set([
-      ...clients.map((client) => client.id),
-      ...reports.map((report) => report.participantId || "unassigned-client")
+    const serviceKeys = new Set([
+      ...houses.flatMap((house) => house.clientIds.map((clientId) => `${clientId}:${house.id}`)),
+      ...reports.map((report) => `${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}`)
     ]);
 
-    return Array.from(clientIds).map((clientId) => {
+    return Array.from(serviceKeys).map((serviceKey) => {
+      const [clientId, houseId] = serviceKey.split(":");
       const client = clients.find((item) => item.id === clientId);
-      const clientReports = reports.filter((report) => (report.participantId || "unassigned-client") === clientId);
+      const house = houses.find((item) => item.id === houseId);
+      const clientReports = reports.filter((report) => (report.participantId || "unassigned-client") === clientId && (report.houseId || "unassigned-house") === houseId);
       const total = clientReports.length;
       const filed = clientReports.filter((report) => report.status !== "Draft").length;
       const actioned = clientReports.filter(hasManagerAction).length;
@@ -38,8 +41,9 @@ function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentRe
       const fallbackName = clientReports[0]?.participant || "Unassigned client";
 
       return {
-        id: clientId,
+        id: serviceKey,
         name: client?.name || fallbackName,
+        houseName: house?.name || clientReports[0]?.houseName || "Unassigned house/service",
         colour,
         total,
         filed,
@@ -48,7 +52,7 @@ function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentRe
         actionedScore
       };
     }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
-  }, [clients, reports]);
+  }, [clients, houses, reports]);
 
   const trackedRows = clientRows.filter((row) => row.total > 0);
   const clientsOnTarget = trackedRows.filter((row) => row.actionedScore >= incidentBaselineTarget).length;
@@ -58,9 +62,9 @@ function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentRe
     <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Incident baseline by client</p>
-          <h3 className="mt-1 text-xl font-bold text-ink">Each client compared against the 90% baseline</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">This live view keeps incident filing and manager action visible for each client, so one client&apos;s progress never masks another client&apos;s risk follow-up.</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Incident baseline by client and house</p>
+          <h3 className="mt-1 text-xl font-bold text-ink">Each service context compared against the 90% baseline</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">This live view keeps incident filing and manager action visible for each client at each house/service, so one service never masks another service&apos;s risk follow-up.</p>
         </div>
         <StatusBadge label={strongestSignal} tone={trackedRows.length && clientsOnTarget === trackedRows.length ? "green" : trackedRows.length ? "amber" : "blue"} />
       </div>
@@ -69,7 +73,7 @@ function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentRe
         {!clientRows.length ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-white p-4">
             <p className="font-semibold text-ink">No clients to chart yet</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Add client profiles in Admin, then submitted incidents will build a separate baseline chart for each client.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Add client profiles and houses in Admin, then submitted incidents will build a separate baseline chart for each service context.</p>
           </div>
         ) : null}
 
@@ -82,6 +86,7 @@ function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentRe
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h4 className="font-bold text-ink">{row.name}</h4>
+                  <p className="mt-1 text-sm font-semibold text-slate-700">{row.houseName}</p>
                   <p className="mt-1 text-sm text-slate-600">{row.total ? `${row.filed} filed, ${row.actioned} actioned, ${actionGap}% action gap` : "No incident records yet"}</p>
                 </div>
                 <StatusBadge label={row.total ? `${row.actionedScore}% actioned` : "No data"} tone={tone} />
@@ -120,16 +125,23 @@ function IncidentScoreBar({ label, value, count, color }: { label: string; value
 
 export function IncidentReviewQueue() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("all");
+  const [selectedHouseId, setSelectedHouseId] = useState("all");
   const [reports, setReports] = useState<StoredIncidentReport[]>([]);
   const [message, setMessage] = useState("");
   const filteredReports = useMemo(() => {
-    return selectedClientId === "all" ? reports : reports.filter((report) => report.participantId === selectedClientId);
-  }, [reports, selectedClientId]);
+    return reports.filter((report) => {
+      const clientMatch = selectedClientId === "all" || report.participantId === selectedClientId;
+      const houseMatch = selectedHouseId === "all" || report.houseId === selectedHouseId;
+      return clientMatch && houseMatch;
+    });
+  }, [reports, selectedClientId, selectedHouseId]);
   const queuedReports = useMemo(() => filteredReports.filter((report) => report.status !== "Draft"), [filteredReports]);
 
   useEffect(() => {
     getTenantClients().then(setClients).catch(() => setClients([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
     loadReports();
     window.addEventListener("empowernotes:retained-records-updated", loadReports);
     return () => window.removeEventListener("empowernotes:retained-records-updated", loadReports);
@@ -141,7 +153,7 @@ export function IncidentReviewQueue() {
   }
 
   function getReportKey(report: StoredIncidentReport) {
-    return `${report.participantId}-${report.incidentId}`;
+    return `${report.participantId}-${report.houseId || "unassigned-house"}-${report.incidentId}`;
   }
 
   function updateReport(reportKey: string, patch: Partial<StoredIncidentReport>) {
@@ -179,7 +191,15 @@ export function IncidentReviewQueue() {
         </select>
       </label>
 
-      <IncidentBaselineChart reports={reports} clients={clients} />
+      <label className="mt-4 grid max-w-md gap-2 text-sm font-semibold text-slate-700">
+        Review house/service
+        <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
+          <option value="all">All houses/services</option>
+          {houses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+        </select>
+      </label>
+
+      <IncidentBaselineChart reports={reports} clients={clients} houses={houses} />
 
       <div className="mt-5 grid gap-4">
         {!queuedReports.length ? (
@@ -200,6 +220,7 @@ export function IncidentReviewQueue() {
                 <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">{report.incidentId}</p>
                 <h3 className="mt-1 text-xl font-bold text-ink">{report.participant}</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-600">{report.date} at {report.time} - {report.location}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-700">House/service: {report.houseName || "Unassigned house/service"}</p>
                 <span className={`mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${colour.badge}`}>{colour.label} client file</span>
               </div>
               <StatusBadge label={report.status} tone={report.status === "Locked" ? "green" : report.status === "Needs Review" ? "amber" : "blue"} />

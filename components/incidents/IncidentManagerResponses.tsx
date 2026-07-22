@@ -5,20 +5,28 @@ import { MessageSquareText } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
 
 export function IncidentManagerResponses() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("all");
+  const [selectedHouseId, setSelectedHouseId] = useState("all");
   const [reports, setReports] = useState<StoredIncidentReport[]>([]);
   const accessibleClients = useMemo(() => filterByParticipantAccess(clients), [clients]);
   const filteredReports = useMemo(() => {
-    return selectedClientId === "all" ? reports : reports.filter((report) => report.participantId === selectedClientId);
-  }, [reports, selectedClientId]);
+    return reports.filter((report) => {
+      const clientMatch = selectedClientId === "all" || report.participantId === selectedClientId;
+      const houseMatch = selectedHouseId === "all" || report.houseId === selectedHouseId;
+      return clientMatch && houseMatch;
+    });
+  }, [reports, selectedClientId, selectedHouseId]);
 
   useEffect(() => {
     getTenantClients().then(setClients).catch(() => setClients([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
     loadReports();
     window.addEventListener("empowernotes:retained-records-updated", loadReports);
     return () => window.removeEventListener("empowernotes:retained-records-updated", loadReports);
@@ -53,6 +61,14 @@ export function IncidentManagerResponses() {
         </select>
       </label>
 
+      <label className="mt-4 grid max-w-md gap-2 text-sm font-semibold text-slate-700">
+        View house/service
+        <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
+          <option value="all">All assigned houses/services</option>
+          {houses.filter((house) => accessibleClients.some((client) => house.clientIds.includes(client.id))).map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+        </select>
+      </label>
+
       <div className="mt-5 grid gap-3">
         {!filteredReports.length ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
@@ -65,11 +81,12 @@ export function IncidentManagerResponses() {
           const client = clients.find((item) => item.id === report.participantId);
           const colour = getClientColourScheme(report.participantId, client?.colourSchemeId);
           return (
-          <div key={`${report.participantId}-${report.incidentId}`} className={`rounded-md border border-l-4 bg-slate-50 p-4 ${colour.border}`}>
+          <div key={`${report.participantId}-${report.houseId || "unassigned-house"}-${report.incidentId}`} className={`rounded-md border border-l-4 bg-slate-50 p-4 ${colour.border}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-bold text-ink">{report.incidentId} - {report.participant}</p>
                 <p className="mt-1 text-sm text-slate-600">{report.date} at {report.time} - {report.incidentTypes.join(", ") || "Incident"}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-700">House/service: {report.houseName || "Unassigned house/service"}</p>
                 <span className={`mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${colour.badge}`}>{colour.label} client file</span>
               </div>
               <StatusBadge label={report.status} tone={report.status === "Locked" ? "green" : report.status === "Needs Review" ? "amber" : "blue"} />

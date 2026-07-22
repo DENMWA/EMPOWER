@@ -8,6 +8,7 @@ import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
@@ -216,9 +217,11 @@ function StoolShape({ shape }: { shape: string }) {
 
 export function ProgressNoteGenerator() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const allParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
+  const [selectedHouseId, setSelectedHouseId] = useState("");
   const [roughNote, setRoughNote] = useState("");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -232,6 +235,8 @@ export function ProgressNoteGenerator() {
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
+  const serviceHouses = useMemo(() => selectedParticipant ? getHousesForClient(houses, selectedParticipant.id) : [], [houses, selectedParticipant]);
+  const selectedHouse = serviceHouses.find((house) => house.id === selectedHouseId) ?? serviceHouses[0];
   const quality = scoreNoteQuality();
   const showPersonalCareRecord = ["Personal care", "Bowel care"].includes(supportType);
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
@@ -250,6 +255,7 @@ export function ProgressNoteGenerator() {
 
   useEffect(() => {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
 
   useEffect(() => {
@@ -282,6 +288,17 @@ export function ProgressNoteGenerator() {
       setSelectedParticipantId("");
     }
   }, [allParticipants, selectedParticipantId]);
+
+  useEffect(() => {
+    if (serviceHouses.length && !serviceHouses.some((house) => house.id === selectedHouseId)) {
+      setSelectedHouseId(serviceHouses[0].id);
+      return;
+    }
+
+    if (!serviceHouses.length && selectedHouseId) {
+      setSelectedHouseId("");
+    }
+  }, [serviceHouses, selectedHouseId]);
 
   function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
     setContinenceRecord((current) => ({ ...current, [field]: value }));
@@ -379,6 +396,7 @@ export function ProgressNoteGenerator() {
 
   const noteRecordBody = [
     `Client: ${selectedParticipantName}`,
+    `House/service: ${selectedHouse?.name ?? "Not selected"}`,
     `Support type: ${supportType}`,
     `Date: ${supportDate}`,
     `Time: ${startTime} to ${finishTime}`,
@@ -386,7 +404,9 @@ export function ProgressNoteGenerator() {
     roughNote
   ].join("\n");
 
-  const noteRecordId = `progress-note-${selectedParticipantId || "client"}-${supportDate}-${startTime.replace(":", "")}-${finishTime.replace(":", "")}`;
+  const noteRecordId = `progress-note-${selectedParticipantId || "client"}-${selectedHouseId || "service"}-${supportDate}-${startTime.replace(":", "")}-${finishTime.replace(":", "")}`;
+  const selectedHouseName = selectedHouse?.name ?? "Unassigned service";
+  const selectedHouseSlug = selectedHouseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "service";
 
   return (
     <div className="space-y-6">
@@ -414,6 +434,13 @@ export function ProgressNoteGenerator() {
             Support type
             <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={supportType} onChange={(event) => setSupportType(event.target.value)}>
               {supportTypes.map((type) => <option key={type}>{type}</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
+            House/service
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
+              {!serviceHouses.length ? <option value="">No house assigned</option> : null}
+              {serviceHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
@@ -558,15 +585,19 @@ export function ProgressNoteGenerator() {
         <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
           {loading ? "Improving note..." : "Improve Note with Fidelity"}
         </button>
-        <RecordActions
-          className="mt-3"
-          recordId={noteRecordId}
-          recordType="progress-note"
-          title={`Professional Progress Note - ${selectedParticipantName}`}
-          body={noteRecordBody}
-          filename={`empower-notes-progress-note-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${supportDate}`}
-          allowDownload={false}
-        />
+        {selectedHouse ? (
+          <RecordActions
+            className="mt-3"
+            recordId={noteRecordId}
+            recordType="progress-note"
+            title={`Professional Progress Note - ${selectedParticipantName} - ${selectedHouseName}`}
+            body={noteRecordBody}
+            filename={`empower-notes-progress-note-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${selectedHouseSlug}-${supportDate}`}
+            allowDownload={false}
+          />
+        ) : (
+          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Ask admin to assign this client to a house/service before saving the progress note.</p>
+        )}
       </Card>
       {showMonthlyReport ? (
         <Card className="border-sky-100">

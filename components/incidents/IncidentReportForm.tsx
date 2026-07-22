@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { saveIncidentReport } from "@/lib/incident-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants, type Participant } from "@/lib/sample-data";
@@ -62,6 +63,8 @@ type IncidentReport = {
   templateId: IncidentTemplateId;
   incidentId: string;
   participantId: string;
+  houseId: string;
+  houseName: string;
   date: string;
   time: string;
   location: string;
@@ -203,6 +206,8 @@ const initialReport: IncidentReport = {
   templateId: "personalInjury",
   incidentId: "INC-2026-0007",
   participantId: "client-d",
+  houseId: "",
+  houseName: "",
   date: "2026-06-25",
   time: "09:35",
   location: "Bathroom doorway, supported accommodation",
@@ -347,6 +352,7 @@ function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]
 
 export function IncidentReportForm() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [report, setReport] = useState(initialReport);
   const [selectedMarkerId, setSelectedMarkerId] = useState(initialReport.markers[0]?.id ?? "");
@@ -356,6 +362,8 @@ export function IncidentReportForm() {
 
   const allParticipants = useMemo<IncidentClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const selectedParticipant = allParticipants.find((participant) => participant.id === report.participantId) ?? allParticipants[0];
+  const serviceHouses = useMemo(() => selectedParticipant ? getHousesForClient(houses, selectedParticipant.id) : [], [houses, selectedParticipant]);
+  const selectedHouse = serviceHouses.find((house) => house.id === report.houseId) ?? serviceHouses[0];
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
   const showPropertyDamage = activeTemplate.propertyDamage || report.propertyDamage.involved || report.incidentTypes.includes("Property damage/destruction");
@@ -363,6 +371,7 @@ export function IncidentReportForm() {
 
   useEffect(() => {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
 
   useEffect(() => {
@@ -393,16 +402,47 @@ export function IncidentReportForm() {
     }
   }, [allParticipants, report.participantId, selectedParticipant]);
 
+  useEffect(() => {
+    if (selectedHouse && selectedHouse.id !== report.houseId) {
+      setReport((current) => ({
+        ...current,
+        houseId: selectedHouse.id,
+        houseName: selectedHouse.name,
+        location: current.location || selectedHouse.address || selectedHouse.name
+      }));
+    }
+
+    if (!serviceHouses.length && report.houseId) {
+      setReport((current) => ({
+        ...current,
+        houseId: "",
+        houseName: ""
+      }));
+    }
+  }, [report.houseId, selectedHouse, serviceHouses]);
+
   function update<K extends keyof IncidentReport>(field: K, value: IncidentReport[K]) {
     setReport((current) => ({ ...current, [field]: value }));
   }
 
   function selectParticipant(participantId: string) {
     const participant = allParticipants.find((item) => item.id === participantId);
+    const nextHouse = participant ? getHousesForClient(houses, participant.id)[0] : undefined;
     setReport((current) => ({
       ...current,
       participantId,
-      participant: participant?.name ?? ""
+      participant: participant?.name ?? "",
+      houseId: nextHouse?.id ?? "",
+      houseName: nextHouse?.name ?? ""
+    }));
+  }
+
+  function selectHouse(houseId: string) {
+    const house = serviceHouses.find((item) => item.id === houseId);
+    setReport((current) => ({
+      ...current,
+      houseId,
+      houseName: house?.name ?? ""
     }));
   }
 
@@ -530,6 +570,11 @@ export function IncidentReportForm() {
       return;
     }
 
+    if (!nextReport.houseId) {
+      setSaveMessage("Choose the house/service before saving or submitting this incident.");
+      return;
+    }
+
     const result = await saveIncidentReport(nextReport);
     setReport(nextReport);
     setSavedAt(new Date(result.savedAt).toLocaleString("en-AU"));
@@ -553,6 +598,7 @@ export function IncidentReportForm() {
         <span className="mt-3 inline-flex rounded-md bg-amber-50 px-3 py-1 text-sm font-bold text-amber-900">{report.status}</span>
         <div className="mt-5 grid gap-2 text-sm text-slate-600">
           <p>Participant: <strong className="text-ink">{report.participant}</strong></p>
+          <p>House/service: <strong className="text-ink">{report.houseName || "Not selected"}</strong></p>
           <p>Reporter: <strong className="text-ink">{report.reporter}</strong></p>
           <p>{savedAt ? `Saved ${savedAt}` : "Unsaved local draft"}</p>
         </div>
@@ -616,6 +662,17 @@ export function IncidentReportForm() {
               >
                 {!allParticipants.length ? <option value="">Add a client in Admin first</option> : null}
                 {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              <span>House/service</span>
+              <select
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                value={report.houseId}
+                onChange={(event) => selectHouse(event.target.value)}
+              >
+                {!serviceHouses.length ? <option value="">Assign this client to a house in Admin first</option> : null}
+                {serviceHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
               </select>
             </label>
             <Field label="Date" type="date" value={report.date} onChange={(value) => update("date", value)} />

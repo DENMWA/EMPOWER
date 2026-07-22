@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
 import { createClientId, saveTenantClient } from "@/lib/client-records";
+import { getTenantHouses, saveTenantHouse, type HouseRecord } from "@/lib/house-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { sampleGoals, users } from "@/lib/sample-data";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
@@ -20,8 +21,11 @@ export function AddClientForm() {
   const [riskAlerts, setRiskAlerts] = useState("");
   const [selectedGoals, setSelectedGoals] = useState(sampleGoals.slice(0, 2));
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
+  const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [assignedWorkers, setAssignedWorkers] = useState<string[]>([]);
+  const [primaryHouseId, setPrimaryHouseId] = useState("");
+  const [serviceName, setServiceName] = useState("");
   const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
   const [saved, setSaved] = useState(false);
   const [message, setMessage] = useState("");
@@ -29,7 +33,14 @@ export function AddClientForm() {
 
   useEffect(() => {
     getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
+    getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
+
+  useEffect(() => {
+    if (!primaryHouseId && houses[0]) {
+      setPrimaryHouseId(houses[0].id);
+    }
+  }, [houses, primaryHouseId]);
 
   useEffect(() => {
     function syncDataMode() {
@@ -68,8 +79,13 @@ export function AddClientForm() {
       return;
     }
 
+    const clientId = createClientId(cleanName);
+    const selectedHouse = houses.find((house) => house.id === primaryHouseId);
     const result = await saveTenantClient({
-      id: createClientId(cleanName),
+      primaryHouseId,
+      primaryHouseName: selectedHouse?.name,
+      serviceName: serviceName.trim(),
+      id: clientId,
       name: cleanName,
       initials: (initials.trim() || cleanName.split(/\s+/).map((part) => part[0]).join("")).slice(0, 4).toUpperCase(),
       supportNeeds: supportNeeds.trim() || "Support needs to be added.",
@@ -88,6 +104,13 @@ export function AddClientForm() {
       return;
     }
 
+    if (selectedHouse && !selectedHouse.clientIds.includes(clientId)) {
+      await saveTenantHouse({
+        ...selectedHouse,
+        clientIds: [...selectedHouse.clientIds, clientId]
+      });
+    }
+
     setSaved(true);
     markTrialStepComplete("add-client");
     setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`);
@@ -96,6 +119,7 @@ export function AddClientForm() {
     setSupportNeeds("");
     setCommunication("");
     setRiskAlerts("");
+    setServiceName("");
   }
 
   return (
@@ -117,6 +141,17 @@ export function AddClientForm() {
         <label className="block text-sm font-semibold text-slate-700">
           Initials
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. GM" maxLength={4} value={initials} onChange={(event) => setInitials(event.target.value.toUpperCase())} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Primary house/service
+          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={primaryHouseId} onChange={(event) => setPrimaryHouseId(event.target.value)}>
+            {!houses.length ? <option value="">Add a house first or leave blank</option> : null}
+            {houses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+          </select>
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Service name
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. SIL weekday support" value={serviceName} onChange={(event) => setServiceName(event.target.value)} />
         </label>
         <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
           Support needs

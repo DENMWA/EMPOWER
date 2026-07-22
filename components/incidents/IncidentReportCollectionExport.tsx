@@ -10,6 +10,8 @@ import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-re
 type StoredIncidentReport = {
   incidentId: string;
   participantId: string;
+  houseId: string;
+  houseName: string;
   date: string;
   time: string;
   location: string;
@@ -48,6 +50,8 @@ const sampleIncidentReports: StoredIncidentReport[] = [
   {
     incidentId: "INC-2026-0007",
     participantId: "client-d",
+    houseId: "demo-house",
+    houseName: "Demo House",
     date: "2026-06-25",
     time: "09:35",
     location: "Bathroom doorway, supported accommodation",
@@ -86,7 +90,7 @@ function getStoredIncidentReports() {
     .map((key) => {
       try {
         const report = JSON.parse(window.localStorage.getItem(key) || "") as StoredIncidentReport;
-        return { ...report, participantId: report.participantId || "unassigned-client" };
+        return { ...report, participantId: report.participantId || "unassigned-client", houseId: report.houseId || "unassigned-house", houseName: report.houseName || "Unassigned house/service" };
       } catch {
         return null;
       }
@@ -97,7 +101,7 @@ function getStoredIncidentReports() {
 function incidentFromRetainedRecord(record: RetainedRecord) {
   try {
     const report = JSON.parse(record.body) as StoredIncidentReport;
-    return { ...report, participantId: report.participantId || "unassigned-client" };
+    return { ...report, participantId: report.participantId || "unassigned-client", houseId: report.houseId || "unassigned-house", houseName: report.houseName || "Unassigned house/service" };
   } catch {
     return null;
   }
@@ -126,6 +130,8 @@ function formatIncidentReport(report: StoredIncidentReport) {
     `Date/time: ${report.date} ${report.time}`,
     `Client: ${report.participant}`,
     `Client ID: ${report.participantId}`,
+    `House/service: ${report.houseName}`,
+    `House/service ID: ${report.houseId}`,
     `Reporter: ${report.reporter}`,
     `Location: ${report.location}`,
     `Status: ${report.status}`,
@@ -179,7 +185,7 @@ export function IncidentReportCollectionExport() {
   function downloadCollection() {
     const storedReports = includeSavedDrafts
       ? [...retainedIncidentReports, ...getStoredIncidentReports()]
-          .filter((report, index, reports) => reports.findIndex((item) => `${item.participantId}-${item.incidentId}` === `${report.participantId}-${report.incidentId}`) === index)
+          .filter((report, index, reports) => reports.findIndex((item) => `${item.participantId}-${item.houseId}-${item.incidentId}` === `${report.participantId}-${report.houseId}-${report.incidentId}`) === index)
           .filter((report) => report.date >= fromDate && report.date <= toDate)
       : [];
 
