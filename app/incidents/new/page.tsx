@@ -6,7 +6,7 @@ export default function NewIncidentReportPage() {
     <>
       <PageHeader
         title="New Incident Report"
-        description="Create a structured, audit-friendly incident report with injury details, body map markers, manager review prompts, attachments, and sign-off controls."
+        description="Choose the incident type first, then complete a specific template for injury, property damage, absconding, behaviour, medication, medical, safeguarding, near miss, or other incidents."
       />
       <Section><IncidentReportForm /></Section>
     </>

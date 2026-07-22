@@ -8,6 +8,7 @@ import { markTrialStepComplete } from "@/lib/trial-run";
 
 type BodyView = "front" | "left" | "right" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
+type IncidentTemplateId = "personalInjury" | "propertyDamage" | "absconding" | "behaviour" | "medication" | "medical" | "nearMiss" | "safeguarding" | "other";
 
 type BodyMarker = {
   id: string;
@@ -36,7 +37,23 @@ type PropertyDamageDetails = {
   immediateAction: string;
 };
 
+type IncidentSpecificDetails = {
+  injuryTreatment: string;
+  abscondingLastSeen: string;
+  abscondingSearchActions: string;
+  abscondingReturnDetails: string;
+  abscondingEmergencyServices: string;
+  behaviourTriggers: string;
+  deEscalationStrategies: string;
+  medicationDetails: string;
+  medicalObservations: string;
+  safeguardingDetails: string;
+  nearMissRisk: string;
+  otherDetails: string;
+};
+
 type IncidentReport = {
+  templateId: IncidentTemplateId;
   incidentId: string;
   date: string;
   time: string;
@@ -52,6 +69,7 @@ type IncidentReport = {
   followUp: string;
   managerReview: string;
   propertyDamage: PropertyDamageDetails;
+  specificDetails: IncidentSpecificDetails;
   markers: BodyMarker[];
   attachments: Attachment[];
 };
@@ -61,7 +79,108 @@ const bodyAreas = ["Head", "Face", "Neck", "Left arm", "Right arm", "Chest", "Ab
 const injuryTypes = ["Bruise", "Cut", "Swelling", "Redness", "Pain", "Scratch", "Skin tear", "Other"];
 const propertyDamageItems = ["Car / vehicle", "House / property", "Window / door", "Furniture", "Appliance", "Assistive equipment", "Personal belongings", "Other"];
 
+const incidentTemplates: Array<{
+  id: IncidentTemplateId;
+  title: string;
+  detail: string;
+  incidentTypes: string[];
+  bodyMap: boolean;
+  propertyDamage: boolean;
+  fields: Array<{ key: keyof IncidentSpecificDetails; label: string; rows?: number }>;
+}> = [
+  {
+    id: "personalInjury",
+    title: "Personal injury",
+    detail: "Falls, bruising, pain, skin tears, swelling, cuts, or other observed/reported injury.",
+    incidentTypes: ["Injury"],
+    bodyMap: true,
+    propertyDamage: false,
+    fields: [{ key: "injuryTreatment", label: "First aid, treatment, monitoring and pain response", rows: 4 }]
+  },
+  {
+    id: "propertyDamage",
+    title: "Property damage",
+    detail: "Damage to a car, house, door, window, furniture, equipment, or personal belongings.",
+    incidentTypes: ["Property damage/destruction"],
+    bodyMap: false,
+    propertyDamage: true,
+    fields: [{ key: "otherDetails", label: "Context, witnesses, photos, repair steps, and who was notified", rows: 4 }]
+  },
+  {
+    id: "absconding",
+    title: "Absconding",
+    detail: "Client left without notice, was missing, or moved away from agreed support/supervision.",
+    incidentTypes: ["Safeguarding concern"],
+    bodyMap: false,
+    propertyDamage: false,
+    fields: [
+      { key: "abscondingLastSeen", label: "Last seen location, time, clothing, mood, and known direction", rows: 3 },
+      { key: "abscondingSearchActions", label: "Search actions, staff response, transport checks, and locations checked", rows: 4 },
+      { key: "abscondingEmergencyServices", label: "Police/emergency/family/guardian notifications and reference numbers", rows: 3 },
+      { key: "abscondingReturnDetails", label: "Return details, wellbeing check, debrief, and follow-up safety plan", rows: 4 }
+    ]
+  },
+  {
+    id: "behaviour",
+    title: "Behaviour / distress",
+    detail: "Distress, behaviour of concern, escalation, de-escalation, triggers, or restrictive-practice review.",
+    incidentTypes: ["Behaviour/distress incident"],
+    bodyMap: false,
+    propertyDamage: false,
+    fields: [
+      { key: "behaviourTriggers", label: "Known or possible triggers, early warning signs, and environment factors", rows: 4 },
+      { key: "deEscalationStrategies", label: "De-escalation strategies used and what helped", rows: 4 }
+    ]
+  },
+  {
+    id: "medication",
+    title: "Medication incident",
+    detail: "Missed dose, wrong dose, refusal, medication error, side effect, or escalation.",
+    incidentTypes: ["Medication incident"],
+    bodyMap: false,
+    propertyDamage: false,
+    fields: [{ key: "medicationDetails", label: "Medication, dose/time, error/refusal details, advice sought, and monitoring", rows: 5 }]
+  },
+  {
+    id: "medical",
+    title: "Medical event",
+    detail: "Seizure, illness, choking concern, wound concern, deterioration, or ambulance/GP review.",
+    incidentTypes: ["Medical event"],
+    bodyMap: true,
+    propertyDamage: false,
+    fields: [{ key: "medicalObservations", label: "Symptoms, observations, first aid, clinical advice, and monitoring plan", rows: 5 }]
+  },
+  {
+    id: "nearMiss",
+    title: "Near miss",
+    detail: "An event that could have caused harm but was prevented or did not result in injury.",
+    incidentTypes: ["Near miss"],
+    bodyMap: false,
+    propertyDamage: false,
+    fields: [{ key: "nearMissRisk", label: "What could have happened, prevention actions, and future controls", rows: 4 }]
+  },
+  {
+    id: "safeguarding",
+    title: "Safeguarding concern",
+    detail: "Abuse/neglect concern, unexplained injury, disclosure, exploitation, or reportable incident review.",
+    incidentTypes: ["Safeguarding concern"],
+    bodyMap: true,
+    propertyDamage: false,
+    fields: [{ key: "safeguardingDetails", label: "Concern, disclosure/observation, immediate safety actions, and escalation pathway", rows: 5 }]
+  },
+  {
+    id: "other",
+    title: "Other incident",
+    detail: "Use when the incident does not fit the standard templates.",
+    incidentTypes: ["Other"],
+    bodyMap: false,
+    propertyDamage: false,
+    fields: [{ key: "otherDetails", label: "Additional structured details", rows: 4 }]
+  }
+];
+
 const initialReport: IncidentReport = {
+  templateId: "personalInjury",
   incidentId: "INC-2026-0007",
   date: "2026-06-25",
   time: "09:35",
@@ -84,6 +203,20 @@ const initialReport: IncidentReport = {
     estimatedCost: "",
     immediateAction: ""
   },
+  specificDetails: {
+    injuryTreatment: "First aid and monitoring commenced. Continue to observe for pain, swelling, skin changes, and changes in mobility.",
+    abscondingLastSeen: "",
+    abscondingSearchActions: "",
+    abscondingReturnDetails: "",
+    abscondingEmergencyServices: "",
+    behaviourTriggers: "",
+    deEscalationStrategies: "",
+    medicationDetails: "",
+    medicalObservations: "",
+    safeguardingDetails: "",
+    nearMissRisk: "",
+    otherDetails: ""
+  },
   markers: [
     { id: "marker-1", view: "front", x: 20, y: 35, area: "Left arm", injury: "Bruise", severity: "Mild", notes: "Approx. 3cm purple/blue bruising observed." },
     { id: "marker-2", view: "back", x: 82, y: 33, area: "Upper back", injury: "Redness", severity: "Mild", notes: "Approx. 4cm red area observed, no open skin." }
@@ -100,11 +233,11 @@ function Field({ label, value, onChange, type = "text" }: { label: string; value
   );
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function TextArea({ label, value, onChange, rows = 4 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
   return (
     <label className="grid gap-2 text-sm font-semibold text-slate-700">
       <span>{label}</span>
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={4} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-ink focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100" />
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-ink focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100" />
     </label>
   );
 }
@@ -196,9 +329,36 @@ export function IncidentReportForm() {
 
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const exportText = useMemo(() => JSON.stringify(report, null, 2), [report]);
+  const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
+  const showPropertyDamage = activeTemplate.propertyDamage || report.propertyDamage.involved || report.incidentTypes.includes("Property damage/destruction");
+  const showBodyMap = activeTemplate.bodyMap || report.markers.length > 0 || report.incidentTypes.some((type) => ["Fall", "Injury", "Medical event", "Safeguarding concern"].includes(type));
 
   function update<K extends keyof IncidentReport>(field: K, value: IncidentReport[K]) {
     setReport((current) => ({ ...current, [field]: value }));
+  }
+
+  function selectTemplate(templateId: IncidentTemplateId) {
+    const template = incidentTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+
+    if (!template.bodyMap) {
+      setSelectedMarkerId("");
+      setBodyMapExpanded(false);
+    } else if (!selectedMarkerId && report.markers[0]) {
+      setSelectedMarkerId(report.markers[0].id);
+    }
+
+    setReport((current) => ({
+      ...current,
+      templateId,
+      incidentTypes: template.incidentTypes,
+      propertyDamage: {
+        ...current.propertyDamage,
+        involved: template.propertyDamage
+      },
+      markers: template.bodyMap ? current.markers : [],
+      managerReview: `Pending manager review for ${template.title.toLowerCase()}. Confirm escalation, reportable incident obligations, notifications, and follow-up before locking.`
+    }));
   }
 
   function toggleType(value: string) {
@@ -211,6 +371,10 @@ export function IncidentReportForm() {
 
   function updatePropertyDamage(patch: Partial<PropertyDamageDetails>) {
     update("propertyDamage", { ...report.propertyDamage, ...patch });
+  }
+
+  function updateSpecificDetail(field: keyof IncidentSpecificDetails, value: string) {
+    update("specificDetails", { ...report.specificDetails, [field]: value });
   }
 
   function togglePropertyDamageItem(value: string) {
@@ -305,6 +469,32 @@ export function IncidentReportForm() {
         </section>
 
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Incident type</p>
+            <h3 className="mt-1 text-xl font-bold text-ink">Choose the right report template</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">The selected template controls which prompts appear below. Staff can still add extra classifications if the incident involves more than one issue.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {incidentTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => selectTemplate(template.id)}
+                className={`rounded-md border p-4 text-left transition focus:outline focus:outline-2 focus:outline-teal-700 ${report.templateId === template.id ? "border-teal-600 bg-teal-50 shadow-lift" : "border-slate-200 bg-slate-50 hover:border-teal-300"}`}
+                aria-pressed={report.templateId === template.id}
+              >
+                <span className="block font-bold text-ink">{template.title}</span>
+                <span className="mt-2 block text-sm leading-6 text-slate-600">{template.detail}</span>
+              </button>
+            ))}
+          </div>
+          <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
+            <p className="text-sm font-semibold text-teal-950">Active template: {activeTemplate.title}</p>
+            <p className="mt-1 text-sm leading-6 text-teal-900">{activeTemplate.detail}</p>
+          </div>
+        </section>
+
+        <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
           <h3 className="text-xl font-bold text-ink">Incident basics</h3>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Incident ID" value={report.incidentId} onChange={(value) => update("incidentId", value)} />
@@ -325,13 +515,32 @@ export function IncidentReportForm() {
         </section>
 
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
-          <h3 className="text-xl font-bold text-ink">Narrative and response</h3>
+          <h3 className="text-xl font-bold text-ink">{activeTemplate.title} narrative and response</h3>
           <TextArea label="What happened" value={report.whatHappened} onChange={(value) => update("whatHappened", value)} />
           <TextArea label="Injury / harm summary" value={report.injurySummary} onChange={(value) => update("injurySummary", value)} />
           <TextArea label="Immediate response" value={report.immediateAction} onChange={(value) => update("immediateAction", value)} />
           <TextArea label="Notifications" value={report.notifications} onChange={(value) => update("notifications", value)} />
         </section>
 
+        <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Template prompts</p>
+            <h3 className="mt-1 text-xl font-bold text-ink">{activeTemplate.title} specific details</h3>
+          </div>
+          <div className="grid gap-4">
+            {activeTemplate.fields.map((field) => (
+              <TextArea
+                key={field.key}
+                label={field.label}
+                value={report.specificDetails[field.key]}
+                onChange={(value) => updateSpecificDetail(field.key, value)}
+                rows={field.rows}
+              />
+            ))}
+          </div>
+        </section>
+
+        {showPropertyDamage ? (
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -371,7 +580,9 @@ export function IncidentReportForm() {
           <TextArea label="Property damage details" value={report.propertyDamage.description} onChange={(value) => updatePropertyDamage({ description: value })} />
           <TextArea label="Immediate action for property damage" value={report.propertyDamage.immediateAction} onChange={(value) => updatePropertyDamage({ immediateAction: value })} />
         </section>
+        ) : null}
 
+        {showBodyMap ? (
         <section className={`${bodyMapExpanded ? "border-teal-200 bg-teal-50/30" : "border-slate-200 bg-white"} grid gap-4 rounded-md border p-5 shadow-soft transition-all`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -416,6 +627,7 @@ export function IncidentReportForm() {
             </div>
           </div>
         </section>
+        ) : null}
 
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
           <h3 className="text-xl font-bold text-ink">Follow-up and manager review</h3>
