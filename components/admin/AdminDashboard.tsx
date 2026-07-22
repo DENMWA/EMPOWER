@@ -105,7 +105,7 @@ const adminTools = [
   {
     title: "Audit Packs",
     detail: "Prepare evidence exports by participant, date range, worker, or incident.",
-    href: "/audit-packs",
+    href: "/admin/audit-packs",
     icon: FileWarning,
     badge: "Audit"
   },

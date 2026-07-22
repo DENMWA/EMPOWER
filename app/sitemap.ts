@@ -7,8 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/", priority: 1 },
     { path: "/pricing", priority: 0.85 },
     { path: "/contact", priority: 0.75 },
-    { path: "/signup", priority: 0.7 },
-    { path: "/audit-packs", priority: 0.65 }
+    { path: "/signup", priority: 0.7 }
   ] as const;
 
   return publicRoutes.map((route) => ({
