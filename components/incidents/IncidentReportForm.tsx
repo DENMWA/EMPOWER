@@ -30,11 +30,13 @@ type Attachment = {
 
 type PropertyDamageDetails = {
   involved: boolean;
+  bodilyInjury: boolean;
   items: string[];
   otherItem: string;
   description: string;
   estimatedCost: string;
   immediateAction: string;
+  bodilyInjuryDescription: string;
 };
 
 type IncidentSpecificDetails = {
@@ -197,11 +199,13 @@ const initialReport: IncidentReport = {
   managerReview: "Pending manager review. Consider whether escalation or reportable incident assessment is required.",
   propertyDamage: {
     involved: false,
+    bodilyInjury: false,
     items: [],
     otherItem: "",
     description: "",
     estimatedCost: "",
-    immediateAction: ""
+    immediateAction: "",
+    bodilyInjuryDescription: ""
   },
   specificDetails: {
     injuryTreatment: "First aid and monitoring commenced. Continue to observe for pain, swelling, skin changes, and changes in mobility.",
@@ -331,7 +335,7 @@ export function IncidentReportForm() {
   const exportText = useMemo(() => JSON.stringify(report, null, 2), [report]);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
   const showPropertyDamage = activeTemplate.propertyDamage || report.propertyDamage.involved || report.incidentTypes.includes("Property damage/destruction");
-  const showBodyMap = activeTemplate.bodyMap || report.markers.length > 0 || report.incidentTypes.some((type) => ["Fall", "Injury", "Medical event", "Safeguarding concern"].includes(type));
+  const showBodyMap = activeTemplate.bodyMap || report.propertyDamage.bodilyInjury || report.markers.length > 0 || report.incidentTypes.some((type) => ["Fall", "Injury", "Medical event", "Safeguarding concern"].includes(type));
 
   function update<K extends keyof IncidentReport>(field: K, value: IncidentReport[K]) {
     setReport((current) => ({ ...current, [field]: value }));
@@ -354,7 +358,8 @@ export function IncidentReportForm() {
       incidentTypes: template.incidentTypes,
       propertyDamage: {
         ...current.propertyDamage,
-        involved: template.propertyDamage
+        involved: template.propertyDamage,
+        bodilyInjury: template.bodyMap ? current.propertyDamage.bodilyInjury : false
       },
       markers: template.bodyMap ? current.markers : [],
       managerReview: `Pending manager review for ${template.title.toLowerCase()}. Confirm escalation, reportable incident obligations, notifications, and follow-up before locking.`
@@ -371,6 +376,27 @@ export function IncidentReportForm() {
 
   function updatePropertyDamage(patch: Partial<PropertyDamageDetails>) {
     update("propertyDamage", { ...report.propertyDamage, ...patch });
+  }
+
+  function togglePropertyDamageBodilyInjury(involved: boolean) {
+    setReport((current) => ({
+      ...current,
+      incidentTypes: involved
+        ? Array.from(new Set([...current.incidentTypes, "Injury"]))
+        : current.templateId === "propertyDamage"
+          ? current.incidentTypes.filter((type) => type !== "Injury")
+          : current.incidentTypes,
+      propertyDamage: {
+        ...current.propertyDamage,
+        bodilyInjury: involved
+      },
+      markers: !involved && current.templateId === "propertyDamage" ? [] : current.markers
+    }));
+
+    if (!involved && report.templateId === "propertyDamage") {
+      setSelectedMarkerId("");
+      setBodyMapExpanded(false);
+    }
   }
 
   function updateSpecificDetail(field: keyof IncidentSpecificDetails, value: string) {
@@ -579,6 +605,44 @@ export function IncidentReportForm() {
           </div>
           <TextArea label="Property damage details" value={report.propertyDamage.description} onChange={(value) => updatePropertyDamage({ description: value })} />
           <TextArea label="Immediate action for property damage" value={report.propertyDamage.immediateAction} onChange={(value) => updatePropertyDamage({ immediateAction: value })} />
+          <div className="rounded-md border border-red-100 bg-red-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Bodily injury check</p>
+                <h4 className="mt-1 text-lg font-bold text-ink">Did bodily injury also occur?</h4>
+                <p className="mt-1 text-sm leading-6 text-slate-700">Choose yes if anyone had pain, bruising, swelling, a cut, redness, skin damage, or any reported/observed injury connected to the property damage incident.</p>
+              </div>
+              <div className="flex rounded-md border border-red-200 bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => togglePropertyDamageBodilyInjury(true)}
+                  className={`min-h-10 rounded px-4 text-sm font-bold ${report.propertyDamage.bodilyInjury ? "bg-red-600 text-white" : "text-slate-700 hover:bg-red-50"}`}
+                  aria-pressed={report.propertyDamage.bodilyInjury}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => togglePropertyDamageBodilyInjury(false)}
+                  className={`min-h-10 rounded px-4 text-sm font-bold ${!report.propertyDamage.bodilyInjury ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-50"}`}
+                  aria-pressed={!report.propertyDamage.bodilyInjury}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+            {report.propertyDamage.bodilyInjury ? (
+              <div className="mt-4 grid gap-4">
+                <TextArea
+                  label="Bodily injury details linked to property damage"
+                  value={report.propertyDamage.bodilyInjuryDescription}
+                  onChange={(value) => updatePropertyDamage({ bodilyInjuryDescription: value })}
+                  rows={4}
+                />
+                <p className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-red-800">The body map is now available below. Add markers for each injury site and complete the marker details.</p>
+              </div>
+            ) : null}
+          </div>
         </section>
         ) : null}
 
