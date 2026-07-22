@@ -1,5 +1,6 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { IncidentReviewQueue } from "@/components/admin/IncidentReviewQueue";
+import { IncidentReportCollectionExport } from "@/components/incidents/IncidentReportCollectionExport";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function AdminIncidentsPage() {
@@ -13,6 +14,9 @@ export default function AdminIncidentsPage() {
       />
       <Section>
         <IncidentReviewQueue />
+      </Section>
+      <Section>
+        <IncidentReportCollectionExport />
       </Section>
     </AdminGate>
   );
