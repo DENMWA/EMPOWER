@@ -4,10 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
-import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, BadgeDollarSign, SlidersHorizontal, SquareTerminal } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -15,8 +14,7 @@ const navItems = [
   { href: "/notes/new", label: "Progress Note", icon: Mic },
   { href: "/participants", label: "My Clients", icon: Users },
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
-  { href: "/documents", label: "Documents", icon: FolderLock },
-  { href: "/pricing", label: "Pricing", icon: BadgeDollarSign }
+  { href: "/documents", label: "Documents", icon: FolderLock }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -50,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            {isPlatform ? <span className="rounded-md bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">Internal platform</span> : <PlanBadge role="owner" />}
+            {isPlatform ? <span className="rounded-md bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">Internal platform</span> : null}
             <AccessibilityToggle enabled={accessibilityMode} onChange={setAccessibilityMode} />
           </div>
         </div>

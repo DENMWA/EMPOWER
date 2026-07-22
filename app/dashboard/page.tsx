@@ -1,7 +1,5 @@
 import { DashboardOperationalLists, ManagerDashboardCards, WorkerDashboardCards } from "@/components/dashboard/DashboardCards";
 import { ManagerApprovalPanel } from "@/components/approvals/ManagerApprovalPanel";
-import { PlanManagementCard } from "@/components/billing/PlanManagementCard";
-import { UsageSummary } from "@/components/billing/UsageSummary";
 import { InvoiceReadinessPanel } from "@/components/invoicing/InvoiceReadinessPanel";
 import { PageHeader, Section } from "@/components/ui";
 import { StaffProfiles } from "@/components/staff/StaffProfiles";
@@ -15,7 +13,6 @@ export default function DashboardPage() {
       <Section><DashboardOperationalLists /></Section>
       <Section><StaffProfiles /></Section>
       <Section className="grid gap-6 lg:grid-cols-2"><ManagerApprovalPanel /><InvoiceReadinessPanel /></Section>
-      <Section className="grid gap-6 lg:grid-cols-2"><UsageSummary /><PlanManagementCard /></Section>
     </>
   );
 }
