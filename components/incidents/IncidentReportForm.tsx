@@ -569,7 +569,10 @@ export function IncidentReportForm() {
         </section>
 
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
-          <h3 className="text-xl font-bold text-ink">{activeTemplate.title} narrative and response</h3>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">{activeTemplate.title}</p>
+            <h3 className="mt-1 text-xl font-bold text-ink">Incident details</h3>
+          </div>
           <TextArea label="What happened" value={report.whatHappened} onChange={(value) => update("whatHappened", value)} />
           <TextArea label="Injury / harm summary" value={report.injurySummary} onChange={(value) => update("injurySummary", value)} />
           <TextArea label="Immediate response" value={report.immediateAction} onChange={(value) => update("immediateAction", value)} />
