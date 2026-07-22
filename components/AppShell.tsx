@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
+import { accessChangedEvent, canAccessAdmin, getCurrentAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
 import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal } from "lucide-react";
 
@@ -20,13 +21,29 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
+  const [currentUser, setCurrentUser] = useState(getCurrentAppUser);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
+  const visibleNavItems = navItems.filter((item) => item.href !== "/admin" || canAccessAdmin(currentUser.role));
 
   useEffect(() => {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
+    setCurrentUser(getCurrentAppUser());
+  }, []);
+
+  useEffect(() => {
+    function syncAccess() {
+      setCurrentUser(getCurrentAppUser());
+    }
+
+    window.addEventListener(accessChangedEvent, syncAccess);
+    window.addEventListener("storage", syncAccess);
+    return () => {
+      window.removeEventListener(accessChangedEvent, syncAccess);
+      window.removeEventListener("storage", syncAccess);
+    };
   }, []);
 
   useEffect(() => {
@@ -72,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         ) : (
           <nav className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3" aria-label="Primary navigation">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
               return (

@@ -8,6 +8,7 @@ import { saveIncidentReport } from "@/lib/incident-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants, type Participant } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
+import { filterByParticipantAccess } from "@/lib/user-access";
 
 type BodyView = "front" | "left" | "right" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
@@ -353,7 +354,7 @@ export function IncidentReportForm() {
   const [saveMessage, setSaveMessage] = useState("");
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
-  const allParticipants = useMemo<IncidentClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const allParticipants = useMemo<IncidentClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const selectedParticipant = allParticipants.find((participant) => participant.id === report.participantId) ?? allParticipants[0];
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];

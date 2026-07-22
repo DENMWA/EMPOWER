@@ -6,7 +6,8 @@ import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
-import { MoreHorizontal } from "lucide-react";
+import { setCurrentAppUser } from "@/lib/user-access";
+import { Eye, MoreHorizontal } from "lucide-react";
 
 const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" }> = {
   "provider-owner": { label: "Owner", tone: "green" },
@@ -21,6 +22,7 @@ export function TeamMembersTable() {
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
+  const [message, setMessage] = useState("");
   const allUsers: TeamMember[] = useMemo(() => storedStaff.length ? storedStaff : realMode ? [] : users, [storedStaff, realMode]);
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
 
@@ -48,6 +50,7 @@ export function TeamMembersTable() {
         </div>
         <StatusBadge label={`${allUsers.length} staff records`} tone="blue" />
       </div>
+      {message ? <p className="mt-4 rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800">{message}</p> : null}
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[860px] text-left text-sm">
           <thead>
@@ -102,9 +105,22 @@ export function TeamMembersTable() {
                   </td>
                   <td className="py-4 pr-4"><StatusBadge label={status.label} tone={status.tone} /></td>
                   <td className="py-4 pr-4">
-                    <a href="/admin/staff/new" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Manage ${user.name}`}>
-                      <MoreHorizontal size={18} aria-hidden="true" />
-                    </a>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentAppUser(user);
+                          setMessage(`Previewing app access as ${user.name}. The main app will now show only what this role can access.`);
+                        }}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400"
+                        aria-label={`Preview access for ${user.name}`}
+                      >
+                        <Eye size={18} aria-hidden="true" />
+                      </button>
+                      <a href="/admin/staff/new" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Manage ${user.name}`}>
+                        <MoreHorizontal size={18} aria-hidden="true" />
+                      </a>
+                    </div>
                   </td>
                 </tr>
               );

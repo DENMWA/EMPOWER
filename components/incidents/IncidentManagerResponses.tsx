@@ -6,11 +6,13 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
+import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
 
 export function IncidentManagerResponses() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("all");
   const [reports, setReports] = useState<StoredIncidentReport[]>([]);
+  const accessibleClients = useMemo(() => filterByParticipantAccess(clients), [clients]);
   const filteredReports = useMemo(() => {
     return selectedClientId === "all" ? reports : reports.filter((report) => report.participantId === selectedClientId);
   }, [reports, selectedClientId]);
@@ -24,7 +26,7 @@ export function IncidentManagerResponses() {
 
   async function loadReports() {
     const saved = await getSavedIncidentReports().catch(() => []);
-    setReports(saved.map((item) => item.report).filter((report) => report.status !== "Draft"));
+    setReports(filterRecordsByParticipantAccess(saved.map((item) => item.report)).filter((report) => report.status !== "Draft"));
   }
 
   return (
@@ -47,7 +49,7 @@ export function IncidentManagerResponses() {
         View responses for
         <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)}>
           <option value="all">All clients</option>
-          {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+          {accessibleClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
         </select>
       </label>
 

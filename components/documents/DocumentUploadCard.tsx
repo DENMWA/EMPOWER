@@ -9,6 +9,7 @@ import { createDocumentId, saveTenantDocumentRecord } from "@/lib/document-recor
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
+import { filterByParticipantAccess } from "@/lib/user-access";
 import { cn } from "@/lib/utils";
 
 const coreDocumentTypes = [
@@ -44,7 +45,7 @@ export function DocumentUploadCard() {
   const [expiryDate, setExpiryDate] = useState("");
   const [fileName, setFileName] = useState("");
   const [message, setMessage] = useState("");
-  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const selectedClient = allParticipants.find((participant) => participant.id === clientId) ?? allParticipants[0];
 
   useEffect(() => {

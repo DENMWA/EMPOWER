@@ -12,6 +12,7 @@ import { participants, sampleRoughNote, supportTypes, type Participant } from "@
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
+import { filterByParticipantAccess } from "@/lib/user-access";
 
 type ContinenceCareRecord = {
   applicableSupports: string[];
@@ -216,7 +217,7 @@ function StoolShape({ shape }: { shape: string }) {
 export function ProgressNoteGenerator() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
-  const allParticipants = useMemo<NoteClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
+  const allParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
   const [roughNote, setRoughNote] = useState("");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);

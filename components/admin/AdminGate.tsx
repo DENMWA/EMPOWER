@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { LockKeyhole } from "lucide-react";
 import { Card, PageHeader, Section } from "@/components/ui";
+import { setAdminCurrentUser } from "@/lib/user-access";
 
 const fallbackPassword = "EmpowerNotes2026";
 const storageKey = "empower-notes-admin-unlocked";
@@ -14,7 +15,9 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setUnlocked(window.localStorage.getItem(storageKey) === "true");
+    const alreadyUnlocked = window.localStorage.getItem(storageKey) === "true";
+    if (alreadyUnlocked) setAdminCurrentUser();
+    setUnlocked(alreadyUnlocked);
   }, []);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -23,6 +26,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
 
     if (password.trim() === expected) {
       window.localStorage.setItem(storageKey, "true");
+      setAdminCurrentUser();
       setUnlocked(true);
       setError("");
       return;

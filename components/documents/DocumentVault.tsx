@@ -8,6 +8,7 @@ import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants } from "@/lib/sample-data";
+import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
 import { cn } from "@/lib/utils";
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -16,15 +17,15 @@ export function DocumentVault() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [storedDocuments, setStoredDocuments] = useState<StoredDocumentRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
-  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
-  const allDocuments = useMemo(() => storedDocuments.length ? storedDocuments : realMode ? [] : documents.map((document) => {
+  const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
+  const allDocuments = useMemo(() => filterRecordsByParticipantAccess(storedDocuments.length ? storedDocuments : realMode ? [] : documents.map((document) => {
     const participant = participants.find((item) => item.id === document.participantId);
     return {
       ...document,
       clientName: participant?.name ?? "Unassigned client",
       savedAt: new Date(`${document.startDate}T00:00:00`).toISOString()
     };
-  }), [storedDocuments, realMode]);
+  })), [storedDocuments, realMode]);
 
   useEffect(() => {
     function loadRecords() {
