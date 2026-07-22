@@ -19,54 +19,100 @@ function getPercentage(value: number, total: number) {
   return total ? Math.round((value / total) * 100) : 0;
 }
 
-function IncidentBaselineChart({ reports }: { reports: StoredIncidentReport[] }) {
-  const total = reports.length;
-  const filed = reports.filter((report) => report.status !== "Draft").length;
-  const actioned = reports.filter(hasManagerAction).length;
-  const filedScore = getPercentage(filed, total);
-  const actionedScore = getPercentage(actioned, total);
-  const chartRows = [
-    { label: "Filed incidents", value: filedScore, detail: `${filed} of ${total} saved incidents submitted`, bar: "bg-sky-600" },
-    { label: "Actioned incidents", value: actionedScore, detail: `${actioned} of ${total} incidents have manager action`, bar: "bg-emerald-600" }
-  ];
-  const strongestSignal = actionedScore >= incidentBaselineTarget ? "On target" : filedScore >= incidentBaselineTarget ? "Filed, awaiting action" : "Below baseline";
+function IncidentBaselineChart({ reports, clients }: { reports: StoredIncidentReport[]; clients: ClientRecord[] }) {
+  const clientRows = useMemo(() => {
+    const clientIds = new Set([
+      ...clients.map((client) => client.id),
+      ...reports.map((report) => report.participantId || "unassigned-client")
+    ]);
+
+    return Array.from(clientIds).map((clientId) => {
+      const client = clients.find((item) => item.id === clientId);
+      const clientReports = reports.filter((report) => (report.participantId || "unassigned-client") === clientId);
+      const total = clientReports.length;
+      const filed = clientReports.filter((report) => report.status !== "Draft").length;
+      const actioned = clientReports.filter(hasManagerAction).length;
+      const filedScore = getPercentage(filed, total);
+      const actionedScore = getPercentage(actioned, total);
+      const colour = getClientColourScheme(clientId, client?.colourSchemeId);
+      const fallbackName = clientReports[0]?.participant || "Unassigned client";
+
+      return {
+        id: clientId,
+        name: client?.name || fallbackName,
+        colour,
+        total,
+        filed,
+        actioned,
+        filedScore,
+        actionedScore
+      };
+    }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [clients, reports]);
+
+  const trackedRows = clientRows.filter((row) => row.total > 0);
+  const clientsOnTarget = trackedRows.filter((row) => row.actionedScore >= incidentBaselineTarget).length;
+  const strongestSignal = trackedRows.length && clientsOnTarget === trackedRows.length ? "All clients on target" : trackedRows.length ? `${clientsOnTarget} of ${trackedRows.length} on target` : "Waiting for incidents";
 
   return (
     <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Incident baseline chart</p>
-          <h3 className="mt-1 text-xl font-bold text-ink">Filed and actioned against 90% baseline</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">This live view compares incident submission and manager follow-up against the expected baseline for incident reporting performance.</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Incident baseline by client</p>
+          <h3 className="mt-1 text-xl font-bold text-ink">Each client compared against the 90% baseline</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">This live view keeps incident filing and manager action visible for each client, so one client&apos;s progress never masks another client&apos;s risk follow-up.</p>
         </div>
-        <StatusBadge label={strongestSignal} tone={actionedScore >= incidentBaselineTarget ? "green" : filedScore >= incidentBaselineTarget ? "amber" : "red"} />
+        <StatusBadge label={strongestSignal} tone={trackedRows.length && clientsOnTarget === trackedRows.length ? "green" : trackedRows.length ? "amber" : "blue"} />
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
-        <div className="grid gap-4">
-          {chartRows.map((row) => (
-            <div key={row.label}>
-              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                <span className="font-semibold text-ink">{row.label}</span>
-                <span className="font-bold text-ink">{row.value}%</span>
+      <div className="mt-5 grid gap-3">
+        {!clientRows.length ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-4">
+            <p className="font-semibold text-ink">No clients to chart yet</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Add client profiles in Admin, then submitted incidents will build a separate baseline chart for each client.</p>
+          </div>
+        ) : null}
+
+        {clientRows.map((row) => {
+          const actionGap = Math.max(incidentBaselineTarget - row.actionedScore, 0);
+          const tone = row.total === 0 ? "blue" : row.actionedScore >= incidentBaselineTarget ? "green" : row.filedScore >= incidentBaselineTarget ? "amber" : "red";
+
+          return (
+            <div key={row.id} className={`rounded-md border border-l-4 bg-white p-4 ${row.colour.border}`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-ink">{row.name}</h4>
+                  <p className="mt-1 text-sm text-slate-600">{row.total ? `${row.filed} filed, ${row.actioned} actioned, ${actionGap}% action gap` : "No incident records yet"}</p>
+                </div>
+                <StatusBadge label={row.total ? `${row.actionedScore}% actioned` : "No data"} tone={tone} />
               </div>
-              <div className="relative h-9 overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
-                <span className="absolute left-[90%] top-0 h-full w-px bg-amber-500" aria-hidden="true" />
-                <span className={`block h-full rounded-md ${row.bar}`} style={{ width: `${Math.min(row.value, 100)}%` }} aria-hidden="true" />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
-                <span>{row.detail}</span>
-                <span>Baseline target: {incidentBaselineTarget}%</span>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <IncidentScoreBar label="Filed" value={row.filedScore} count={`${row.filed}/${row.total}`} color="bg-sky-600" />
+                <IncidentScoreBar label="Actioned" value={row.actionedScore} count={`${row.actioned}/${row.total}`} color="bg-emerald-600" />
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-        <div className="rounded-md bg-white p-4 text-center ring-1 ring-slate-200">
-          <p className="text-sm font-semibold text-slate-600">Action gap</p>
-          <p className={`mt-2 text-4xl font-bold ${actionedScore >= incidentBaselineTarget ? "text-emerald-700" : "text-amber-700"}`}>{Math.max(incidentBaselineTarget - actionedScore, 0)}%</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{total ? "Close this gap by adding manager responses and locking completed reviews." : "No incident data has been saved yet."}</p>
-        </div>
+function IncidentScoreBar({ label, value, count, color }: { label: string; value: number; count: string; color: string }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+        <span className="font-semibold text-ink">{label}</span>
+        <span className="font-bold text-ink">{value}%</span>
+      </div>
+      <div className="relative h-8 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200">
+        <span className="absolute left-[90%] top-0 h-full w-px bg-amber-500" aria-hidden="true" />
+        <span className={`block h-full rounded-md ${color}`} style={{ width: `${Math.min(value, 100)}%` }} aria-hidden="true" />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+        <span>{count} incidents</span>
+        <span>Target {incidentBaselineTarget}%</span>
       </div>
     </div>
   );
@@ -133,7 +179,7 @@ export function IncidentReviewQueue() {
         </select>
       </label>
 
-      <IncidentBaselineChart reports={filteredReports} />
+      <IncidentBaselineChart reports={reports} clients={clients} />
 
       <div className="mt-5 grid gap-4">
         {!queuedReports.length ? (
