@@ -9,17 +9,19 @@ import {
   CalendarClock,
   CreditCard,
   LifeBuoy,
+  ListChecks,
   LockKeyhole,
   ReceiptText,
   Users
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { TrialRunChecklist } from "@/components/trial/TrialRunChecklist";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary, type PlatformOrganisationStatus } from "@/lib/platform-data";
 import { clearPlatformAccessStatus, getEffectivePlatformStatus, getPlatformAccessOverride, isAccessBlocked, setDemoCurrentOrganisation, setPlatformAccessStatus } from "@/lib/platform-access";
 import { cn } from "@/lib/utils";
 
-type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "diagnostics" | "analytics" | "security" | "support";
+type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "diagnostics" | "analytics" | "security" | "support" | "trial";
 
 const consoleAreas = [
   { id: "overview", title: "Overview", detail: "Owner snapshot for growth, revenue, active users, failed payments, and platform health.", icon: BarChart3, badge: "Home" },
@@ -29,7 +31,8 @@ const consoleAreas = [
   { id: "diagnostics", title: "Diagnostics", detail: "AI failures, upload issues, webhook delays, email reminder failures, and slow workflows.", icon: Activity, badge: "Health" },
   { id: "analytics", title: "Analytics", detail: "Feature adoption, activation, retention, usage trends, and cohort performance.", icon: BarChart3, badge: "Data" },
   { id: "security", title: "Security", detail: "Admin logins, role changes, exports, deletes, suspicious activity, and support access.", icon: LockKeyhole, badge: "Audit" },
-  { id: "support", title: "Support", detail: "Search accounts, inspect recent issues, resend invites, and review account notes.", icon: LifeBuoy, badge: "Ops" }
+  { id: "support", title: "Support", detail: "Search accounts, inspect recent issues, resend invites, and review account notes.", icon: LifeBuoy, badge: "Ops" },
+  { id: "trial", title: "Trial Run", detail: "Internal checklist for product demos, QA walkthroughs, and end-to-end readiness checks.", icon: ListChecks, badge: "Internal" }
 ] satisfies Array<{ id: PlatformAreaId; title: string; detail: string; icon: LucideIcon; badge: string }>;
 
 const securityEvents = [
@@ -158,6 +161,7 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
     );
   }
   if (activeArea === "security") return <PlatformPanel title="Security Audit" badge="Audit" items={securityEvents} />;
+  if (activeArea === "trial") return <TrialRunChecklist />;
   return <PlatformPanel title="Support Operations" badge="Ops" items={supportEvents} />;
 }
 

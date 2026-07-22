@@ -199,7 +199,7 @@ export default function HomePage() {
               <p className="text-sm font-semibold uppercase tracking-wide text-sea">How it works</p>
               <h2 className="mt-2 text-3xl font-bold text-ink">Simple enough for daily use.</h2>
             </div>
-            <ButtonLink href="/trial" variant="secondary">View trial checklist</ButtonLink>
+            <ButtonLink href="/signup" variant="secondary">Set up workspace</ButtonLink>
           </div>
           <div className="mt-6 grid gap-3 md:grid-cols-4">
             {steps.map((step, index) => (

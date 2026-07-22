@@ -7,11 +7,10 @@ import { AccessibilityToggle } from "@/components/accessibility/AccessibilityTog
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal, ListChecks } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, ClipboardCheck, BadgeDollarSign, SlidersHorizontal, SquareTerminal } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/trial", label: "Trial Run", icon: ListChecks },
   { href: "/admin", label: "Admin", icon: SlidersHorizontal },
   { href: "/notes/new", label: "Progress Note", icon: Mic },
   { href: "/participants", label: "Participants", icon: Users },
@@ -58,9 +57,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         {isPlatform ? (
           <nav className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3" aria-label="Platform navigation">
-            {["Overview", "Organisations", "Subscriptions", "Payments", "Diagnostics", "Analytics", "Security", "Support"].map((item) => (
-              <Link key={item} href={`/platform#${item.toLowerCase()}`} className="inline-flex min-h-11 items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-skySoft hover:text-teal-900">
-                {item}
+            {[
+              ["Overview", "overview"],
+              ["Organisations", "organisations"],
+              ["Subscriptions", "subscriptions"],
+              ["Payments", "payments"],
+              ["Diagnostics", "diagnostics"],
+              ["Analytics", "analytics"],
+              ["Security", "security"],
+              ["Support", "support"],
+              ["Trial Run", "trial"]
+            ].map(([label, hash]) => (
+              <Link key={hash} href={`/platform#${hash}`} className="inline-flex min-h-11 items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-skySoft hover:text-teal-900">
+                {label}
               </Link>
             ))}
           </nav>
