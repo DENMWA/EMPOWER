@@ -1,6 +1,6 @@
 import { ButtonLink, Section, StatusBadge } from "@/components/ui";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { AlertTriangle, Building2, CheckCircle2, FileText, FolderLock, LineChart, Mic2, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, FileText, FolderLock, LineChart, Mic2, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
 
 const outcomes = [
   {
@@ -102,7 +102,7 @@ export default function HomePage() {
     <>
       <JsonLd data={softwareJsonLd} />
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 lg:grid-cols-[1fr_420px] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 lg:grid-cols-[1fr_440px] lg:items-center">
           <div>
             <p className="mb-4 inline-flex items-center gap-2 rounded-md bg-mint px-3 py-1 text-sm font-semibold text-teal-900">
               <ShieldCheck size={16} aria-hidden="true" />
@@ -125,33 +125,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="rounded-md border border-slate-200 bg-slate-950 p-4 shadow-lift">
-            <div className="rounded-md bg-white p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-sea">Today&apos;s records</p>
-                  <h2 className="mt-1 text-2xl font-bold text-ink">Ready for review</h2>
-                </div>
-                <StatusBadge label="Manager view" tone="blue" />
-              </div>
-              <div className="mt-5 grid gap-3">
-                {heroRecords.map((record) => {
-                  const Icon = record.icon;
-                  return (
-                  <div key={record.title} className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-ink text-white">
-                      <Icon size={18} aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p className="font-semibold text-ink">{record.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">{record.detail}</p>
-                    </div>
-                  </div>
-                );
-                })}
-              </div>
-            </div>
-          </div>
+          <MobileAppPreview />
         </div>
       </section>
 
@@ -259,5 +233,69 @@ export default function HomePage() {
         </div>
       </Section>
     </>
+  );
+}
+
+function MobileAppPreview() {
+  return (
+    <div className="relative mx-auto w-full max-w-[390px]">
+      <div className="absolute -left-5 top-10 hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink shadow-lift sm:flex sm:items-center sm:gap-2">
+        <Smartphone size={16} className="text-teal-700" aria-hidden="true" />
+        Works on mobile
+      </div>
+      <div className="rounded-[2rem] border border-slate-900 bg-slate-950 p-3 shadow-lift">
+        <div className="overflow-hidden rounded-[1.55rem] bg-slate-100">
+          <div className="flex items-center justify-center bg-slate-950 py-2">
+            <span className="h-1.5 w-20 rounded-full bg-slate-700" />
+          </div>
+          <div className="bg-white px-4 pb-5 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="grid h-9 w-9 place-items-center rounded-md bg-ink text-sm font-bold text-white">E</span>
+                <div>
+                  <p className="text-sm font-bold text-ink">EmpowerNotes</p>
+                  <p className="text-xs text-slate-500">Mobile shift note</p>
+                </div>
+              </div>
+              <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">Saved</span>
+            </div>
+
+            <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-teal-900">Today</p>
+              <p className="mt-1 text-lg font-bold text-ink">Community access</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Client record, goals, risk alerts, and staff actions in one place.</p>
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              {heroRecords.map((record) => {
+                const Icon = record.icon;
+                return (
+                  <div key={record.title} className="flex gap-2 rounded-md border border-slate-200 bg-slate-50 p-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-teal-800 shadow-sm">
+                      <Icon size={15} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{record.title}</p>
+                      <p className="mt-0.5 text-xs leading-5 text-slate-600">{record.detail}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 rounded-md bg-ink p-3 text-white">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">AI rewrite ready</p>
+                <Mic2 size={16} aria-hidden="true" />
+              </div>
+              <p className="mt-2 text-xs leading-5 text-slate-200">Choose a professional version, then save the note to the client record.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p className="mt-4 text-center text-sm leading-6 text-slate-600">
+        Staff can write, dictate, and review records from a phone during everyday support work.
+      </p>
+    </div>
   );
 }
