@@ -5,8 +5,9 @@ import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
 import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { Card, StatusBadge } from "@/components/ui";
 import type { PlanExtraction } from "@/lib/plan-progress/types";
+import { savePlanVerificationQueue } from "@/lib/plan-progress/verification-records";
 
-export function PlanUploadReviewCard({ participantName }: { participantName?: string }) {
+export function PlanUploadReviewCard({ participantId, participantName }: { participantId?: string; participantName?: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [status, setStatus] = useState("Ready for upload");
@@ -72,6 +73,25 @@ export function PlanUploadReviewCard({ participantName }: { participantName?: st
     }
   }
 
+  async function queueBaselineVerification() {
+    if (!extractions.length) {
+      setStatus("Nothing to queue");
+      setMessage("Parse a plan first, then queue the extracted items for authorised review.");
+      return;
+    }
+
+    const result = await savePlanVerificationQueue({
+      participantId: participantId || "unassigned-client",
+      participantName: participantName || "Selected client",
+      fileName,
+      parserSource: source || "chatgpt",
+      items: extractions
+    });
+
+    setStatus("Baseline verification queued");
+    setMessage(result.savedToCloud ? "Plan extraction items were saved for authorised baseline review." : "Plan extraction items were saved locally. Sign in to retain them in Supabase.");
+  }
+
   return (
     <Card className="border-teal-100">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -127,7 +147,7 @@ export function PlanUploadReviewCard({ participantName }: { participantName?: st
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => setStatus("Baseline verification queued")} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift">
+          <button type="button" onClick={queueBaselineVerification} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift">
             <CheckCircle2 size={17} aria-hidden="true" />
             Queue baseline verification
           </button>

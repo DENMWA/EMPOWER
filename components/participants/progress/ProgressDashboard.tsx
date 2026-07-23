@@ -13,6 +13,7 @@ import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
+import { getPlanVerificationQueues, type PlanVerificationQueue } from "@/lib/plan-progress/verification-records";
 
 type ProgressClient = Participant & { colourSchemeId?: string };
 
@@ -25,6 +26,7 @@ export function ProgressDashboard() {
   const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [realMode, setRealMode] = useState(false);
+  const [queuedPlanReviews, setQueuedPlanReviews] = useState<PlanVerificationQueue[]>([]);
 
   useEffect(() => {
     getTenantClients().then((clients) => {
@@ -33,6 +35,16 @@ export function ProgressDashboard() {
     }).catch(() => {
       setSavedClients([]);
     });
+  }, []);
+
+  useEffect(() => {
+    function loadQueuedPlanReviews() {
+      getPlanVerificationQueues().then(setQueuedPlanReviews).catch(() => setQueuedPlanReviews([]));
+    }
+
+    loadQueuedPlanReviews();
+    window.addEventListener("empowernotes:plan-verification-updated", loadQueuedPlanReviews);
+    return () => window.removeEventListener("empowernotes:plan-verification-updated", loadQueuedPlanReviews);
   }, []);
 
   useEffect(() => {
@@ -51,7 +63,10 @@ export function ProgressDashboard() {
   const clientNotes = useMemo(() => realMode ? [] : progressNotes.filter((note) => note.participantId === selectedClient?.id), [realMode, selectedClient?.id]);
   const clientDocuments = useMemo(() => realMode ? [] : documents.filter((document) => document.participantId === selectedClient?.id), [realMode, selectedClient?.id]);
   const clientGoals = useMemo(() => realMode ? [] : participantProgressGoals.filter((goal) => goal.participantId === selectedClient?.id), [realMode, selectedClient?.id]);
-  const clientExtractions = !realMode && selectedClient?.id === "client-b" ? samplePlanExtractions : [];
+  const clientExtractions = queuedPlanReviews
+    .filter((queue) => queue.participantId === selectedClient?.id)
+    .flatMap((queue) => queue.items);
+  const displayExtractions = clientExtractions.length ? clientExtractions : !realMode && selectedClient?.id === "client-b" ? samplePlanExtractions : [];
   const selectedGoal = clientGoals[0];
 
   return (
@@ -103,7 +118,7 @@ export function ProgressDashboard() {
         <SummaryCard label="Client documents" value={clientDocuments.length} />
       </div>
 
-      <PlanUploadReviewCard participantName={selectedClient?.name} />
+      <PlanUploadReviewCard participantId={selectedClient?.id} participantName={selectedClient?.name} />
 
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -114,8 +129,8 @@ export function ProgressDashboard() {
           <StatusBadge label="Authorised review required" tone="amber" />
         </div>
         <div className="mt-4 grid gap-3">
-          {clientExtractions.length ? (
-            clientExtractions.map((item) => (
+          {displayExtractions.length ? (
+            displayExtractions.map((item) => (
               <div key={item.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{item.title}</p>
