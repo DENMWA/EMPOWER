@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { FileUp, UserRoundCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
-import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { buildDocumentStoragePath, createDocumentId, saveTenantDocumentRecord, uploadTenantDocumentFile } from "@/lib/document-records";
+import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { buildDocumentStoragePath, createDocumentId, documentsUpdatedEvent, saveTenantDocumentRecord, uploadTenantDocumentFile } from "@/lib/document-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
@@ -52,7 +52,13 @@ export function DocumentUploadCard() {
   const selectedClient = allParticipants.find((participant) => participant.id === clientId) ?? allParticipants[0];
 
   useEffect(() => {
-    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+    function loadClients() {
+      getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+    }
+
+    loadClients();
+    window.addEventListener(clientsUpdatedEvent, loadClients);
+    return () => window.removeEventListener(clientsUpdatedEvent, loadClients);
   }, []);
 
   useEffect(() => {
@@ -123,7 +129,7 @@ export function DocumentUploadCard() {
     const cloudText = result.savedToCloud ? `Saved to this organisation. ${fileText}` : `Saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`;
     setMessage(`${documentType} saved for ${selectedClient.name}. ${cloudText}`);
     markTrialStepComplete("upload-document");
-    window.dispatchEvent(new Event("empowernotes:documents-updated"));
+    window.dispatchEvent(new Event(documentsUpdatedEvent));
     setSaving(false);
   }
 

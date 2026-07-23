@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui";
 import { ParticipantProfile } from "@/components/participants/ParticipantProfile";
-import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { accessChangedEvent, filterByParticipantAccess } from "@/lib/user-access";
@@ -27,11 +27,13 @@ export function ClientProfiles({ admin = false }: { admin?: boolean }) {
     }
 
     window.addEventListener(accessChangedEvent, refreshClients);
-    window.addEventListener("empowernotes:documents-updated", refreshClients);
+    window.addEventListener(clientsUpdatedEvent, refreshClients);
+    window.addEventListener(documentsUpdatedEvent, refreshClients);
     window.addEventListener("empowernotes:retained-records-updated", refreshClients);
     return () => {
       window.removeEventListener(accessChangedEvent, refreshClients);
-      window.removeEventListener("empowernotes:documents-updated", refreshClients);
+      window.removeEventListener(clientsUpdatedEvent, refreshClients);
+      window.removeEventListener(documentsUpdatedEvent, refreshClients);
       window.removeEventListener("empowernotes:retained-records-updated", refreshClients);
     };
   }, []);

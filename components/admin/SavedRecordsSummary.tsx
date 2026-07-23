@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
-import { getTenantDocumentRecords } from "@/lib/document-records";
+import { documentsUpdatedEvent, getTenantDocumentRecords } from "@/lib/document-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
 export function SavedRecordsSummary() {
@@ -19,10 +19,10 @@ export function SavedRecordsSummary() {
 
     loadRecords();
     window.addEventListener("empowernotes:retained-records-updated", loadRecords);
-    window.addEventListener("empowernotes:documents-updated", loadRecords);
+    window.addEventListener(documentsUpdatedEvent, loadRecords);
     return () => {
       window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
-      window.removeEventListener("empowernotes:documents-updated", loadRecords);
+      window.removeEventListener(documentsUpdatedEvent, loadRecords);
     };
   }, []);
 

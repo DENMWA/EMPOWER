@@ -11,7 +11,7 @@ import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getRosterReportSummary, rosterShifts, type RosterReportPeriod } from "@/lib/roster";
-import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
@@ -33,10 +33,10 @@ export default function AdminReportsPage() {
     }
 
     loadReports();
-    window.addEventListener("empowernotes:documents-updated", loadReports);
+    window.addEventListener(documentsUpdatedEvent, loadReports);
     window.addEventListener("empowernotes:retained-records-updated", loadReports);
     return () => {
-      window.removeEventListener("empowernotes:documents-updated", loadReports);
+      window.removeEventListener(documentsUpdatedEvent, loadReports);
       window.removeEventListener("empowernotes:retained-records-updated", loadReports);
     };
   }, []);

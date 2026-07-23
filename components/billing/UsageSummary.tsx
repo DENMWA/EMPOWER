@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { UsageLimitNotice } from "@/components/subscription/UsageLimitNotice";
 import { Card, StatusBadge } from "@/components/ui";
-import { getTenantClients } from "@/lib/client-records";
-import { getTenantDocumentRecords } from "@/lib/document-records";
+import { clientsUpdatedEvent, getTenantClients } from "@/lib/client-records";
+import { documentsUpdatedEvent, getTenantDocumentRecords } from "@/lib/document-records";
 import { getTenantRetainedRecords } from "@/lib/retained-records";
-import { getTenantStaffInvites } from "@/lib/staff-records";
+import { getTenantStaffInvites, staffUpdatedEvent } from "@/lib/staff-records";
 import { getUsageLimitRows } from "@/lib/subscriptions/limits";
 import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
@@ -57,11 +57,15 @@ export function UsageSummary() {
     }
 
     loadUsage();
-    window.addEventListener("empowernotes:documents-updated", loadUsage);
+    window.addEventListener(clientsUpdatedEvent, loadUsage);
+    window.addEventListener(documentsUpdatedEvent, loadUsage);
     window.addEventListener("empowernotes:retained-records-updated", loadUsage);
+    window.addEventListener(staffUpdatedEvent, loadUsage);
     return () => {
-      window.removeEventListener("empowernotes:documents-updated", loadUsage);
+      window.removeEventListener(clientsUpdatedEvent, loadUsage);
+      window.removeEventListener(documentsUpdatedEvent, loadUsage);
       window.removeEventListener("empowernotes:retained-records-updated", loadUsage);
+      window.removeEventListener(staffUpdatedEvent, loadUsage);
     };
   }, []);
 

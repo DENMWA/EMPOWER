@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
-import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 
 const dayMs = 24 * 60 * 60 * 1000;
 
@@ -17,8 +17,8 @@ export function DocumentIntelligencePanel() {
     }
 
     loadDocuments();
-    window.addEventListener("empowernotes:documents-updated", loadDocuments);
-    return () => window.removeEventListener("empowernotes:documents-updated", loadDocuments);
+    window.addEventListener(documentsUpdatedEvent, loadDocuments);
+    return () => window.removeEventListener(documentsUpdatedEvent, loadDocuments);
   }, []);
 
   return (

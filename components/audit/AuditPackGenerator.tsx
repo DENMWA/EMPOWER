@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { generateAuditPack } from "@/lib/ai-mock";
-import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
-import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
 export function AuditPackGenerator() {
@@ -35,11 +35,13 @@ export function AuditPackGenerator() {
     }
 
     loadRecords();
+    window.addEventListener(clientsUpdatedEvent, loadRecords);
     window.addEventListener("empowernotes:retained-records-updated", loadRecords);
-    window.addEventListener("empowernotes:documents-updated", loadRecords);
+    window.addEventListener(documentsUpdatedEvent, loadRecords);
     return () => {
+      window.removeEventListener(clientsUpdatedEvent, loadRecords);
       window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
-      window.removeEventListener("empowernotes:documents-updated", loadRecords);
+      window.removeEventListener(documentsUpdatedEvent, loadRecords);
     };
   }, []);
 

@@ -13,6 +13,7 @@ export type StoredDocumentRecord = SupportDocument & {
 };
 
 const documentStorageKey = "empowernotes:document-records";
+export const documentsUpdatedEvent = "empowernotes:documents-updated";
 
 export function createDocumentId() {
   return `document-${Date.now()}`;
@@ -32,6 +33,7 @@ export function getStoredDocumentRecords() {
 
 export function saveStoredDocumentRecords(records: StoredDocumentRecord[]) {
   window.localStorage.setItem(documentStorageKey, JSON.stringify(records));
+  window.dispatchEvent(new Event(documentsUpdatedEvent));
 }
 
 export function addStoredDocumentRecord(record: StoredDocumentRecord) {

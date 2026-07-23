@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { RecordActions } from "@/components/records/RecordActions";
 import { getClientColourScheme } from "@/lib/client-colours";
-import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantDocumentDownloadUrl, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { documentsUpdatedEvent, getTenantDocumentDownloadUrl, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants } from "@/lib/sample-data";
 import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
@@ -46,8 +46,12 @@ export function DocumentVault() {
     }
 
     loadRecords();
-    window.addEventListener("empowernotes:documents-updated", loadRecords);
-    return () => window.removeEventListener("empowernotes:documents-updated", loadRecords);
+    window.addEventListener(clientsUpdatedEvent, loadRecords);
+    window.addEventListener(documentsUpdatedEvent, loadRecords);
+    return () => {
+      window.removeEventListener(clientsUpdatedEvent, loadRecords);
+      window.removeEventListener(documentsUpdatedEvent, loadRecords);
+    };
   }, []);
 
   useEffect(() => {
