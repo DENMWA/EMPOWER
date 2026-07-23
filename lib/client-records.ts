@@ -14,13 +14,7 @@ export type ClientRecord = Participant & {
 const clientStorageKey = "empowernotes:clients";
 
 export function createClientId(name: string) {
-  const slug = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return `${slug || "client"}-${Date.now()}`;
+  return globalThis.crypto?.randomUUID?.() || `client-${Date.now()}-${name.length}`;
 }
 
 export function getStoredClients() {
@@ -41,7 +35,8 @@ export function saveStoredClients(clients: ClientRecord[]) {
 
 export function addStoredClient(client: ClientRecord) {
   const clients = getStoredClients();
-  saveStoredClients([...clients, client]);
+  const withoutDuplicate = clients.filter((item) => item.id !== client.id && item.name.toLowerCase() !== client.name.toLowerCase());
+  saveStoredClients([...withoutDuplicate, client]);
 }
 
 type SupabaseClientRow = {
@@ -105,6 +100,7 @@ export async function saveTenantClient(client: ClientRecord) {
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     method: "POST",
     body: {
+      id: client.id,
       organisation_id: organisationId,
       name: client.name,
       support_needs: client.supportNeeds,
@@ -119,5 +115,10 @@ export async function saveTenantClient(client: ClientRecord) {
     }
   });
 
-  return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+  const savedClient = result.data?.[0];
+  if (savedClient?.id) {
+    addStoredClient(toClientRecord(savedClient));
+  }
+
+  return { savedToCloud: Boolean(result.data && !result.error), error: result.error, clientId: savedClient?.id || client.id };
 }

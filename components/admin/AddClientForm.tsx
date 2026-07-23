@@ -104,10 +104,11 @@ export function AddClientForm() {
       return;
     }
 
-    if (selectedHouse && !selectedHouse.clientIds.includes(clientId)) {
+    const savedClientId = result.clientId || clientId;
+    if (selectedHouse && !selectedHouse.clientIds.includes(savedClientId)) {
       await saveTenantHouse({
         ...selectedHouse,
-        clientIds: [...selectedHouse.clientIds, clientId]
+        clientIds: [...selectedHouse.clientIds, savedClientId]
       });
     }
 
