@@ -7,6 +7,13 @@ alter table organisations add column if not exists website text;
 alter table organisations add column if not exists address text;
 alter table organisations add column if not exists provider_number text;
 alter table participants_or_clients add column if not exists colour_scheme_id text;
+alter table documents add column if not exists storage_bucket text not null default 'participant-documents';
+alter table documents add column if not exists start_date date;
+alter table documents add column if not exists expiry_date date;
+
+insert into storage.buckets (id, name, public)
+values ('participant-documents', 'participant-documents', false)
+on conflict (id) do update set public = false;
 
 create table if not exists organisation_profiles (
   organisation_id uuid primary key references organisations(id) on delete cascade,
@@ -108,6 +115,44 @@ end;
 $$;
 
 grant execute on function create_organisation_for_current_user(text, text, text, provider_type) to authenticated;
+
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'users view own organisation participant documents') then
+    create policy "users view own organisation participant documents"
+    on storage.objects
+    for select
+    using (
+      bucket_id = 'participant-documents'
+      and (storage.foldername(name))[1] = current_user_organisation_id()::text
+    );
+  end if;
+
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'users upload own organisation participant documents') then
+    create policy "users upload own organisation participant documents"
+    on storage.objects
+    for insert
+    with check (
+      bucket_id = 'participant-documents'
+      and (storage.foldername(name))[1] = current_user_organisation_id()::text
+    );
+  end if;
+
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'users update own organisation participant documents') then
+    create policy "users update own organisation participant documents"
+    on storage.objects
+    for update
+    using (
+      bucket_id = 'participant-documents'
+      and (storage.foldername(name))[1] = current_user_organisation_id()::text
+    )
+    with check (
+      bucket_id = 'participant-documents'
+      and (storage.foldername(name))[1] = current_user_organisation_id()::text
+    );
+  end if;
+end;
+$$;
 
 alter table organisation_profiles enable row level security;
 alter table staff_invites enable row level security;

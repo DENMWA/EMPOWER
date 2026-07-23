@@ -1,11 +1,13 @@
 import type { SupportDocument } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
-import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
+import { getCurrentOrganisationId, getCurrentUserId, getSupabaseProjectConfig, supabaseRequest } from "@/lib/supabase-rest";
 import { checkDocumentsPerParticipantLimit } from "@/lib/subscriptions/client-limits";
 
 export type StoredDocumentRecord = SupportDocument & {
   clientName: string;
   fileName?: string;
+  filePath?: string;
+  storageBucket?: string;
   savedAt: string;
 };
 
@@ -40,6 +42,7 @@ type SupabaseDocumentRow = {
   participant_id: string;
   document_type: string;
   file_path: string;
+  storage_bucket: string;
   visibility: "worker-visible" | "manager-only";
   status: string;
   manager_verified: boolean;
@@ -60,6 +63,8 @@ function toStoredDocumentRecord(row: SupabaseDocumentRow): StoredDocumentRecord 
     startDate: row.start_date || row.created_at.slice(0, 10),
     expiryDate: row.expiry_date || row.created_at.slice(0, 10),
     fileName: row.file_path.split("/").pop(),
+    filePath: row.file_path,
+    storageBucket: row.storage_bucket || "participant-documents",
     savedAt: row.created_at
   };
 }
@@ -69,7 +74,7 @@ export async function getTenantDocumentRecords() {
   const localDocuments = getStoredDocumentRecords();
 
   const result = await supabaseRequest<SupabaseDocumentRow[]>("documents", {
-    query: "select=id,participant_id,document_type,file_path,visibility,status,manager_verified,start_date,expiry_date,created_at&order=created_at.desc"
+    query: "select=id,participant_id,document_type,file_path,storage_bucket,visibility,status,manager_verified,start_date,expiry_date,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return localDocuments;
@@ -90,8 +95,10 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
   const userId = getCurrentUserId();
   if (!organisationId || !userId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
 
-  const safeType = record.type.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "document";
-  const safeFileName = (record.fileName || `${safeType}.pdf`).replace(/[^\w.\- ]+/g, "").trim() || `${safeType}.pdf`;
+  const safeType = getSafeDocumentType(record.type);
+  const safeFileName = getSafeFileName(record.fileName, safeType);
+  const filePath = record.filePath || `${record.participantId}/${safeType}/${Date.now()}-${safeFileName}`;
+  const storageBucket = record.storageBucket || "participant-documents";
 
   const result = await supabaseRequest<Array<{ id: string }>>("documents", {
     method: "POST",
@@ -100,7 +107,8 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
       participant_id: record.participantId,
       uploaded_by: userId,
       document_type: record.type,
-      file_path: `${record.participantId}/${safeType}/${Date.now()}-${safeFileName}`,
+      file_path: filePath,
+      storage_bucket: storageBucket,
       visibility: record.visibility,
       status: record.status,
       manager_verified: record.status.toLowerCase().includes("verified"),
@@ -110,4 +118,72 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
   });
 
   return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+}
+
+export function getSafeDocumentType(type: string) {
+  return type.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "document";
+}
+
+export function getSafeFileName(fileName: string | undefined, safeType: string) {
+  return (fileName || `${safeType}.pdf`).replace(/[^\w.\- ]+/g, "").trim() || `${safeType}.pdf`;
+}
+
+export function buildDocumentStoragePath(input: { organisationId?: string; participantId: string; documentType: string; fileName?: string }) {
+  const safeType = getSafeDocumentType(input.documentType);
+  const safeFileName = getSafeFileName(input.fileName, safeType);
+  return [input.organisationId, input.participantId, safeType, `${Date.now()}-${safeFileName}`].filter(Boolean).join("/");
+}
+
+export async function uploadTenantDocumentFile(file: File, filePath: string, bucket = "participant-documents") {
+  const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
+  if (!supabaseUrl || !supabaseAnonKey) return { uploaded: false, error: "Supabase is not configured." };
+  if (!accessToken) return { uploaded: false, error: "Sign in before uploading files to Supabase Storage." };
+
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(filePath)}`, {
+    method: "POST",
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": file.type || "application/octet-stream",
+      "x-upsert": "true"
+    },
+    body: file
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    return { uploaded: false, error: error || response.statusText };
+  }
+
+  return { uploaded: true, error: "" };
+}
+
+export async function getTenantDocumentDownloadUrl(filePath: string, bucket = "participant-documents") {
+  const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
+  if (!supabaseUrl || !supabaseAnonKey) return { url: "", error: "Supabase is not configured." };
+  if (!accessToken) return { url: "", error: "Sign in before downloading private files." };
+
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/sign/${bucket}/${encodeURI(filePath)}`, {
+    method: "POST",
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ expiresIn: 300 })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    return { url: "", error: error || response.statusText };
+  }
+
+  const data = await response.json() as { signedURL?: string; signedUrl?: string };
+  const signedPath = data.signedURL || data.signedUrl || "";
+  if (!signedPath) return { url: "", error: "Supabase did not return a signed download link." };
+
+  return {
+    url: signedPath.startsWith("http") ? signedPath : `${supabaseUrl}${signedPath}`,
+    error: ""
+  };
 }

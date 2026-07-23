@@ -11,6 +11,10 @@ create type input_method as enum ('typed','standard_voice','guided_voice');
 create type invoice_status as enum ('Not Ready','Needs Evidence','Ready','Sent');
 create type document_visibility as enum ('worker-visible','manager-only');
 
+insert into storage.buckets (id, name, public)
+values ('participant-documents', 'participant-documents', false)
+on conflict (id) do update set public = false;
+
 create table organisations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -790,6 +794,34 @@ create policy "users update retained records in own organisation" on retained_re
   organisation_id = current_user_organisation_id()
 ) with check (
   organisation_id = current_user_organisation_id()
+);
+
+create policy "users view own organisation participant documents"
+on storage.objects
+for select
+using (
+  bucket_id = 'participant-documents'
+  and (storage.foldername(name))[1] = current_user_organisation_id()::text
+);
+
+create policy "users upload own organisation participant documents"
+on storage.objects
+for insert
+with check (
+  bucket_id = 'participant-documents'
+  and (storage.foldername(name))[1] = current_user_organisation_id()::text
+);
+
+create policy "users update own organisation participant documents"
+on storage.objects
+for update
+using (
+  bucket_id = 'participant-documents'
+  and (storage.foldername(name))[1] = current_user_organisation_id()::text
+)
+with check (
+  bucket_id = 'participant-documents'
+  and (storage.foldername(name))[1] = current_user_organisation_id()::text
 );
 
 create index if not exists idx_roster_shifts_organisation_id on roster_shifts(organisation_id);

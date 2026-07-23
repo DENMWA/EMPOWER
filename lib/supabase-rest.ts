@@ -5,7 +5,7 @@ type SupabaseMethod = "GET" | "POST" | "PATCH";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-function getStoredAccessToken() {
+export function getStoredAccessToken() {
   if (typeof window === "undefined") return "";
 
   try {
@@ -41,6 +41,14 @@ export function getCurrentUserId() {
 
 export function isSupabaseConfigured() {
   return Boolean(supabaseUrl && supabaseAnonKey);
+}
+
+export function getSupabaseProjectConfig() {
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    accessToken: getStoredAccessToken()
+  };
 }
 
 export async function supabaseRequest<T>(table: string, options: {

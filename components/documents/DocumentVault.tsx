@@ -5,7 +5,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { RecordActions } from "@/components/records/RecordActions";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { getTenantDocumentDownloadUrl, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants } from "@/lib/sample-data";
 import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
@@ -17,6 +17,7 @@ export function DocumentVault() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [storedDocuments, setStoredDocuments] = useState<StoredDocumentRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState("");
   const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const allDocuments = useMemo(() => filterRecordsByParticipantAccess(storedDocuments.length ? storedDocuments : realMode ? [] : documents.map((document) => {
     const participant = participants.find((item) => item.id === document.participantId);
@@ -68,6 +69,7 @@ export function DocumentVault() {
           const colour = getClientColourScheme(doc.participantId, colourSchemeId);
           const reminder = getExpiryReminder(doc.expiryDate);
           const fileName = getDocumentFileName(doc);
+          const hasPrivateFile = Boolean(doc.filePath && !doc.status.toLowerCase().includes("pending upload"));
           return (
             <div key={doc.id} className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border border-l-4 p-4", colour.border)}>
               <div className="flex items-start gap-3">
@@ -96,6 +98,11 @@ export function DocumentVault() {
                     ].filter(Boolean).join("\n")}
                     filename={`empowernotes-${doc.id}-${doc.type.toLowerCase().replace(/\s+/g, "-")}`}
                   />
+                  {hasPrivateFile ? (
+                    <button type="button" onClick={() => openPrivateDocument(doc)} className="mt-3 inline-flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">
+                      Open private file
+                    </button>
+                  ) : null}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -107,8 +114,20 @@ export function DocumentVault() {
           );
         })}
       </div>
+      {downloadMessage ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{downloadMessage}</p> : null}
     </Card>
   );
+
+  async function openPrivateDocument(document: StoredDocumentRecord) {
+    if (!document.filePath) return;
+    const result = await getTenantDocumentDownloadUrl(document.filePath, document.storageBucket);
+    if (result.error || !result.url) {
+      setDownloadMessage(result.error || "Private file could not be opened.");
+      return;
+    }
+    setDownloadMessage("");
+    window.open(result.url, "_blank", "noopener,noreferrer");
+  }
 }
 
 function getExpiryReminder(expiryDate: string) {

@@ -5,10 +5,11 @@ import { FileUp, UserRoundCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { createDocumentId, saveTenantDocumentRecord } from "@/lib/document-records";
+import { buildDocumentStoragePath, createDocumentId, saveTenantDocumentRecord, uploadTenantDocumentFile } from "@/lib/document-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
+import { getCurrentOrganisationId } from "@/lib/supabase-rest";
 import { filterByParticipantAccess } from "@/lib/user-access";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +45,9 @@ export function DocumentUploadCard() {
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState("");
   const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
   const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const selectedClient = allParticipants.find((participant) => participant.id === clientId) ?? allParticipants[0];
 
@@ -79,33 +82,54 @@ export function DocumentUploadCard() {
       return;
     }
 
+    setSaving(true);
+    const organisationId = await getCurrentOrganisationId();
+    const filePath = buildDocumentStoragePath({
+      organisationId,
+      participantId: selectedClient.id,
+      documentType,
+      fileName: selectedFile?.name || fileName
+    });
+    const uploadResult = selectedFile ? await uploadTenantDocumentFile(selectedFile, filePath) : { uploaded: false, error: "No file selected; metadata saved only." };
+    if (selectedFile && !uploadResult.uploaded) {
+      setMessage(`File upload stopped: ${uploadResult.error}`);
+      setSaving(false);
+      return;
+    }
+
     const result = await saveTenantDocumentRecord({
       id: createDocumentId(),
       participantId: selectedClient.id,
       clientName: selectedClient.name,
       type: documentType,
-      status: "Uploaded, awaiting verification",
+      status: selectedFile ? "Uploaded, awaiting verification" : "Metadata saved, file pending upload",
       visibility,
       confidence: 0,
       startDate,
       expiryDate: expiryDate || startDate,
-      fileName,
+      fileName: selectedFile?.name || fileName,
+      filePath,
+      storageBucket: "participant-documents",
       savedAt: new Date().toISOString()
     });
 
     if (result.error && result.error.includes("allows")) {
       setMessage(result.error);
+      setSaving(false);
       return;
     }
 
-    const cloudText = result.savedToCloud ? "Saved to this organisation." : `Saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`;
+    const fileText = selectedFile ? "File uploaded to private Supabase Storage." : "No file selected; document metadata saved only.";
+    const cloudText = result.savedToCloud ? `Saved to this organisation. ${fileText}` : `Saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`;
     setMessage(`${documentType} saved for ${selectedClient.name}. ${cloudText}`);
     markTrialStepComplete("upload-document");
     window.dispatchEvent(new Event("empowernotes:documents-updated"));
+    setSaving(false);
   }
 
   function selectFile(file: File | undefined) {
     setFileName(file?.name || "");
+    setSelectedFile(file || null);
   }
 
   return (
@@ -177,9 +201,9 @@ export function DocumentUploadCard() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button type="button" onClick={saveUploadMetadata} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={saveUploadMetadata} disabled={saving} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
           <FileUp size={18} aria-hidden="true" />
-          Upload to client
+          {saving ? "Saving..." : "Upload to client"}
         </button>
         <a href="/documents" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <UserRoundCheck size={18} aria-hidden="true" />
@@ -187,7 +211,7 @@ export function DocumentUploadCard() {
         </a>
       </div>
       {message ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
-      <p className="mt-3 text-sm text-slate-600">Files remain private. During browser testing, the file name and document metadata are retained locally; signed-in Supabase users also save the document record to the organisation.</p>
+      <p className="mt-3 text-sm text-slate-600">Files remain private. Signed-in Supabase users upload files to the private participant-documents bucket and save document metadata to the organisation.</p>
     </Card>
   );
 }
