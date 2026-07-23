@@ -9,6 +9,7 @@ import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getTenantStaffInvites, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
 
 type StaffProfileRecord = StaffUser | StaffRecord;
+type StaffProfileStatus = StaffRecord["inviteStatus"] | "Active";
 
 export function StaffProfiles() {
   const [storedStaff, setStoredStaff] = useState<StaffRecord[]>([]);
@@ -71,7 +72,7 @@ export function StaffProfiles() {
           const assignedClients = clientProfiles.filter((client) => user.assignedParticipants.includes(client.id));
           const assignedHouses = getAssignedHouses(user, houses);
           const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;
-          const inviteStatus = "inviteStatus" in user ? user.inviteStatus : "Active";
+          const inviteStatus = getInviteStatus(user);
           const houseAccessMode = user.houseAccessMode || "selected";
           return (
             <div key={user.id} className="rounded-md border border-slate-200 p-4">
@@ -103,4 +104,13 @@ function getAssignedHouses(user: StaffProfileRecord, houses: HouseRecord[]) {
   if (user.houseAccessMode === "all") return houses;
   const assignedHouseIds = user.assignedHouseIds || [];
   return houses.filter((house) => assignedHouseIds.includes(house.id));
+}
+
+function getInviteStatus(user: StaffProfileRecord): StaffProfileStatus {
+  if (!("inviteStatus" in user)) return "Active";
+  return isStaffProfileStatus(user.inviteStatus) ? user.inviteStatus : "Active";
+}
+
+function isStaffProfileStatus(value: unknown): value is StaffProfileStatus {
+  return value === "Invite sent" || value === "Draft" || value === "Active" || value === "Suspended";
 }
