@@ -1,15 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
+import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
+import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { getRosterSummary } from "@/lib/roster";
+import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { participants, progressNotes, users } from "@/lib/sample-data";
 import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp } from "lucide-react";
-
-const managerStats = [
-  { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
-  { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
-  { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
-  { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
-];
+import { isDemoModeEnabled } from "@/lib/presentation-mode";
 
 const workerActions = [
   { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
@@ -19,6 +19,50 @@ const workerActions = [
 ];
 
 export function ManagerDashboardCards() {
+  const [savedNotes, setSavedNotes] = useState<RetainedRecord[]>([]);
+  const [incidents, setIncidents] = useState<StoredIncidentReport[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    function loadRecords() {
+      getTenantRetainedRecords("progress-note").then(setSavedNotes).catch(() => setSavedNotes([]));
+      getSavedIncidentReports().then((items) => setIncidents(items.map((item) => item.report))).catch(() => setIncidents([]));
+    }
+
+    loadRecords();
+    window.addEventListener("empowernotes:retained-records-updated", loadRecords);
+    return () => window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
+  }, []);
+
+  useEffect(() => {
+    function syncMode() {
+      setDemoMode(isDemoModeEnabled());
+    }
+
+    syncMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncMode);
+  }, []);
+
+  const liveReviewSignals = savedNotes.map((note) => getNoteReviewSignals(note.body));
+  const weakNotes = liveReviewSignals.filter((signals) => signals.missingDetails.length || signals.riskyWordingFlags.length);
+  const submittedIncidents = incidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
+  const invoiceReadyCount = liveReviewSignals.filter((signals) => !signals.missingDetails.length && !signals.riskyWordingFlags.length).length;
+  const invoiceScore = savedNotes.length ? Math.round((invoiceReadyCount / savedNotes.length) * 100) : demoMode ? 68 : 0;
+  const managerStats = savedNotes.length || incidents.length || !demoMode
+    ? [
+        { label: "Notes awaiting review", value: String(savedNotes.length), detail: `${weakNotes.length} need manager attention`, icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
+        { label: "Weak notes needing improvement", value: String(weakNotes.length), detail: savedNotes.length ? "Based on missing detail and risky wording signals" : "Save notes to build the queue", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
+        { label: "Incident reports awaiting review", value: String(submittedIncidents.length), detail: `${incidents.length} incident records checked`, icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
+        { label: "Invoice-readiness summary", value: `${invoiceScore}%`, detail: `${invoiceReadyCount} notes ready, ${Math.max(savedNotes.length - invoiceReadyCount, 0)} need evidence`, icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
+      ]
+    : [
+        { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
+        { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
+        { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
+        { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
+      ];
+
   return (
     <div className="grid gap-4 lg:grid-cols-4">
       {managerStats.map((stat) => {
@@ -64,6 +108,59 @@ export function WorkerDashboardCards() {
 
 export function DashboardOperationalLists() {
   const rosterSummary = getRosterSummary();
+  const [savedNotes, setSavedNotes] = useState<RetainedRecord[]>([]);
+  const [savedStaff, setSavedStaff] = useState<StaffRecord[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    function loadRecords() {
+      getTenantRetainedRecords("progress-note").then(setSavedNotes).catch(() => setSavedNotes([]));
+      getTenantStaffInvites().then(setSavedStaff).catch(() => setSavedStaff([]));
+    }
+
+    loadRecords();
+    window.addEventListener("empowernotes:retained-records-updated", loadRecords);
+    return () => window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
+  }, []);
+
+  useEffect(() => {
+    function syncMode() {
+      setDemoMode(isDemoModeEnabled());
+    }
+
+    syncMode();
+    window.addEventListener("empowernotes:data-mode-updated", syncMode);
+    return () => window.removeEventListener("empowernotes:data-mode-updated", syncMode);
+  }, []);
+
+  const savedRiskQueue = useMemo(() => {
+    return savedNotes.map((record) => {
+      const signals = getNoteReviewSignals(record.body);
+      return {
+        id: record.id,
+        title: `${extractField(record.body, "Client") || record.title} - ${extractField(record.body, "Support type") || "Progress note"}`,
+        status: signals.missingDetails.length || signals.riskyWordingFlags.length ? "Needs Review" : "Submitted",
+        score: Math.max(45, 92 - signals.missingDetails.length * 8 - signals.riskyWordingFlags.length * 10),
+        billingEvidenceScore: Math.max(40, 88 - signals.missingDetails.length * 7),
+        missingDetails: signals.missingDetails,
+        riskyWordingFlags: signals.riskyWordingFlags
+      };
+    });
+  }, [savedNotes]);
+  const sampleRiskQueue = demoMode ? progressNotes.map((note) => {
+    const participant = participants.find((item) => item.id === note.participantId);
+    return {
+      id: note.id,
+      title: `${participant?.name ?? "Client"} - ${note.supportType}`,
+      status: note.status,
+      score: note.score,
+      billingEvidenceScore: note.billingEvidenceScore,
+      missingDetails: note.missingDetails,
+      riskyWordingFlags: note.riskyWordingFlags
+    };
+  }) : [];
+  const riskQueue = savedRiskQueue.length ? savedRiskQueue : sampleRiskQueue;
+  const staffRows = savedStaff.length ? savedStaff : demoMode ? users : [];
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -73,12 +170,17 @@ export function DashboardOperationalLists() {
           <StatusBadge label="Manager view" tone="blue" />
         </div>
         <div className="space-y-4">
-          {progressNotes.map((note) => {
-            const participant = participants.find((item) => item.id === note.participantId);
+          {!riskQueue.length ? (
+            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+              <p className="font-semibold text-ink">No documentation risk items yet</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Saved progress notes will appear here with review signals as workers test the app.</p>
+            </div>
+          ) : null}
+          {riskQueue.map((note) => {
             return (
               <div key={note.id} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold text-ink">{participant?.name} - {note.supportType}</h3>
+                  <h3 className="font-semibold text-ink">{note.title}</h3>
                   <StatusBadge label={note.status} tone={note.status === "Approved" ? "green" : "amber"} />
                 </div>
                 <p className="mt-2 text-sm text-slate-600">Audit score {note.score}% - Billing evidence {note.billingEvidenceScore}%</p>
@@ -94,7 +196,10 @@ export function DashboardOperationalLists() {
       <Card>
         <h2 className="text-xl font-semibold text-ink">Staff Quality Trends</h2>
         <div className="mt-4 space-y-4">
-          {users.map((user) => (
+          {!staffRows.length ? (
+            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">Add staff to see quality trends.</div>
+          ) : null}
+          {staffRows.map((user) => (
             <div key={user.id}>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-ink">{user.name}</span>
@@ -130,4 +235,26 @@ export function DashboardOperationalLists() {
       </Card>
     </div>
   );
+}
+
+function extractField(body: string, field: string) {
+  const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`^${escaped}:\\s*(.+)$`, "im"));
+  return match?.[1]?.trim() || "";
+}
+
+function getNoteReviewSignals(body: string) {
+  const lower = body.toLowerCase();
+  const missingDetails = [
+    ["Client", extractField(body, "Client")],
+    ["House/service", extractField(body, "House/service")],
+    ["Support type", extractField(body, "Support type")],
+    ["Date", extractField(body, "Date")],
+    ["Time", extractField(body, "Time")],
+    ["Goal link", lower.includes("goal") ? "present" : ""],
+    ["Follow-up action", lower.includes("follow-up") ? "present" : ""]
+  ].filter(([, value]) => !value || value.toLowerCase().includes("not selected")).map(([label]) => label);
+  const riskyTerms = ["aggressive", "non-compliant", "refused to listen", "attention-seeking", "bad behaviour", "lazy", "naughty"];
+  const riskyWordingFlags = riskyTerms.filter((term) => lower.includes(term));
+  return { missingDetails, riskyWordingFlags };
 }
