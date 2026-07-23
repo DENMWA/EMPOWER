@@ -98,7 +98,7 @@ export function DocumentVault() {
           const colour = getClientColourScheme(doc.participantId, colourSchemeId);
           const reminder = getExpiryReminder(doc.expiryDate);
           const fileName = getDocumentFileName(doc);
-          const hasPrivateFile = Boolean(doc.filePath && !doc.status.toLowerCase().includes("pending upload"));
+          const hasPrivateFile = Boolean(getDocumentFilePath(doc) && !doc.status.toLowerCase().includes("pending upload"));
           return (
             <div key={doc.id} className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border border-l-4 p-4", colour.border)}>
               <div className="flex items-start gap-3">
@@ -147,9 +147,10 @@ export function DocumentVault() {
     </Card>
   );
 
-  async function openPrivateDocument(document: StoredDocumentRecord) {
-    if (!document.filePath) return;
-    const result = await getTenantDocumentDownloadUrl(document.filePath, document.storageBucket);
+  async function openPrivateDocument(document: object) {
+    const filePath = getDocumentFilePath(document);
+    if (!filePath) return;
+    const result = await getTenantDocumentDownloadUrl(filePath, getDocumentStorageBucket(document));
     if (result.error || !result.url) {
       setDownloadMessage(result.error || "Private file could not be opened.");
       return;
@@ -183,6 +184,16 @@ function getExpiryReminder(expiryDate: string) {
 function getDocumentFileName(document: object) {
   const fileName = "fileName" in document ? document.fileName : undefined;
   return typeof fileName === "string" && fileName.trim() ? fileName : undefined;
+}
+
+function getDocumentFilePath(document: object) {
+  const filePath = "filePath" in document ? document.filePath : undefined;
+  return typeof filePath === "string" && filePath.trim() ? filePath : undefined;
+}
+
+function getDocumentStorageBucket(document: object) {
+  const storageBucket = "storageBucket" in document ? document.storageBucket : undefined;
+  return typeof storageBucket === "string" && storageBucket.trim() ? storageBucket : "participant-documents";
 }
 
 function formatDate(value: string) {
