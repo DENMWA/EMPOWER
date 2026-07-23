@@ -1,6 +1,7 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { OrganisationBrandingForm } from "@/components/admin/OrganisationBrandingForm";
 import { PresentationModeCard } from "@/components/admin/PresentationModeCard";
+import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { ProgressIntelligenceSettings } from "@/components/settings/progress/ProgressIntelligenceSettings";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
@@ -23,6 +24,7 @@ export default function AdminSettingsPage() {
         actions={<StatusBadge label="Admin settings" tone="blue" />}
       />
       <Section className="grid gap-4 md:grid-cols-2">
+        <SupabaseSecurityPanel />
         <OrganisationBrandingForm />
         <PresentationModeCard />
         <ProgressIntelligenceSettings />

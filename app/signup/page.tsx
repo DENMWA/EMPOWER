@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { OrganisationAccountSetup } from "@/components/onboarding/OrganisationAccountSetup";
 import { PlanRecommendation } from "@/components/onboarding/PlanRecommendation";
 import { PageHeader, Section } from "@/components/ui";
@@ -18,6 +19,7 @@ export default function SignupPage() {
       <PageHeader title="Start a 14-day free trial" description="Choose a starting tier, select the workflows to trial, and create a private EmpowerNotes workspace for your Australian care service." />
       <Section className="space-y-6">
         <PlanRecommendation />
+        <SupabaseSecurityPanel />
         <OrganisationAccountSetup />
       </Section>
     </>
