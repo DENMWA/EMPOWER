@@ -14,6 +14,18 @@ export type OrganisationProfile = {
 
 const organisationProfileKey = "empowernotes:organisation-profile";
 
+type OrganisationProfileRow = {
+  organisation_name: string | null;
+  provider_number: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  address: string | null;
+  logo_name: string | null;
+  logo_data_url: string | null;
+  include_in_downloads: boolean | null;
+};
+
 export const defaultOrganisationProfile: OrganisationProfile = {
   organisationName: "EmpowerNotes Demo Provider",
   providerNumber: "",
@@ -39,6 +51,35 @@ export function getOrganisationProfile() {
 
 export function saveOrganisationProfile(profile: OrganisationProfile) {
   window.localStorage.setItem(organisationProfileKey, JSON.stringify(profile));
+}
+
+function toOrganisationProfile(row: OrganisationProfileRow): OrganisationProfile {
+  return {
+    organisationName: row.organisation_name || defaultOrganisationProfile.organisationName,
+    providerNumber: row.provider_number || "",
+    phone: row.phone || "",
+    email: row.email || "",
+    website: row.website || "",
+    address: row.address || "",
+    logoName: row.logo_name || "",
+    logoDataUrl: row.logo_data_url || "",
+    includeInDownloads: Boolean(row.include_in_downloads)
+  };
+}
+
+export async function getTenantOrganisationProfile() {
+  const organisationId = await getCurrentOrganisationId();
+  if (!organisationId) return getOrganisationProfile();
+
+  const result = await supabaseRequest<OrganisationProfileRow[]>("organisation_profiles", {
+    query: `select=organisation_name,provider_number,phone,email,website,address,logo_name,logo_data_url,include_in_downloads&organisation_id=eq.${encodeURIComponent(organisationId)}&limit=1`
+  });
+
+  const profile = result.data?.[0] ? toOrganisationProfile(result.data[0]) : getOrganisationProfile();
+  if (typeof window !== "undefined") {
+    saveOrganisationProfile(profile);
+  }
+  return profile;
 }
 
 export async function saveTenantOrganisationProfile(profile: OrganisationProfile) {

@@ -4,14 +4,14 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ImagePlus, Save } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
-import { defaultOrganisationProfile, getOrganisationProfile, saveTenantOrganisationProfile, type OrganisationProfile } from "@/lib/organisation-profile";
+import { defaultOrganisationProfile, getTenantOrganisationProfile, saveTenantOrganisationProfile, type OrganisationProfile } from "@/lib/organisation-profile";
 
 export function OrganisationBrandingForm() {
   const [profile, setProfile] = useState<OrganisationProfile>(defaultOrganisationProfile);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setProfile(getOrganisationProfile());
+    getTenantOrganisationProfile().then(setProfile).catch(() => setProfile(defaultOrganisationProfile));
   }, []);
 
   function update<K extends keyof OrganisationProfile>(field: K, value: OrganisationProfile[K]) {
