@@ -12,6 +12,7 @@ export type ClientRecord = Participant & {
 };
 
 const clientStorageKey = "empowernotes:clients";
+export const clientsUpdatedEvent = "empowernotes:clients-updated";
 
 export function createClientId(name: string) {
   return globalThis.crypto?.randomUUID?.() || `client-${Date.now()}-${name.length}`;
@@ -31,6 +32,7 @@ export function getStoredClients() {
 
 export function saveStoredClients(clients: ClientRecord[]) {
   window.localStorage.setItem(clientStorageKey, JSON.stringify(clients));
+  window.dispatchEvent(new Event(clientsUpdatedEvent));
 }
 
 export function addStoredClient(client: ClientRecord) {

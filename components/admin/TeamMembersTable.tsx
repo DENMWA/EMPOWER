@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
-import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
-import { getTenantStaffInvites, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
+import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
+import { getTenantStaffInvites, staffUpdatedEvent, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { accessChangedEvent, currentUserStorageKey, setCurrentAppUser } from "@/lib/user-access";
 import { Eye, MoreHorizontal, Power, RotateCcw } from "lucide-react";
@@ -29,9 +29,21 @@ export function TeamMembersTable() {
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
 
   useEffect(() => {
-    getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
-    getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
-    getTenantHouses().then(setHouses).catch(() => setHouses([]));
+    function loadRecords() {
+      getTenantStaffInvites().then(setStoredStaff).catch(() => setStoredStaff([]));
+      getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
+      getTenantHouses().then(setHouses).catch(() => setHouses([]));
+    }
+
+    loadRecords();
+    window.addEventListener(clientsUpdatedEvent, loadRecords);
+    window.addEventListener(housesUpdatedEvent, loadRecords);
+    window.addEventListener(staffUpdatedEvent, loadRecords);
+    return () => {
+      window.removeEventListener(clientsUpdatedEvent, loadRecords);
+      window.removeEventListener(housesUpdatedEvent, loadRecords);
+      window.removeEventListener(staffUpdatedEvent, loadRecords);
+    };
   }, []);
 
   async function changeStaffStatus(user: TeamMember, nextStatus: StaffRecord["inviteStatus"]) {

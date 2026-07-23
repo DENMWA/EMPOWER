@@ -9,6 +9,7 @@ export type StaffRecord = StaffUser & {
 };
 
 const staffStorageKey = "empowernotes:staff";
+export const staffUpdatedEvent = "empowernotes:staff-updated";
 
 export function createStaffId(name: string) {
   const slug = name
@@ -48,6 +49,7 @@ export function getStoredStaff() {
 
 export function saveStoredStaff(staff: StaffRecord[]) {
   window.localStorage.setItem(staffStorageKey, JSON.stringify(staff));
+  window.dispatchEvent(new Event(staffUpdatedEvent));
 }
 
 export function addStoredStaff(staff: StaffRecord) {
