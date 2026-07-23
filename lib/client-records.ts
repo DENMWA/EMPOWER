@@ -51,6 +51,11 @@ type SupabaseClientRow = {
   communication_preferences: string | null;
   risk_alerts: string[] | null;
   colour_scheme_id: string | null;
+  goals: string[] | null;
+  assigned_worker_ids: string[] | null;
+  primary_house_id: string | null;
+  primary_house_name: string | null;
+  service_name: string | null;
   created_at: string;
 };
 
@@ -61,11 +66,14 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
     initials: row.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 4).toUpperCase(),
     supportNeeds: row.support_needs || "Support needs to be added.",
     communication: row.communication_preferences || "Communication preferences to be added.",
-    goals: [],
+    goals: row.goals || [],
     riskAlerts: row.risk_alerts || [],
-    assignedWorkers: [],
+    assignedWorkers: row.assigned_worker_ids || [],
     documents: [],
     colourSchemeId: row.colour_scheme_id || undefined,
+    primaryHouseId: row.primary_house_id || undefined,
+    primaryHouseName: row.primary_house_name || undefined,
+    serviceName: row.service_name || undefined,
     createdAt: row.created_at
   };
 }
@@ -75,7 +83,7 @@ export async function getTenantClients() {
   const localClients = getStoredClients();
 
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
-    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,created_at&order=created_at.desc"
+    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return localClients;
@@ -102,7 +110,12 @@ export async function saveTenantClient(client: ClientRecord) {
       support_needs: client.supportNeeds,
       communication_preferences: client.communication,
       risk_alerts: client.riskAlerts,
-      colour_scheme_id: client.colourSchemeId || null
+      colour_scheme_id: client.colourSchemeId || null,
+      goals: client.goals,
+      assigned_worker_ids: client.assignedWorkers,
+      primary_house_id: client.primaryHouseId || null,
+      primary_house_name: client.primaryHouseName || null,
+      service_name: client.serviceName || null
     }
   });
 

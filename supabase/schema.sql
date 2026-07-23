@@ -61,6 +61,11 @@ create table participants_or_clients (
   communication_preferences text,
   risk_alerts text[] not null default '{}',
   colour_scheme_id text,
+  goals text[] not null default '{}',
+  assigned_worker_ids text[] not null default '{}',
+  primary_house_id text,
+  primary_house_name text,
+  service_name text,
   behaviour_support_notes text,
   emergency_contacts jsonb not null default '[]',
   created_at timestamptz not null default now()
