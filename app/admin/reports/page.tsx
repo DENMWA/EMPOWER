@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { ClientReportColourCards } from "@/components/admin/ClientReportColourCards";
 import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCollectionExport";
@@ -8,14 +11,35 @@ import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getRosterReportSummary, rosterShifts, type RosterReportPeriod } from "@/lib/roster";
-import { documents, progressNotes } from "@/lib/sample-data";
+import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
+import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
 const periods: RosterReportPeriod[] = ["weekly", "fortnightly", "monthly"];
 
 export default function AdminReportsPage() {
+  const [savedDocuments, setSavedDocuments] = useState<StoredDocumentRecord[]>([]);
+  const [savedIncidents, setSavedIncidents] = useState<StoredIncidentReport[]>([]);
+  const [savedProgressNotes, setSavedProgressNotes] = useState<RetainedRecord[]>([]);
   const today = new Date().toISOString().slice(0, 10);
-  const weakNotes = progressNotes.filter((note) => note.score < 80 || note.missingDetails.length > 0);
-  const unverifiedDocuments = documents.filter((doc) => !doc.status.includes("verified"));
+  const unverifiedDocuments = savedDocuments.filter((doc) => !doc.status.toLowerCase().includes("verified"));
+  const incidentsAwaitingReview = savedIncidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
+
+  useEffect(() => {
+    function loadReports() {
+      getTenantDocumentRecords().then(setSavedDocuments).catch(() => setSavedDocuments([]));
+      getSavedIncidentReports().then((items) => setSavedIncidents(items.map((item) => item.report))).catch(() => setSavedIncidents([]));
+      getTenantRetainedRecords("progress-note").then(setSavedProgressNotes).catch(() => setSavedProgressNotes([]));
+    }
+
+    loadReports();
+    window.addEventListener("empowernotes:documents-updated", loadReports);
+    window.addEventListener("empowernotes:retained-records-updated", loadReports);
+    return () => {
+      window.removeEventListener("empowernotes:documents-updated", loadReports);
+      window.removeEventListener("empowernotes:retained-records-updated", loadReports);
+    };
+  }, []);
 
   return (
     <AdminGate>
@@ -62,8 +86,8 @@ export default function AdminReportsPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <ReportCard icon={ClipboardCheck} title="Documentation Status" value={weakNotes.length} detail="Notes with low score or missing details" tone="amber" />
-          <ReportCard icon={ShieldCheck} title="Incident Oversight" value={3} detail="Incidents awaiting review" tone="red" />
+          <ReportCard icon={ClipboardCheck} title="Documentation Status" value={savedProgressNotes.length} detail="Saved progress-note records" tone="amber" />
+          <ReportCard icon={ShieldCheck} title="Incident Oversight" value={incidentsAwaitingReview.length} detail="Incidents awaiting review" tone="red" />
           <ReportCard icon={FileWarning} title="Evidence Gaps" value={unverifiedDocuments.length} detail="Documents awaiting manager verification" tone="blue" />
         </div>
       </Section>
