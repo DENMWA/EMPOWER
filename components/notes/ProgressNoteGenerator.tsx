@@ -8,7 +8,7 @@ import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
@@ -237,7 +237,7 @@ export function ProgressNoteGenerator() {
   const baseParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const allParticipants = useMemo<NoteClient[]>(() => {
     if (!selectedHouse) return [];
-    return baseParticipants.filter((participant) => selectedHouse.clientIds.includes(participant.id));
+    return baseParticipants.filter((participant) => houseHasClient(selectedHouse, participant));
   }, [baseParticipants, selectedHouse]);
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";

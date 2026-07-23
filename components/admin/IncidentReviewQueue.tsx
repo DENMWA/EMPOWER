@@ -24,6 +24,7 @@ function IncidentBaselineChart({ reports, clients, houses }: { reports: StoredIn
   const clientRows = useMemo(() => {
     const serviceKeys = new Set([
       ...houses.flatMap((house) => house.clientIds.map((clientId) => `${clientId}:${house.id}`)),
+      ...clients.filter((client) => client.primaryHouseId).map((client) => `${client.id}:${client.primaryHouseId}`),
       ...reports.map((report) => `${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}`)
     ]);
 

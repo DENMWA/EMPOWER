@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
 import { saveIncidentReport } from "@/lib/incident-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants, type Participant } from "@/lib/sample-data";
@@ -365,7 +365,7 @@ export function IncidentReportForm() {
   const baseParticipants = useMemo<IncidentClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const allParticipants = useMemo<IncidentClient[]>(() => {
     if (!selectedHouse) return [];
-    return baseParticipants.filter((participant) => selectedHouse.clientIds.includes(participant.id));
+    return baseParticipants.filter((participant) => houseHasClient(selectedHouse, participant));
   }, [baseParticipants, selectedHouse]);
   const selectedParticipant = allParticipants.find((participant) => participant.id === report.participantId) ?? allParticipants[0];
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
@@ -408,7 +408,7 @@ export function IncidentReportForm() {
 
   useEffect(() => {
     if (selectedHouse && selectedHouse.id !== report.houseId) {
-      const nextParticipant = allParticipants.find((participant) => selectedHouse.clientIds.includes(participant.id));
+      const nextParticipant = allParticipants.find((participant) => houseHasClient(selectedHouse, participant));
       setReport((current) => ({
         ...current,
         houseId: selectedHouse.id,
@@ -443,7 +443,7 @@ export function IncidentReportForm() {
 
   function selectHouse(houseId: string) {
     const house = accessibleHouses.find((item) => item.id === houseId);
-    const nextParticipant = house ? baseParticipants.find((participant) => house.clientIds.includes(participant.id)) : undefined;
+    const nextParticipant = house ? baseParticipants.find((participant) => houseHasClient(house, participant)) : undefined;
     setReport((current) => ({
       ...current,
       houseId,

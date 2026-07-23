@@ -74,3 +74,7 @@ export async function saveTenantHouse(house: HouseRecord) {
 export function getHousesForClient(houses: HouseRecord[], clientId: string) {
   return houses.filter((house) => house.clientIds.includes(clientId));
 }
+
+export function houseHasClient(house: HouseRecord, client: { id: string; primaryHouseId?: string }) {
+  return house.clientIds.includes(client.id) || client.primaryHouseId === house.id;
+}

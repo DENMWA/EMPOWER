@@ -5,7 +5,7 @@ import { MessageSquareText } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
 
@@ -65,7 +65,7 @@ export function IncidentManagerResponses() {
         View house/service
         <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
           <option value="all">All assigned houses/services</option>
-          {houses.filter((house) => accessibleClients.some((client) => house.clientIds.includes(client.id))).map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+          {houses.filter((house) => accessibleClients.some((client) => houseHasClient(house, client))).map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
         </select>
       </label>
 

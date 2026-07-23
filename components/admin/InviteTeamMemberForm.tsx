@@ -6,7 +6,7 @@ import { participants, type UserRole } from "@/lib/sample-data";
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { MailPlus, ShieldCheck } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
@@ -28,8 +28,8 @@ export function InviteTeamMemberForm() {
   const accessibleHouseIds = useMemo(() => houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds, [assignedHouseIds, houseAccessMode, houses]);
   const houseScopedParticipants = useMemo(() => {
     if (!houses.length) return allParticipants;
-    const clientIds = new Set(houses.filter((house) => accessibleHouseIds.includes(house.id)).flatMap((house) => house.clientIds));
-    return allParticipants.filter((participant) => clientIds.has(participant.id));
+    const accessibleHouses = houses.filter((house) => accessibleHouseIds.includes(house.id));
+    return allParticipants.filter((participant) => accessibleHouses.some((house) => houseHasClient(house, participant)));
   }, [accessibleHouseIds, allParticipants, houses]);
 
   useEffect(() => {
