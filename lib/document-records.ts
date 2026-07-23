@@ -1,4 +1,5 @@
 import type { SupportDocument } from "@/lib/sample-data";
+import { getTenantClients } from "@/lib/client-records";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, getCurrentUserId, getSupabaseProjectConfig, supabaseRequest } from "@/lib/supabase-rest";
 import { checkDocumentsPerParticipantLimit } from "@/lib/subscriptions/client-limits";
@@ -51,11 +52,11 @@ type SupabaseDocumentRow = {
   created_at: string;
 };
 
-function toStoredDocumentRecord(row: SupabaseDocumentRow): StoredDocumentRecord {
+function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client"): StoredDocumentRecord {
   return {
     id: row.id,
     participantId: row.participant_id,
-    clientName: "Client",
+    clientName,
     type: row.document_type,
     status: row.manager_verified ? "Manager verified" : row.status,
     visibility: row.visibility,
@@ -79,7 +80,11 @@ export async function getTenantDocumentRecords() {
 
   if (!result.data || result.error) return localDocuments;
 
-  const cloudDocuments = result.data.map(toStoredDocumentRecord);
+  const clients = await getTenantClients().catch(() => []);
+  const cloudDocuments = result.data.map((row) => {
+    const client = clients.find((item) => item.id === row.participant_id);
+    return toStoredDocumentRecord(row, client?.name || "Client");
+  });
   const localOnlyDocuments = localDocuments.filter((localRecord) => !cloudDocuments.some((cloudRecord) => cloudRecord.id === localRecord.id));
   return [...cloudDocuments, ...localOnlyDocuments];
 }

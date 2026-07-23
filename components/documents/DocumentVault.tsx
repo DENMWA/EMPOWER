@@ -27,6 +27,17 @@ export function DocumentVault() {
       savedAt: new Date(`${document.startDate}T00:00:00`).toISOString()
     };
   })), [storedDocuments, realMode]);
+  const expirySummary = useMemo(() => {
+    return allDocuments.reduce(
+      (summary, document) => {
+        const reminder = getExpiryReminder(document.expiryDate);
+        if (reminder.tone === "red") summary.urgent += 1;
+        if (reminder.tone === "amber") summary.month += 1;
+        return summary;
+      },
+      { urgent: 0, month: 0 }
+    );
+  }, [allDocuments]);
 
   useEffect(() => {
     function loadRecords() {
@@ -55,6 +66,20 @@ export function DocumentVault() {
         <p className="text-sm font-semibold uppercase tracking-wide text-sea">Client organised files</p>
         <h2 className="mt-1 text-xl font-semibold text-ink">Document Vault</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">Documents are shown with their assigned client so support evidence does not become mixed across profiles.</p>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-semibold text-slate-500">Total documents</p>
+          <p className="mt-1 text-2xl font-bold text-ink">{allDocuments.length}</p>
+        </div>
+        <div className="rounded-md border border-amber-100 bg-amber-50 p-3">
+          <p className="text-sm font-semibold text-amber-800">One-month reminders</p>
+          <p className="mt-1 text-2xl font-bold text-amber-900">{expirySummary.month}</p>
+        </div>
+        <div className="rounded-md border border-red-100 bg-red-50 p-3">
+          <p className="text-sm font-semibold text-red-700">Fortnight / expired</p>
+          <p className="mt-1 text-2xl font-bold text-red-800">{expirySummary.urgent}</p>
+        </div>
       </div>
       <div className="mt-4 space-y-3">
         {!allDocuments.length ? (
