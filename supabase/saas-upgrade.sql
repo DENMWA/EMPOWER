@@ -62,6 +62,60 @@ create table if not exists retained_records (
   primary key (organisation_id, id)
 );
 
+create table if not exists incident_reports (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid references participants_or_clients(id) on delete set null,
+  reported_by uuid references users(id) on delete set null,
+  app_incident_id text,
+  app_participant_id text,
+  house_id text,
+  house_name text,
+  participant_name text,
+  reporter_name text,
+  incident_date date not null,
+  incident_time time not null,
+  location text,
+  status text not null default 'Draft',
+  incident_types text[] not null default '{}',
+  what_happened text,
+  injury_harm_summary text,
+  anyone_injured boolean not null default false,
+  immediate_action_taken text,
+  notification_notes text,
+  follow_up_required boolean not null default false,
+  follow_up_notes text,
+  manager_comments text,
+  manager_review_status text not null default 'Pending Review',
+  property_damage jsonb,
+  property_damage_involved boolean not null default false,
+  property_damage_items text[] not null default '{}',
+  property_damage_description text,
+  property_damage_estimated_cost text,
+  body_markers jsonb not null default '[]',
+  attachments jsonb not null default '[]',
+  incident_payload jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table incident_reports add column if not exists app_incident_id text;
+alter table incident_reports add column if not exists app_participant_id text;
+alter table incident_reports add column if not exists house_id text;
+alter table incident_reports add column if not exists house_name text;
+alter table incident_reports add column if not exists participant_name text;
+alter table incident_reports add column if not exists reporter_name text;
+alter table incident_reports add column if not exists property_damage jsonb;
+alter table incident_reports add column if not exists property_damage_involved boolean not null default false;
+alter table incident_reports add column if not exists property_damage_items text[] not null default '{}';
+alter table incident_reports add column if not exists property_damage_description text;
+alter table incident_reports add column if not exists property_damage_estimated_cost text;
+alter table incident_reports add column if not exists body_markers jsonb not null default '[]';
+alter table incident_reports add column if not exists attachments jsonb not null default '[]';
+alter table incident_reports add column if not exists incident_payload jsonb not null default '{}';
+
+create unique index if not exists idx_incident_reports_org_app_incident_id on incident_reports(organisation_id, app_incident_id);
+
 create or replace function current_user_organisation_id()
 returns uuid
 language sql
@@ -162,6 +216,7 @@ $$;
 alter table organisation_profiles enable row level security;
 alter table staff_invites enable row level security;
 alter table retained_records enable row level security;
+alter table incident_reports enable row level security;
 
 create index if not exists idx_participants_or_clients_organisation_id on participants_or_clients(organisation_id);
 create index if not exists idx_staff_invites_organisation_id on staff_invites(organisation_id);
@@ -225,6 +280,26 @@ begin
 
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'retained_records' and policyname = 'users update retained records in own organisation') then
     create policy "users update retained records in own organisation" on retained_records for update using (
+      organisation_id = current_user_organisation_id()
+    ) with check (
+      organisation_id = current_user_organisation_id()
+    );
+  end if;
+
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'incident_reports' and policyname = 'incident reports visible in own organisation') then
+    create policy "incident reports visible in own organisation" on incident_reports for select using (
+      organisation_id = current_user_organisation_id()
+    );
+  end if;
+
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'incident_reports' and policyname = 'users save incident reports in own organisation') then
+    create policy "users save incident reports in own organisation" on incident_reports for insert with check (
+      organisation_id = current_user_organisation_id()
+    );
+  end if;
+
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'incident_reports' and policyname = 'users update incident reports in own organisation') then
+    create policy "users update incident reports in own organisation" on incident_reports for update using (
       organisation_id = current_user_organisation_id()
     ) with check (
       organisation_id = current_user_organisation_id()

@@ -462,6 +462,43 @@ create table retained_records (
   primary key (organisation_id, id)
 );
 
+create table if not exists incident_reports (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
+  participant_id uuid references participants_or_clients(id) on delete set null,
+  reported_by uuid references users(id) on delete set null,
+  app_incident_id text,
+  app_participant_id text,
+  house_id text,
+  house_name text,
+  participant_name text,
+  reporter_name text,
+  incident_date date not null,
+  incident_time time not null,
+  location text,
+  status text not null default 'Draft',
+  incident_types text[] not null default '{}',
+  what_happened text,
+  injury_harm_summary text,
+  anyone_injured boolean not null default false,
+  immediate_action_taken text,
+  notification_notes text,
+  follow_up_required boolean not null default false,
+  follow_up_notes text,
+  manager_comments text,
+  manager_review_status text not null default 'Pending Review',
+  property_damage jsonb,
+  property_damage_involved boolean not null default false,
+  property_damage_items text[] not null default '{}',
+  property_damage_description text,
+  property_damage_estimated_cost text,
+  body_markers jsonb not null default '[]',
+  attachments jsonb not null default '[]',
+  incident_payload jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function current_user_profile()
 returns users
 language sql
@@ -587,6 +624,7 @@ alter table voice_sessions enable row level security;
 alter table invoice_evidence_checks enable row level security;
 alter table invoice_summaries enable row level security;
 alter table retained_records enable row level security;
+alter table incident_reports enable row level security;
 
 -- Organisation-level separation.
 create policy "users can view own organisation" on organisations for select using (id = (select organisation_id from users where id = auth.uid()));
@@ -801,6 +839,18 @@ create policy "users update retained records in own organisation" on retained_re
   organisation_id = current_user_organisation_id()
 );
 
+create policy "incident reports visible in own organisation" on incident_reports for select using (
+  organisation_id = current_user_organisation_id()
+);
+create policy "users save incident reports in own organisation" on incident_reports for insert with check (
+  organisation_id = current_user_organisation_id()
+);
+create policy "users update incident reports in own organisation" on incident_reports for update using (
+  organisation_id = current_user_organisation_id()
+) with check (
+  organisation_id = current_user_organisation_id()
+);
+
 create policy "users view own organisation participant documents"
 on storage.objects
 for select
@@ -837,6 +887,7 @@ create index if not exists idx_roster_shifts_status on roster_shifts(status);
 create index if not exists idx_participants_or_clients_organisation_id on participants_or_clients(organisation_id);
 create index if not exists idx_staff_invites_organisation_id on staff_invites(organisation_id);
 create index if not exists idx_retained_records_organisation_id on retained_records(organisation_id);
+create unique index if not exists idx_incident_reports_org_app_incident_id on incident_reports(organisation_id, app_incident_id);
 create index if not exists idx_participant_plans_org_participant on participant_plans(organisation_id, participant_id);
 create index if not exists idx_plan_extractions_plan on plan_extractions(participant_plan_id);
 create index if not exists idx_participant_goals_participant on participant_goals(participant_id);
