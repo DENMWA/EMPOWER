@@ -8,6 +8,10 @@ export const accessChangedEvent = "empowernotes:access-updated";
 
 export const adminRoles: UserRole[] = ["owner", "admin", "service_manager", "sole_provider"];
 
+function isSuspendedUser(user: StaffUser) {
+  return (user as StaffUser & { inviteStatus?: string }).inviteStatus === "Suspended";
+}
+
 export function canAccessAdmin(role: UserRole) {
   return adminRoles.includes(role);
 }
@@ -17,7 +21,11 @@ export function getCurrentAppUser(): StaffUser {
 
   try {
     const stored = window.localStorage.getItem(currentUserStorageKey);
-    if (stored) return JSON.parse(stored) as StaffUser;
+    if (stored) {
+      const user = JSON.parse(stored) as StaffUser;
+      if (!isSuspendedUser(user)) return user;
+      window.localStorage.removeItem(currentUserStorageKey);
+    }
   } catch {
     // Fall through to the role-safe defaults below.
   }
@@ -31,6 +39,7 @@ export function getCurrentAppUser(): StaffUser {
 
 export function setCurrentAppUser(user: StaffUser) {
   if (typeof window === "undefined") return;
+  if (isSuspendedUser(user)) return;
   window.localStorage.setItem(currentUserStorageKey, JSON.stringify(user));
   window.dispatchEvent(new Event(accessChangedEvent));
 }
@@ -42,16 +51,18 @@ export function setAdminCurrentUser() {
 
 export function getAvailableAppUsers() {
   if (typeof window === "undefined") return users;
-  const storedStaff = getStoredStaff();
+  const storedStaff = getStoredStaff().filter((staff) => !isSuspendedUser(staff));
   return storedStaff.length ? [...users, ...storedStaff] : users;
 }
 
 export function getAccessibleParticipantIds(user = getCurrentAppUser()) {
+  if (isSuspendedUser(user)) return [];
   if (canAccessAdmin(user.role)) return null;
   return user.assignedParticipants;
 }
 
 export function getAccessibleHouseIds(user = getCurrentAppUser()) {
+  if (isSuspendedUser(user)) return [];
   if (canAccessAdmin(user.role) || user.houseAccessMode === "all") return null;
   return user.assignedHouseIds || [];
 }

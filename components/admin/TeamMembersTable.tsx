@@ -5,12 +5,12 @@ import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
-import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
+import { getTenantStaffInvites, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
-import { setCurrentAppUser } from "@/lib/user-access";
-import { Eye, MoreHorizontal } from "lucide-react";
+import { accessChangedEvent, currentUserStorageKey, setCurrentAppUser } from "@/lib/user-access";
+import { Eye, MoreHorizontal, Power, RotateCcw } from "lucide-react";
 
-const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" }> = {
+const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" | "red" }> = {
   "provider-owner": { label: "Owner", tone: "green" },
   "support-worker-a": { label: "Active", tone: "green" },
   "service-manager-a": { label: "Active", tone: "green" },
@@ -33,6 +33,23 @@ export function TeamMembersTable() {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
     getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
+
+  async function changeStaffStatus(user: TeamMember, nextStatus: StaffRecord["inviteStatus"]) {
+    const result = await updateTenantStaffInviteStatus(user.id, nextStatus);
+    setStoredStaff((current) => current.map((staff) => staff.id === user.id ? { ...staff, inviteStatus: nextStatus } : staff));
+    if (nextStatus === "Suspended") {
+      try {
+        const currentUser = JSON.parse(window.localStorage.getItem(currentUserStorageKey) || "null") as TeamMember | null;
+        if (currentUser?.id === user.id) {
+          window.localStorage.removeItem(currentUserStorageKey);
+          window.dispatchEvent(new Event(accessChangedEvent));
+        }
+      } catch {
+        window.localStorage.removeItem(currentUserStorageKey);
+      }
+    }
+    setMessage(result.savedToCloud ? `${user.name} is now marked as ${nextStatus}.` : `${user.name} is now marked as ${nextStatus} locally. ${result.error || "Sign in to save this to Supabase."}`);
+  }
 
   useEffect(() => {
     function syncDataMode() {
@@ -80,8 +97,11 @@ export function TeamMembersTable() {
               const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;
               const storedStatus = user.inviteStatus;
               const status = storedStatus
-                ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : "amber" as const }
+                ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : storedStatus === "Suspended" ? "red" as const : "amber" as const }
                 : inviteStatus[user.id] ?? { label: "Pending", tone: "amber" as const };
+              const canSuspend = Boolean(storedStatus && storedStatus !== "Suspended");
+              const canReactivate = storedStatus === "Suspended";
+              const canPreview = storedStatus !== "Suspended";
               return (
                 <tr key={user.id} className="border-b border-slate-100 align-top">
                   <td className="py-4 pr-4">
@@ -122,11 +142,13 @@ export function TeamMembersTable() {
                     <div className="flex gap-2">
                       <button
                         type="button"
+                        disabled={!canPreview}
                         onClick={() => {
+                          if (!canPreview) return;
                           setCurrentAppUser(user);
                           setMessage(`Previewing app access as ${user.name}. The main app will now show only what this role can access.`);
                         }}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         aria-label={`Preview access for ${user.name}`}
                       >
                         <Eye size={18} aria-hidden="true" />
@@ -134,6 +156,26 @@ export function TeamMembersTable() {
                       <a href="/admin/staff/new" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Manage ${user.name}`}>
                         <MoreHorizontal size={18} aria-hidden="true" />
                       </a>
+                      {canSuspend ? (
+                        <button
+                          type="button"
+                          onClick={() => changeStaffStatus(user, "Suspended")}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:border-red-400"
+                          aria-label={`Suspend ${user.name}`}
+                        >
+                          <Power size={18} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                      {canReactivate ? (
+                        <button
+                          type="button"
+                          onClick={() => changeStaffStatus(user, "Active")}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-emerald-200 bg-white text-emerald-700 hover:border-emerald-400"
+                          aria-label={`Reactivate ${user.name}`}
+                        >
+                          <RotateCcw size={18} aria-hidden="true" />
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

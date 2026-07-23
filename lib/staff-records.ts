@@ -4,7 +4,7 @@ import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 import { checkUserLimit } from "@/lib/subscriptions/client-limits";
 
 export type StaffRecord = StaffUser & {
-  inviteStatus: "Invite sent" | "Draft" | "Active";
+  inviteStatus: "Invite sent" | "Draft" | "Active" | "Suspended";
   createdAt: string;
 };
 
@@ -52,7 +52,13 @@ export function saveStoredStaff(staff: StaffRecord[]) {
 
 export function addStoredStaff(staff: StaffRecord) {
   const currentStaff = getStoredStaff();
-  saveStoredStaff([...currentStaff, staff]);
+  const withoutDuplicate = currentStaff.filter((item) => item.id !== staff.id && item.email.toLowerCase() !== staff.email.toLowerCase());
+  saveStoredStaff([...withoutDuplicate, staff]);
+}
+
+export function updateStoredStaffStatus(staffId: string, inviteStatus: StaffRecord["inviteStatus"]) {
+  const currentStaff = getStoredStaff();
+  saveStoredStaff(currentStaff.map((staff) => staff.id === staffId ? { ...staff, inviteStatus } : staff));
 }
 
 export async function saveTenantStaffInvite(staff: StaffRecord) {
@@ -78,7 +84,29 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
     }
   });
 
+  const cloudId = result.data?.[0]?.id;
+  if (cloudId) {
+    addStoredStaff({ ...staff, id: cloudId });
+  }
+
   return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+}
+
+export async function updateTenantStaffInviteStatus(staffId: string, inviteStatus: StaffRecord["inviteStatus"]) {
+  updateStoredStaffStatus(staffId, inviteStatus);
+
+  const organisationId = await getCurrentOrganisationId();
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+
+  const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
+    method: "PATCH",
+    query: `id=eq.${encodeURIComponent(staffId)}`,
+    body: {
+      invite_status: inviteStatus
+    }
+  });
+
+  return { savedToCloud: Boolean(result.data?.length && !result.error), error: result.error };
 }
 
 type SupabaseStaffInviteRow = {
