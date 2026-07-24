@@ -21,6 +21,7 @@ import {
   verifyMfaFactor
 } from "@/lib/supabase-auth";
 import { isSupabaseConfigured } from "@/lib/supabase-rest";
+import { completePendingOnboarding } from "@/lib/pending-onboarding";
 
 type EnrolledTotp = {
   factorId: string;
@@ -51,7 +52,16 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
 
     const acceptedInvite = consumeAuthRedirectSession();
     syncAuthStatus();
-    if (acceptedInvite) setMessage("Invitation accepted. You are now signed in to your organisation workspace.");
+    if (acceptedInvite) {
+      completePendingOnboarding().then((setup) => {
+        if (setup.error) {
+          setMessage(setup.error);
+          return;
+        }
+        setMessage(setup.completed ? "Account confirmed. Your organisation workspace is ready." : "Invitation accepted. You are now signed in to your organisation workspace.");
+        if (redirectAfterSignIn) continueToRequestedPage();
+      });
+    }
     window.addEventListener(authSessionChangedEvent, syncAuthStatus);
     return () => window.removeEventListener(authSessionChangedEvent, syncAuthStatus);
   }, []);
@@ -75,6 +85,11 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
 
       setMessage("Signed in. Cloud saves are now available for this user.");
       await loadVerifiedMfaFactor();
+      const setup = await completePendingOnboarding();
+      if (setup.error) {
+        setMessage(setup.error);
+        return;
+      }
       continueToRequestedPage();
     });
   }
@@ -110,6 +125,11 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setOtpCode("");
       setMessage("Code verified. Cloud saves are now available for this user.");
       await loadVerifiedMfaFactor();
+      const setup = await completePendingOnboarding();
+      if (setup.error) {
+        setMessage(setup.error);
+        return;
+      }
       continueToRequestedPage();
     });
   }

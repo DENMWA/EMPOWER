@@ -65,7 +65,9 @@ export function getCurrentAuthStatus() {
 }
 
 export async function signUpWithPassword(email: string, password: string) {
-  const result = await authRequest<AuthSession>("/signup", {
+  const redirectTo = typeof window === "undefined" ? "" : `${window.location.origin}/signin`;
+  const path = redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup";
+  const result = await authRequest<AuthSession>(path, {
     email,
     password
   });
