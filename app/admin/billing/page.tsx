@@ -1,5 +1,6 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
+import { NativeBillingWorkspace } from "@/components/billing/NativeBillingWorkspace";
 import { PlanManagementCard } from "@/components/billing/PlanManagementCard";
 import { UsageSummary } from "@/components/billing/UsageSummary";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
@@ -21,9 +22,12 @@ export default function AdminBillingPage() {
       <PageHeader
         eyebrow="Admin billing"
         title="Billing, plan, and usage"
-        description="Admin-only view of subscription plan, feature usage, and billing report exports."
+        description="Admin-only view of subscription plan, feature usage, scheduling, service agreements, native NDIS invoice drafts, and billing report exports."
         actions={<PdfDownloadButton filename="empowernotes-billing-summary.html" title="EmpowerNotes Billing Summary" lines={billingLines} variant="primary" />}
       />
+      <Section>
+        <NativeBillingWorkspace />
+      </Section>
       <Section className="grid gap-6 lg:grid-cols-2">
         <UsageSummary />
         <PlanManagementCard />

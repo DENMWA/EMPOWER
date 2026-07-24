@@ -75,11 +75,11 @@ const adminTools = [
     badge: "Outcomes"
   },
   {
-    title: "Billing",
-    detail: "Review plan usage, billing status, and download a PDF billing summary.",
+    title: "Scheduling & Native Invoicing",
+    detail: "Schedule supports, manage service agreements, check NDIS pricing versions, generate native invoice drafts, and export PDF/CSV without Xero.",
     href: "/admin/billing",
     icon: ReceiptText,
-    badge: "Billing"
+    badge: "NDIS billing"
   },
   {
     title: "Note Review",
