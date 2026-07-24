@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
-import { AppAuthGate } from "@/components/auth/AppAuthGate";
 import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
+import { setDataMode } from "@/lib/presentation-mode";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
 import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
@@ -40,12 +40,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
     setCurrentUser(getCurrentAppUser());
-    setSignedIn(getCurrentAuthStatus().signedIn);
+    const authStatus = getCurrentAuthStatus();
+    setSignedIn(authStatus.signedIn);
+    if (!authStatus.signedIn) setDataMode("demo");
   }, []);
 
   useEffect(() => {
     function syncAuth() {
-      setSignedIn(getCurrentAuthStatus().signedIn);
+      const authStatus = getCurrentAuthStatus();
+      setSignedIn(authStatus.signedIn);
+      if (!authStatus.signedIn) setDataMode("demo");
     }
 
     window.addEventListener(authSessionChangedEvent, syncAuth);
@@ -88,6 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             {isPlatform ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100">Internal platform</span> : null}
+            {!signedIn && !isPlatform ? <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-teal-100">Demo preview</span> : null}
             <AccessibilityToggle enabled={accessibilityMode} onChange={setAccessibilityMode} />
           </div>
         </div>
@@ -133,8 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
       <main>
-        <AppAuthGate>
-          {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
+        {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
             <section className="mx-auto max-w-3xl px-4 py-16">
               <div className="rounded-md border border-red-200 bg-white p-6 shadow-soft">
                 <div className="flex items-start gap-3">
@@ -155,7 +159,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </section>
           ) : children}
-        </AppAuthGate>
       </main>
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm leading-6 text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
