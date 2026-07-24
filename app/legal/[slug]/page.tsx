@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Scale } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { PageHeader, Section } from "@/components/ui";
-import { getLegalPolicy, legalPolicies, policyContactEmail, policyEffectiveDate } from "@/lib/legal-policies";
+import { getLegalPolicy, legalPolicies, policyEffectiveDate } from "@/lib/legal-policies";
 
 export function generateStaticParams() {
   return legalPolicies.map((policy) => ({ slug: policy.slug }));
@@ -46,10 +46,6 @@ export default function PolicyPage({ params }: { params: { slug: string } }) {
                 ) : null}
               </section>
             ))}
-          </div>
-          <div className="mt-9 flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-            <Scale size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <p>Draft for Australian legal review before production use. Policy enquiries: {policyContactEmail}</p>
           </div>
           <Link href="/legal" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-teal-700 hover:text-teal-900">
             <ArrowLeft size={16} aria-hidden="true" /> Back to policy centre

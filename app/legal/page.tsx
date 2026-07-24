@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Scale } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { PageHeader, Section } from "@/components/ui";
-import { legalPolicies, policyEffectiveDate } from "@/lib/legal-policies";
+import { legalPolicies } from "@/lib/legal-policies";
 
 export const metadata: Metadata = {
   title: "Legal and Policy Centre",
@@ -19,10 +19,6 @@ export default function LegalPage() {
         description="Clear information about privacy, security, responsible AI and use of EmpowerNotes."
       />
       <Section className="space-y-6">
-        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-          <Scale size={19} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <p>These documents are implementation-ready drafts dated {policyEffectiveDate}. They require review by qualified Australian legal and privacy advisers before production launch.</p>
-        </div>
         <div className="grid gap-4 md:grid-cols-2">
           {legalPolicies.map((policy) => (
             <Link key={policy.slug} href={`/legal/${policy.slug}`} className="group rounded-lg border border-slate-200 bg-white p-5 shadow-soft hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift">
