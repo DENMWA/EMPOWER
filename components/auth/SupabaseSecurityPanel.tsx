@@ -28,7 +28,7 @@ type EnrolledTotp = {
   uri: string;
 };
 
-export function SupabaseSecurityPanel() {
+export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirectAfterSignIn?: boolean }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -72,6 +72,7 @@ export function SupabaseSecurityPanel() {
 
       setMessage("Signed in. Cloud saves are now available for this user.");
       await loadVerifiedMfaFactor();
+      continueToRequestedPage();
     });
   }
 
@@ -106,6 +107,7 @@ export function SupabaseSecurityPanel() {
       setOtpCode("");
       setMessage("Code verified. Cloud saves are now available for this user.");
       await loadVerifiedMfaFactor();
+      continueToRequestedPage();
     });
   }
 
@@ -173,6 +175,13 @@ export function SupabaseSecurityPanel() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function continueToRequestedPage() {
+    if (!redirectAfterSignIn || typeof window === "undefined") return;
+    const requestedPath = new URLSearchParams(window.location.search).get("next");
+    const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
+    window.location.assign(safePath);
   }
 
   return (

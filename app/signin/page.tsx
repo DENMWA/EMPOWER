@@ -19,7 +19,7 @@ export default function SignInPage() {
         description="Use secure sign-in so client profiles, notes, incidents, documents, reports, and billing records save to the organisation workspace."
       />
       <Section>
-        <SupabaseSecurityPanel />
+        <SupabaseSecurityPanel redirectAfterSignIn />
       </Section>
     </>
   );

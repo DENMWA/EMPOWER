@@ -46,15 +46,21 @@ export function getCurrentAuthStatus() {
 
   try {
     const payload = token.split(".")[1];
-    const decoded = JSON.parse(window.atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string; email?: string; aal?: string };
+    if (!payload) return getDefaultAuthStatus();
+    const decoded = JSON.parse(window.atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string; email?: string; aal?: string; exp?: number };
+    if (!decoded.sub || (decoded.exp && decoded.exp * 1000 <= Date.now())) {
+      signOutSupabaseSession();
+      return getDefaultAuthStatus();
+    }
     return {
       signedIn: true,
-      userId: decoded.sub || "",
+      userId: decoded.sub,
       email: decoded.email || "",
       aal: decoded.aal || "aal1"
     };
   } catch {
-    return { signedIn: true, userId: "", email: "", aal: "aal1" };
+    signOutSupabaseSession();
+    return getDefaultAuthStatus();
   }
 }
 

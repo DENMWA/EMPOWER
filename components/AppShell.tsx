@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
+import { AppAuthGate } from "@/components/auth/AppAuthGate";
+import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
@@ -23,15 +25,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
   const [currentUser, setCurrentUser] = useState(getDefaultAppUser);
+  const [signedIn, setSignedIn] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
-  const visibleNavItems = navItems.filter((item) => item.href !== "/admin" || canAccessAdmin(currentUser.role));
+  const visibleNavItems = navItems.filter((item) => {
+    if (!signedIn) return item.href === "/signin";
+    if (item.href === "/signin") return false;
+    return item.href !== "/admin" || canAccessAdmin(currentUser.role);
+  });
 
   useEffect(() => {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
     setCurrentUser(getCurrentAppUser());
+    setSignedIn(getCurrentAuthStatus().signedIn);
+  }, []);
+
+  useEffect(() => {
+    function syncAuth() {
+      setSignedIn(getCurrentAuthStatus().signedIn);
+    }
+
+    window.addEventListener(authSessionChangedEvent, syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener(authSessionChangedEvent, syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
   }, []);
 
   useEffect(() => {
@@ -111,27 +132,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
       <main>
-        {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
-          <section className="mx-auto max-w-3xl px-4 py-16">
-            <div className="rounded-md border border-red-200 bg-white p-6 shadow-soft">
-              <div className="flex items-start gap-3">
-                <span className="grid h-12 w-12 place-items-center rounded-md bg-red-50 text-red-700">
-                  <AlertTriangle size={22} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Access paused</p>
-                  <h1 className="mt-1 text-2xl font-bold text-ink">This organisation is currently {organisationAccess.status.toLowerCase()}.</h1>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Access has been paused by the EmpowerNotes platform console. Contact the platform owner or billing contact to reactivate this account.
-                  </p>
-                  {organisationAccess.override?.reason ? (
-                    <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">Reason: {organisationAccess.override.reason}</p>
-                  ) : null}
+        <AppAuthGate>
+          {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
+            <section className="mx-auto max-w-3xl px-4 py-16">
+              <div className="rounded-md border border-red-200 bg-white p-6 shadow-soft">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-12 w-12 place-items-center rounded-md bg-red-50 text-red-700">
+                    <AlertTriangle size={22} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Access paused</p>
+                    <h1 className="mt-1 text-2xl font-bold text-ink">This organisation is currently {organisationAccess.status.toLowerCase()}.</h1>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Access has been paused by the EmpowerNotes platform console. Contact the platform owner or billing contact to reactivate this account.
+                    </p>
+                    {organisationAccess.override?.reason ? (
+                      <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">Reason: {organisationAccess.override.reason}</p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
-        ) : children}
+            </section>
+          ) : children}
+        </AppAuthGate>
       </main>
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm leading-6 text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
