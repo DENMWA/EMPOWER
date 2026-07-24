@@ -20,7 +20,7 @@ const navItems = [
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
   { href: "/documents", label: "Documents", icon: FolderLock },
   { href: "/signin", label: "Sign in", icon: KeyRound },
-  { href: "/signup", label: "Start free", icon: Sparkles }
+  { href: "/signup", label: "Sign up", icon: Sparkles }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -130,7 +130,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "relative inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium hover:bg-slate-100 focus:bg-slate-100",
-                    active ? "bg-teal-50 text-teal-800" : "text-slate-600"
+                    item.href === "/signup"
+                      ? "rounded-sm border border-teal-700 bg-white text-teal-800 shadow-sm hover:bg-teal-50"
+                      : active
+                        ? "bg-teal-50 text-teal-800"
+                        : "text-slate-600"
                   )}
                 >
                   <Icon aria-hidden="true" size={18} />
