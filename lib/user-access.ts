@@ -84,10 +84,10 @@ export function getAccessibleClientIdsForHouse(house: HouseRecord | undefined, u
   return houseClientIds.filter((clientId) => accessibleParticipantIds.includes(clientId));
 }
 
-export function filterByParticipantAccess<T extends { id: string }>(records: T[], user = getCurrentAppUser()) {
+export function filterByParticipantAccess<T extends { id: string; assignedWorkers?: string[] }>(records: T[], user = getCurrentAppUser()) {
   const accessibleIds = getAccessibleParticipantIds(user);
   if (!accessibleIds) return records;
-  return records.filter((record) => accessibleIds.includes(record.id));
+  return records.filter((record) => accessibleIds.includes(record.id) || Boolean(record.assignedWorkers?.includes(user.id)));
 }
 
 export function filterRecordsByParticipantAccess<T extends { participantId: string }>(records: T[], user = getCurrentAppUser()) {

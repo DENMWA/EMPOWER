@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, Save } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { createHouseId, getTenantHouses, saveTenantHouse, type HouseRecord } from "@/lib/house-records";
+import { createHouseId, getTenantHouses, houseHasClient, saveTenantHouse, type HouseRecord } from "@/lib/house-records";
 
 const serviceTypes = ["SIL house", "Supported accommodation", "Community access hub", "In-home support", "Day program", "Short-term accommodation", "Other service"];
 
@@ -16,8 +16,8 @@ export function HouseManagementCard() {
   const [serviceType, setServiceType] = useState(serviceTypes[0]);
   const [clientIds, setClientIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
-  const assignedClientNames = useMemo(() => {
-    return (ids: string[]) => clients.filter((client) => ids.includes(client.id)).map((client) => client.name).join(", ") || "No clients assigned yet";
+  const assignedClientsForHouse = useMemo(() => {
+    return (house: HouseRecord) => clients.filter((client) => houseHasClient(house, client));
   }, [clients]);
 
   useEffect(() => {
@@ -117,18 +117,23 @@ export function HouseManagementCard() {
       </div>
 
       <div className="mt-5 grid gap-3">
-        {houses.map((house) => (
-          <div key={house.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-bold text-ink">{house.name}</p>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{house.serviceType}{house.address ? ` - ${house.address}` : ""}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Clients: {assignedClientNames(house.clientIds)}</p>
+        {houses.map((house) => {
+          const assignedClients = assignedClientsForHouse(house);
+          const assignedClientNames = assignedClients.map((client) => client.name).join(", ") || "No clients assigned yet";
+
+          return (
+            <div key={house.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-ink">{house.name}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{house.serviceType}{house.address ? ` - ${house.address}` : ""}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Clients: {assignedClientNames}</p>
+                </div>
+                <StatusBadge label={`${assignedClients.length} clients`} tone={assignedClients.length ? "green" : "amber"} />
               </div>
-              <StatusBadge label={`${house.clientIds.length} clients`} tone={house.clientIds.length ? "green" : "amber"} />
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );
