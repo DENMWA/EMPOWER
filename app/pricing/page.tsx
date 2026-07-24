@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { FoundingOffer } from "@/components/pricing/FoundingOffer";
-import { PlanComparison } from "@/components/pricing/PlanComparison";
 import { PricingCards } from "@/components/pricing/PricingCards";
-import { PricingFAQ } from "@/components/pricing/PricingFAQ";
-import { PageHeader, Section } from "@/components/ui";
+import { PageHeader, Section, StatusBadge } from "@/components/ui";
+import { CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Pricing for Australian NDIS Documentation Software",
@@ -18,13 +16,46 @@ export default function PricingPage() {
   return (
     <>
       <PageHeader
-        title="Simple pricing for Australian NDIS documentation, safer records, and stronger audit evidence."
-        description="EmpowerNotes helps Australian disability support, youth work, social work, NDIS, and community service providers turn rough notes, voice notes, incident details, and support documents into clear, person-centred, evidence-backed records."
+        eyebrow="Plans"
+        title="Choose the right EmpowerNotes plan"
+        description="Start with 14 days free. Choose the level that fits your service now, then upgrade as your team, clients, houses, reporting, and billing needs grow."
       />
-      <Section><FoundingOffer /></Section>
+      <Section>
+        <div className="rounded-md border border-teal-200 bg-white p-5 shadow-soft">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge label="14-day trial" tone="green" />
+            <StatusBadge label="No card during early testing" tone="blue" />
+            <StatusBadge label="Cancel or export data anytime" tone="slate" />
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {[
+              "Progress notes, incidents, documents, reports, rostering, and billing in one workspace.",
+              "Workers see daily tools. Admin sees clients, staff, houses, reports, billing, and governance.",
+              "Human review remains required before records become final evidence."
+            ].map((item) => (
+              <p key={item} className="flex gap-2 text-sm leading-6 text-slate-700">
+                <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-teal-700" aria-hidden="true" />
+                <span>{item}</span>
+              </p>
+            ))}
+          </div>
+        </div>
+      </Section>
       <Section><PricingCards /></Section>
-      <Section><PlanComparison /></Section>
-      <Section><PricingFAQ /></Section>
+      <Section>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-6">
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">After signup</p>
+          <h2 className="mt-2 text-2xl font-bold text-ink">Set up the workspace in five steps.</h2>
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            {["Organisation details", "House/service", "Clients", "Staff invites", "First note"].map((step, index) => (
+              <div key={step} className="rounded-md bg-white p-4 shadow-soft">
+                <span className="grid h-8 w-8 place-items-center rounded-md bg-ink text-sm font-bold text-white">{index + 1}</span>
+                <p className="mt-3 text-sm font-semibold text-ink">{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
     </>
   );
 }
