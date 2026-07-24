@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
 
-const publicPages = new Set(["/", "/pricing", "/contact", "/signup", "/signin"]);
-const demoPages = new Set(["/dashboard", "/notes/new", "/incidents", "/incidents/new"]);
+const publicPages = new Set(["/", "/features", "/pricing", "/contact", "/signup", "/signin"]);
 
 export function DemoAccessBoundary({
   children,
@@ -23,7 +22,7 @@ export function DemoAccessBoundary({
     return <div className="min-h-[55vh] bg-mist" aria-label="Checking workspace access" />;
   }
 
-  if (signedIn || isPublicPage || demoPages.has(pathname)) {
+  if (signedIn || isPublicPage) {
     return <>{children}</>;
   }
 

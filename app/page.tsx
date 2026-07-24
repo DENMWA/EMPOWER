@@ -8,25 +8,25 @@ const outcomes = [
     title: "Progress notes",
     detail: "Turn rough notes and voice input into professional, person-centred support records.",
     icon: Mic2,
-    href: "/notes/new"
+    href: "/features#progress-notes"
   },
   {
     title: "Incident reports",
     detail: "Capture what happened, actions taken, injury markers, property damage, notifications, and follow-up.",
     icon: AlertTriangle,
-    href: "/incidents/new"
+    href: "/features#incident-reports"
   },
   {
     title: "Client records and documents",
     detail: "Keep client profiles, plans, agreements, medicals, CHAP, and allied health reports organised.",
     icon: FolderLock,
-    href: "/documents"
+    href: "/features#client-records"
   },
   {
     title: "Progress evidence",
     detail: "Link plans, baselines, notes, incidents, and documents into manager-ready progress reporting.",
     icon: LineChart,
-    href: "/participants/progress"
+    href: "/features#reporting"
   }
 ];
 
@@ -155,7 +155,7 @@ export default function HomePage() {
                 <h2 className="mt-4 text-lg font-semibold text-ink">{item.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{item.detail}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-teal-700">
-                  Explore feature <ArrowRight size={15} aria-hidden="true" />
+                  View preview <ArrowRight size={15} aria-hidden="true" />
                 </span>
               </Link>
             );

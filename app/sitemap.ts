@@ -5,6 +5,7 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://empowernotes.com.au";
 export default function sitemap(): MetadataRoute.Sitemap {
   const publicRoutes = [
     { path: "/", priority: 1 },
+    { path: "/features", priority: 0.9 },
     { path: "/pricing", priority: 0.85 },
     { path: "/contact", priority: 0.75 },
     { path: "/signup", priority: 0.7 },

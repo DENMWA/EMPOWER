@@ -10,7 +10,7 @@ import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-acces
 import { setDataMode } from "@/lib/presentation-mode";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, PanelsTopLeft, BadgeDollarSign } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -23,6 +23,13 @@ const navItems = [
   { href: "/signup", label: "Sign up", icon: Sparkles }
 ];
 
+const publicNavItems = [
+  { href: "/features", label: "Features", icon: PanelsTopLeft },
+  { href: "/pricing", label: "Pricing", icon: BadgeDollarSign },
+  { href: "/signin", label: "Sign in", icon: KeyRound },
+  { href: "/signup", label: "Sign up", icon: Sparkles }
+];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
@@ -31,11 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
-  const visibleNavItems = navItems.filter((item) => {
-    if (!signedIn) return ["/dashboard", "/notes/new", "/incidents", "/signin", "/signup"].includes(item.href);
-    if (item.href === "/signin" || item.href === "/signup") return false;
-    return item.href !== "/admin" || canAccessAdmin(currentUser.role);
-  });
+  const visibleNavItems = signedIn
+    ? navItems.filter((item) => item.href !== "/signin" && item.href !== "/signup" && (item.href !== "/admin" || canAccessAdmin(currentUser.role)))
+    : publicNavItems;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
@@ -96,7 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             {isPlatform ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100">Internal platform</span> : null}
-            {!signedIn && !isPlatform ? <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-teal-100">Demo preview</span> : null}
+            {!signedIn && !isPlatform ? <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-teal-100">Product preview</span> : null}
             <AccessibilityToggle enabled={accessibilityMode} onChange={setAccessibilityMode} />
           </div>
         </div>
