@@ -6,6 +6,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import {
   authSessionChangedEvent,
   challengeMfaFactor,
+  consumeAuthRedirectSession,
   enrollTotpFactor,
   getCurrentAuthStatus,
   getDefaultAuthStatus,
@@ -48,7 +49,9 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setAuthStatus(getCurrentAuthStatus());
     }
 
+    const acceptedInvite = consumeAuthRedirectSession();
     syncAuthStatus();
+    if (acceptedInvite) setMessage("Invitation accepted. You are now signed in to your organisation workspace.");
     window.addEventListener(authSessionChangedEvent, syncAuthStatus);
     return () => window.removeEventListener(authSessionChangedEvent, syncAuthStatus);
   }, []);

@@ -10,6 +10,7 @@ import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-r
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 export function InviteTeamMemberForm() {
   const [name, setName] = useState("");
@@ -118,9 +119,27 @@ export function InviteTeamMemberForm() {
     }
 
     markTrialStepComplete("add-staff");
-    setSaved(true);
+    setSaved(Boolean(result.savedToCloud));
     const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
-    setMessage(result.savedToCloud ? `${localMessage} Saved to this organisation.` : `${localMessage} ${result.error || "Sign in to save it to this organisation's workspace."}`);
+    if (!result.savedToCloud) {
+      setMessage(`${localMessage} ${result.error || "Sign in to save it to this organisation's workspace."}`);
+      return;
+    }
+
+    if (action === "sent") {
+      const emailResult = await sendInvitationEmail({
+        name: cleanName,
+        email: cleanEmail,
+        role,
+        roleLabel: roleLabelFor(role)
+      });
+      setSaved(emailResult.ok);
+      setMessage(emailResult.ok
+        ? `Invitation emailed to ${cleanEmail} and saved to this organisation.`
+        : emailResult.error || "The invite was saved, but the email could not be delivered.");
+    } else {
+      setMessage(`${localMessage} Saved to this organisation.`);
+    }
     setName("");
     setEmail("");
   }
@@ -223,4 +242,20 @@ export function InviteTeamMemberForm() {
       {message ? <p className={`mt-3 rounded-md px-3 py-2 text-sm font-semibold ${saved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-900"}`}>{message}</p> : null}
     </Card>
   );
+}
+
+async function sendInvitationEmail(input: { name: string; email: string; role: UserRole; roleLabel: string }) {
+  const accessToken = getStoredAccessToken();
+  if (!accessToken) return { ok: false, error: "Sign in before sending invitation emails." };
+
+  const response = await fetch("/api/team/invite", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+  const result = await response.json() as { ok?: boolean; error?: string };
+  return { ok: Boolean(response.ok && result.ok), error: result.error || "" };
 }

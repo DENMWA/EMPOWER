@@ -122,6 +122,23 @@ export function signOutSupabaseSession() {
   window.dispatchEvent(new Event(authSessionChangedEvent));
 }
 
+export function consumeAuthRedirectSession() {
+  if (typeof window === "undefined" || !window.location.hash.includes("access_token=")) return false;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = params.get("access_token");
+  if (!accessToken) return false;
+
+  const expiresIn = Number(params.get("expires_in") || "3600");
+  saveAuthSession({
+    access_token: accessToken,
+    refresh_token: params.get("refresh_token") || undefined,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn
+  });
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+  return true;
+}
+
 export async function listMfaFactors() {
   return authRequest<{ all?: MfaFactor[]; totp?: MfaFactor[] }>("/factors", undefined, "GET");
 }
