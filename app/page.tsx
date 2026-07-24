@@ -120,6 +120,7 @@ export default function HomePage() {
               <ButtonLink href="/contact" variant="secondary">Book demo</ButtonLink>
             </div>
             <div className="mt-7 flex flex-wrap gap-2">
+              <StatusBadge label="Private by design" tone="green" />
               <StatusBadge label="No card during early testing" tone="green" />
               <StatusBadge label="Human review stays required" tone="blue" />
               <StatusBadge label="Data export stays available" tone="slate" />
@@ -129,6 +130,14 @@ export default function HomePage() {
           <MobileAppPreview />
         </div>
       </section>
+
+      <Section>
+        <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-5 shadow-soft md:grid-cols-3">
+          {["Private by design.", "Your team. Your clients. Your workspace.", "Workers see only what they need."].map((line) => (
+            <p key={line} className="text-lg font-bold text-ink">{line}</p>
+          ))}
+        </div>
+      </Section>
 
       <Section>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

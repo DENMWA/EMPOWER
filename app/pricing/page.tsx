@@ -29,9 +29,9 @@ export default function PricingPage() {
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {[
-              "Progress notes, incidents, documents, reports, rostering, and billing in one workspace.",
-              "Workers see daily tools. Admin sees clients, staff, houses, reports, billing, and governance.",
-              "Human review remains required before records become final evidence."
+              "Private by design.",
+              "Your team. Your clients. Your workspace.",
+              "Workers see only what they need."
             ].map((item) => (
               <p key={item} className="flex gap-2 text-sm leading-6 text-slate-700">
                 <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-teal-700" aria-hidden="true" />

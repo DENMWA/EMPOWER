@@ -30,7 +30,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
     };
     const result = await saveTenantRetainedRecord(record);
     setSaved(true);
-    setMessage(result.savedToCloud ? "Saved to this organisation." : "Saved locally. Sign in to save it to this organisation's Supabase space.");
+    setMessage(result.savedToCloud ? "Saved to this organisation." : "Saved locally. Sign in to save it to this organisation's workspace.");
     window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 

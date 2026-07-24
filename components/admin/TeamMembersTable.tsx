@@ -60,7 +60,7 @@ export function TeamMembersTable() {
         window.localStorage.removeItem(currentUserStorageKey);
       }
     }
-    setMessage(result.savedToCloud ? `${user.name} is now marked as ${nextStatus}.` : `${user.name} is now marked as ${nextStatus} locally. ${result.error || "Sign in to save this to Supabase."}`);
+    setMessage(result.savedToCloud ? `${user.name} is now marked as ${nextStatus}.` : `${user.name} is now marked as ${nextStatus} locally. ${result.error || "Sign in to save this to the workspace."}`);
   }
 
   useEffect(() => {

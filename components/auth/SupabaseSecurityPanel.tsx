@@ -58,7 +58,7 @@ export function SupabaseSecurityPanel() {
       const result = await signUpWithPassword(email.trim(), password);
       setMessage(result.error
         ? result.error
-        : "Account created. If email confirmation is enabled in Supabase, confirm your email, then sign in.");
+        : "Account created. If email confirmation is enabled, confirm your email, then sign in.");
     });
   }
 
@@ -70,7 +70,7 @@ export function SupabaseSecurityPanel() {
         return;
       }
 
-      setMessage("Signed in. Cloud saves are now available for this Supabase user.");
+      setMessage("Signed in. Cloud saves are now available for this user.");
       await loadVerifiedMfaFactor();
     });
   }
@@ -88,7 +88,7 @@ export function SupabaseSecurityPanel() {
 
       setMessage(otpChannel === "email"
         ? "Email code sent. Enter the code from your inbox to sign in."
-        : "SMS code sent. Enter the code from your phone to sign in. Phone OTP requires SMS auth to be enabled in Supabase.");
+        : "SMS code sent. Enter the code from your phone to sign in. Phone sign-in must be enabled for this workspace.");
     });
   }
 
@@ -104,7 +104,7 @@ export function SupabaseSecurityPanel() {
       }
 
       setOtpCode("");
-      setMessage("Code verified. Cloud saves are now available for this Supabase user.");
+      setMessage("Code verified. Cloud saves are now available for this user.");
       await loadVerifiedMfaFactor();
     });
   }
@@ -151,7 +151,7 @@ export function SupabaseSecurityPanel() {
       setCode("");
       setTotp(null);
       setAuthStatus(getCurrentAuthStatus());
-      setMessage("2FA verified. This session is now upgraded for safer Supabase access.");
+      setMessage("2FA verified. This session is now upgraded for safer access.");
     });
   }
 
@@ -179,13 +179,13 @@ export function SupabaseSecurityPanel() {
     <Card className="border-teal-100">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Supabase Auth and 2FA</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Secure sign in and 2FA</p>
           <h2 className="mt-1 text-2xl font-bold text-ink">Secure cloud saving</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Sign in before creating or saving records so clients, staff, documents, notes, reports, and billing records save to Supabase instead of browser-only storage.
+            Sign in before creating or saving records so clients, staff, documents, notes, reports, and billing records save to your secure workspace instead of browser-only storage.
           </p>
         </div>
-        <StatusBadge label={!configured ? "Supabase not configured" : mfaReady ? "2FA verified" : authStatus.signedIn ? "Signed in" : "Sign in required"} tone={!configured ? "red" : mfaReady ? "green" : authStatus.signedIn ? "blue" : "amber"} />
+        <StatusBadge label={!configured ? "Cloud saving not configured" : mfaReady ? "2FA verified" : authStatus.signedIn ? "Signed in" : "Sign in required"} tone={!configured ? "red" : mfaReady ? "green" : authStatus.signedIn ? "blue" : "amber"} />
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -213,7 +213,7 @@ export function SupabaseSecurityPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-ink">Sign in with a one-time code</p>
-            <p className="mt-1 text-sm leading-6 text-slate-700">Use email code by default. Phone/SMS works once SMS auth is enabled in Supabase.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700">Use email code by default. Phone/SMS works once phone sign-in is enabled.</p>
           </div>
           <div className="flex rounded-md border border-slate-300 bg-white p-1">
             <button type="button" onClick={() => setOtpChannel("email")} className={otpChannel === "email" ? "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" : "rounded-md px-3 py-2 text-sm font-semibold text-slate-700"}>
@@ -243,7 +243,7 @@ export function SupabaseSecurityPanel() {
 
       {authStatus.signedIn ? (
         <div className="mt-5 rounded-md border border-sky-100 bg-sky-50 p-4">
-          <p className="text-sm font-semibold text-ink">Signed in as {authStatus.email || authStatus.userId || "Supabase user"}</p>
+          <p className="text-sm font-semibold text-ink">Signed in as {authStatus.email || authStatus.userId || "workspace user"}</p>
           <p className="mt-1 text-sm text-slate-700">Current security level: {authStatus.aal}. Use authenticator 2FA to reach aal2.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button type="button" disabled={busy || !configured} onClick={startTotpEnrollment} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">

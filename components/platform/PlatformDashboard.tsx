@@ -178,7 +178,7 @@ function AccountInsightsPanel() {
     `${highestAi.name} is the heaviest AI user with ${highestAi.aiCalls} AI calls and ${highestAi.notesCreated} notes created.`,
     `${incidentRisk.name} has the highest incident count at ${incidentRisk.incidents}; monitor reporting quality and follow-up completion.`,
     paymentRisk.length ? `${paymentRisk.length} account needs payment follow-up before renewal or suspension.` : "No payment-risk account is currently active.",
-    "Production wiring should write these metrics from Supabase usage tables and Stripe subscription/webhook events."
+    "Production wiring should write these metrics from workspace usage tables and Stripe subscription/webhook events."
   ];
 
   return <PlatformPanel title="Account insights" badge="Live-readiness" items={insights} />;

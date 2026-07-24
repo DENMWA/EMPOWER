@@ -188,7 +188,7 @@ export function ReportingInsightsChart() {
           {livePointCount === 0 && !demoMode ? (
             <div className="mb-5 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
               <p className="font-semibold text-ink">No live chart data yet</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Save progress notes and incident reports to Supabase, then this chart will update for weekly, monthly, half-yearly, and yearly reporting.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Save progress notes and incident reports to the workspace, then this chart will update for weekly, monthly, half-yearly, and yearly reporting.</p>
             </div>
           ) : null}
 

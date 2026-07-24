@@ -130,8 +130,8 @@ export function DocumentUploadCard() {
       return;
     }
 
-    const fileText = selectedFile ? "File uploaded to private Supabase Storage." : "No file selected; document metadata saved only.";
-    const cloudText = result.savedToCloud ? `Saved to this organisation. ${fileText}` : `Saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`;
+    const fileText = selectedFile ? "File uploaded to private storage." : "No file selected; document metadata saved only.";
+    const cloudText = result.savedToCloud ? `Saved to this organisation. ${fileText}` : `Saved locally. ${result.error || "Sign in to save it to this organisation's workspace."}`;
     setMessage(`${documentType} saved for ${selectedClient.name}. ${cloudText}`);
     markTrialStepComplete("upload-document");
     window.dispatchEvent(new Event(documentsUpdatedEvent));
@@ -222,7 +222,7 @@ export function DocumentUploadCard() {
         </a>
       </div>
       {message ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
-      <p className="mt-3 text-sm text-slate-600">Files remain private. Signed-in Supabase users upload files to the private participant-documents bucket and save document metadata to the organisation.</p>
+      <p className="mt-3 text-sm text-slate-600">Files remain private. Signed-in users save documents to the selected client record inside this organisation.</p>
     </Card>
   );
 }

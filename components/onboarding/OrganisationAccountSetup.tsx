@@ -60,7 +60,7 @@ export function OrganisationAccountSetup() {
     setSaved(Boolean(result.data && !result.error));
     setMessage(result.data && !result.error
       ? `Organisation account created on ${selectedPlan}. Future clients, staff, notes, reports, and documents will stay inside this organisation.`
-      : "Sign in with Supabase Auth first, then create the organisation account.");
+      : "Sign in first, then create the organisation account.");
   }
 
   return (
@@ -71,7 +71,7 @@ export function OrganisationAccountSetup() {
           <h2 className="mt-1 text-2xl font-bold text-ink">Create a private organisation space</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Each business gets its own protected account so clients, staff, notes, reports, billing, and branding are not visible to other organisations.</p>
         </div>
-        <StatusBadge label={saved ? "Tenant ready" : "Requires sign in"} tone={saved ? "green" : "amber"} />
+        <StatusBadge label={saved ? "Workspace ready" : "Requires sign in"} tone={saved ? "green" : "amber"} />
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -104,7 +104,7 @@ export function OrganisationAccountSetup() {
         </button>
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
           <Building2 size={17} aria-hidden="true" />
-          Supabase protected tenant
+          Private workspace
         </span>
       </div>
       {message ? <p className={saved ? "mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700" : "mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"}>{message}</p> : null}

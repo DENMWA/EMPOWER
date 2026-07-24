@@ -97,7 +97,7 @@ export async function saveTenantClient(client: ClientRecord) {
   addStoredClient(client);
 
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     method: "POST",

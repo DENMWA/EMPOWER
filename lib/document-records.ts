@@ -100,7 +100,7 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
 
   const organisationId = await getCurrentOrganisationId();
   const userId = getCurrentUserId();
-  if (!organisationId || !userId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+  if (!organisationId || !userId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
   const safeType = getSafeDocumentType(record.type);
   const safeFileName = getSafeFileName(record.fileName, safeType);
@@ -143,8 +143,8 @@ export function buildDocumentStoragePath(input: { organisationId?: string; parti
 
 export async function uploadTenantDocumentFile(file: File, filePath: string, bucket = "participant-documents") {
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
-  if (!supabaseUrl || !supabaseAnonKey) return { uploaded: false, error: "Supabase is not configured." };
-  if (!accessToken) return { uploaded: false, error: "Sign in before uploading files to Supabase Storage." };
+  if (!supabaseUrl || !supabaseAnonKey) return { uploaded: false, error: "Cloud workspace is not configured." };
+  if (!accessToken) return { uploaded: false, error: "Sign in before uploading files to your workspace." };
 
   const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(filePath)}`, {
     method: "POST",
@@ -167,7 +167,7 @@ export async function uploadTenantDocumentFile(file: File, filePath: string, buc
 
 export async function getTenantDocumentDownloadUrl(filePath: string, bucket = "participant-documents") {
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
-  if (!supabaseUrl || !supabaseAnonKey) return { url: "", error: "Supabase is not configured." };
+  if (!supabaseUrl || !supabaseAnonKey) return { url: "", error: "Cloud workspace is not configured." };
   if (!accessToken) return { url: "", error: "Sign in before downloading private files." };
 
   const response = await fetch(`${supabaseUrl}/storage/v1/object/sign/${bucket}/${encodeURI(filePath)}`, {
@@ -187,7 +187,7 @@ export async function getTenantDocumentDownloadUrl(filePath: string, bucket = "p
 
   const data = await response.json() as { signedURL?: string; signedUrl?: string };
   const signedPath = data.signedURL || data.signedUrl || "";
-  if (!signedPath) return { url: "", error: "Supabase did not return a signed download link." };
+  if (!signedPath) return { url: "", error: "The workspace did not return a secure download link." };
 
   return {
     url: signedPath.startsWith("http") ? signedPath : `${supabaseUrl}${signedPath}`,

@@ -196,7 +196,7 @@ async function getStructuredIncidentReports() {
 
 async function saveStructuredIncidentReport(report: StoredIncidentReport) {
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving structured incident data to Supabase." };
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving incident data to your workspace." };
 
   const userId = getCurrentUserId();
   const result = await supabaseRequest<Array<{ id: string }>>("incident_reports", {

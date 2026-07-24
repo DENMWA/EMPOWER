@@ -167,7 +167,7 @@ export function IncidentReviewQueue() {
       status: report.status === "Submitted" ? "Needs Review" as const : report.status
     };
     const result = await saveIncidentReport(nextReport);
-    setMessage(result.savedToCloud ? `${report.incidentId} manager response saved.` : `${report.incidentId} manager response saved locally. Sign in to save it to Supabase.`);
+    setMessage(result.savedToCloud ? `${report.incidentId} manager response saved.` : `${report.incidentId} manager response saved locally. Sign in to save it to this organisation's workspace.`);
     await loadReports();
   }
 

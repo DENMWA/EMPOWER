@@ -151,7 +151,7 @@ function saveAuthSession(session: AuthSession) {
 
 async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POST" = "POST") {
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
-  if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Supabase is not configured." };
+  if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Secure sign-in is not configured." };
 
   const response = await fetch(`${supabaseUrl}/auth/v1${path}`, {
     method,

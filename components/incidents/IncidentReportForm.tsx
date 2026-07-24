@@ -585,7 +585,7 @@ export function IncidentReportForm() {
     const result = await saveIncidentReport(nextReport);
     setReport(nextReport);
     setSavedAt(new Date(result.savedAt).toLocaleString("en-AU"));
-    setSaveMessage(result.savedToCloud ? successMessage : "Incident saved locally. Sign in to save it to this organisation's Supabase space.");
+    setSaveMessage(result.savedToCloud ? successMessage : "Incident saved locally. Sign in to save it to this organisation's workspace.");
     markTrialStepComplete("incident-report");
   }
 

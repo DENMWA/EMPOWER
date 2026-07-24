@@ -120,7 +120,7 @@ export function InviteTeamMemberForm() {
     markTrialStepComplete("add-staff");
     setSaved(true);
     const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
-    setMessage(result.savedToCloud ? `${localMessage} Saved to this organisation.` : `${localMessage} ${result.error || "Sign in to save it to this organisation's Supabase space."}`);
+    setMessage(result.savedToCloud ? `${localMessage} Saved to this organisation.` : `${localMessage} ${result.error || "Sign in to save it to this organisation's workspace."}`);
     setName("");
     setEmail("");
   }

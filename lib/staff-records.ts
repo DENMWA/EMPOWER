@@ -70,7 +70,7 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
   addStoredStaff(staff);
 
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
   const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
     method: "POST",
@@ -98,7 +98,7 @@ export async function updateTenantStaffInviteStatus(staffId: string, inviteStatu
   updateStoredStaffStatus(staffId, inviteStatus);
 
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
   const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
     method: "PATCH",

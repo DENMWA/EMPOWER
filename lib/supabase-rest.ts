@@ -57,7 +57,7 @@ export async function supabaseRequest<T>(table: string, options: {
   body?: unknown;
   prefer?: string;
 } = {}) {
-  if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Supabase is not configured." };
+  if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Cloud workspace is not configured." };
 
   const token = getStoredAccessToken() || supabaseAnonKey;
   const response = await fetch(`${supabaseUrl}/rest/v1/${table}${options.query ? `?${options.query}` : ""}`, {
@@ -82,7 +82,7 @@ export async function supabaseRequest<T>(table: string, options: {
 }
 
 export async function supabaseRpc<T>(functionName: string, body: unknown) {
-  if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Supabase is not configured." };
+  if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Cloud workspace is not configured." };
 
   const token = getStoredAccessToken() || supabaseAnonKey;
   const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {

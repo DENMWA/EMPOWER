@@ -64,7 +64,7 @@ export async function saveTenantRetainedRecord(record: RetainedRecord) {
   saveLocalRetainedRecord(record);
 
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
   const result = await supabaseRequest<Array<{ id: string }>>("retained_records", {
     method: "POST",

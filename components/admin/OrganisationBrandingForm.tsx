@@ -31,7 +31,7 @@ export function OrganisationBrandingForm() {
 
   async function saveProfile() {
     const result = await saveTenantOrganisationProfile(profile);
-    setMessage(result.savedToCloud ? "Organisation branding saved to this organisation." : "Branding saved locally. Sign in to save it to this organisation's Supabase space.");
+    setMessage(result.savedToCloud ? "Organisation branding saved to this organisation." : "Branding saved locally. Sign in to save it to this organisation's workspace.");
   }
 
   return (

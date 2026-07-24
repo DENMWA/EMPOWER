@@ -53,7 +53,7 @@ export function HouseManagementCard() {
       createdAt: new Date().toISOString()
     });
 
-    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. Sign in to save it to this organisation's Supabase space.`);
+    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. Sign in to save it to this organisation's workspace.`);
     setName("");
     setAddress("");
     setClientIds([]);

@@ -114,7 +114,7 @@ export function AddClientForm() {
 
     setSaved(true);
     markTrialStepComplete("add-client");
-    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. ${result.error || "Sign in to save it to this organisation's Supabase space."}`);
+    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. ${result.error || "Sign in to save it to this organisation's workspace."}`);
     setName("");
     setInitials("");
     setSupportNeeds("");

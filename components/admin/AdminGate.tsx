@@ -76,7 +76,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
           </form>
 
           <p className="mt-5 text-xs leading-5 text-slate-500">
-            Testing password: {fallbackPassword}. Use Supabase Auth, roles, and server-side access control before taking live client data.
+            Testing password: {fallbackPassword}. Use secure sign-in, roles, and server-side access control before taking live client data.
           </p>
         </Card>
       </Section>

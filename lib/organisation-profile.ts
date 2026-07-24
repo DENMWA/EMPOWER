@@ -86,7 +86,7 @@ export async function saveTenantOrganisationProfile(profile: OrganisationProfile
   saveOrganisationProfile(profile);
 
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to Supabase." };
+  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
   const result = await supabaseRequest<Array<{ organisation_id: string }>>("organisation_profiles", {
     method: "POST",
