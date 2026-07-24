@@ -88,6 +88,11 @@ export function DocumentUploadCard() {
       return;
     }
 
+    if (!expiryDate) {
+      setMessage("Add the document expiry date before saving so reminders are accurate.");
+      return;
+    }
+
     setSaving(true);
     const organisationId = await getCurrentOrganisationId();
     const filePath = buildDocumentStoragePath({
@@ -112,7 +117,7 @@ export function DocumentUploadCard() {
       visibility,
       confidence: 0,
       startDate,
-      expiryDate: expiryDate || startDate,
+      expiryDate,
       fileName: selectedFile?.name || fileName,
       filePath,
       storageBucket: "participant-documents",
