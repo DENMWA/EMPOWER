@@ -10,7 +10,7 @@ import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-acces
 import { setDataMode } from "@/lib/presentation-mode";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, PanelsTopLeft, BadgeDollarSign } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,8 +24,11 @@ const navItems = [
 ];
 
 const publicNavItems = [
-  { href: "/features", label: "Features", icon: PanelsTopLeft },
-  { href: "/pricing", label: "Pricing", icon: BadgeDollarSign },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, disabled: true },
+  { href: "/notes/new", label: "Progress Note", icon: Mic, disabled: true },
+  { href: "/participants", label: "My Clients", icon: Users, disabled: true },
+  { href: "/incidents", label: "Incidents", icon: ShieldCheck, disabled: true },
+  { href: "/documents", label: "Documents", icon: FolderLock, disabled: true },
   { href: "/signin", label: "Sign in", icon: KeyRound },
   { href: "/signup", label: "Sign up", icon: Sparkles }
 ];
@@ -128,6 +131,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              if ("disabled" in item && item.disabled) {
+                return (
+                  <span
+                    key={item.href}
+                    aria-disabled="true"
+                    title="Available after sign up"
+                    className="inline-flex min-h-10 shrink-0 cursor-default items-center gap-2 rounded-md px-3 text-sm font-medium text-slate-400"
+                  >
+                    <Icon aria-hidden="true" size={18} />
+                    {item.label}
+                  </span>
+                );
+              }
+
               return (
                 <Link
                   key={item.href}
