@@ -113,7 +113,9 @@ export function PlatformDashboard() {
           </div>
         </Card>
 
-        <PlatformAreaContent activeArea={activeArea} />
+        <div id={activeArea} className="scroll-mt-28">
+          <PlatformAreaContent activeArea={activeArea} />
+        </div>
       </Section>
     </>
   );
