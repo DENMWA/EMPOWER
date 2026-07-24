@@ -78,6 +78,10 @@ grant execute on function current_user_is_roster_admin() to authenticated;
 grant execute on function assigned_to_participant(uuid) to authenticated;
 
 drop policy if exists "users can view org users" on public.users;
+drop policy if exists "users view own profile" on public.users;
+drop policy if exists "users update own profile" on public.users;
+drop policy if exists "managers manage org users" on public.users;
+drop policy if exists "service role manages users" on public.users;
 
 create policy "users can view org users"
 on public.users
@@ -85,6 +89,24 @@ for select
 using (
   id = auth.uid()
   or organisation_id = current_user_organisation_id()
+);
+
+create policy "users update own profile"
+on public.users
+for update
+using (id = auth.uid())
+with check (id = auth.uid());
+
+create policy "managers manage org users"
+on public.users
+for all
+using (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
+)
+with check (
+  organisation_id = current_user_organisation_id()
+  and current_user_is_manager()
 );
 
 drop policy if exists "users can view own organisation" on public.organisations;
