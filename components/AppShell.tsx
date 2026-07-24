@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
-import { accessChangedEvent, canAccessAdmin, getCurrentAppUser } from "@/lib/user-access";
+import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
 import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal } from "lucide-react";
 
@@ -21,7 +21,7 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
-  const [currentUser, setCurrentUser] = useState(getCurrentAppUser);
+  const [currentUser, setCurrentUser] = useState(getDefaultAppUser);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
   const visibleNavItems = navItems.filter((item) => item.href !== "/admin" || canAccessAdmin(currentUser.role));

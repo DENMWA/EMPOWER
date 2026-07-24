@@ -16,8 +16,12 @@ export function canAccessAdmin(role: UserRole) {
   return adminRoles.includes(role);
 }
 
+export function getDefaultAppUser(): StaffUser {
+  return users.find((user) => user.role === "support_worker") ?? users[0];
+}
+
 export function getCurrentAppUser(): StaffUser {
-  if (typeof window === "undefined") return users[1] ?? users[0];
+  if (typeof window === "undefined") return getDefaultAppUser();
 
   try {
     const stored = window.localStorage.getItem(currentUserStorageKey);
@@ -34,7 +38,7 @@ export function getCurrentAppUser(): StaffUser {
     return users.find((user) => user.role === "owner") ?? users[0];
   }
 
-  return users.find((user) => user.role === "support_worker") ?? users[0];
+  return getDefaultAppUser();
 }
 
 export function setCurrentAppUser(user: StaffUser) {
