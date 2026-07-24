@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { ButtonLink, Section, StatusBadge } from "@/components/ui";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { AlertTriangle, Building2, CheckCircle2, FileText, FolderLock, LineChart, Mic2, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, CheckCircle2, FileText, FolderLock, LineChart, Mic2, ShieldCheck, Smartphone, Sparkles, Users, type LucideIcon } from "lucide-react";
 
 const outcomes = [
   {
@@ -58,10 +59,10 @@ const steps = [
 ];
 
 const plans = [
-  ["Solo", "Independent providers"],
-  ["Practice", "Small support teams"],
-  ["Provider", "Growing organisations"],
-  ["Enterprise", "Multi-site governance"]
+  { name: "Solo", detail: "Independent providers", price: "A$49.99", href: "/signup", cue: "Start lean" },
+  { name: "Practice", detail: "Small support teams", price: "A$129.99", href: "/signup", cue: "Most popular", featured: true },
+  { name: "Provider", detail: "Growing organisations", price: "A$299.99", href: "/contact", cue: "Scale teams" },
+  { name: "Enterprise", detail: "Multi-site governance", price: "A$799.99", href: "/contact", cue: "Governance ready" }
 ];
 
 export default function HomePage() {
@@ -198,11 +199,34 @@ export default function HomePage() {
           <ButtonLink href="/pricing" variant="secondary">See pricing</ButtonLink>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-4">
-          {plans.map(([name, detail]) => (
-            <div key={name} className="rounded-md border border-slate-200 bg-white p-4 shadow-soft">
-              <p className="font-bold text-ink">{name}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
-            </div>
+          {plans.map((plan) => (
+            <Link
+              key={plan.name}
+              href={plan.href}
+              className={`group relative min-h-44 overflow-hidden rounded-md border bg-white p-5 shadow-soft transition hover:-translate-y-1 hover:shadow-lift focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-teal-700 ${plan.featured ? "border-teal-500 ring-2 ring-teal-100" : "border-slate-200 hover:border-teal-300"}`}
+            >
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-700 via-sky-600 to-amber-500 opacity-0 transition group-hover:opacity-100" />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-ink">{plan.name}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{plan.detail}</p>
+                </div>
+                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-md ${plan.featured ? "bg-mint text-teal-900" : "bg-slate-100 text-slate-700"}`}>
+                  {plan.featured ? <Sparkles size={17} aria-hidden="true" /> : <ArrowRight size={17} aria-hidden="true" />}
+                </span>
+              </div>
+              <div className="mt-5">
+                <p className="text-2xl font-bold text-sea">{plan.price}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">per month</p>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${plan.featured ? "bg-teal-50 text-teal-800" : "bg-slate-50 text-slate-700"}`}>{plan.cue}</span>
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-teal-800">
+                  View plan
+                  <ArrowRight size={15} className="transition group-hover:translate-x-1" aria-hidden="true" />
+                </span>
+              </div>
+            </Link>
           ))}
         </div>
       </Section>
