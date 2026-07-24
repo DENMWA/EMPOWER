@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { OrganisationAccountSetup } from "@/components/onboarding/OrganisationAccountSetup";
 import { PlanRecommendation } from "@/components/onboarding/PlanRecommendation";
@@ -21,6 +22,9 @@ export default function SignupPage() {
         <PlanRecommendation />
         <SupabaseSecurityPanel />
         <OrganisationAccountSetup />
+        <p className="text-center text-sm leading-6 text-slate-600">
+          By creating an EmpowerNotes workspace, you agree to the <Link href="/legal/terms" className="font-semibold text-teal-700 hover:text-teal-900">Terms of Service</Link> and acknowledge the <Link href="/legal/privacy" className="font-semibold text-teal-700 hover:text-teal-900">Privacy Policy</Link>.
+        </p>
       </Section>
     </>
   );

@@ -17,11 +17,13 @@ export function DemoAccessBoundary({
   signedIn: boolean;
   authChecked: boolean;
 }) {
-  if (!authChecked && !publicPages.has(pathname)) {
+  const isPublicPage = publicPages.has(pathname) || pathname.startsWith("/legal");
+
+  if (!authChecked && !isPublicPage) {
     return <div className="min-h-[55vh] bg-mist" aria-label="Checking workspace access" />;
   }
 
-  if (signedIn || publicPages.has(pathname) || demoPages.has(pathname)) {
+  if (signedIn || isPublicPage || demoPages.has(pathname)) {
     return <>{children}</>;
   }
 

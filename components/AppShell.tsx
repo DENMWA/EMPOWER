@@ -171,11 +171,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </DemoAccessBoundary>
       </main>
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm leading-6 text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-7 text-sm leading-6 text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <p className="max-w-4xl">{complianceDisclaimer}</p>
-          <Link href="/contact" className="inline-flex shrink-0 items-center gap-1 font-semibold text-teal-700 hover:text-teal-900">
-            Support <ChevronRight size={15} aria-hidden="true" />
-          </Link>
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2" aria-label="Legal and support">
+            <Link href="/legal/privacy" className="font-semibold text-slate-600 hover:text-teal-800">Privacy</Link>
+            <Link href="/legal/terms" className="font-semibold text-slate-600 hover:text-teal-800">Terms</Link>
+            <Link href="/legal" className="font-semibold text-slate-600 hover:text-teal-800">Policy centre</Link>
+            <Link href="/contact" className="inline-flex items-center gap-1 font-semibold text-teal-700 hover:text-teal-900">
+              Support <ChevronRight size={15} aria-hidden="true" />
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>
