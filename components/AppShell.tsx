@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
+import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
@@ -27,10 +28,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
   const [currentUser, setCurrentUser] = useState(getDefaultAppUser);
   const [signedIn, setSignedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
   const visibleNavItems = navItems.filter((item) => {
-    if (!signedIn) return item.href !== "/admin";
+    if (!signedIn) return ["/dashboard", "/notes/new", "/incidents", "/signin", "/signup"].includes(item.href);
     if (item.href === "/signin" || item.href === "/signup") return false;
     return item.href !== "/admin" || canAccessAdmin(currentUser.role);
   });
@@ -42,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setCurrentUser(getCurrentAppUser());
     const authStatus = getCurrentAuthStatus();
     setSignedIn(authStatus.signedIn);
+    setAuthChecked(true);
     if (!authStatus.signedIn) setDataMode("demo");
   }, []);
 
@@ -49,6 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     function syncAuth() {
       const authStatus = getCurrentAuthStatus();
       setSignedIn(authStatus.signedIn);
+      setAuthChecked(true);
       if (!authStatus.signedIn) setDataMode("demo");
     }
 
@@ -138,7 +142,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
       <main>
-        {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
+        <DemoAccessBoundary pathname={pathname} signedIn={signedIn} authChecked={authChecked}>
+          {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
             <section className="mx-auto max-w-3xl px-4 py-16">
               <div className="rounded-md border border-red-200 bg-white p-6 shadow-soft">
                 <div className="flex items-start gap-3">
@@ -159,6 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </section>
           ) : children}
+        </DemoAccessBoundary>
       </main>
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm leading-6 text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
