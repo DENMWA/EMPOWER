@@ -7,22 +7,26 @@ const outcomes = [
   {
     title: "Progress notes",
     detail: "Turn rough notes and voice input into professional, person-centred support records.",
-    icon: Mic2
+    icon: Mic2,
+    href: "/notes/new"
   },
   {
     title: "Incident reports",
     detail: "Capture what happened, actions taken, injury markers, property damage, notifications, and follow-up.",
-    icon: AlertTriangle
+    icon: AlertTriangle,
+    href: "/incidents/new"
   },
   {
     title: "Client records and documents",
     detail: "Keep client profiles, plans, agreements, medicals, CHAP, and allied health reports organised.",
-    icon: FolderLock
+    icon: FolderLock,
+    href: "/documents"
   },
   {
     title: "Progress evidence",
     detail: "Link plans, baselines, notes, incidents, and documents into manager-ready progress reporting.",
-    icon: LineChart
+    icon: LineChart,
+    href: "/participants/progress"
   }
 ];
 
@@ -144,13 +148,16 @@ export default function HomePage() {
           {outcomes.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.title} className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+              <Link key={item.title} href={item.href} className="group rounded-lg border border-slate-200 bg-white p-5 shadow-soft hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift">
                 <span className="grid h-11 w-11 place-items-center rounded-md bg-mint text-teal-900">
                   <Icon size={20} aria-hidden="true" />
                 </span>
                 <h2 className="mt-4 text-lg font-semibold text-ink">{item.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{item.detail}</p>
-              </div>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-teal-700">
+                  Explore feature <ArrowRight size={15} aria-hidden="true" />
+                </span>
+              </Link>
             );
           })}
         </div>

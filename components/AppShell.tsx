@@ -9,7 +9,7 @@ import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-au
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,7 +18,8 @@ const navItems = [
   { href: "/participants", label: "My Clients", icon: Users },
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
   { href: "/documents", label: "Documents", icon: FolderLock },
-  { href: "/signin", label: "Sign in", icon: KeyRound }
+  { href: "/signin", label: "Sign in", icon: KeyRound },
+  { href: "/signup", label: "Start free", icon: Sparkles }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -29,8 +30,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
   const visibleNavItems = navItems.filter((item) => {
-    if (!signedIn) return item.href === "/signin";
-    if (item.href === "/signin") return false;
+    if (!signedIn) return item.href !== "/admin";
+    if (item.href === "/signin" || item.href === "/signup") return false;
     return item.href !== "/admin" || canAccessAdmin(currentUser.role);
   });
 

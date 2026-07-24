@@ -26,7 +26,7 @@ export function AppAuthGate({ children }: { children: React.ReactNode }) {
 
       if (!isPublicRoute && !status.signedIn) {
         const next = encodeURIComponent(pathname);
-        router.replace(`/signin?next=${next}`);
+        router.replace(`/signup?next=${next}`);
       }
     }
 
@@ -48,13 +48,18 @@ export function AppAuthGate({ children }: { children: React.ReactNode }) {
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-teal-50 text-teal-800">
             <LockKeyhole size={22} aria-hidden="true" />
           </span>
-          <h1 className="mt-4 text-2xl font-bold text-ink">Sign in required</h1>
+          <h1 className="mt-4 text-2xl font-bold text-ink">Create your workspace</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Sign in to open your secure EmpowerNotes workspace.
+            Start your trial to use this EmpowerNotes feature.
           </p>
-          <Link href={`/signin?next=${encodeURIComponent(pathname)}`} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
-            Continue to sign in
-          </Link>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link href={`/signup?next=${encodeURIComponent(pathname)}`} className="inline-flex min-h-11 items-center justify-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
+              Start free trial
+            </Link>
+            <Link href={`/signin?next=${encodeURIComponent(pathname)}`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-slate-400">
+              Sign in
+            </Link>
+          </div>
         </div>
       </section>
     );

@@ -61,6 +61,12 @@ export function OrganisationAccountSetup() {
     setMessage(result.data && !result.error
       ? `Organisation account created on ${selectedPlan}. Future clients, staff, notes, reports, and documents will stay inside this organisation.`
       : "Sign in first, then create the organisation account.");
+
+    if (result.data && !result.error) {
+      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
+      window.setTimeout(() => window.location.assign(safePath), 500);
+    }
   }
 
   return (
