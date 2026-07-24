@@ -30,6 +30,10 @@ type MfaEnrollResponse = {
 
 export const authSessionChangedEvent = "empowernotes:auth-session-updated";
 
+export function getDefaultAuthStatus() {
+  return { signedIn: false, userId: "", email: "", aal: "aal1" };
+}
+
 export function getAuthSessionStorageKey() {
   const { supabaseUrl } = getSupabaseProjectConfig();
   const projectRef = supabaseUrl ? new URL(supabaseUrl).hostname.split(".")[0] : "local";
@@ -38,7 +42,7 @@ export function getAuthSessionStorageKey() {
 
 export function getCurrentAuthStatus() {
   const token = getStoredAccessToken();
-  if (!token) return { signedIn: false, userId: "", email: "", aal: "aal1" };
+  if (!token) return getDefaultAuthStatus();
 
   try {
     const payload = token.split(".")[1];
@@ -67,6 +71,40 @@ export async function signInWithPassword(email: string, password: string) {
   const result = await authRequest<AuthSession>("/token?grant_type=password", {
     email,
     password
+  });
+  if (result.data?.access_token) saveAuthSession(result.data);
+  return result;
+}
+
+export async function sendEmailOtp(email: string) {
+  return authRequest<{ message?: string }>("/otp", {
+    email,
+    create_user: false
+  });
+}
+
+export async function sendPhoneOtp(phone: string) {
+  return authRequest<{ message?: string }>("/otp", {
+    phone,
+    create_user: false
+  });
+}
+
+export async function verifyEmailOtp(email: string, token: string) {
+  const result = await authRequest<AuthSession>("/verify", {
+    email,
+    token,
+    type: "email"
+  });
+  if (result.data?.access_token) saveAuthSession(result.data);
+  return result;
+}
+
+export async function verifyPhoneOtp(phone: string, token: string) {
+  const result = await authRequest<AuthSession>("/verify", {
+    phone,
+    token,
+    type: "sms"
   });
   if (result.data?.access_token) saveAuthSession(result.data);
   return result;

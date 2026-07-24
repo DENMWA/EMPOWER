@@ -7,7 +7,7 @@ import { AccessibilityToggle } from "@/components/accessibility/AccessibilityTog
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -15,7 +15,8 @@ const navItems = [
   { href: "/notes/new", label: "Progress Note", icon: Mic },
   { href: "/participants", label: "My Clients", icon: Users },
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
-  { href: "/documents", label: "Documents", icon: FolderLock }
+  { href: "/documents", label: "Documents", icon: FolderLock },
+  { href: "/signin", label: "Sign in", icon: KeyRound }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

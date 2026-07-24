@@ -8,10 +8,15 @@ import {
   challengeMfaFactor,
   enrollTotpFactor,
   getCurrentAuthStatus,
+  getDefaultAuthStatus,
   listMfaFactors,
+  sendEmailOtp,
+  sendPhoneOtp,
   signInWithPassword,
   signOutSupabaseSession,
   signUpWithPassword,
+  verifyEmailOtp,
+  verifyPhoneOtp,
   verifyMfaFactor
 } from "@/lib/supabase-auth";
 import { isSupabaseConfigured } from "@/lib/supabase-rest";
@@ -25,9 +30,12 @@ type EnrolledTotp = {
 
 export function SupabaseSecurityPanel() {
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-  const [authStatus, setAuthStatus] = useState(getCurrentAuthStatus());
+  const [otpCode, setOtpCode] = useState("");
+  const [otpChannel, setOtpChannel] = useState<"email" | "phone">("email");
+  const [authStatus, setAuthStatus] = useState(getDefaultAuthStatus);
   const [totp, setTotp] = useState<EnrolledTotp | null>(null);
   const [factorId, setFactorId] = useState("");
   const [message, setMessage] = useState("");
@@ -63,6 +71,40 @@ export function SupabaseSecurityPanel() {
       }
 
       setMessage("Signed in. Cloud saves are now available for this Supabase user.");
+      await loadVerifiedMfaFactor();
+    });
+  }
+
+  async function requestOtp() {
+    await withBusy(async () => {
+      const result = otpChannel === "email"
+        ? await sendEmailOtp(email.trim())
+        : await sendPhoneOtp(phone.trim());
+
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+
+      setMessage(otpChannel === "email"
+        ? "Email code sent. Enter the code from your inbox to sign in."
+        : "SMS code sent. Enter the code from your phone to sign in. Phone OTP requires SMS auth to be enabled in Supabase.");
+    });
+  }
+
+  async function verifyOtp() {
+    await withBusy(async () => {
+      const result = otpChannel === "email"
+        ? await verifyEmailOtp(email.trim(), otpCode.trim())
+        : await verifyPhoneOtp(phone.trim(), otpCode.trim());
+
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+
+      setOtpCode("");
+      setMessage("Code verified. Cloud saves are now available for this Supabase user.");
       await loadVerifiedMfaFactor();
     });
   }
@@ -140,7 +182,7 @@ export function SupabaseSecurityPanel() {
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Supabase Auth and 2FA</p>
           <h2 className="mt-1 text-2xl font-bold text-ink">Secure cloud saving</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Sign in before creating the organisation space so clients, staff, documents, notes, and reports save to Supabase instead of browser-only storage.
+            Sign in before creating or saving records so clients, staff, documents, notes, reports, and billing records save to Supabase instead of browser-only storage.
           </p>
         </div>
         <StatusBadge label={!configured ? "Supabase not configured" : mfaReady ? "2FA verified" : authStatus.signedIn ? "Signed in" : "Sign in required"} tone={!configured ? "red" : mfaReady ? "green" : authStatus.signedIn ? "blue" : "amber"} />
@@ -165,6 +207,38 @@ export function SupabaseSecurityPanel() {
             Sign out
           </button>
         ) : null}
+      </div>
+
+      <div className="mt-6 rounded-md border border-sky-100 bg-sky-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">Sign in with a one-time code</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700">Use email code by default. Phone/SMS works once SMS auth is enabled in Supabase.</p>
+          </div>
+          <div className="flex rounded-md border border-slate-300 bg-white p-1">
+            <button type="button" onClick={() => setOtpChannel("email")} className={otpChannel === "email" ? "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" : "rounded-md px-3 py-2 text-sm font-semibold text-slate-700"}>
+              Email
+            </button>
+            <button type="button" onClick={() => setOtpChannel("phone")} className={otpChannel === "phone" ? "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" : "rounded-md px-3 py-2 text-sm font-semibold text-slate-700"}>
+              Phone
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_180px_auto_auto]">
+          {otpChannel === "email" ? (
+            <Field label="Email for code" value={email} onChange={setEmail} type="email" autoComplete="email" />
+          ) : (
+            <Field label="Phone for SMS code" value={phone} onChange={setPhone} type="tel" autoComplete="tel" placeholder="+614..." />
+          )}
+          <Field label="Code" value={otpCode} onChange={setOtpCode} inputMode="numeric" autoComplete="one-time-code" />
+          <button type="button" disabled={busy || !configured || (otpChannel === "email" ? !email.trim() : !phone.trim())} onClick={requestOtp} className="self-end inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100">
+            Send code
+          </button>
+          <button type="button" disabled={busy || !configured || !otpCode.trim()} onClick={verifyOtp} className="self-end inline-flex min-h-11 items-center justify-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
+            Verify code
+          </button>
+        </div>
       </div>
 
       {authStatus.signedIn ? (
@@ -203,18 +277,19 @@ export function SupabaseSecurityPanel() {
   );
 }
 
-function Field({ label, value, onChange, type = "text", autoComplete, inputMode }: {
+function Field({ label, value, onChange, type = "text", autoComplete, inputMode, placeholder }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   autoComplete?: string;
   inputMode?: "numeric";
+  placeholder?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-semibold text-slate-700">
       {label}
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} inputMode={inputMode} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink shadow-sm" />
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} inputMode={inputMode} placeholder={placeholder} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink shadow-sm" />
     </label>
   );
 }
