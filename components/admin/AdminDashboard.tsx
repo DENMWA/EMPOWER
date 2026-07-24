@@ -161,32 +161,38 @@ export function AdminDashboard() {
 
         <ClientReportColourCards />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-ink">Administration</h2>
+            <p className="mt-1 text-sm text-slate-600">People, operations, quality and governance in one place.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {adminTools.map((tool) => {
             const Icon = tool.icon;
             return (
               <a
                 key={tool.title}
                 href={tool.href}
-                className="group rounded-md border border-slate-200 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-teal-500 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700"
+                className="group flex min-h-[245px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-soft hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-md bg-mint text-teal-900 transition group-hover:bg-teal-700 group-hover:text-white">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-50 text-teal-800 group-hover:bg-teal-700 group-hover:text-white">
                     <Icon size={20} aria-hidden="true" />
                   </span>
                   <StatusBadge label={tool.badge} tone="blue" />
                 </div>
-                <h2 className="mt-5 text-lg font-semibold text-ink">{tool.title}</h2>
+                <h3 className="mt-5 text-base font-semibold text-ink">{tool.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{tool.detail}</p>
-                <span className="mt-4 inline-flex min-h-10 items-center rounded-md bg-slate-50 px-3 text-sm font-semibold text-teal-900 transition group-hover:bg-teal-700 group-hover:text-white">
-                  Open
+                <span className="mt-auto pt-5 text-sm font-semibold text-teal-700 group-hover:text-teal-900">
+                  Open workspace
                 </span>
               </a>
             );
           })}
+          </div>
         </div>
 
-        <Card className="grid gap-5 border-teal-200 bg-teal-50 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+        <Card className="grid gap-5 border-teal-200 bg-teal-50/60 lg:grid-cols-[auto_1fr_auto] lg:items-center">
           <span className="grid h-12 w-12 place-items-center rounded-md bg-white text-teal-800 shadow-sm">
             <AlertTriangle size={22} aria-hidden="true" />
           </span>

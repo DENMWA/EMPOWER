@@ -68,15 +68,14 @@ export function ManagerDashboardCards() {
       {managerStats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.label} className="relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-600 to-sky-500" />
+          <Card key={stat.label} className="relative overflow-hidden hover:border-slate-300">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-slate-600">{stat.label}</p>
                 <p className="mt-2 text-3xl font-bold text-ink">{stat.value}</p>
                 <p className="mt-2 text-sm text-slate-600">{stat.detail}</p>
               </div>
-              <span className={`grid h-11 w-11 place-items-center rounded-md ${stat.tone}`}>
+              <span className={`grid h-10 w-10 place-items-center rounded-lg ${stat.tone}`}>
                 <Icon aria-hidden="true" size={21} />
               </span>
             </div>
@@ -93,11 +92,11 @@ export function WorkerDashboardCards() {
       {workerActions.map((action) => {
         const Icon = action.icon;
         return (
-          <Link key={action.label} href={action.href} className="group rounded-md border border-slate-200 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-teal-500 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700">
-            <span className="grid h-11 w-11 place-items-center rounded-md bg-mint text-teal-900 transition group-hover:bg-teal-700 group-hover:text-white">
+          <Link key={action.label} href={action.href} className="group rounded-lg border border-slate-200 bg-white p-5 shadow-soft hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-50 text-teal-800 group-hover:bg-teal-700 group-hover:text-white">
               <Icon aria-hidden="true" size={20} />
             </span>
-            <p className="mt-4 text-lg font-semibold text-ink">{action.label}</p>
+            <p className="mt-4 text-base font-semibold text-ink">{action.label}</p>
             <p className="mt-1 text-sm text-slate-600">{action.detail}</p>
           </Link>
         );
@@ -178,7 +177,7 @@ export function DashboardOperationalLists() {
           ) : null}
           {riskQueue.map((note) => {
             return (
-              <div key={note.id} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+              <div key={note.id} className="rounded-md border border-slate-200 bg-slate-50/60 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-ink">{note.title}</h3>
                   <StatusBadge label={note.status} tone={note.status === "Approved" ? "green" : "amber"} />
