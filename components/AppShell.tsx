@@ -77,7 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className={cn("min-h-screen", isPlatform ? "bg-slate-100" : "bg-mist", accessibilityMode && "accessibility-mode")}>
       <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <Link href={isPlatform ? "/platform" : "/"} className="flex items-center gap-3 font-semibold text-ink" aria-label={isPlatform ? "EmpowerNotes platform console" : "EmpowerNotes home"}>
+          <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-ink" aria-label="Open EmpowerNotes dashboard">
             <span className={cn("grid h-10 w-10 place-items-center rounded-lg text-base font-bold text-white shadow-sm", isPlatform ? "bg-slate-950" : "bg-sea")}>
               {isPlatform ? <SquareTerminal size={19} aria-hidden="true" /> : "E"}
             </span>
