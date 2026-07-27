@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui";
 import { getCurrentAuthStatus, signUpWithPassword } from "@/lib/supabase-auth";
 import { completePendingOnboarding, savePendingOnboarding } from "@/lib/pending-onboarding";
+import { setDataMode } from "@/lib/presentation-mode";
 import { setCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
 
@@ -81,6 +82,7 @@ export function SimpleSignupForm() {
         }
         setSuccess(true);
         setMessage("Your workspace is ready.");
+        setDataMode("real");
         window.setTimeout(() => window.location.assign(getSafeNextPath()), 500);
         return;
       }

@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const authStatus = getCurrentAuthStatus();
     setSignedIn(authStatus.signedIn);
     setAuthChecked(true);
-    if (!authStatus.signedIn) setDataMode("demo");
+    setDataMode(authStatus.signedIn ? "real" : "demo");
   }, []);
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const authStatus = getCurrentAuthStatus();
       setSignedIn(authStatus.signedIn);
       setAuthChecked(true);
-      if (!authStatus.signedIn) setDataMode("demo");
+      setDataMode(authStatus.signedIn ? "real" : "demo");
     }
 
     window.addEventListener(authSessionChangedEvent, syncAuth);
