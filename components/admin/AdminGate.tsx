@@ -10,6 +10,7 @@ const fallbackPassword = "EmpowerNotes2026";
 const storageKey = "empower-notes-admin-unlocked";
 
 export function AdminGate({ children }: { children: ReactNode }) {
+  const testingBypassEnabled = process.env.NEXT_PUBLIC_ADMIN_GATE_BYPASS === "true";
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [error, setError] = useState("");
@@ -35,7 +36,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     setError("Password did not match. Please try again.");
   }
 
-  if (unlocked) {
+  if (testingBypassEnabled || unlocked) {
     return <>{children}</>;
   }
 
