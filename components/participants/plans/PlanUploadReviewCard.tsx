@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
 import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
+import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { Card, StatusBadge } from "@/components/ui";
 import type { PlanExtraction } from "@/lib/plan-progress/types";
 import { savePlanVerificationQueue } from "@/lib/plan-progress/verification-records";
@@ -46,9 +47,9 @@ export function PlanUploadReviewCard({ participantId, participantName }: { parti
     try {
       const response = await fetch("/api/plan-progress/parse", {
         method: "POST",
-        headers: {
+        headers: getAuthenticatedApiHeaders({
           "x-empowernotes-tier": getCurrentSubscriptionTier()
-        },
+        }),
         body: formData
       });
       const data = await response.json();

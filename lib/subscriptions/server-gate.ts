@@ -1,30 +1,21 @@
 import { getPlanToProgressEntitlements, type PlanToProgressEntitlementKey } from "@/lib/subscriptions/entitlements";
-import { defaultSubscriptionTier, subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { observeServerEntitlement, resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
+import { subscriptionTiers } from "@/lib/subscriptions/tiers";
 
-const subscriptionTierKeys: SubscriptionTier[] = ["solo", "practice", "provider", "enterprise"];
-
-function normaliseTier(value: string | null): SubscriptionTier | null {
-  if (value === "team") return "practice";
-  if (value === "growth") return "provider";
-  return subscriptionTierKeys.includes(value as SubscriptionTier) ? value as SubscriptionTier : null;
-}
-
-export function getRequestSubscriptionTier(request: Request): SubscriptionTier {
-  return (
-    normaliseTier(request.headers.get("x-empowernotes-tier")) ||
-    normaliseTier(process.env.EMPOWERNOTES_DEFAULT_TIER || null) ||
-    defaultSubscriptionTier
-  );
-}
-
-export function checkRequestEntitlement(request: Request, entitlement: PlanToProgressEntitlementKey) {
-  const tier = getRequestSubscriptionTier(request);
-  const allowed = Boolean(getPlanToProgressEntitlements(tier)[entitlement]);
+export async function checkRequestEntitlement(request: Request, entitlement: PlanToProgressEntitlementKey) {
+  const context = await resolveServerSubscriptionContext(request);
+  const configuredAllowed = Boolean(getPlanToProgressEntitlements(context.tier)[entitlement]);
+  const allowed = context.enforcementMode === "enforce" ? configuredAllowed : true;
+  await observeServerEntitlement(context, entitlement, !configuredAllowed);
 
   return {
     allowed,
-    tier,
-    tierName: subscriptionTiers[tier].name,
+    configuredAllowed,
+    tier: context.tier,
+    tierName: subscriptionTiers[context.tier].name,
+    source: context.source,
+    enforcementMode: context.enforcementMode,
+    resolutionError: context.resolutionError,
     message: allowed ? "" : `${humaniseEntitlement(entitlement)} is available on a higher EmpowerNotes plan.`
   };
 }

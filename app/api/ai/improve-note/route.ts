@@ -46,7 +46,7 @@ function parseOptionsFromContent(content: string) {
 }
 
 export async function POST(request: Request) {
-  const gate = checkRequestEntitlement(request, "enabled");
+  const gate = await checkRequestEntitlement(request, "enabled");
   if (!gate.allowed) {
     return NextResponse.json({ error: gate.message, tier: gate.tierName }, { status: 403 });
   }
@@ -121,5 +121,12 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ options, source: "openai-chat", model, tier: gate.tierName });
+  return NextResponse.json({
+    options,
+    source: "openai-chat",
+    model,
+    tier: gate.tierName,
+    entitlementSource: gate.source,
+    enforcementMode: gate.enforcementMode
+  });
 }

@@ -54,3 +54,38 @@ order by created_at desc;
 
 Every row should show `monitor` during Phase 1.
 
+## Phase 2: Authenticated Server Resolution
+
+Phase 2 adds authenticated subscription resolution to the AI note and plan parsing APIs:
+
+- the browser sends the existing Supabase access token as a bearer token
+- the server validates the session with Supabase Auth
+- the server resolves the user's organisation through tenant RLS
+- the organisation's subscription tier and enforcement mode become the canonical API context
+- monitor decisions are written to `entitlement_observations` when the service role key is available
+- the legacy browser tier remains a temporary fallback if resolution is unavailable
+
+Fallback resolution always uses `monitor`, so a missing migration, expired session or temporary Supabase error cannot unexpectedly block an existing action during Phase 2.
+
+API responses expose only:
+
+- `entitlementSource`: `supabase` or `legacy-fallback`
+- `enforcementMode`: `monitor` or `enforce`
+- the public plan name
+
+Tokens, user identifiers and organisation identifiers are never returned in entitlement diagnostics.
+
+Review recent monitoring decisions with:
+
+```sql
+select
+  observed_at,
+  subscription_tier,
+  resource,
+  would_block,
+  enforcement_mode,
+  metadata
+from public.entitlement_observations
+order by observed_at desc
+limit 100;
+```

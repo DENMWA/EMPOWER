@@ -169,7 +169,7 @@ async function extractWithAi(text: string) {
 
 export async function POST(request: Request) {
   try {
-    const gate = checkRequestEntitlement(request, "basicPlanParsing");
+    const gate = await checkRequestEntitlement(request, "basicPlanParsing");
     if (!gate.allowed) {
       return NextResponse.json({ error: gate.message, tier: gate.tierName }, { status: 403 });
     }
@@ -192,6 +192,8 @@ export async function POST(request: Request) {
       textPreview: text.slice(0, 600),
       source: result.source,
       tier: gate.tierName,
+      entitlementSource: gate.source,
+      enforcementMode: gate.enforcementMode,
       items: result.items
     });
   } catch (error) {

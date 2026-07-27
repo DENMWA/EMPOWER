@@ -64,6 +64,13 @@ export function getCurrentAuthStatus() {
   }
 }
 
+export function getAuthenticatedApiHeaders(headers: Record<string, string> = {}) {
+  const accessToken = getStoredAccessToken();
+  return accessToken
+    ? { ...headers, Authorization: `Bearer ${accessToken}` }
+    : headers;
+}
+
 export async function signUpWithPassword(email: string, password: string) {
   const redirectTo = typeof window === "undefined" ? "" : `${window.location.origin}/signin`;
   const path = redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup";
