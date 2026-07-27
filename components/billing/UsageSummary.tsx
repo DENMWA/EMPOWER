@@ -3,70 +3,94 @@
 import { useEffect, useMemo, useState } from "react";
 import { UsageLimitNotice } from "@/components/subscription/UsageLimitNotice";
 import { Card, StatusBadge } from "@/components/ui";
-import { clientsUpdatedEvent, getTenantClients } from "@/lib/client-records";
-import { documentsUpdatedEvent, getTenantDocumentRecords } from "@/lib/document-records";
+import { getTenantClients } from "@/lib/client-records";
+import { getTenantDocumentRecords } from "@/lib/document-records";
+import { getTenantHouses } from "@/lib/house-records";
+import { getNativeBillingRecords } from "@/lib/native-billing";
 import { getTenantRetainedRecords } from "@/lib/retained-records";
-import { getTenantStaffInvites, staffUpdatedEvent } from "@/lib/staff-records";
-import { getUsageLimitRows } from "@/lib/subscriptions/limits";
+import { getTenantStaffInvites } from "@/lib/staff-records";
+import { getPlanCatalogueEntry, type PlanLimits } from "@/lib/subscriptions/catalog";
 import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
+import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
+import type { OrganisationUsageSnapshot } from "@/lib/subscriptions/usage-types";
 
-type UsageCounts = {
-  clients: number;
-  users: number;
-  documents: number;
-  aiNotes: number;
+const emptyUsage: OrganisationUsageSnapshot = {
+  activeParticipants: 0,
+  users: 0,
+  houses: 0,
+  documents: 0,
+  documentsPerParticipant: 0,
+  aiAnalysedNotesPerMonth: 0,
+  planDocumentsProcessedPerMonth: 0,
+  storageBytes: 0,
+  invoiceLinesPerMonth: 0,
+  activeServiceAgreements: 0
 };
 
 export function UsageSummary() {
   const [tier, setTier] = useState<SubscriptionTier>("practice");
-  const [usage, setUsage] = useState<UsageCounts>({ clients: 0, users: 0, documents: 0, aiNotes: 0 });
+  const [usage, setUsage] = useState<OrganisationUsageSnapshot>(emptyUsage);
+  const [limits, setLimits] = useState<PlanLimits>(getPlanCatalogueEntry("practice").limits);
   const [loading, setLoading] = useState(true);
-  const usageRows = useMemo(() => {
-    const maxDocumentsPerParticipant = usage.clients ? Math.ceil(usage.documents / usage.clients) : 0;
-    const used: Record<string, number> = {
-      "Active participants": usage.clients,
-      "Users": usage.users,
-      "Documents per participant": maxDocumentsPerParticipant,
-      "AI analysed notes/month": usage.aiNotes,
-      "Storage": usage.documents * 2 * 1024 * 1024,
-      "Approval stages": 2
-    };
-
-    return getUsageLimitRows(tier).map((row) => ({ ...row, used: used[row.label] ?? 0 }));
-  }, [tier, usage]);
+  const [source, setSource] = useState<"supabase" | "local-fallback">("local-fallback");
+  const usageRows = useMemo(() => [
+    { label: "Active participants", used: usage.activeParticipants, limit: limits.activeParticipants },
+    { label: "Users", used: usage.users, limit: limits.users },
+    { label: "Houses and services", used: usage.houses, limit: limits.houses },
+    { label: "Documents per participant", used: usage.documentsPerParticipant, limit: limits.documentsPerParticipant },
+    { label: "AI analysed notes this month", used: usage.aiAnalysedNotesPerMonth, limit: limits.aiAnalysedNotesPerMonth },
+    { label: "Storage", used: usage.storageBytes, limit: limits.storageBytes, unit: "bytes" },
+    { label: "Invoice lines this month", used: usage.invoiceLinesPerMonth, limit: limits.invoiceLinesPerMonth },
+    { label: "Active service agreements", used: usage.activeServiceAgreements, limit: limits.activeServiceAgreements }
+  ], [limits, usage]);
 
   useEffect(() => {
-    setTier(getCurrentSubscriptionTier());
-
     async function loadUsage() {
       setLoading(true);
-      const [clients, staff, documents, progressNotes] = await Promise.all([
+      const live = await getLiveSubscriptionUsage().catch(() => ({ data: null, error: "Unavailable" }));
+      if (live.data) {
+        setTier(live.data.tier);
+        setLimits(live.data.limits);
+        setUsage(live.data.usage);
+        setSource("supabase");
+        setLoading(false);
+        return;
+      }
+
+      const fallbackTier = getCurrentSubscriptionTier();
+      const [clients, staff, documents, notes, houses] = await Promise.all([
         getTenantClients().catch(() => []),
         getTenantStaffInvites().catch(() => []),
         getTenantDocumentRecords().catch(() => []),
-        getTenantRetainedRecords("progress-note").catch(() => [])
+        getTenantRetainedRecords("progress-note").catch(() => []),
+        getTenantHouses().catch(() => [])
       ]);
-      setUsage({
-        clients: clients.length,
-        users: staff.length,
-        documents: documents.length,
-        aiNotes: progressNotes.length
+      const billing = getNativeBillingRecords();
+      const documentCounts = new Map<string, number>();
+      documents.forEach((document) => {
+        documentCounts.set(document.participantId, (documentCounts.get(document.participantId) || 0) + 1);
       });
+
+      setTier(fallbackTier);
+      setLimits(getPlanCatalogueEntry(fallbackTier).limits);
+      setUsage({
+        activeParticipants: clients.length,
+        users: staff.length,
+        houses: houses.length,
+        documents: documents.length,
+        documentsPerParticipant: Math.max(0, ...documentCounts.values()),
+        aiAnalysedNotesPerMonth: notes.length,
+        planDocumentsProcessedPerMonth: 0,
+        storageBytes: documents.length * 2 * 1024 * 1024,
+        invoiceLinesPerMonth: billing.invoiceLines.length,
+        activeServiceAgreements: billing.agreements.filter((agreement) => agreement.status === "active").length
+      });
+      setSource("local-fallback");
       setLoading(false);
     }
 
-    loadUsage();
-    window.addEventListener(clientsUpdatedEvent, loadUsage);
-    window.addEventListener(documentsUpdatedEvent, loadUsage);
-    window.addEventListener("empowernotes:retained-records-updated", loadUsage);
-    window.addEventListener(staffUpdatedEvent, loadUsage);
-    return () => {
-      window.removeEventListener(clientsUpdatedEvent, loadUsage);
-      window.removeEventListener(documentsUpdatedEvent, loadUsage);
-      window.removeEventListener("empowernotes:retained-records-updated", loadUsage);
-      window.removeEventListener(staffUpdatedEvent, loadUsage);
-    };
+    void loadUsage();
   }, []);
 
   return (
@@ -75,15 +99,22 @@ export function UsageSummary() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Live usage</p>
-            <h2 className="mt-1 text-xl font-semibold text-ink">Usage Summary</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-700">Counts are read from saved clients, staff, documents, and retained progress-note records for this testing workspace.</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">Usage summary</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              {source === "supabase"
+                ? "Current organisation usage calculated securely from workspace records."
+                : "Temporary local estimate shown while secure workspace usage is unavailable."}
+            </p>
           </div>
-          <StatusBadge label={loading ? "Refreshing" : subscriptionTiers[tier].name} tone="blue" />
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge label={loading ? "Refreshing" : subscriptionTiers[tier].name} tone="blue" />
+            <StatusBadge label={source === "supabase" ? "Workspace data" : "Local estimate"} tone={source === "supabase" ? "green" : "amber"} />
+          </div>
         </div>
       </Card>
       <div className="grid gap-4 md:grid-cols-2">
         {usageRows.map((row) => (
-          <UsageLimitNotice key={row.label} label={row.label} used={row.used} limit={row.value} unit={row.unit} />
+          <UsageLimitNotice key={row.label} label={row.label} used={row.used} limit={row.limit} unit={row.unit} />
         ))}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { getPlanToProgressEntitlements, type PlanToProgressEntitlementKey } from "@/lib/subscriptions/entitlements";
-import { observeServerEntitlement, resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
+import { observeServerEntitlement, recordServerUsage, resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
 import { subscriptionTiers } from "@/lib/subscriptions/tiers";
 
 export async function checkRequestEntitlement(request: Request, entitlement: PlanToProgressEntitlementKey) {
@@ -16,6 +16,7 @@ export async function checkRequestEntitlement(request: Request, entitlement: Pla
     source: context.source,
     enforcementMode: context.enforcementMode,
     resolutionError: context.resolutionError,
+    recordUsage: () => recordServerUsage(context, entitlement),
     message: allowed ? "" : `${humaniseEntitlement(entitlement)} is available on a higher EmpowerNotes plan.`
   };
 }

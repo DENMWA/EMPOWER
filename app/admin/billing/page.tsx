@@ -6,14 +6,10 @@ import { UsageSummary } from "@/components/billing/UsageSummary";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
 const billingLines = [
-  "Current plan: Practice Plan",
-  "Active users: 8 of 10 included",
-  "AI notes used this month: 142",
-  "Document uploads: 26",
-  "Guided Voice: Enabled",
-  "Document Intelligence: Enabled",
-  "Invoice-readiness: Enabled",
-  "Payment processing: Ready for Stripe connection"
+  "Current plan and subscription status are shown in the secure admin dashboard.",
+  "Usage includes active clients, users, houses, documents, AI requests, storage, service agreements, and invoice lines.",
+  "Plan limits remain in monitoring mode until validated.",
+  "Payment processing is ready for Stripe connection."
 ];
 
 export default function AdminBillingPage() {

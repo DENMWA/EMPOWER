@@ -89,3 +89,32 @@ from public.entitlement_observations
 order by observed_at desc
 limit 100;
 ```
+
+## Phase 3: Live Usage and Protected Subscription State
+
+Phase 3 adds:
+
+- an admin-only `/api/subscription/usage` endpoint
+- a service-role-only Supabase usage aggregation function
+- live counts for clients, users, houses, documents, AI requests, storage, invoice lines, and service agreements
+- canonical plan, status, monitoring mode, and trial/renewal information in the admin billing screen
+- a local estimate fallback when the live snapshot is temporarily unavailable
+- removal of customer-facing tier testing selectors
+- a one-time trusted RPC for configuring the signup trial
+- database protection against direct browser updates to paid subscription fields
+
+Apply `supabase/subscription-entitlements-phase3.sql` after the Phase 1 migration and scheduling/native invoicing schema.
+
+Deploy the application code before applying the Phase 3 SQL so new signups use the trial configuration RPC. The code temporarily falls back to the previous setup request until the migration is available.
+
+The following fields become trusted billing fields:
+
+- `subscription_tier`
+- `subscription_status`
+- `subscription_current_period_end`
+- `subscription_grace_ends_at`
+- `subscription_enforcement_mode`
+- `stripe_customer_id`
+- `stripe_subscription_id`
+
+After Phase 3, these fields can be changed only by the initial-trial RPC or trusted service-role code such as the future Stripe webhook.

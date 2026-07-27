@@ -187,6 +187,7 @@ export async function POST(request: Request) {
     }
 
     const result = await extractWithAi(text);
+    await gate.recordUsage();
     return NextResponse.json({
       fileName: file.name,
       textPreview: text.slice(0, 600),

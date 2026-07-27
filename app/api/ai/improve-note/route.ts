@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     });
   }
 
+  await gate.recordUsage();
   return NextResponse.json({
     options,
     source: "openai-chat",

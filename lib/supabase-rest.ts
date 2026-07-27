@@ -130,15 +130,23 @@ export async function createCurrentUserOrganisation(input: {
   });
 
   if (result.data && input.subscriptionTier) {
-    await supabaseRequest("organisations", {
-      method: "PATCH",
-      query: `id=eq.${encodeURIComponent(result.data)}`,
-      body: {
-        subscription_tier: input.subscriptionTier,
-        subscription_status: "trialing",
-        subscription_current_period_end: input.trialEndsAt || null
-      }
+    const trial = await supabaseRpc<boolean>("configure_initial_organisation_trial", {
+      selected_subscription_tier: input.subscriptionTier,
+      selected_trial_ends_at: input.trialEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
     });
+
+    // Temporary deployment compatibility for projects where the Phase 3 RPC is not applied yet.
+    if (trial.error) {
+      await supabaseRequest("organisations", {
+        method: "PATCH",
+        query: `id=eq.${encodeURIComponent(result.data)}`,
+        body: {
+          subscription_tier: input.subscriptionTier,
+          subscription_status: "trialing",
+          subscription_current_period_end: input.trialEndsAt || null
+        }
+      });
+    }
   }
 
   return result;

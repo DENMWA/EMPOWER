@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { Card, StatusBadge } from "@/components/ui";
 import { FeatureGate } from "@/components/subscription/FeatureGate";
-import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { subscriptionTiers } from "@/lib/subscriptions/tiers";
 import { samplePlanExtractions, participantProgressGoals } from "@/lib/plan-progress/sample-data";
 import { formatPlanLimit, getUsageLimitRows } from "@/lib/subscriptions/limits";
 import { GoalProgressCard } from "@/components/participants/progress/GoalProgressCard";
@@ -22,7 +22,7 @@ function getColourSchemeId(client: ProgressClient | undefined) {
 }
 
 export function ProgressDashboard() {
-  const { tier, setTier, entitlements } = useEntitlement();
+  const { tier, entitlements } = useEntitlement();
   const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [realMode, setRealMode] = useState(false);
@@ -83,18 +83,12 @@ export function ProgressDashboard() {
             {selectedClient ? <span className={`rounded-md px-3 py-1 text-sm font-semibold ${selectedColour.badge}`}>{selectedClient.name}</span> : null}
           </div>
         </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-[minmax(220px,280px)_minmax(220px,280px)_1fr]">
+        <div className="mt-5 grid gap-4 md:grid-cols-[minmax(220px,280px)_1fr]">
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
             Client
             <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
               {!allClients.length ? <option value="">Add a client first</option> : null}
               {allClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Subscription tier for testing
-            <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={tier} onChange={(event) => setTier(event.target.value as SubscriptionTier)}>
-              {Object.entries(subscriptionTiers).map(([key, value]) => <option key={key} value={key}>{value.name}</option>)}
             </select>
           </label>
           <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
