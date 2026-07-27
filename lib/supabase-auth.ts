@@ -65,7 +65,7 @@ export function getCurrentAuthStatus() {
 }
 
 export async function signUpWithPassword(email: string, password: string) {
-  const redirectTo = typeof window === "undefined" ? "" : `${window.location.origin}/signin?next=${encodeURIComponent("/dashboard")}`;
+  const redirectTo = typeof window === "undefined" ? "" : `${window.location.origin}/signin`;
   const path = redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup";
   const result = await authRequest<AuthSession>(path, {
     email,
@@ -139,6 +139,17 @@ export function consumeAuthRedirectSession() {
   });
   window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
   return true;
+}
+
+export function getAuthRedirectError() {
+  if (typeof window === "undefined") return "";
+
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const queryParams = new URLSearchParams(window.location.search);
+  const description = hashParams.get("error_description") || queryParams.get("error_description");
+  const error = hashParams.get("error") || queryParams.get("error");
+
+  return description?.replace(/\+/g, " ") || error?.replace(/\+/g, " ") || "";
 }
 
 export async function listMfaFactors() {

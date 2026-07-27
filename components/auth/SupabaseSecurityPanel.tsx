@@ -8,6 +8,7 @@ import {
   challengeMfaFactor,
   consumeAuthRedirectSession,
   enrollTotpFactor,
+  getAuthRedirectError,
   getCurrentAuthStatus,
   getDefaultAuthStatus,
   listMfaFactors,
@@ -52,6 +53,12 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
 
     const acceptedInvite = consumeAuthRedirectSession();
     syncAuthStatus();
+    const redirectError = getAuthRedirectError();
+    if (redirectError) {
+      setMessage(`This confirmation link could not be used: ${redirectError}. Request a new confirmation email and try again.`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
     if (acceptedInvite) {
       completePendingOnboarding().then((setup) => {
         if (setup.error) {
