@@ -1,6 +1,31 @@
 # Scheduling and Native NDIS Invoicing
 
-EmpowerNotes now includes an admin-only MVP workflow for scheduling, service agreements, NDIS pricing versions and native invoice drafts without requiring Xero, MYOB or QuickBooks.
+EmpowerNotes includes an admin-only workflow for scheduling, service agreements, NDIS pricing versions and native invoice drafts without requiring Xero, MYOB or QuickBooks.
+
+## Phase 1 Cloud Persistence
+
+Signed-in organisations now load and save scheduling and billing records through Supabase. Browser storage remains only as an immediate UI cache and demo fallback.
+
+Apply the SQL files in this order:
+
+1. `supabase/schema.sql`
+2. `supabase/fix-users-rls-recursion.sql`
+3. `supabase/scheduling-native-invoicing.sql`
+4. `supabase/scheduling-native-invoicing-phase1.sql`
+
+The Phase 1 migration:
+
+- adds organisation ownership to tenant-imported pricing versions and pricing diffs
+- permits authenticated users to read active platform pricing
+- keeps tenant pricing drafts private to their organisation
+- restricts pricing management to admin, owner and sole-provider roles
+- restricts invoices and invoice lines to billing-management roles
+- allows assigned workers to view relevant shifts without exposing finance records
+- supports scheduling staff invites before the invited worker completes registration
+- applies insert, update and delete checks using server-resolved organisation identity
+- adds uniqueness controls for shift assignments, note links and invoice numbers
+
+The client never sends a trusted organisation selection. The cloud repository resolves the current organisation from the authenticated user before writing.
 
 ## Workflow
 
@@ -54,13 +79,11 @@ Private progress note text is not embedded in invoices by default. The invoice s
 
 Xero, MYOB and QuickBooks are not required for the MVP. No live accounting sync is implemented. Placeholder mapping files exist only to keep the architecture ready for future optional integrations.
 
-## Production TODOs
+## Remaining Production TODOs
 
-- Apply `supabase/scheduling-native-invoicing.sql`.
-- Add full RLS policies for each table using the existing organisation/role helpers.
-- Replace local-storage billing records with Supabase-backed records.
 - Implement XLSX/CSV parser for official NDIA support catalogue imports.
 - Add admin review UI for pricing diffs.
 - Add formal invoice approval permissions.
 - Add audit event writes.
 - Add automated tests for agreement, shift, invoice, evidence, duplicate and budget flows.
+- Add deletion/archive reconciliation for records removed after initial cloud sync.

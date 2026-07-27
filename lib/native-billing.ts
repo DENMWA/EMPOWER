@@ -44,6 +44,7 @@ export type NdisPricingVersion = {
   reviewedAt?: string;
   activatedAt?: string;
   validationWarnings: string[];
+  scope?: "platform" | "organisation";
 };
 
 export type NdisSupportItem = {
@@ -169,6 +170,7 @@ export function getNativeBillingRecords(): NativeBillingRecords {
 export function saveNativeBillingRecords(records: NativeBillingRecords) {
   window.localStorage.setItem(storageKey, JSON.stringify(records));
   window.dispatchEvent(new Event(nativeBillingUpdatedEvent));
+  void import("@/lib/native-billing-cloud").then(({ queueNativeBillingCloudSync }) => queueNativeBillingCloudSync(records));
 }
 
 export function createPricingVersionFromManualUpload(input: { versionName: string; effectiveFrom: string; sourceFilename: string }) {
@@ -183,7 +185,8 @@ export function createPricingVersionFromManualUpload(input: { versionName: strin
     importMethod: "manual",
     status: "draft",
     importedAt: new Date().toISOString(),
-    validationWarnings: ["This pricing version was imported from the selected NDIA source. Please review and confirm before activation."]
+    validationWarnings: ["This pricing version was imported from the selected NDIA source. Please review and confirm before activation."],
+    scope: "organisation"
   };
 
   const supportItems = getStarterSupportItems(version.id, version.effectiveFrom);
@@ -202,7 +205,7 @@ export function activatePricingVersion(versionId: string) {
     ...records,
     pricingVersions: records.pricingVersions.map((version) => {
       if (version.id === versionId) return { ...version, status: "active", reviewedAt: new Date().toISOString(), activatedAt: new Date().toISOString() };
-      if (version.status === "active") return { ...version, status: "superseded" };
+      if (version.status === "active" && version.scope !== "platform") return { ...version, status: "superseded" };
       return version;
     })
   });
@@ -451,7 +454,7 @@ function getStarterSupportItems(pricingVersionId: string, effectiveFrom: string)
       supportCategory: "Core supports",
       unitType: "hour",
       claimType: "standard",
-      priceLimit: 70,
+      priceLimit: null,
       gstCode: "GST-free",
       effectiveFrom,
       effectiveTo: ""

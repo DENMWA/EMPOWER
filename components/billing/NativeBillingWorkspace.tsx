@@ -24,6 +24,7 @@ import {
   type NativeInvoice,
   type NativeInvoiceLine
 } from "@/lib/native-billing";
+import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
 
 export function NativeBillingWorkspace() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -33,7 +34,8 @@ export function NativeBillingWorkspace() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [message, setMessage] = useState("");
-  const activePricingVersion = records.pricingVersions.find((version) => version.status === "active");
+  const activePricingVersion = records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
+    || records.pricingVersions.find((version) => version.status === "active");
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
   const supportItems = activePricingVersion ? records.supportItems.filter((item) => item.pricingVersionId === activePricingVersion.id) : [];
   const selectedClient = clients.find((client) => client.id === selectedClientId) || clients[0];
@@ -43,27 +45,38 @@ export function NativeBillingWorkspace() {
   const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason);
 
   useEffect(() => {
-    function loadRecords() {
-      getTenantClients().then((items) => {
-        setClients(items);
-        if (!selectedClientId && items[0]) setSelectedClientId(items[0].id);
-      }).catch(() => setClients([]));
-      getTenantStaffInvites().then((items) => {
-        setStaff(items);
-        if (!selectedStaffId && items[0]) setSelectedStaffId(items[0].id);
-      }).catch(() => setStaff([]));
-      getTenantRetainedRecords("progress-note").then(setNotes).catch(() => setNotes([]));
+    async function loadRecords() {
+      const [clientItems, staffItems, noteItems] = await Promise.all([
+        getTenantClients().catch(() => []),
+        getTenantStaffInvites().catch(() => []),
+        getTenantRetainedRecords("progress-note").catch(() => [])
+      ]);
+      setClients(clientItems);
+      setStaff(staffItems);
+      setNotes(noteItems);
+      setSelectedClientId((current) => current || clientItems[0]?.id || "");
+      setSelectedStaffId((current) => current || staffItems[0]?.id || "");
+      const cloudRecords = await loadTenantNativeBillingRecords(clientItems, staffItems);
+      setRecords(cloudRecords);
+    }
+
+    function loadLocalRecords() {
       setRecords(getNativeBillingRecords());
     }
 
-    loadRecords();
-    window.addEventListener(nativeBillingUpdatedEvent, loadRecords);
-    window.addEventListener("empowernotes:retained-records-updated", loadRecords);
+    function showCloudStatus(event: Event) {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      if (detail?.message) setMessage(detail.message);
+    }
+
+    void loadRecords();
+    window.addEventListener(nativeBillingUpdatedEvent, loadLocalRecords);
+    window.addEventListener("empowernotes:native-billing-cloud-status", showCloudStatus);
     return () => {
-      window.removeEventListener(nativeBillingUpdatedEvent, loadRecords);
-      window.removeEventListener("empowernotes:retained-records-updated", loadRecords);
+      window.removeEventListener(nativeBillingUpdatedEvent, loadLocalRecords);
+      window.removeEventListener("empowernotes:native-billing-cloud-status", showCloudStatus);
     };
-  }, [selectedClientId, selectedStaffId]);
+  }, []);
 
   function importPricingVersion() {
     const version = createPricingVersionFromManualUpload({
