@@ -4,12 +4,34 @@
 
 create or replace function public.get_organisation_plan_usage(target_organisation_id uuid)
 returns jsonb
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select jsonb_build_object(
+declare
+  invoice_line_count bigint := 0;
+  active_agreement_count bigint := 0;
+begin
+  if to_regclass('public.native_invoice_lines') is not null then
+    execute
+      'select count(*) from public.native_invoice_lines
+       where organisation_id = $1
+         and created_at >= date_trunc(''month'', now())'
+    into invoice_line_count
+    using target_organisation_id;
+  end if;
+
+  if to_regclass('public.service_agreements') is not null then
+    execute
+      'select count(*) from public.service_agreements
+       where organisation_id = $1
+         and status = ''active'''
+    into active_agreement_count
+    using target_organisation_id;
+  end if;
+
+  return jsonb_build_object(
     'activeParticipants', (
       select count(*) from public.participants_or_clients
       where organisation_id = target_organisation_id
@@ -58,17 +80,10 @@ as $$
       order by usage_period_end desc
       limit 1
     ), 0),
-    'invoiceLinesPerMonth', (
-      select count(*) from public.native_invoice_lines
-      where organisation_id = target_organisation_id
-        and created_at >= date_trunc('month', now())
-    ),
-    'activeServiceAgreements', (
-      select count(*) from public.service_agreements
-      where organisation_id = target_organisation_id
-        and status = 'active'
-    )
-  )
+    'invoiceLinesPerMonth', invoice_line_count,
+    'activeServiceAgreements', active_agreement_count
+  );
+end
 $$;
 
 revoke all on function public.get_organisation_plan_usage(uuid) from public;
