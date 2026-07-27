@@ -23,6 +23,30 @@ begin
 end
 $$;
 
+create table if not exists public.organisation_usage (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references public.organisations(id) on delete cascade,
+  usage_period_start date not null,
+  usage_period_end date not null,
+  active_participants integer not null default 0,
+  ai_analysed_notes integer not null default 0,
+  plan_documents_processed integer not null default 0,
+  storage_bytes bigint not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organisation_id, usage_period_start, usage_period_end)
+);
+
+alter table public.organisation_usage enable row level security;
+
+drop policy if exists "organisation usage visible to managers" on public.organisation_usage;
+create policy "organisation usage visible to managers"
+on public.organisation_usage
+for select using (
+  organisation_id = public.current_user_organisation_id()
+  and public.current_user_is_manager()
+);
+
 alter table public.organisation_usage
   add column if not exists active_users integer not null default 0,
   add column if not exists active_houses integer not null default 0,
@@ -80,4 +104,3 @@ comment on column public.organisations.subscription_enforcement_mode is
 
 comment on table public.entitlement_observations is
   'Server-written monitor and enforcement decisions. Authenticated clients receive read-only manager access.';
-
