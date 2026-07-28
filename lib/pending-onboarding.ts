@@ -33,7 +33,13 @@ export async function completePendingOnboarding() {
 
   const result = await createCurrentUserOrganisation(pending);
   if (result.error || !result.data) {
-    return { completed: false, error: result.error || "Could not create the organisation workspace." };
+    if (result.error) {
+      console.error("Organisation workspace creation failed:", result.error);
+    }
+    return {
+      completed: false,
+      error: "We could not finish setting up your workspace. Please try again shortly or contact support."
+    };
   }
 
   window.localStorage.removeItem(pendingOnboardingKey);

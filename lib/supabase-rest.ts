@@ -96,8 +96,17 @@ export async function supabaseRpc<T>(functionName: string, body: unknown) {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    return { data: null as T | null, error: error || response.statusText };
+    const responseBody = await response.text();
+    let error = response.statusText;
+
+    try {
+      const parsed = JSON.parse(responseBody) as { message?: string };
+      error = parsed.message || error;
+    } catch {
+      error = responseBody || error;
+    }
+
+    return { data: null as T | null, error };
   }
 
   return { data: await response.json() as T, error: "" };
