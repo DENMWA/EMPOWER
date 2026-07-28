@@ -21,7 +21,7 @@ import {
   verifyPhoneOtp,
   verifyMfaFactor
 } from "@/lib/supabase-auth";
-import { isSupabaseConfigured } from "@/lib/supabase-rest";
+import { getCurrentUserId, isSupabaseConfigured, supabaseRequest } from "@/lib/supabase-rest";
 import { completePendingOnboarding } from "@/lib/pending-onboarding";
 
 type EnrolledTotp = {
@@ -66,7 +66,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
           return;
         }
         setMessage(setup.completed ? "Account confirmed. Your organisation workspace is ready." : "Invitation accepted. You are now signed in to your organisation workspace.");
-        if (redirectAfterSignIn) continueToRequestedPage();
+        if (redirectAfterSignIn) void continueToRequestedPage();
       });
     }
     window.addEventListener(authSessionChangedEvent, syncAuthStatus);
@@ -97,7 +97,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
         setMessage(setup.error);
         return;
       }
-      continueToRequestedPage();
+      await continueToRequestedPage();
     });
   }
 
@@ -137,7 +137,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
         setMessage(setup.error);
         return;
       }
-      continueToRequestedPage();
+      await continueToRequestedPage();
     });
   }
 
@@ -207,10 +207,24 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
     }
   }
 
-  function continueToRequestedPage() {
+  async function continueToRequestedPage() {
     if (!redirectAfterSignIn || typeof window === "undefined") return;
     const requestedPath = new URLSearchParams(window.location.search).get("next");
-    const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
+    const safeRequestedPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "";
+    const userId = getCurrentUserId();
+    let defaultPath = "/dashboard";
+
+    if (userId) {
+      const profile = await supabaseRequest<Array<{ role?: string }>>("users", {
+        query: `select=role&id=eq.${encodeURIComponent(userId)}&limit=1`
+      });
+      const role = profile.data?.[0]?.role || "";
+      if (["owner", "admin", "service_manager", "sole_provider"].includes(role)) {
+        defaultPath = "/admin";
+      }
+    }
+
+    const safePath = safeRequestedPath || defaultPath;
     window.location.assign(safePath);
   }
 
