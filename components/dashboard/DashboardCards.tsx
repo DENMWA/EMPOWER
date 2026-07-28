@@ -8,7 +8,7 @@ import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-re
 import { getRosterSummary } from "@/lib/roster";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { participants, progressNotes, users } from "@/lib/sample-data";
-import { AlertTriangle, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp } from "lucide-react";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
 
 const workerActions = [
@@ -51,16 +51,16 @@ export function ManagerDashboardCards() {
   const invoiceScore = savedNotes.length ? Math.round((invoiceReadyCount / savedNotes.length) * 100) : demoMode ? 68 : 0;
   const managerStats = savedNotes.length || incidents.length || !demoMode
     ? [
-        { label: "Notes awaiting review", value: String(savedNotes.length), detail: `${weakNotes.length} need manager attention`, icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
-        { label: "Weak notes needing improvement", value: String(weakNotes.length), detail: savedNotes.length ? "Based on missing detail and risky wording signals" : "Save notes to build the queue", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
-        { label: "Incident reports awaiting review", value: String(submittedIncidents.length), detail: `${incidents.length} incident records checked`, icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
-        { label: "Invoice-readiness summary", value: `${invoiceScore}%`, detail: `${invoiceReadyCount} notes ready, ${Math.max(savedNotes.length - invoiceReadyCount, 0)} need evidence`, icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
+        { label: "Notes awaiting review", value: String(savedNotes.length), detail: `${weakNotes.length} need manager attention`, href: "/admin/reviews", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
+        { label: "Weak notes needing improvement", value: String(weakNotes.length), detail: savedNotes.length ? "Based on missing detail and risky wording signals" : "Save notes to build the queue", href: "/admin/reviews", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
+        { label: "Incident reports awaiting review", value: String(submittedIncidents.length), detail: `${incidents.length} incident records checked`, href: "/admin/incidents", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
+        { label: "Invoice-readiness summary", value: `${invoiceScore}%`, detail: `${invoiceReadyCount} notes ready, ${Math.max(savedNotes.length - invoiceReadyCount, 0)} need evidence`, href: "/admin/billing", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
       ]
     : [
-        { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
-        { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
-        { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
-        { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
+        { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", href: "/admin/reviews", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
+        { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", href: "/admin/reviews", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
+        { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", href: "/admin/incidents", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
+        { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", href: "/admin/billing", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
       ];
 
   return (
@@ -68,18 +68,26 @@ export function ManagerDashboardCards() {
       {managerStats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.label} className="relative overflow-hidden hover:border-slate-300">
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="group relative min-h-[170px] overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-soft transition duration-200 hover:-translate-y-1 hover:border-teal-300 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 active:translate-y-0 active:shadow-soft"
+          >
+            <span className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-teal-600 transition-transform duration-200 group-hover:scale-x-100 group-focus-visible:scale-x-100" />
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-slate-600">{stat.label}</p>
+                <p className="text-sm font-medium text-slate-600 transition-colors group-hover:text-teal-800">{stat.label}</p>
                 <p className="mt-2 text-3xl font-bold text-ink">{stat.value}</p>
                 <p className="mt-2 text-sm text-slate-600">{stat.detail}</p>
               </div>
-              <span className={`grid h-10 w-10 place-items-center rounded-lg ${stat.tone}`}>
+              <span className={`grid h-10 w-10 place-items-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${stat.tone}`}>
                 <Icon aria-hidden="true" size={21} />
               </span>
             </div>
-          </Card>
+            <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-teal-700">
+              Open details <ArrowUpRight size={14} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+            </span>
+          </Link>
         );
       })}
     </div>
@@ -92,12 +100,17 @@ export function WorkerDashboardCards() {
       {workerActions.map((action) => {
         const Icon = action.icon;
         return (
-          <Link key={action.label} href={action.href} className="group rounded-lg border border-slate-200 bg-white p-5 shadow-soft hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700">
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-50 text-teal-800 group-hover:bg-teal-700 group-hover:text-white">
-              <Icon aria-hidden="true" size={20} />
-            </span>
-            <p className="mt-4 text-base font-semibold text-ink">{action.label}</p>
+          <Link key={action.label} href={action.href} className="group relative min-h-[170px] overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-soft transition duration-200 hover:-translate-y-1 hover:border-teal-300 hover:bg-teal-50/30 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 active:translate-y-0 active:shadow-soft">
+            <span className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-teal-600 transition-transform duration-200 group-hover:scale-x-100 group-focus-visible:scale-x-100" />
+            <div className="flex items-start justify-between gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-50 text-teal-800 transition duration-200 group-hover:scale-105 group-hover:bg-teal-700 group-hover:text-white">
+                <Icon aria-hidden="true" size={20} />
+              </span>
+              <ArrowRight size={18} className="text-slate-400 transition duration-200 group-hover:translate-x-1 group-hover:text-teal-700" aria-hidden="true" />
+            </div>
+            <p className="mt-4 text-base font-semibold text-ink transition-colors group-hover:text-teal-900">{action.label}</p>
             <p className="mt-1 text-sm text-slate-600">{action.detail}</p>
+            <span className="mt-4 inline-flex text-xs font-semibold text-teal-700 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Start action</span>
           </Link>
         );
       })}

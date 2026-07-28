@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
+  ArrowUpRight,
   CalendarDays,
   ClipboardCheck,
   FileCheck2,
@@ -153,10 +154,10 @@ export function AdminDashboard() {
 
       <Section className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminMetric label="Active staff" value={staffCount} detail={savedStaff.length ? "Saved staff records" : realMode ? "Add staff to begin" : "Starter team records"} />
-          <AdminMetric label="Active clients" value={clientCount} detail={savedClients.length ? "Saved colour-coded profiles" : realMode ? "Add clients to begin" : "Starter colour-coded profiles"} tone="blue" />
-          <AdminMetric label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
-          <AdminMetric label="Notes needing review" value={weakNotes} detail="Quality or detail risk" tone="amber" />
+          <AdminMetric href="/admin/team" label="Active staff" value={staffCount} detail={savedStaff.length ? "Saved staff records" : realMode ? "Add staff to begin" : "Starter team records"} />
+          <AdminMetric href="/admin/clients" label="Active clients" value={clientCount} detail={savedClients.length ? "Saved colour-coded profiles" : realMode ? "Add clients to begin" : "Starter colour-coded profiles"} tone="blue" />
+          <AdminMetric href="/roster" label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
+          <AdminMetric href="/admin/reviews" label="Notes needing review" value={weakNotes} detail="Quality or detail risk" tone="amber" />
         </div>
 
         <ClientReportColourCards />
@@ -209,7 +210,7 @@ export function AdminDashboard() {
   );
 }
 
-function AdminMetric({ label, value, detail, tone = "slate" }: { label: string; value: number; detail: string; tone?: "slate" | "amber" | "green" | "blue" }) {
+function AdminMetric({ href, label, value, detail, tone = "slate" }: { href: string; label: string; value: number; detail: string; tone?: "slate" | "amber" | "green" | "blue" }) {
   const toneClasses = {
     slate: "text-ink",
     amber: "text-amber-800",
@@ -218,10 +219,20 @@ function AdminMetric({ label, value, detail, tone = "slate" }: { label: string; 
   };
 
   return (
-    <Card>
-      <p className="text-sm font-medium text-slate-600">{label}</p>
+    <Link
+      href={href}
+      className="group relative min-h-[150px] overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-soft transition duration-200 hover:-translate-y-1 hover:border-teal-300 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 active:translate-y-0 active:shadow-soft"
+    >
+      <span className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-teal-600 transition-transform duration-200 group-hover:scale-x-100 group-focus-visible:scale-x-100" />
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-slate-600 transition-colors group-hover:text-teal-800">{label}</p>
+        <span className="grid h-8 w-8 place-items-center rounded-md bg-slate-50 text-slate-500 transition group-hover:bg-teal-50 group-hover:text-teal-800">
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </span>
+      </div>
       <p className={`mt-2 text-3xl font-bold ${toneClasses[tone]}`}>{value}</p>
       <p className="mt-2 text-sm text-slate-600">{detail}</p>
-    </Card>
+      <p className="mt-3 text-xs font-semibold text-teal-700 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Open details</p>
+    </Link>
   );
 }
