@@ -1,10 +1,5 @@
-import { AdminGate } from "@/components/admin/AdminGate";
-import { RosterPage } from "@/components/roster/RosterPage";
+import { redirect } from "next/navigation";
 
 export default function RosterRoute() {
-  return (
-    <AdminGate>
-      <RosterPage />
-    </AdminGate>
-  );
+  redirect("/admin/scheduling");
 }

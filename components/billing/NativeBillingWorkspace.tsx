@@ -209,9 +209,9 @@ export function NativeBillingWorkspace() {
       <Card className="border-teal-100">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Scheduling and native invoicing</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Service delivery and native invoicing</p>
             <h2 className="mt-1 text-2xl font-bold text-ink">Evidence-backed NDIS billing workflow</h2>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Schedule supports, connect service agreements, activate reviewed pricing versions, generate native EmpowerNotes invoice drafts, and export PDF/CSV without Xero.</p>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Connect completed supports to service agreements, activate reviewed pricing versions, generate native EmpowerNotes invoice drafts, and export PDF/CSV without Xero.</p>
           </div>
           <StatusBadge label="No Xero dependency" tone="green" />
         </div>

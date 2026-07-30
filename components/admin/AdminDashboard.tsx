@@ -55,11 +55,11 @@ const adminTools = [
     badge: "Client"
   },
   {
-    title: "Admin Roster",
-    detail: "Create shifts and review locked weekly, fortnightly, and monthly roster status.",
-    href: "/roster",
+    title: "Scheduling",
+    detail: "Plan shifts in day, week, or month calendar views, assign workers, check coverage, and follow outstanding notes.",
+    href: "/admin/scheduling",
     icon: CalendarDays,
-    badge: "Locked"
+    badge: "Calendar"
   },
   {
     title: "Status Reports",
@@ -76,8 +76,8 @@ const adminTools = [
     badge: "Outcomes"
   },
   {
-    title: "Scheduling & Native Invoicing",
-    detail: "Schedule supports, manage service agreements, check NDIS pricing versions, generate native invoice drafts, and export PDF/CSV without Xero.",
+    title: "Service Agreements & Invoicing",
+    detail: "Manage service agreements, check NDIS pricing versions, generate native invoice drafts, and export PDF/CSV without Xero.",
     href: "/admin/billing",
     icon: ReceiptText,
     badge: "NDIS billing"

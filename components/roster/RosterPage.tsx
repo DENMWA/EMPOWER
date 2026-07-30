@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarPlus, LayoutGrid, ListChecks, LockKeyhole } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, LockKeyhole } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
 import { RosterFilters } from "@/components/roster/RosterFilters";
+import { RosterMonthView } from "@/components/roster/RosterMonthView";
 import { RosterShiftModal } from "@/components/roster/RosterShiftModal";
 import { RosterStatusReports } from "@/components/roster/RosterStatusReports";
 import { RosterWeekView } from "@/components/roster/RosterWeekView";
@@ -23,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function RosterPage() {
-  const [view, setView] = useState<"day" | "week">("day");
+  const [view, setView] = useState<"day" | "week" | "month">("week");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [filters, setFilters] = useState<RosterFiltersType>({ workerId: "all", status: "all", noteState: "all" });
   const [shifts, setShifts] = useState<RosterShift[]>(rosterShifts);
@@ -31,11 +32,33 @@ export function RosterPage() {
   const [creating, setCreating] = useState(false);
 
   const visibleShifts = useMemo(() => {
-    const scoped = view === "day" ? shifts.filter((shift) => shift.shiftDate === selectedDate) : getWeekRosterShifts(shifts, selectedDate);
+    const scoped = view === "day"
+      ? shifts.filter((shift) => shift.shiftDate === selectedDate)
+      : view === "week"
+        ? getWeekRosterShifts(shifts, selectedDate)
+        : shifts;
     return filterRosterShifts(scoped, filters);
   }, [filters, selectedDate, shifts, view]);
 
   const summary = getRosterSummary(shifts);
+  const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
+    month: "long",
+    year: "numeric",
+    ...(view === "day" ? { day: "numeric", weekday: "long" } : {})
+  });
+
+  function moveCalendar(direction: -1 | 1) {
+    const date = new Date(`${selectedDate}T00:00:00`);
+    if (view === "day") date.setDate(date.getDate() + direction);
+    if (view === "week") date.setDate(date.getDate() + (7 * direction));
+    if (view === "month") date.setMonth(date.getMonth() + direction);
+    setSelectedDate(toDateKey(date));
+  }
+
+  function openDay(date: string) {
+    setSelectedDate(date);
+    setView("day");
+  }
 
   function updateActive(updatedShifts: RosterShift[]) {
     setShifts(updatedShifts);
@@ -47,9 +70,9 @@ export function RosterPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Admin roster"
-        title="Locked roster planning and status reports"
-        description="Roster is an admin-only planning area for assigning shifts, checking coverage, and reviewing weekly, fortnightly, and monthly documentation status."
+        eyebrow="Admin scheduling"
+        title="Team scheduling and coverage calendar"
+        description="Plan participant supports, assign workers, review coverage, open shift details, and monitor documentation completion from one calendar."
         actions={
           <button type="button" onClick={() => setCreating(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
             <CalendarPlus size={18} aria-hidden="true" />Create shift
@@ -77,25 +100,44 @@ export function RosterPage() {
           <Card><p className="text-sm font-medium text-slate-600">Cancelled/no-show shifts</p><p className="mt-2 text-3xl font-bold text-red-700">{summary.cancelledOrNoShow}</p></Card>
         </div>
 
-        <Card className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+        <Card className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Team colours</p>
-            <div className="mt-3"><EmployeeColourLegend /></div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Calendar period</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => moveCalendar(-1)} className="grid h-10 w-10 place-items-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Previous ${view}`}>
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => setSelectedDate(toDateKey(new Date()))} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-400">
+                Today
+              </button>
+              <button type="button" onClick={() => moveCalendar(1)} className="grid h-10 w-10 place-items-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Next ${view}`}>
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+              <h2 className="ml-1 text-xl font-bold text-ink">{selectedDateLabel}</h2>
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Date
               <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" />
             </label>
-            <div className="grid grid-cols-2 rounded-md border border-slate-300 bg-white p-1" aria-label="Roster view">
+            <div className="grid grid-cols-3 rounded-md border border-slate-300 bg-white p-1" aria-label="Roster view">
               <button type="button" onClick={() => setView("day")} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold", view === "day" ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}>
                 <ListChecks size={17} aria-hidden="true" />Day
               </button>
               <button type="button" onClick={() => setView("week")} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold", view === "week" ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}>
                 <LayoutGrid size={17} aria-hidden="true" />Week
               </button>
+              <button type="button" onClick={() => setView("month")} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold", view === "month" ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}>
+                <CalendarDays size={17} aria-hidden="true" />Month
+              </button>
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Worker allocation</p>
+          <div className="mt-3"><EmployeeColourLegend /></div>
         </Card>
 
         <RosterFilters filters={filters} onChange={setFilters} />
@@ -104,8 +146,10 @@ export function RosterPage() {
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
-        ) : (
+        ) : view === "week" ? (
           <RosterWeekView selectedDate={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
+        ) : (
+          <RosterMonthView selectedDate={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} onSelectDate={openDay} />
         )}
       </Section>
 
@@ -118,4 +162,11 @@ export function RosterPage() {
       <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={(shift) => setShifts((current) => [...current, shift])} />
     </>
   );
+}
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
