@@ -8,7 +8,7 @@ import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
-import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
+import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser, setAdminCurrentUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
 import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
 
@@ -34,6 +34,7 @@ const publicNavItems = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const testingAccessEnabled = process.env.NEXT_PUBLIC_TEST_ACCESS_BYPASS === "true";
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
   const [currentUser, setCurrentUser] = useState(getDefaultAppUser);
@@ -41,7 +42,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
-  const visibleNavItems = signedIn
+  const hasWorkspaceAccess = signedIn || testingAccessEnabled;
+  const visibleNavItems = hasWorkspaceAccess
     ? navItems.filter((item) => item.href !== "/signin" && item.href !== "/signup" && (item.href !== "/admin" || canAccessAdmin(currentUser.role)))
     : publicNavItems;
 
@@ -49,12 +51,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
-    setCurrentUser(getCurrentAppUser());
+    if (testingAccessEnabled) {
+      setAdminCurrentUser();
+      setCurrentUser(getCurrentAppUser());
+    } else {
+      setCurrentUser(getCurrentAppUser());
+    }
     const authStatus = getCurrentAuthStatus();
     setSignedIn(authStatus.signedIn);
     setAuthChecked(true);
     setDataMode(authStatus.signedIn ? "real" : "demo");
-  }, []);
+  }, [testingAccessEnabled]);
 
   useEffect(() => {
     function syncAuth() {
@@ -168,7 +175,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
       <main>
-        <DemoAccessBoundary pathname={pathname} signedIn={signedIn} authChecked={authChecked}>
+        <DemoAccessBoundary pathname={pathname} signedIn={hasWorkspaceAccess} authChecked={authChecked}>
           {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
             <section className="mx-auto max-w-3xl px-4 py-16">
               <div className="rounded-md border border-red-200 bg-white p-6 shadow-soft">
