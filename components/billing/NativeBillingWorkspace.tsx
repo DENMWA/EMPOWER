@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, FileDown, ReceiptText, ShieldAlert } from "lucide-react";
+import { CalendarDays, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { downloadOrganisationReportHtml, getOrganisationProfile } from "@/lib/organisation-profile";
@@ -33,6 +33,20 @@ export function NativeBillingWorkspace() {
   const [records, setRecords] = useState<NativeBillingRecords>(getNativeBillingRecords());
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [agreementName, setAgreementName] = useState("");
+  const [agreementStartDate, setAgreementStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [agreementEndDate, setAgreementEndDate] = useState("");
+  const [billingFrequency, setBillingFrequency] = useState<"daily" | "weekly" | "fortnightly" | "monthly" | "custom">("fortnightly");
+  const [recipientType, setRecipientType] = useState<"self_managed" | "plan_managed" | "agency_managed" | "other">("plan_managed");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [selectedSupportItemId, setSelectedSupportItemId] = useState("");
+  const [agreedRate, setAgreedRate] = useState("");
+  const [budgetAllocated, setBudgetAllocated] = useState("");
+  const [allowTravel, setAllowTravel] = useState(false);
+  const [allowKilometres, setAllowKilometres] = useState(false);
+  const [allowNonFaceToFace, setAllowNonFaceToFace] = useState(false);
+  const [allowCancellations, setAllowCancellations] = useState(false);
   const [message, setMessage] = useState("");
   const activePricingVersion = records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active");
@@ -41,6 +55,7 @@ export function NativeBillingWorkspace() {
   const selectedClient = clients.find((client) => client.id === selectedClientId) || clients[0];
   const selectedStaff = staff.find((item) => item.id === selectedStaffId) || staff[0];
   const selectedAgreement = selectedClient ? records.agreements.find((agreement) => agreement.participantId === selectedClient.id && agreement.status === "active") : undefined;
+  const selectedSupportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
   const budgetRows = selectedClient ? getBudgetUsage(records, selectedClient.id) : [];
   const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason);
 
@@ -78,6 +93,17 @@ export function NativeBillingWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    setAgreementName(selectedClient ? `${selectedClient.name} NDIS service agreement` : "");
+    setRecipientName(selectedClient?.name || "");
+  }, [selectedClient?.id, selectedClient?.name]);
+
+  useEffect(() => {
+    if (!selectedSupportItem) return;
+    setSelectedSupportItemId(selectedSupportItem.id);
+    setAgreedRate(String(selectedSupportItem.priceLimit || ""));
+  }, [selectedSupportItem?.id, selectedSupportItem?.priceLimit]);
+
   function importPricingVersion() {
     const version = createPricingVersionFromManualUpload({
       versionName: `Manual NDIS pricing ${new Date().toLocaleDateString("en-AU")}`,
@@ -92,30 +118,50 @@ export function NativeBillingWorkspace() {
     setMessage("Pricing version activated. Older active versions are preserved as superseded.");
   }
 
-  function createAgreementAndItem() {
-    if (!selectedClient || !activePricingVersion || !supportItems[0]) {
-      setMessage("Add a client and activate a pricing version first.");
+  function saveAgreement() {
+    if (!selectedClient) {
+      setMessage("Add and select a client first.");
       return;
     }
 
     const agreement = createServiceAgreement({
       participant: selectedClient,
-      agreementName: `${selectedClient.name} NDIS service agreement`,
-      startDate: new Date().toISOString().slice(0, 10),
-      endDate: "",
-      billingFrequency: "fortnightly",
-      recipientName: "Plan manager / recipient",
-      recipientEmail: ""
+      agreementName,
+      startDate: agreementStartDate,
+      endDate: agreementEndDate,
+      billingFrequency,
+      recipientType,
+      recipientName,
+      recipientEmail,
+      planManagerName: recipientType === "plan_managed" ? recipientName : "",
+      planManagerEmail: recipientType === "plan_managed" ? recipientEmail : ""
     });
+    setMessage(`${agreement.agreementName} saved for ${selectedClient.name}. Add one or more agreed support items below.`);
+  }
+
+  function addAgreementItem() {
+    if (!selectedAgreement || !activePricingVersion || !selectedSupportItem) {
+      setMessage("Save an active agreement and activate a pricing version first.");
+      return;
+    }
+    const rate = Number(agreedRate);
+    const budget = Number(budgetAllocated);
+    if (!Number.isFinite(rate) || rate <= 0 || !Number.isFinite(budget) || budget < 0) {
+      setMessage("Enter a valid agreed rate and allocated budget.");
+      return;
+    }
     addServiceAgreementItem({
-      agreement,
-      supportItem: supportItems[0],
+      agreement: selectedAgreement,
+      supportItem: selectedSupportItem,
       pricingVersion: activePricingVersion,
-      agreedRate: supportItems[0].priceLimit || 0,
-      budgetAllocated: 5000,
-      allowCancellations: true
+      agreedRate: rate,
+      budgetAllocated: budget,
+      allowTravel,
+      allowKilometres,
+      allowNonFaceToFace,
+      allowCancellations
     });
-    setMessage(`Service agreement created for ${selectedClient.name} with selected pricing version.`);
+    setMessage(`${selectedSupportItem.supportItemName} added at $${rate.toFixed(2)} per ${selectedSupportItem.unitType}.`);
   }
 
   function scheduleShift() {
@@ -249,12 +295,87 @@ export function NativeBillingWorkspace() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="xl:col-span-2">
           <h2 className="text-xl font-semibold text-ink">2. Service agreement</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Create an active agreement, recipient profile, support item, agreed rate, and budget allocation.</p>
-          <button type="button" onClick={createAgreementAndItem} className="mt-4 rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white">Create service agreement and item</button>
-          <div className="mt-4 space-y-2">
-            {records.agreements.map((agreement) => <p key={agreement.id} className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">{agreement.participantName} - {agreement.billingFrequency} - {agreement.status}</p>)}
+          <p className="mt-2 text-sm leading-6 text-slate-600">Save the client-specific agreement first, then add every funded support item with its agreed rate, budget and billing permissions.</p>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <BillingField label="Agreement name" value={agreementName} onChange={setAgreementName} />
+            <BillingField label="Start date" value={agreementStartDate} onChange={setAgreementStartDate} type="date" />
+            <BillingField label="End date" value={agreementEndDate} onChange={setAgreementEndDate} type="date" />
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Billing frequency
+              <select value={billingFrequency} onChange={(event) => setBillingFrequency(event.target.value as typeof billingFrequency)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="fortnightly">Fortnightly</option>
+                <option value="monthly">Monthly</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Invoice recipient type
+              <select value={recipientType} onChange={(event) => setRecipientType(event.target.value as typeof recipientType)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                <option value="self_managed">Self-managed</option>
+                <option value="plan_managed">Plan-managed</option>
+                <option value="agency_managed">Agency-managed</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <BillingField label={recipientType === "plan_managed" ? "Plan manager / recipient name" : "Invoice recipient name"} value={recipientName} onChange={setRecipientName} />
+            <BillingField label="Recipient email" value={recipientEmail} onChange={setRecipientEmail} type="email" />
+          </div>
+          <button type="button" onClick={saveAgreement} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white">
+            <Save size={17} aria-hidden="true" /> Save agreement
+          </button>
+
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-ink">Agreed support items</h3>
+                <p className="mt-1 text-sm text-slate-600">Rates are checked against the active NDIS pricing version when invoices are generated.</p>
+              </div>
+              <StatusBadge label={selectedAgreement ? "Active agreement" : "Save agreement first"} tone={selectedAgreement ? "green" : "amber"} />
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
+                Support item
+                <select value={selectedSupportItem?.id || ""} onChange={(event) => setSelectedSupportItemId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                  {!supportItems.length ? <option value="">Activate a pricing version first</option> : null}
+                  {supportItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName}</option>)}
+                </select>
+              </label>
+              <BillingField label={`Agreed rate${selectedSupportItem ? ` / ${selectedSupportItem.unitType}` : ""}`} value={agreedRate} onChange={setAgreedRate} type="number" />
+              <BillingField label="Allocated budget" value={budgetAllocated} onChange={setBudgetAllocated} type="number" />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <BillingCheck label="Travel" checked={allowTravel} onChange={setAllowTravel} />
+              <BillingCheck label="Kilometres" checked={allowKilometres} onChange={setAllowKilometres} />
+              <BillingCheck label="Non-face-to-face" checked={allowNonFaceToFace} onChange={setAllowNonFaceToFace} />
+              <BillingCheck label="Cancellations" checked={allowCancellations} onChange={setAllowCancellations} />
+            </div>
+            <button type="button" onClick={addAgreementItem} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white">
+              <Plus size={17} aria-hidden="true" /> Add agreed item
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {records.agreements.map((agreement) => {
+              const items = records.agreementItems.filter((item) => item.serviceAgreementId === agreement.id);
+              return (
+                <div key={agreement.id} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-ink">{agreement.agreementName}</p>
+                    <StatusBadge label={agreement.status} tone={agreement.status === "active" ? "green" : "blue"} />
+                  </div>
+                  <p className="mt-1">{agreement.participantName} - {agreement.startDate || "No start date"} to {agreement.endDate || "Ongoing"} - {agreement.billingFrequency}</p>
+                  <div className="mt-2 space-y-1">
+                    {items.map((item) => <p key={item.id}>{item.supportItemNumber} - ${item.agreedRate.toFixed(2)} / {item.unitType} - ${item.budgetAllocated.toFixed(2)} budget</p>)}
+                    {!items.length ? <p className="text-amber-800">No agreed support items added.</p> : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
@@ -327,6 +448,41 @@ function StatusPanel({ records, exceptionCount }: { records: NativeBillingRecord
         <StatusBadge label={`${exceptionCount} exceptions`} tone={exceptionCount ? "amber" : "green"} />
       </div>
     </div>
+  );
+}
+
+function BillingField({
+  label,
+  value,
+  onChange,
+  type = "text"
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: "text" | "email" | "date" | "number";
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-slate-700">
+      {label}
+      <input
+        type={type}
+        value={value}
+        min={type === "number" ? "0" : undefined}
+        step={type === "number" ? "0.01" : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-ink"
+      />
+    </label>
+  );
+}
+
+function BillingCheck({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <label className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 accent-teal-700" />
+      {label}
+    </label>
   );
 }
 

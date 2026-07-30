@@ -218,8 +218,11 @@ export function createServiceAgreement(input: {
   startDate: string;
   endDate: string;
   billingFrequency: ServiceAgreement["billingFrequency"];
+  recipientType?: ServiceAgreement["invoiceRecipientType"];
   recipientName: string;
   recipientEmail: string;
+  planManagerName?: string;
+  planManagerEmail?: string;
 }) {
   const agreement: ServiceAgreement = {
     id: createId("agreement"),
@@ -229,16 +232,21 @@ export function createServiceAgreement(input: {
     startDate: input.startDate,
     endDate: input.endDate,
     billingFrequency: input.billingFrequency,
-    invoiceRecipientType: "plan_managed",
+    invoiceRecipientType: input.recipientType || "plan_managed",
     invoiceRecipientName: input.recipientName || input.participant.name,
     invoiceRecipientEmail: input.recipientEmail,
-    planManagerName: input.recipientName,
-    planManagerEmail: input.recipientEmail,
+    planManagerName: input.planManagerName || input.recipientName,
+    planManagerEmail: input.planManagerEmail || input.recipientEmail,
     status: "active",
     createdAt: new Date().toISOString()
   };
   const records = getNativeBillingRecords();
-  saveNativeBillingRecords({ ...records, agreements: [agreement, ...records.agreements] });
+  const supersededAgreements = records.agreements.map((existing) =>
+    existing.participantId === agreement.participantId && existing.status === "active"
+      ? { ...existing, status: "superseded" as const }
+      : existing
+  );
+  saveNativeBillingRecords({ ...records, agreements: [agreement, ...supersededAgreements] });
   return agreement;
 }
 
@@ -248,6 +256,9 @@ export function addServiceAgreementItem(input: {
   pricingVersion: NdisPricingVersion;
   agreedRate: number;
   budgetAllocated: number;
+  allowTravel?: boolean;
+  allowKilometres?: boolean;
+  allowNonFaceToFace?: boolean;
   allowCancellations: boolean;
 }) {
   const item: ServiceAgreementItem = {
@@ -263,9 +274,9 @@ export function addServiceAgreementItem(input: {
     unitType: input.supportItem.unitType,
     budgetCategory: input.supportItem.supportCategory || "Core",
     budgetAllocated: input.budgetAllocated,
-    allowTravel: false,
-    allowKilometres: false,
-    allowNonFaceToFace: false,
+    allowTravel: Boolean(input.allowTravel),
+    allowKilometres: Boolean(input.allowKilometres),
+    allowNonFaceToFace: Boolean(input.allowNonFaceToFace),
     allowCancellations: input.allowCancellations,
     status: "active"
   };
