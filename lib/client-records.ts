@@ -4,6 +4,7 @@ import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 import { checkActiveParticipantLimit } from "@/lib/subscriptions/client-limits";
 
 export type ClientRecord = Participant & {
+  ndisNumber?: string;
   colourSchemeId?: string;
   primaryHouseId?: string;
   primaryHouseName?: string;
@@ -53,6 +54,7 @@ type SupabaseClientRow = {
   primary_house_id: string | null;
   primary_house_name: string | null;
   service_name: string | null;
+  ndis_number: string | null;
   created_at: string;
 };
 
@@ -71,6 +73,7 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
     primaryHouseId: row.primary_house_id || undefined,
     primaryHouseName: row.primary_house_name || undefined,
     serviceName: row.service_name || undefined,
+    ndisNumber: row.ndis_number || undefined,
     createdAt: row.created_at
   };
 }
@@ -80,7 +83,7 @@ export async function getTenantClients() {
   const localClients = getStoredClients();
 
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
-    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,created_at&order=created_at.desc"
+    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,ndis_number,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return localClients;
@@ -113,7 +116,8 @@ export async function saveTenantClient(client: ClientRecord) {
       assigned_worker_ids: client.assignedWorkers,
       primary_house_id: client.primaryHouseId || null,
       primary_house_name: client.primaryHouseName || null,
-      service_name: client.serviceName || null
+      service_name: client.serviceName || null,
+      ndis_number: client.ndisNumber || null
     }
   });
 

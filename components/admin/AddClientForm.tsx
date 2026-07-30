@@ -16,6 +16,7 @@ export function AddClientForm() {
   const colourOptions = getClientColourOptions();
   const [name, setName] = useState("");
   const [initials, setInitials] = useState("");
+  const [ndisNumber, setNdisNumber] = useState("");
   const [supportNeeds, setSupportNeeds] = useState("");
   const [communication, setCommunication] = useState("");
   const [riskAlerts, setRiskAlerts] = useState("");
@@ -87,6 +88,7 @@ export function AddClientForm() {
       serviceName: serviceName.trim(),
       id: clientId,
       name: cleanName,
+      ndisNumber: ndisNumber.trim(),
       initials: (initials.trim() || cleanName.split(/\s+/).map((part) => part[0]).join("")).slice(0, 4).toUpperCase(),
       supportNeeds: supportNeeds.trim() || "Support needs to be added.",
       communication: communication.trim() || "Communication preferences to be added.",
@@ -117,6 +119,7 @@ export function AddClientForm() {
     setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. ${result.error || "Sign in to save it to this organisation's workspace."}`);
     setName("");
     setInitials("");
+    setNdisNumber("");
     setSupportNeeds("");
     setCommunication("");
     setRiskAlerts("");
@@ -142,6 +145,10 @@ export function AddClientForm() {
         <label className="block text-sm font-semibold text-slate-700">
           Initials
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. GM" maxLength={4} value={initials} onChange={(event) => setInitials(event.target.value.toUpperCase())} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Participant NDIS number
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={ndisNumber} onChange={(event) => setNdisNumber(event.target.value)} inputMode="numeric" autoComplete="off" />
         </label>
         <label className="block text-sm font-semibold text-slate-700">
           Primary house/service

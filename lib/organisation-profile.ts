@@ -2,11 +2,14 @@ import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 
 export type OrganisationProfile = {
   organisationName: string;
+  abn: string;
   providerNumber: string;
   phone: string;
   email: string;
   website: string;
   address: string;
+  paymentInstructions: string;
+  paymentTerms: string;
   logoName: string;
   logoDataUrl: string;
   includeInDownloads: boolean;
@@ -16,11 +19,14 @@ const organisationProfileKey = "empowernotes:organisation-profile";
 
 type OrganisationProfileRow = {
   organisation_name: string | null;
+  abn: string | null;
   provider_number: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
   address: string | null;
+  payment_instructions: string | null;
+  payment_terms: string | null;
   logo_name: string | null;
   logo_data_url: string | null;
   include_in_downloads: boolean | null;
@@ -28,11 +34,14 @@ type OrganisationProfileRow = {
 
 export const defaultOrganisationProfile: OrganisationProfile = {
   organisationName: "EmpowerNotes Demo Provider",
+  abn: "",
   providerNumber: "",
   phone: "",
   email: "",
   website: "",
   address: "",
+  paymentInstructions: "",
+  paymentTerms: "Payment due within 14 days.",
   logoName: "",
   logoDataUrl: "",
   includeInDownloads: false
@@ -56,11 +65,14 @@ export function saveOrganisationProfile(profile: OrganisationProfile) {
 function toOrganisationProfile(row: OrganisationProfileRow): OrganisationProfile {
   return {
     organisationName: row.organisation_name || defaultOrganisationProfile.organisationName,
+    abn: row.abn || "",
     providerNumber: row.provider_number || "",
     phone: row.phone || "",
     email: row.email || "",
     website: row.website || "",
     address: row.address || "",
+    paymentInstructions: row.payment_instructions || "",
+    paymentTerms: row.payment_terms || defaultOrganisationProfile.paymentTerms,
     logoName: row.logo_name || "",
     logoDataUrl: row.logo_data_url || "",
     includeInDownloads: Boolean(row.include_in_downloads)
@@ -72,7 +84,7 @@ export async function getTenantOrganisationProfile() {
   if (!organisationId) return getOrganisationProfile();
 
   const result = await supabaseRequest<OrganisationProfileRow[]>("organisation_profiles", {
-    query: `select=organisation_name,provider_number,phone,email,website,address,logo_name,logo_data_url,include_in_downloads&organisation_id=eq.${encodeURIComponent(organisationId)}&limit=1`
+    query: `select=organisation_name,abn,provider_number,phone,email,website,address,payment_instructions,payment_terms,logo_name,logo_data_url,include_in_downloads&organisation_id=eq.${encodeURIComponent(organisationId)}&limit=1`
   });
 
   const profile = result.data?.[0] ? toOrganisationProfile(result.data[0]) : getOrganisationProfile();
@@ -95,11 +107,14 @@ export async function saveTenantOrganisationProfile(profile: OrganisationProfile
     body: {
       organisation_id: organisationId,
       organisation_name: profile.organisationName,
+      abn: profile.abn,
       provider_number: profile.providerNumber,
       phone: profile.phone,
       email: profile.email,
       website: profile.website,
       address: profile.address,
+      payment_instructions: profile.paymentInstructions,
+      payment_terms: profile.paymentTerms,
       logo_name: profile.logoName,
       logo_data_url: profile.logoDataUrl,
       include_in_downloads: profile.includeInDownloads,
@@ -116,7 +131,8 @@ export function getOrganisationReportHeader() {
 
   return [
     profile.organisationName || "Organisation",
-    profile.providerNumber ? `Provider/ABN: ${profile.providerNumber}` : "",
+    profile.abn ? `ABN: ${profile.abn}` : "",
+    profile.providerNumber ? `NDIS provider number: ${profile.providerNumber}` : "",
     profile.phone ? `Phone: ${profile.phone}` : "",
     profile.email ? `Email: ${profile.email}` : "",
     profile.website ? `Website: ${profile.website}` : "",
@@ -155,7 +171,8 @@ export function buildOrganisationReportHtml(title: string, body: string) {
     : "";
   const details = showBranding ? [
     profile.organisationName || "Organisation",
-    profile.providerNumber ? `Provider/ABN: ${profile.providerNumber}` : "",
+    profile.abn ? `ABN: ${profile.abn}` : "",
+    profile.providerNumber ? `NDIS provider number: ${profile.providerNumber}` : "",
     profile.phone ? `Phone: ${profile.phone}` : "",
     profile.email ? `Email: ${profile.email}` : "",
     profile.website ? `Website: ${profile.website}` : "",

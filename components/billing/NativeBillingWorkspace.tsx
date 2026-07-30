@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, FileDown, ReceiptText, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
+import { downloadOrganisationReportHtml, getOrganisationProfile } from "@/lib/organisation-profile";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import {
@@ -164,12 +164,16 @@ export function NativeBillingWorkspace() {
   }
 
   function exportInvoice(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
+    const organisation = getOrganisationProfile();
+    const gstTotal = lines.reduce((total, line) => total + (line.gstCode.toLowerCase().includes("free") ? 0 : line.amount / 11), 0);
     const body = [
       `Invoice: ${invoice.invoiceNumber}`,
       `Invoice date: ${invoice.invoiceDate}`,
       `Due date: ${invoice.dueDate}`,
       `Participant: ${invoice.participantName}`,
+      `Participant NDIS number: ${invoice.participantNdisNumber || "Not recorded"}`,
       `Recipient: ${invoice.recipientName}`,
+      `Recipient email: ${invoice.recipientEmail || "Not recorded"}`,
       `Billing period: ${invoice.billingPeriodStart} to ${invoice.billingPeriodEnd}`,
       "",
       "This invoice uses the selected NDIS Pricing Arrangements and Price Limits version. Confirm the support item, claim type and billing rules before issuing.",
@@ -181,6 +185,7 @@ export function NativeBillingWorkspace() {
         `Quantity: ${line.quantity} ${line.unitType}`,
         `Rate: $${line.rate}`,
         `Amount: $${line.amount}`,
+        `GST treatment: ${line.gstCode}`,
         `Pricing version: ${line.pricingVersionName}`,
         `Evidence linked: ${line.evidenceStatus === "evidence_linked" || line.evidenceStatus === "approved" ? "Yes" : "No"}`,
         `Support note reference: ${line.noteReference}`,
@@ -188,8 +193,12 @@ export function NativeBillingWorkspace() {
         `Price check: ${line.priceCheckStatus}`
       ].join("\n")),
       "",
+      `Subtotal: $${invoice.totalAmount.toFixed(2)}`,
+      `GST: $${gstTotal.toFixed(2)}`,
       `Total: $${invoice.totalAmount}`,
-      `Payment status: ${invoice.paymentStatus}`
+      `Payment status: ${invoice.paymentStatus}`,
+      `Payment terms: ${organisation.paymentTerms || "Payment due within 14 days."}`,
+      `Payment instructions: ${organisation.paymentInstructions || "Contact the provider for payment instructions."}`
     ].join("\n\n");
     downloadOrganisationReportHtml(`${invoice.invoiceNumber}.html`, "EmpowerNotes Native Invoice", body);
     downloadCsv(`${invoice.invoiceNumber}.csv`, buildInvoiceCsv(invoice, lines));

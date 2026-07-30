@@ -47,7 +47,8 @@ export function OrganisationBrandingForm() {
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <Field label="Organisation name" value={profile.organisationName} onChange={(value) => update("organisationName", value)} />
-        <Field label="Provider number / ABN" value={profile.providerNumber} onChange={(value) => update("providerNumber", value)} />
+        <Field label="ABN" value={profile.abn} onChange={(value) => update("abn", value)} />
+        <Field label="NDIS provider registration number" value={profile.providerNumber} onChange={(value) => update("providerNumber", value)} />
         <Field label="Phone" value={profile.phone} onChange={(value) => update("phone", value)} />
         <Field label="Email" value={profile.email} onChange={(value) => update("email", value)} />
         <Field label="Website" value={profile.website} onChange={(value) => update("website", value)} />
@@ -63,6 +64,11 @@ export function OrganisationBrandingForm() {
           Address
           <textarea value={profile.address} onChange={(event) => update("address", event.target.value)} className="min-h-24 rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 text-ink shadow-sm" />
         </label>
+        <label className="grid gap-2 text-sm font-semibold text-slate-700 lg:col-span-2">
+          Payment instructions
+          <textarea value={profile.paymentInstructions} onChange={(event) => update("paymentInstructions", event.target.value)} placeholder="Bank name, BSB, account number and payment reference instructions" className="min-h-24 rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 text-ink shadow-sm" />
+        </label>
+        <Field label="Payment terms" value={profile.paymentTerms} onChange={(value) => update("paymentTerms", value)} />
       </div>
 
       {profile.logoDataUrl ? (

@@ -1,4 +1,4 @@
-import type { ClientRecord } from "@/lib/client-records";
+import { getStoredClients, type ClientRecord } from "@/lib/client-records";
 import type { RetainedRecord } from "@/lib/retained-records";
 import type { StaffRecord } from "@/lib/staff-records";
 
@@ -104,6 +104,7 @@ export type NativeInvoice = {
   invoiceNumber: string;
   participantId: string;
   participantName: string;
+  participantNdisNumber?: string;
   recipientName: string;
   recipientEmail: string;
   billingPeriodStart: string;
@@ -340,6 +341,7 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[])
     invoiceNumber: `EN-${new Date().getFullYear()}-${String(records.invoices.length + 1).padStart(5, "0")}`,
     participantId: shift.participantId,
     participantName: shift.participantName,
+    participantNdisNumber: getStoredClients().find((client) => client.id === shift.participantId)?.ndisNumber || "",
     recipientName: agreement.invoiceRecipientName,
     recipientEmail: agreement.invoiceRecipientEmail,
     billingPeriodStart: serviceDate,
@@ -416,12 +418,15 @@ export function getBudgetUsage(records: NativeBillingRecords, participantId: str
 }
 
 export function buildInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
-  const headers = ["invoice_number", "invoice_date", "participant_name", "recipient_name", "service_date", "support_item_number", "support_item_name", "description", "quantity", "unit_type", "rate", "amount", "gst_code", "pricing_version", "evidence_status", "approval_status", "payment_status"];
+  const headers = ["invoice_number", "invoice_date", "due_date", "participant_name", "participant_ndis_number", "recipient_name", "recipient_email", "service_date", "support_item_number", "support_item_name", "description", "quantity", "unit_type", "rate", "amount", "gst_code", "pricing_version", "evidence_status", "approval_status", "payment_status"];
   const rows = lines.map((line) => [
     invoice.invoiceNumber,
     invoice.invoiceDate,
+    invoice.dueDate,
     invoice.participantName,
+    invoice.participantNdisNumber || "",
     invoice.recipientName,
+    invoice.recipientEmail,
     line.serviceDate,
     line.supportItemNumber,
     line.supportItemName,
