@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, CreditCard } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
+import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
 
@@ -12,12 +13,16 @@ export function PlanManagementCard() {
   const [enforcementMode, setEnforcementMode] = useState<"monitor" | "enforce">("monitor");
   const [renewalDate, setRenewalDate] = useState("");
   const [planConfirmed, setPlanConfirmed] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("practice");
+  const [busyAction, setBusyAction] = useState<"checkout" | "portal" | "">("");
+  const [billingMessage, setBillingMessage] = useState("");
 
   useEffect(() => {
     async function loadPlan() {
       const live = await getLiveSubscriptionUsage().catch(() => ({ data: null, error: "Unavailable" }));
       if (live.data) {
         setTier(live.data.tier);
+        setSelectedTier(live.data.tier);
         setStatus(live.data.status);
         setEnforcementMode(live.data.enforcementMode);
         setRenewalDate(live.data.trialEndsAt || live.data.currentPeriodEnd);
@@ -31,6 +36,28 @@ export function PlanManagementCard() {
 
     void loadPlan();
   }, []);
+
+  async function openBillingEndpoint(endpoint: "checkout" | "portal") {
+    setBusyAction(endpoint);
+    setBillingMessage(endpoint === "checkout" ? "Opening secure checkout..." : "Opening billing portal...");
+    try {
+      const response = await fetch(`/api/stripe/${endpoint}`, {
+        method: "POST",
+        headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" },
+        body: endpoint === "checkout" ? JSON.stringify({ tier: selectedTier }) : undefined
+      });
+      const result = await response.json() as { url?: string; error?: string };
+      if (!response.ok || !result.url) {
+        setBillingMessage(result.error || "The billing service could not be opened.");
+        setBusyAction("");
+        return;
+      }
+      window.location.assign(result.url);
+    } catch {
+      setBillingMessage("The billing service is temporarily unavailable. Try again.");
+      setBusyAction("");
+    }
+  }
 
   return (
     <Card>
@@ -47,21 +74,31 @@ export function PlanManagementCard() {
         <PlanFact label="Plan status" value={planConfirmed ? "Confirmed" : "Awaiting secure workspace"} />
         <PlanFact label="Limit mode" value={planConfirmed ? enforcementMode === "monitor" ? "Monitoring only" : "Active" : "Not available"} />
         <PlanFact label="Trial or renewal" value={planConfirmed ? formatDate(renewalDate) : "Not available"} />
-        <PlanFact label="Billing" value="Stripe connection pending" />
+        <PlanFact label="Billing" value="Secure Stripe checkout" />
       </div>
+
+      <label className="mt-5 block max-w-sm text-sm font-semibold text-slate-700">
+        Plan for checkout
+        <select value={selectedTier} onChange={(event) => setSelectedTier(event.target.value as SubscriptionTier)} className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-ink shadow-sm">
+          {(Object.keys(subscriptionTiers) as SubscriptionTier[]).map((planTier) => (
+            <option key={planTier} value={planTier}>{subscriptionTiers[planTier].name}</option>
+          ))}
+        </select>
+      </label>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <a href="/pricing" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white">
+        <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("checkout")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
           <CreditCard size={16} aria-hidden="true" />
-          View plan options
-        </a>
-        <a href="/contact" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">
+          {busyAction === "checkout" ? "Opening..." : "Subscribe securely"}
+        </button>
+        <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("portal")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
           <ArrowUpRight size={16} aria-hidden="true" />
-          Request an upgrade
-        </a>
+          {busyAction === "portal" ? "Opening..." : "Manage billing"}
+        </button>
       </div>
 
-      <p className="mt-4 text-xs leading-5 text-slate-500">Paid plan changes will be confirmed by Stripe after checkout is connected.</p>
+      {billingMessage ? <p aria-live="polite" className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">{billingMessage}</p> : null}
+      <p className="mt-4 text-xs leading-5 text-slate-500">Plan access changes only after Stripe confirms payment through the secure webhook.</p>
     </Card>
   );
 }
