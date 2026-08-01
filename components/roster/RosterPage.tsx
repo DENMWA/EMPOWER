@@ -14,6 +14,7 @@ import { Card, PageHeader, Section } from "@/components/ui";
 import {
   filterRosterShifts,
   getStoredRosterShifts,
+  getRosterShiftConflicts,
   getRosterSummary,
   getWeekRosterShifts,
   markRosterShiftCompleted,
@@ -48,6 +49,7 @@ export function RosterPage() {
   }, [filters, selectedDate, shifts, view]);
 
   const summary = getRosterSummary(shifts);
+  const rosterConflicts = shifts.flatMap((shift, index) => getRosterShiftConflicts(shift, shifts.slice(0, index)));
   const rosterWorkers = Array.from(new Map(shifts.flatMap((shift) => getShiftAssignedWorkers(shift)).map((worker) => [worker.id, worker])).values());
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
     month: "long",
@@ -77,12 +79,20 @@ export function RosterPage() {
   }
 
   function addShiftToCalendar(shift: RosterShift) {
+    const conflicts = getRosterShiftConflicts(shift, shifts);
+    if (conflicts.length) {
+      const conflictSummary = conflicts.map(({ workerName, existingShift }) =>
+        `${workerName} is already rostered with ${existingShift.participantName} from ${existingShift.startTime} to ${existingShift.endTime}`
+      ).join("; ");
+      return `Shift conflict: ${conflictSummary}. Change the worker or shift time before saving.`;
+    }
     const updatedShifts = [...shifts, shift];
     setShifts(updatedShifts);
     saveRosterShifts(updatedShifts);
     setSelectedDate(shift.shiftDate);
     setView("day");
     setActiveShift(shift);
+    return "";
   }
 
   return (
@@ -111,12 +121,24 @@ export function RosterPage() {
           </div>
         </Card>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <Card><p className="text-sm font-medium text-slate-600">Today&apos;s rostered shifts</p><p className="mt-2 text-3xl font-bold text-ink">{summary.todayCount}</p></Card>
           <Card><p className="text-sm font-medium text-slate-600">Shifts in progress</p><p className="mt-2 text-3xl font-bold text-sky-800">{summary.inProgress}</p></Card>
           <Card><p className="text-sm font-medium text-slate-600">Completed needing notes</p><p className="mt-2 text-3xl font-bold text-amber-800">{summary.completedNeedingNotes}</p></Card>
           <Card><p className="text-sm font-medium text-slate-600">Cancelled/no-show shifts</p><p className="mt-2 text-3xl font-bold text-red-700">{summary.cancelledOrNoShow}</p></Card>
+          <Card className={rosterConflicts.length ? "border-red-200 bg-red-50" : ""}><p className="text-sm font-medium text-slate-600">Staff conflicts</p><p className={cn("mt-2 text-3xl font-bold", rosterConflicts.length ? "text-red-700" : "text-emerald-700")}>{rosterConflicts.length}</p></Card>
         </div>
+
+        {rosterConflicts.length ? (
+          <Card className="border-red-200 bg-red-50">
+            <h2 className="font-semibold text-red-900">Existing roster conflicts need review</h2>
+            <div className="mt-2 space-y-1 text-sm text-red-800">
+              {rosterConflicts.map(({ workerId, workerName, candidateShift, existingShift }, index) => (
+                <p key={`${workerId}-${existingShift.id}-${index}`}>{workerName}: {existingShift.participantName} {existingShift.startTime}-{existingShift.endTime} overlaps {candidateShift.participantName} {candidateShift.startTime}-{candidateShift.endTime} on {existingShift.shiftDate}.</p>
+              ))}
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>

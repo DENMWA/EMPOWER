@@ -7,7 +7,7 @@ import { createRosterShift, getRosterSelectOptions, type RosterShift } from "@/l
 import { getTenantClients } from "@/lib/client-records";
 import { getTenantStaffInvites } from "@/lib/staff-records";
 
-export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => void }) {
+export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => string | void }) {
   const { participants, workers, supportTypes } = getRosterSelectOptions();
   const [participantOptions, setParticipantOptions] = useState(participants.map(({ id, name }) => ({ id, name })));
   const [workerOptions, setWorkerOptions] = useState(workers.map(({ id, name }) => ({ id, name })));
@@ -50,6 +50,10 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (endTime <= startTime) {
+      setError("End time must be later than start time.");
+      return;
+    }
     const assignedWorkers = workerOptions.filter((worker) => selectedWorkerIds.includes(worker.id));
     if (!assignedWorkers.length) {
       setError("Select at least one staff member for this shift.");
@@ -60,7 +64,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       setError(`${staffingRatio} support requires ${expectedStaffCount} assigned staff member${expectedStaffCount === 1 ? "" : "s"}.`);
       return;
     }
-    onCreate(createRosterShift({
+    const creationError = onCreate(createRosterShift({
       participantId,
       participantName: participantOptions.find((item) => item.id === participantId)?.name,
       workerId: assignedWorkers[0].id,
@@ -77,6 +81,11 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       noteRequired: true,
       noteCompleted: false
     }));
+    if (creationError) {
+      setError(creationError);
+      return;
+    }
+    setError("");
     onClose();
   }
 

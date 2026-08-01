@@ -291,6 +291,36 @@ export function getShiftAssignedWorkers(shift: RosterShift) {
   return shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }];
 }
 
+export type RosterShiftConflict = {
+  workerId: string;
+  workerName: string;
+  candidateShift: RosterShift;
+  existingShift: RosterShift;
+};
+
+export function getRosterShiftConflicts(candidate: RosterShift, existingShifts: RosterShift[]) {
+  const candidateWorkerIds = new Set(getShiftAssignedWorkers(candidate).map((worker) => worker.id));
+  const conflicts: RosterShiftConflict[] = [];
+
+  for (const existingShift of existingShifts) {
+    if (existingShift.id === candidate.id || existingShift.shiftDate !== candidate.shiftDate) continue;
+    if (existingShift.status === "Cancelled" || existingShift.status === "No Show") continue;
+    if (!timesOverlap(candidate.startTime, candidate.endTime, existingShift.startTime, existingShift.endTime)) continue;
+
+    for (const worker of getShiftAssignedWorkers(existingShift)) {
+      if (candidateWorkerIds.has(worker.id)) {
+        conflicts.push({ workerId: worker.id, workerName: worker.name, candidateShift: candidate, existingShift });
+      }
+    }
+  }
+
+  return conflicts;
+}
+
+function timesOverlap(startA: string, endA: string, startB: string, endB: string) {
+  return startA < endB && startB < endA;
+}
+
 export function updateRosterShiftStatus(shifts: RosterShift[], shiftId: string, status: RosterStatus) {
   return shifts.map((shift) => (shift.id === shiftId ? { ...shift, status } : shift));
 }
