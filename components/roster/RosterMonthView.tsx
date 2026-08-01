@@ -1,6 +1,6 @@
 "use client";
 
-import { getEmployeeColourScheme, type RosterShift } from "@/lib/roster";
+import { getEmployeeColourScheme, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -72,7 +72,7 @@ export function RosterMonthView({
                         type="button"
                         onClick={() => onOpenShift(shift)}
                         className={cn("block w-full truncate rounded border-l-4 px-2 py-1 text-left text-xs font-semibold", colour.softBg, colour.border, colour.text)}
-                        title={`${shift.startTime} ${shift.participantName} - ${shift.workerName}`}
+                        title={`${shift.startTime} ${shift.participantName} - ${getShiftAssignedWorkers(shift).map((worker) => worker.name).join(", ")}`}
                       >
                         {shift.startTime} {shift.participantName}
                       </button>

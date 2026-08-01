@@ -2,7 +2,7 @@
 
 import { CheckCircle2, FileCheck2, MapPin, X } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
-import { getEmployeeColourScheme, type RosterShift } from "@/lib/roster";
+import { getEmployeeColourScheme, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterShiftModal({
@@ -19,6 +19,7 @@ export function RosterShiftModal({
   if (!shift) return null;
 
   const colour = getEmployeeColourScheme(shift.workerId);
+  const assignedWorkers = getShiftAssignedWorkers(shift);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="roster-shift-title">
@@ -38,8 +39,10 @@ export function RosterShiftModal({
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div className={cn("rounded-md border p-4", colour.softBg, colour.border)}>
-              <p className="text-sm font-semibold text-slate-600">Worker</p>
-              <p className={cn("mt-1 text-lg font-semibold", colour.text)}>{shift.workerName}</p>
+              <p className="text-sm font-semibold text-slate-600">Assigned staff{shift.staffingRatio ? ` - ${shift.staffingRatio}` : ""}</p>
+              <div className="mt-2 space-y-1">
+                {assignedWorkers.map((worker) => <p key={worker.id} className={cn("font-semibold", colour.text)}>{worker.name}</p>)}
+              </div>
             </div>
             <div className="rounded-md border border-slate-200 p-4">
               <p className="text-sm font-semibold text-slate-600">Time</p>

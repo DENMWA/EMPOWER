@@ -8,6 +8,8 @@ export type RosterShift = {
   participantName: string;
   workerId: string;
   workerName: string;
+  assignedWorkers?: Array<{ id: string; name: string }>;
+  staffingRatio?: string;
   supportType: string;
   shiftDate: string;
   startTime: string;
@@ -263,7 +265,7 @@ export function getRosterReportSummary(shifts: RosterShift[] = rosterShifts, per
 
 export function filterRosterShifts(shifts: RosterShift[], filters: RosterFilters) {
   return shifts.filter((shift) => {
-    const workerMatches = filters.workerId === "all" || shift.workerId === filters.workerId;
+    const workerMatches = filters.workerId === "all" || shift.workerId === filters.workerId || Boolean(shift.assignedWorkers?.some((worker) => worker.id === filters.workerId));
     const statusMatches = filters.status === "all" || shift.status === filters.status;
     const noteMatches =
       filters.noteState === "all" ||
@@ -283,6 +285,10 @@ export function createRosterShift(input: Omit<RosterShift, "id" | "participantNa
     participantName: input.participantName || participant?.name || "Participant",
     workerName: input.workerName || worker?.name || "Worker"
   };
+}
+
+export function getShiftAssignedWorkers(shift: RosterShift) {
+  return shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }];
 }
 
 export function updateRosterShiftStatus(shifts: RosterShift[], shiftId: string, status: RosterStatus) {

@@ -18,6 +18,7 @@ import {
   getWeekRosterShifts,
   markRosterShiftCompleted,
   markRosterShiftNoteCompleted,
+  getShiftAssignedWorkers,
   rosterShifts,
   saveRosterShifts,
   type RosterFilters as RosterFiltersType,
@@ -47,7 +48,7 @@ export function RosterPage() {
   }, [filters, selectedDate, shifts, view]);
 
   const summary = getRosterSummary(shifts);
-  const rosterWorkers = Array.from(new Map(shifts.map((shift) => [shift.workerId, { id: shift.workerId, name: shift.workerName }])).values());
+  const rosterWorkers = Array.from(new Map(shifts.flatMap((shift) => getShiftAssignedWorkers(shift)).map((worker) => [worker.id, worker])).values());
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
     month: "long",
     year: "numeric",
@@ -154,7 +155,7 @@ export function RosterPage() {
 
         <Card>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Worker allocation</p>
-          <div className="mt-3"><EmployeeColourLegend /></div>
+          <div className="mt-3"><EmployeeColourLegend workers={rosterWorkers} /></div>
         </Card>
 
         <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} />
