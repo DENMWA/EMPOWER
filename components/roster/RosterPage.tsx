@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, LockKeyhole } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
@@ -13,11 +13,13 @@ import { RosterWeekView } from "@/components/roster/RosterWeekView";
 import { Card, PageHeader, Section } from "@/components/ui";
 import {
   filterRosterShifts,
+  getStoredRosterShifts,
   getRosterSummary,
   getWeekRosterShifts,
   markRosterShiftCompleted,
   markRosterShiftNoteCompleted,
   rosterShifts,
+  saveRosterShifts,
   type RosterFilters as RosterFiltersType,
   type RosterShift
 } from "@/lib/roster";
@@ -31,6 +33,10 @@ export function RosterPage() {
   const [activeShift, setActiveShift] = useState<RosterShift | null>(null);
   const [creating, setCreating] = useState(false);
 
+  useEffect(() => {
+    setShifts(getStoredRosterShifts());
+  }, []);
+
   const visibleShifts = useMemo(() => {
     const scoped = view === "day"
       ? shifts.filter((shift) => shift.shiftDate === selectedDate)
@@ -41,6 +47,7 @@ export function RosterPage() {
   }, [filters, selectedDate, shifts, view]);
 
   const summary = getRosterSummary(shifts);
+  const rosterWorkers = Array.from(new Map(shifts.map((shift) => [shift.workerId, { id: shift.workerId, name: shift.workerName }])).values());
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
     month: "long",
     year: "numeric",
@@ -62,9 +69,19 @@ export function RosterPage() {
 
   function updateActive(updatedShifts: RosterShift[]) {
     setShifts(updatedShifts);
+    saveRosterShifts(updatedShifts);
     if (activeShift) {
       setActiveShift(updatedShifts.find((shift) => shift.id === activeShift.id) ?? null);
     }
+  }
+
+  function addShiftToCalendar(shift: RosterShift) {
+    const updatedShifts = [...shifts, shift];
+    setShifts(updatedShifts);
+    saveRosterShifts(updatedShifts);
+    setSelectedDate(shift.shiftDate);
+    setView("day");
+    setActiveShift(shift);
   }
 
   return (
@@ -140,7 +157,7 @@ export function RosterPage() {
           <div className="mt-3"><EmployeeColourLegend /></div>
         </Card>
 
-        <RosterFilters filters={filters} onChange={setFilters} />
+        <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} />
 
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 
@@ -159,7 +176,7 @@ export function RosterPage() {
         onComplete={(shiftId) => updateActive(markRosterShiftCompleted(shifts, shiftId))}
         onNoteCompleted={(shiftId) => updateActive(markRosterShiftNoteCompleted(shifts, shiftId))}
       />
-      <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={(shift) => setShifts((current) => [...current, shift])} />
+      <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} />
     </>
   );
 }

@@ -3,9 +3,8 @@
 import { Filter } from "lucide-react";
 import { Card } from "@/components/ui";
 import { rosterStatuses, type RosterFilters as RosterFiltersType } from "@/lib/roster";
-import { users } from "@/lib/sample-data";
 
-export function RosterFilters({ filters, onChange }: { filters: RosterFiltersType; onChange: (filters: RosterFiltersType) => void }) {
+export function RosterFilters({ filters, onChange, workers }: { filters: RosterFiltersType; onChange: (filters: RosterFiltersType) => void; workers: Array<{ id: string; name: string }> }) {
   return (
     <Card className="grid gap-4 lg:grid-cols-[auto_1fr_1fr_1fr] lg:items-end">
       <div className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -16,7 +15,7 @@ export function RosterFilters({ filters, onChange }: { filters: RosterFiltersTyp
         Worker
         <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={filters.workerId} onChange={(event) => onChange({ ...filters, workerId: event.target.value })}>
           <option value="all">All workers</option>
-          {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+          {workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
         </select>
       </label>
       <label className="grid gap-1 text-sm font-medium text-slate-700">

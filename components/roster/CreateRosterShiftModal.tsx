@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
 import { createRosterShift, getRosterSelectOptions, type RosterShift } from "@/lib/roster";
+import { getTenantClients } from "@/lib/client-records";
+import { getTenantStaffInvites } from "@/lib/staff-records";
 
 export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => void }) {
   const { participants, workers, supportTypes } = getRosterSelectOptions();
+  const [participantOptions, setParticipantOptions] = useState(participants.map(({ id, name }) => ({ id, name })));
+  const [workerOptions, setWorkerOptions] = useState(workers.map(({ id, name }) => ({ id, name })));
   const [participantId, setParticipantId] = useState(participants[0]?.id ?? "");
   const [workerId, setWorkerId] = useState(workers[0]?.id ?? "");
   const [supportType, setSupportType] = useState(supportTypes[0] ?? "Community access");
@@ -16,13 +20,31 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
   const [location, setLocation] = useState("Community");
   const [shiftInstructions, setShiftInstructions] = useState("Capture support provided, participant response, and any follow-up actions.");
 
+  useEffect(() => {
+    if (!open) return;
+    Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clients, staff]) => {
+      const nextParticipants = clients.map(({ id, name }) => ({ id, name }));
+      const nextWorkers = staff.map(({ id, name }) => ({ id, name }));
+      if (nextParticipants.length) {
+        setParticipantOptions(nextParticipants);
+        setParticipantId((current) => nextParticipants.some((item) => item.id === current) ? current : nextParticipants[0].id);
+      }
+      if (nextWorkers.length) {
+        setWorkerOptions(nextWorkers);
+        setWorkerId((current) => nextWorkers.some((item) => item.id === current) ? current : nextWorkers[0].id);
+      }
+    }).catch(() => undefined);
+  }, [open]);
+
   if (!open) return null;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onCreate(createRosterShift({
       participantId,
+      participantName: participantOptions.find((item) => item.id === participantId)?.name,
       workerId,
+      workerName: workerOptions.find((item) => item.id === workerId)?.name,
       supportType,
       shiftDate,
       startTime,
@@ -53,13 +75,13 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Participant
             <select className="min-h-11 rounded-md border border-slate-300 px-3" value={participantId} onChange={(event) => setParticipantId(event.target.value)}>
-              {participants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
+              {participantOptions.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
             </select>
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Worker
             <select className="min-h-11 rounded-md border border-slate-300 px-3" value={workerId} onChange={(event) => setWorkerId(event.target.value)}>
-              {workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
+              {workerOptions.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
             </select>
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700">

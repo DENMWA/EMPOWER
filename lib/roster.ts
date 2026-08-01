@@ -107,6 +107,7 @@ const tomorrow = addDays(1);
 const thisWeek = addDays(2);
 
 export const rosterStatuses: RosterStatus[] = ["Scheduled", "In Progress", "Completed", "Note Required", "Note Completed", "Cancelled", "No Show"];
+const rosterStorageKey = "empowernotes:roster-shifts";
 
 export const rosterShifts: RosterShift[] = [
   {
@@ -198,7 +199,22 @@ export function getEmployeeColourScheme(workerId: string) {
 }
 
 export function getRosterShifts() {
-  return rosterShifts;
+  return getStoredRosterShifts();
+}
+
+export function getStoredRosterShifts() {
+  if (typeof window === "undefined") return rosterShifts;
+  try {
+    const stored = window.localStorage.getItem(rosterStorageKey);
+    return stored ? JSON.parse(stored) as RosterShift[] : rosterShifts;
+  } catch {
+    return rosterShifts;
+  }
+}
+
+export function saveRosterShifts(shifts: RosterShift[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(rosterStorageKey, JSON.stringify(shifts));
 }
 
 export function getTodayRosterShifts(shifts: RosterShift[] = rosterShifts) {
@@ -258,14 +274,14 @@ export function filterRosterShifts(shifts: RosterShift[], filters: RosterFilters
   });
 }
 
-export function createRosterShift(input: Omit<RosterShift, "id" | "participantName" | "workerName">) {
+export function createRosterShift(input: Omit<RosterShift, "id" | "participantName" | "workerName"> & { participantName?: string; workerName?: string }) {
   const participant = participants.find((item) => item.id === input.participantId);
   const worker = users.find((item) => item.id === input.workerId);
   return {
     ...input,
-    id: `shift-${Date.now()}`,
-    participantName: participant?.name ?? "Participant",
-    workerName: worker?.name ?? "Worker"
+    id: globalThis.crypto?.randomUUID?.() || `shift-${Date.now()}`,
+    participantName: input.participantName || participant?.name || "Participant",
+    workerName: input.workerName || worker?.name || "Worker"
   };
 }
 
