@@ -378,7 +378,7 @@ export function ProgressNoteGenerator() {
     setLoading(false);
   }
 
-  function useRewriteOption(option: string) {
+  function applyRewriteOption(option: string) {
     const continenceSummary = formatContinenceSummary();
     const mealsAndFluidSummary = formatMealsAndFluidSummary();
     const careSummaries = [continenceSummary, mealsAndFluidSummary].filter(Boolean).join("\n\n");
@@ -392,7 +392,7 @@ export function ProgressNoteGenerator() {
     markTrialStepComplete("progress-note");
   }
 
-  function useVoiceTranscript(transcript: string) {
+  function applyVoiceTranscript(transcript: string) {
     setRoughNote(transcript);
     setRewriteOptions([]);
     setMissing(checkMissingDetails(transcript));
@@ -424,7 +424,7 @@ export function ProgressNoteGenerator() {
         </div>
         <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
           <p className="font-semibold">Fidelity-first improvement</p>
-          <p className="mt-1">EmpowerNotes keeps the worker's original shift note first, then expands only within the documented facts. Missing details are flagged for confirmation instead of being invented.</p>
+          <p className="mt-1">EmpowerNotes keeps the worker&apos;s original shift note first, then expands only within the documented facts. Missing details are flagged for confirmation instead of being invented.</p>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
@@ -466,7 +466,7 @@ export function ProgressNoteGenerator() {
           Shift note
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
-        <GuidedVoiceDocumentation embedded onUseTranscript={useVoiceTranscript} />
+        <GuidedVoiceDocumentation embedded onUseTranscript={applyVoiceTranscript} />
         {showPersonalCareRecord ? (
           <div className="mt-5 rounded-md border border-teal-100 bg-teal-50/60 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -650,7 +650,7 @@ export function ProgressNoteGenerator() {
               <button
                 key={`${option}-${index}`}
                 type="button"
-                onClick={() => useRewriteOption(option)}
+                onClick={() => applyRewriteOption(option)}
                 className="rounded-md border border-slate-200 bg-slate-50 p-4 text-left text-sm leading-7 text-slate-800 transition hover:border-teal-400 hover:bg-white focus:outline focus:outline-2 focus:outline-teal-700"
               >
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-sea">Option {index + 1}</span>

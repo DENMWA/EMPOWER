@@ -89,7 +89,7 @@ export function DocumentVault() {
         {!allDocuments.length ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
             <p className="font-semibold text-ink">No client documents saved yet</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Add a client, then upload their documents so this vault shows only that organisation's records.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Add a client, then upload their documents so this vault shows only that organisation&apos;s records.</p>
           </div>
         ) : null}
         {allDocuments.map((doc) => {

@@ -137,7 +137,7 @@ export function ProgressDashboard() {
           ) : (
             <div className={`rounded-md border border-dashed p-4 ${selectedColour.border} ${selectedColour.panel}`}>
               <p className="font-semibold text-ink">No verified extraction items yet</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">Upload this client's plan above, review the ChatGPT extraction, then queue authorised baseline verification.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-700">Upload this client&apos;s plan above, review the ChatGPT extraction, then queue authorised baseline verification.</p>
             </div>
           )}
         </div>
