@@ -4,7 +4,6 @@ const dataModeKey = "empowernotes:data-mode";
 export type DataMode = "demo" | "real";
 
 export function getDataMode(): DataMode {
-  if (process.env.NEXT_PUBLIC_PRESENTATION_MODE === "true") return "demo";
   if (typeof window === "undefined") return "demo";
 
   const stored = window.localStorage.getItem(dataModeKey);

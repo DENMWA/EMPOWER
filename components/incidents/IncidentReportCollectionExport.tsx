@@ -6,6 +6,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 type StoredIncidentReport = {
   incidentId: string;
@@ -85,8 +86,9 @@ function getStoredIncidentReports() {
   if (typeof window === "undefined") return [];
   if (isDemoModeEnabled()) return [];
 
+  const scopedPrefix = `${tenantStorageKey("empowernotes-incident")}:`;
   return Object.keys(window.localStorage)
-    .filter((key) => key.startsWith("empowernotes-incident:"))
+    .filter((key) => key.startsWith(scopedPrefix))
     .map((key) => {
       try {
         const report = JSON.parse(window.localStorage.getItem(key) || "") as StoredIncidentReport;

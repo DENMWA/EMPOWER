@@ -2,6 +2,7 @@ import type { Participant } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 import { checkActiveParticipantLimit } from "@/lib/subscriptions/client-limits";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type ClientRecord = Participant & {
   ndisNumber?: string;
@@ -24,7 +25,7 @@ export function getStoredClients() {
   if (isPresentationModeEnabled()) return [];
 
   try {
-    const stored = window.localStorage.getItem(clientStorageKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(clientStorageKey));
     return stored ? (JSON.parse(stored) as ClientRecord[]) : [];
   } catch {
     return [];
@@ -32,7 +33,7 @@ export function getStoredClients() {
 }
 
 export function saveStoredClients(clients: ClientRecord[]) {
-  window.localStorage.setItem(clientStorageKey, JSON.stringify(clients));
+  window.localStorage.setItem(tenantStorageKey(clientStorageKey), JSON.stringify(clients));
   window.dispatchEvent(new Event(clientsUpdatedEvent));
 }
 
@@ -80,21 +81,19 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
 
 export async function getTenantClients() {
   if (isPresentationModeEnabled()) return [];
-  const localClients = getStoredClients();
-
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,ndis_number,created_at&order=created_at.desc"
   });
 
-  if (!result.data || result.error) return localClients;
+  if (!result.data || result.error) return [];
 
   const cloudClients = result.data.map(toClientRecord);
-  const localOnlyClients = localClients.filter((localClient) => !cloudClients.some((cloudClient) => cloudClient.id === localClient.id));
-  return [...cloudClients, ...localOnlyClients];
+  return cloudClients;
 }
 
 export async function saveTenantClient(client: ClientRecord) {
-  const limit = checkActiveParticipantLimit(getStoredClients().length);
+  const storedClients = getStoredClients();
+  const limit = checkActiveParticipantLimit(storedClients.some((item) => item.id === client.id) ? Math.max(0, storedClients.length - 1) : storedClients.length);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
 
   addStoredClient(client);
@@ -104,6 +103,8 @@ export async function saveTenantClient(client: ClientRecord) {
 
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     method: "POST",
+    query: "on_conflict=id",
+    prefer: "resolution=merge-duplicates,return=representation",
     body: {
       id: client.id,
       organisation_id: organisationId,

@@ -65,7 +65,7 @@ export function TrialRunChecklist() {
           <div className="h-full rounded-full bg-sea transition-all" style={{ width: `${progress}%` }} />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <AccessCard label="Admin password" value="EmpowerNotes2026" />
+          <AccessCard label="Admin access" value="Verified workspace role" />
           <button type="button" onClick={resetTrial} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">
             <RotateCcw size={17} aria-hidden="true" />
             Reset trial ticks

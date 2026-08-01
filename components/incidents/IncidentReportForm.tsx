@@ -358,6 +358,8 @@ export function IncidentReportForm() {
   const [selectedMarkerId, setSelectedMarkerId] = useState(initialReport.markers[0]?.id ?? "");
   const [savedAt, setSavedAt] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [retryReport, setRetryReport] = useState<typeof initialReport | null>(null);
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
   const accessibleHouses = useMemo(() => filterHousesByAccess(houses), [houses]);
@@ -582,10 +584,21 @@ export function IncidentReportForm() {
       return;
     }
 
+    setSaveState("saving");
+    setSaveMessage("Saving incident to this organisation...");
     const result = await saveIncidentReport(nextReport);
     setReport(nextReport);
+    const fullySaved = result.savedToCloud && result.savedToStructuredCloud;
+    if (!fullySaved) {
+      setSaveState("failed");
+      setRetryReport(nextReport);
+      setSaveMessage(`Cloud save failed. A recovery draft remains on this device. ${result.structuredError || result.error || "Try again."}`);
+      return;
+    }
     setSavedAt(new Date(result.savedAt).toLocaleString("en-AU"));
-    setSaveMessage(result.savedToCloud ? successMessage : "Incident saved locally. Sign in to save it to this organisation's workspace.");
+    setSaveState("saved");
+    setRetryReport(null);
+    setSaveMessage(successMessage);
     markTrialStepComplete("incident-report");
   }
 
@@ -607,12 +620,12 @@ export function IncidentReportForm() {
           <p>Participant: <strong className="text-ink">{report.participant}</strong></p>
           <p>House/service: <strong className="text-ink">{report.houseName || "Not selected"}</strong></p>
           <p>Reporter: <strong className="text-ink">{report.reporter}</strong></p>
-          <p>{savedAt ? `Saved ${savedAt}` : "Unsaved local draft"}</p>
+          <p>{saveState === "saving" ? "Saving..." : savedAt ? `Saved ${savedAt}` : "Not yet saved to the organisation"}</p>
         </div>
-        {saveMessage ? <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{saveMessage}</p> : null}
+        {saveMessage ? <p aria-live="polite" className={`mt-4 rounded-md px-3 py-2 text-sm font-semibold ${saveState === "failed" ? "bg-red-50 text-red-700" : saveState === "saving" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>{saveMessage}</p> : null}
         <div className="mt-5 grid gap-2">
-          <button type="button" onClick={saveDraft} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift"><Save size={17} />Save draft</button>
-          <button type="button" onClick={submitReport} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift"><Send size={17} />Submit</button>
+          <button type="button" onClick={retryReport ? () => persistReport(retryReport, retryReport.status === "Submitted" ? "Incident submitted to admin for manager response." : "Incident draft saved to this organisation.") : saveDraft} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400"><Save size={17} />{saveState === "saving" ? "Saving..." : retryReport ? "Retry save" : "Save draft"}</button>
+          <button type="button" onClick={submitReport} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400"><Send size={17} />Submit</button>
         </div>
       </aside>
 

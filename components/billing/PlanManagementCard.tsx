@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, CreditCard } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
-import { getCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
 
@@ -12,7 +11,7 @@ export function PlanManagementCard() {
   const [status, setStatus] = useState("Loading");
   const [enforcementMode, setEnforcementMode] = useState<"monitor" | "enforce">("monitor");
   const [renewalDate, setRenewalDate] = useState("");
-  const [source, setSource] = useState<"supabase" | "local-fallback">("local-fallback");
+  const [planConfirmed, setPlanConfirmed] = useState(false);
 
   useEffect(() => {
     async function loadPlan() {
@@ -22,13 +21,12 @@ export function PlanManagementCard() {
         setStatus(live.data.status);
         setEnforcementMode(live.data.enforcementMode);
         setRenewalDate(live.data.trialEndsAt || live.data.currentPeriodEnd);
-        setSource("supabase");
+        setPlanConfirmed(true);
         return;
       }
 
-      setTier(getCurrentSubscriptionTier());
-      setStatus("Plan confirmation pending");
-      setSource("local-fallback");
+      setStatus("Plan unavailable");
+      setPlanConfirmed(false);
     }
 
     void loadPlan();
@@ -38,7 +36,7 @@ export function PlanManagementCard() {
     <Card>
       <p className="text-sm font-semibold uppercase tracking-wide text-sea">Admin plan control</p>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-ink">Current plan: {subscriptionTiers[tier].name}</h2>
+        <h2 className="text-xl font-semibold text-ink">{planConfirmed ? `Current plan: ${subscriptionTiers[tier].name}` : "Current plan unavailable"}</h2>
         <StatusBadge label={statusLabel(status)} tone={statusTone(status)} />
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-700">
@@ -46,9 +44,9 @@ export function PlanManagementCard() {
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <PlanFact label="Plan source" value={source === "supabase" ? "Secure workspace" : "Temporary local estimate"} />
-        <PlanFact label="Limit mode" value={enforcementMode === "monitor" ? "Monitoring only" : "Active"} />
-        <PlanFact label="Trial or renewal" value={formatDate(renewalDate)} />
+        <PlanFact label="Plan status" value={planConfirmed ? "Confirmed" : "Awaiting secure workspace"} />
+        <PlanFact label="Limit mode" value={planConfirmed ? enforcementMode === "monitor" ? "Monitoring only" : "Active" : "Not available"} />
+        <PlanFact label="Trial or renewal" value={planConfirmed ? formatDate(renewalDate) : "Not available"} />
         <PlanFact label="Billing" value="Stripe connection pending" />
       </div>
 

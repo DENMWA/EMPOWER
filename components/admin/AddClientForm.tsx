@@ -29,6 +29,9 @@ export function AddClientForm() {
   const [serviceName, setServiceName] = useState("");
   const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [pendingClientId, setPendingClientId] = useState("");
   const [message, setMessage] = useState("");
   const allStaff = useMemo(() => storedStaff.length ? storedStaff : realMode ? [] : users, [storedStaff, realMode]);
 
@@ -80,7 +83,11 @@ export function AddClientForm() {
       return;
     }
 
-    const clientId = createClientId(cleanName);
+    setSaving(true);
+    setSaveFailed(false);
+    setMessage("Saving client to this organisation...");
+    const clientId = pendingClientId || createClientId(cleanName);
+    if (!pendingClientId) setPendingClientId(clientId);
     const selectedHouse = houses.find((house) => house.id === primaryHouseId);
     const result = await saveTenantClient({
       primaryHouseId,
@@ -102,21 +109,41 @@ export function AddClientForm() {
 
     if (result.error && result.error.includes("allows")) {
       setSaved(false);
+      setSaving(false);
+      setSaveFailed(true);
       setMessage(result.error);
+      return;
+    }
+
+    if (!result.savedToCloud) {
+      setSaved(false);
+      setSaving(false);
+      setSaveFailed(true);
+      setMessage(`Cloud save failed. The client details remain here for retry. ${result.error || "Try again."}`);
       return;
     }
 
     const savedClientId = result.clientId || clientId;
     if (selectedHouse && !selectedHouse.clientIds.includes(savedClientId)) {
-      await saveTenantHouse({
+      const houseResult = await saveTenantHouse({
         ...selectedHouse,
         clientIds: [...selectedHouse.clientIds, savedClientId]
       });
+      if (!houseResult.savedToCloud) {
+        setSaved(false);
+        setSaving(false);
+        setSaveFailed(true);
+        setMessage(`The client was saved, but the house assignment failed. Retry to complete it. ${houseResult.error || ""}`);
+        return;
+      }
     }
 
     setSaved(true);
+    setSaving(false);
+    setSaveFailed(false);
+    setPendingClientId("");
     markTrialStepComplete("add-client");
-    setMessage(result.savedToCloud ? `${cleanName} saved to this organisation.` : `${cleanName} saved locally. ${result.error || "Sign in to save it to this organisation's workspace."}`);
+    setMessage(`${cleanName} saved to this organisation.`);
     setName("");
     setInitials("");
     setNdisNumber("");
@@ -226,16 +253,16 @@ export function AddClientForm() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button type="button" onClick={saveClient} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={saveClient} disabled={saving} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
           <Save size={18} aria-hidden="true" />
-          Save client
+          {saving ? "Saving..." : saveFailed ? "Retry save" : "Save client"}
         </button>
         <a href="/documents" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <FilePlus2 size={18} aria-hidden="true" />
           Add document later
         </a>
       </div>
-      {message ? <p className={cn("mt-3 rounded-md px-3 py-2 text-sm font-semibold", saved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-900")}>{message}</p> : null}
+      {message ? <p aria-live="polite" className={cn("mt-3 rounded-md px-3 py-2 text-sm font-semibold", saved ? "bg-emerald-50 text-emerald-700" : saveFailed ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700")}>{message}</p> : null}
     </Card>
   );
 }

@@ -5,10 +5,12 @@ import { Card, StatusBadge } from "@/components/ui";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { progressNotes, users } from "@/lib/sample-data";
+import { isDemoModeEnabled } from "@/lib/presentation-mode";
 
 export function ManagerApprovalPanel() {
   const [statuses, setStatuses] = useState<Record<string, string>>({});
   const [savedNotes, setSavedNotes] = useState<RetainedRecord[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     function loadNotes() {
@@ -16,6 +18,7 @@ export function ManagerApprovalPanel() {
     }
 
     loadNotes();
+    setDemoMode(isDemoModeEnabled());
     window.addEventListener("empowernotes:retained-records-updated", loadNotes);
     return () => window.removeEventListener("empowernotes:retained-records-updated", loadNotes);
   }, []);
@@ -53,7 +56,7 @@ export function ManagerApprovalPanel() {
             </div>
           );
         })}
-        {progressNotes.map((note) => {
+        {(demoMode ? progressNotes : []).map((note) => {
           const staff = users.find((user) => user.id === note.staffId);
           const status = statuses[note.id] ?? note.status;
           return (

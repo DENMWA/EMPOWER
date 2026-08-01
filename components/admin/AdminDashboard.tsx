@@ -16,8 +16,9 @@ import {
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getNativeBillingRecords, type NativeBillingRecords } from "@/lib/native-billing";
-import { getRosterShiftConflicts, getRosterSummary, getStoredRosterShifts, type RosterShift } from "@/lib/roster";
-import { progressNotes } from "@/lib/sample-data";
+import { getRosterShiftConflicts, getRosterSummary, type RosterShift } from "@/lib/roster";
+import { loadTenantRosterShifts } from "@/lib/roster-cloud";
+import { getTenantRetainedRecords } from "@/lib/retained-records";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { cn } from "@/lib/utils";
 
@@ -68,19 +69,29 @@ export function AdminDashboard() {
   const [staff, setStaff] = useState<StaffRecord[]>([]);
   const [shifts, setShifts] = useState<RosterShift[]>([]);
   const [billing, setBilling] = useState<NativeBillingRecords>(emptyBilling);
+  const [notesNeedingReview, setNotesNeedingReview] = useState(0);
 
   useEffect(() => {
     Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clientRecords, staffRecords]) => {
       setClients(clientRecords);
       setStaff(staffRecords);
     }).catch(() => undefined);
-    setShifts(getStoredRosterShifts());
+    loadTenantRosterShifts().then((result) => setShifts(result.shifts)).catch(() => setShifts([]));
     setBilling(getNativeBillingRecords());
+    getTenantRetainedRecords("progress-note").then((records) => {
+      setNotesNeedingReview(records.filter((record) => {
+        try {
+          const note = JSON.parse(record.body) as { status?: string; score?: number; missingDetails?: unknown[] };
+          return note.status === "Needs Review" || (typeof note.score === "number" && note.score < 80) || Boolean(note.missingDetails?.length);
+        } catch {
+          return false;
+        }
+      }).length);
+    }).catch(() => setNotesNeedingReview(0));
   }, []);
 
   const rosterSummary = getRosterSummary(shifts);
   const conflicts = shifts.flatMap((shift, index) => getRosterShiftConflicts(shift, shifts.slice(0, index)));
-  const notesNeedingReview = progressNotes.filter((note) => note.score < 80 || note.missingDetails.length > 0).length;
   const servicesReady = billing.shifts.filter((service) =>
     service.status === "completed" && !billing.invoiceLines.some((line) => line.shiftId === service.id && line.approvalStatus !== "needs_correction")
   ).length;

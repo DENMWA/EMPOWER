@@ -2,6 +2,7 @@ import { getStoredClients, type ClientRecord } from "@/lib/client-records";
 import type { RetainedRecord } from "@/lib/retained-records";
 import type { StaffRecord } from "@/lib/staff-records";
 import type { RosterShift } from "@/lib/roster";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type ShiftStatus = "draft" | "scheduled" | "completed" | "cancelled" | "no_show" | "missed" | "archived";
 export type PricingVersionStatus = "draft" | "active" | "superseded" | "archived" | "failed";
@@ -163,7 +164,7 @@ export function getNativeBillingRecords(): NativeBillingRecords {
   if (typeof window === "undefined") return getEmptyBillingRecords();
 
   try {
-    const stored = window.localStorage.getItem(storageKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(storageKey));
     return stored ? { ...getEmptyBillingRecords(), ...JSON.parse(stored) as NativeBillingRecords } : getEmptyBillingRecords();
   } catch {
     return getEmptyBillingRecords();
@@ -171,7 +172,7 @@ export function getNativeBillingRecords(): NativeBillingRecords {
 }
 
 export function saveNativeBillingRecords(records: NativeBillingRecords) {
-  window.localStorage.setItem(storageKey, JSON.stringify(records));
+  window.localStorage.setItem(tenantStorageKey(storageKey), JSON.stringify(records));
   window.dispatchEvent(new Event(nativeBillingUpdatedEvent));
   void import("@/lib/native-billing-cloud").then(({ queueNativeBillingCloudSync }) => queueNativeBillingCloudSync(records));
 }
@@ -332,14 +333,14 @@ export function linkCompletedRosterService(input: {
   noteRecordId?: string;
 }) {
   const records = getNativeBillingRecords();
-  const existing = records.shifts.find((shift) => shift.rosterShiftId === input.rosterShift.id);
-  if (existing) return { shift: existing, error: "This completed roster service is already linked to billing." };
+  const existing = records.shifts.find((shift) => shift.id === input.rosterShift.id || shift.rosterShiftId === input.rosterShift.id);
+  if (existing?.serviceAgreementId) return { shift: existing, error: "This completed roster service is already linked to billing." };
 
   const assignedStaff = input.rosterShift.assignedWorkers?.length
     ? input.rosterShift.assignedWorkers
     : [{ id: input.rosterShift.workerId, name: input.rosterShift.workerName }];
   const shift: SupportShift = {
-    id: createId("shift"),
+    id: input.rosterShift.id,
     rosterShiftId: input.rosterShift.id,
     participantId: input.rosterShift.participantId,
     participantName: input.rosterShift.participantName,
@@ -357,7 +358,12 @@ export function linkCompletedRosterService(input: {
     createdAt: new Date().toISOString()
   };
 
-  saveNativeBillingRecords({ ...records, shifts: [shift, ...records.shifts] });
+  saveNativeBillingRecords({
+    ...records,
+    shifts: existing
+      ? records.shifts.map((item) => item.id === existing.id ? { ...item, ...shift } : item)
+      : [shift, ...records.shifts]
+  });
   return { shift, error: "" };
 }
 

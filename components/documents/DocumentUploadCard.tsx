@@ -48,6 +48,9 @@ export function DocumentUploadCard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [pendingDocumentId, setPendingDocumentId] = useState("");
+  const [pendingFilePath, setPendingFilePath] = useState("");
   const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
   const selectedClient = allParticipants.find((participant) => participant.id === clientId) ?? allParticipants[0];
 
@@ -94,22 +97,28 @@ export function DocumentUploadCard() {
     }
 
     setSaving(true);
+    setSaveFailed(false);
+    setMessage("Saving document to this organisation...");
     const organisationId = await getCurrentOrganisationId();
-    const filePath = buildDocumentStoragePath({
+    const filePath = pendingFilePath || buildDocumentStoragePath({
       organisationId,
       participantId: selectedClient.id,
       documentType,
       fileName: selectedFile?.name || fileName
     });
+    if (!pendingFilePath) setPendingFilePath(filePath);
     const uploadResult = selectedFile ? await uploadTenantDocumentFile(selectedFile, filePath) : { uploaded: false, error: "No file selected; metadata saved only." };
     if (selectedFile && !uploadResult.uploaded) {
       setMessage(`File upload stopped: ${uploadResult.error}`);
+      setSaveFailed(true);
       setSaving(false);
       return;
     }
 
+    const documentId = pendingDocumentId || createDocumentId();
+    if (!pendingDocumentId) setPendingDocumentId(documentId);
     const result = await saveTenantDocumentRecord({
-      id: createDocumentId(),
+      id: documentId,
       participantId: selectedClient.id,
       clientName: selectedClient.name,
       type: documentType,
@@ -126,13 +135,22 @@ export function DocumentUploadCard() {
 
     if (result.error && result.error.includes("allows")) {
       setMessage(result.error);
+      setSaveFailed(true);
+      setSaving(false);
+      return;
+    }
+
+    if (!result.savedToCloud) {
+      setMessage(`Cloud save failed. The document details remain here for retry. ${result.error || "Try again."}`);
+      setSaveFailed(true);
       setSaving(false);
       return;
     }
 
     const fileText = selectedFile ? "File uploaded to private storage." : "No file selected; document metadata saved only.";
-    const cloudText = result.savedToCloud ? `Saved to this organisation. ${fileText}` : `Saved locally. ${result.error || "Sign in to save it to this organisation's workspace."}`;
-    setMessage(`${documentType} saved for ${selectedClient.name}. ${cloudText}`);
+    setMessage(`${documentType} saved for ${selectedClient.name}. Saved to this organisation. ${fileText}`);
+    setPendingDocumentId("");
+    setPendingFilePath("");
     markTrialStepComplete("upload-document");
     window.dispatchEvent(new Event(documentsUpdatedEvent));
     setSaving(false);
@@ -214,14 +232,14 @@ export function DocumentUploadCard() {
       <div className="mt-6 flex flex-wrap gap-3">
         <button type="button" onClick={saveUploadMetadata} disabled={saving} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
           <FileUp size={18} aria-hidden="true" />
-          {saving ? "Saving..." : "Upload to client"}
+          {saving ? "Saving..." : saveFailed ? "Retry upload" : "Upload to client"}
         </button>
         <a href="/documents" className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
           <UserRoundCheck size={18} aria-hidden="true" />
           Check client file list
         </a>
       </div>
-      {message ? <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
+      {message ? <p aria-live="polite" className={cn("mt-3 rounded-md px-3 py-2 text-sm font-semibold", saveFailed ? "bg-red-50 text-red-700" : saving ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700")}>{message}</p> : null}
       <p className="mt-3 text-sm text-slate-600">Files remain private. Signed-in users save documents to the selected client record inside this organisation.</p>
     </Card>
   );

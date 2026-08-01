@@ -3,6 +3,7 @@ import { getTenantClients } from "@/lib/client-records";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, getCurrentUserId, getSupabaseProjectConfig, supabaseRequest } from "@/lib/supabase-rest";
 import { checkDocumentsPerParticipantLimit } from "@/lib/subscriptions/client-limits";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type StoredDocumentRecord = SupportDocument & {
   clientName: string;
@@ -16,7 +17,7 @@ const documentStorageKey = "empowernotes:document-records";
 export const documentsUpdatedEvent = "empowernotes:documents-updated";
 
 export function createDocumentId() {
-  return `document-${Date.now()}`;
+  return globalThis.crypto?.randomUUID?.() || `document-${Date.now()}`;
 }
 
 export function getStoredDocumentRecords() {
@@ -24,7 +25,7 @@ export function getStoredDocumentRecords() {
   if (isPresentationModeEnabled()) return [];
 
   try {
-    const stored = window.localStorage.getItem(documentStorageKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(documentStorageKey));
     return stored ? (JSON.parse(stored) as StoredDocumentRecord[]) : [];
   } catch {
     return [];
@@ -32,7 +33,7 @@ export function getStoredDocumentRecords() {
 }
 
 export function saveStoredDocumentRecords(records: StoredDocumentRecord[]) {
-  window.localStorage.setItem(documentStorageKey, JSON.stringify(records));
+  window.localStorage.setItem(tenantStorageKey(documentStorageKey), JSON.stringify(records));
   window.dispatchEvent(new Event(documentsUpdatedEvent));
 }
 
@@ -74,25 +75,22 @@ function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client")
 
 export async function getTenantDocumentRecords() {
   if (isPresentationModeEnabled()) return [];
-  const localDocuments = getStoredDocumentRecords();
-
   const result = await supabaseRequest<SupabaseDocumentRow[]>("documents", {
     query: "select=id,participant_id,document_type,file_path,storage_bucket,visibility,status,manager_verified,start_date,expiry_date,created_at&order=created_at.desc"
   });
 
-  if (!result.data || result.error) return localDocuments;
+  if (!result.data || result.error) return [];
 
   const clients = await getTenantClients().catch(() => []);
   const cloudDocuments = result.data.map((row) => {
     const client = clients.find((item) => item.id === row.participant_id);
     return toStoredDocumentRecord(row, client?.name || "Client");
   });
-  const localOnlyDocuments = localDocuments.filter((localRecord) => !cloudDocuments.some((cloudRecord) => cloudRecord.id === localRecord.id));
-  return [...cloudDocuments, ...localOnlyDocuments];
+  return cloudDocuments;
 }
 
 export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
-  const existingClientDocuments = getStoredDocumentRecords().filter((document) => document.participantId === record.participantId).length;
+  const existingClientDocuments = getStoredDocumentRecords().filter((document) => document.participantId === record.participantId && document.id !== record.id).length;
   const limit = checkDocumentsPerParticipantLimit(existingClientDocuments, record.clientName);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
 
@@ -109,7 +107,10 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
 
   const result = await supabaseRequest<Array<{ id: string }>>("documents", {
     method: "POST",
+    query: "on_conflict=id",
+    prefer: "resolution=merge-duplicates,return=representation",
     body: {
+      id: record.id,
       organisation_id: organisationId,
       participant_id: record.participantId,
       uploaded_by: userId,
@@ -124,7 +125,7 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
     }
   });
 
-  return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+  return { savedToCloud: Boolean(result.data && !result.error), error: result.error, documentId: result.data?.[0]?.id || record.id };
 }
 
 export function getSafeDocumentType(type: string) {

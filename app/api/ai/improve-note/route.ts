@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkRequestEntitlement } from "@/lib/subscriptions/server-gate";
+import { guardAiRequest } from "@/lib/security/ai-request-guard";
 
 type ImproveNoteRequest = {
   transcript?: string;
@@ -7,6 +7,7 @@ type ImproveNoteRequest = {
 
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const openAiApiKey = process.env.OPENAI_API_KEY || process.env.EMPOWERNOTES_CHAT_KEY || process.env["EmpowerNotes chat-key"];
+const maxTranscriptChars = 8000;
 
 function personCentredLanguage(text: string) {
   return text
@@ -46,16 +47,34 @@ function parseOptionsFromContent(content: string) {
 }
 
 export async function POST(request: Request) {
-  const gate = await checkRequestEntitlement(request, "enabled");
-  if (!gate.allowed) {
-    return NextResponse.json({ error: gate.message, tier: gate.tierName }, { status: 403 });
+  const access = await guardAiRequest(request, {
+    entitlement: "enabled",
+    action: "improve_note"
+  });
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.message },
+      { status: access.status, headers: access.retryAfterSeconds ? { "Retry-After": String(access.retryAfterSeconds) } : undefined }
+    );
+  }
+  const gate = access.gate;
+
+  let body: ImproveNoteRequest;
+  try {
+    body = await request.json() as ImproveNoteRequest;
+  } catch {
+    return NextResponse.json({ error: "Send a valid note improvement request." }, { status: 400 });
   }
 
-  const { transcript = "" } = await request.json() as ImproveNoteRequest;
+  const { transcript = "" } = body;
   const cleanTranscript = transcript.trim();
 
   if (!cleanTranscript) {
     return NextResponse.json({ error: "Enter an original shift note first." }, { status: 400 });
+  }
+
+  if (cleanTranscript.length > maxTranscriptChars) {
+    return NextResponse.json({ error: "This note is too long for AI improvement. Keep it under 8,000 characters." }, { status: 413 });
   }
 
   if (!openAiApiKey) {
@@ -71,6 +90,7 @@ export async function POST(request: Request) {
       "Authorization": `Bearer ${openAiApiKey}`,
       "Content-Type": "application/json"
     },
+    signal: AbortSignal.timeout(45000),
     body: JSON.stringify({
       model,
       temperature: 0.2,

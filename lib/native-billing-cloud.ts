@@ -13,6 +13,7 @@ import { getNativeBillingRecords } from "@/lib/native-billing";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
 import type { StaffRecord } from "@/lib/staff-records";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 type CloudRow = Record<string, unknown>;
 let syncQueue = Promise.resolve();
@@ -33,7 +34,7 @@ export function queueNativeBillingCloudSync(records: NativeBillingRecords) {
 export async function loadTenantNativeBillingRecords(clients: ClientRecord[], staff: StaffRecord[]) {
   if (typeof window === "undefined" || isPresentationModeEnabled()) return getNativeBillingRecords();
   const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return getNativeBillingRecords();
+  if (!organisationId) return getEmptyTenantBillingRecords();
 
   const results = await Promise.all([
     supabaseRequest<CloudRow[]>("support_shifts", { query: "select=*&order=start_time.desc" }),
@@ -47,7 +48,7 @@ export async function loadTenantNativeBillingRecords(clients: ClientRecord[], st
     supabaseRequest<CloudRow[]>("native_invoice_lines", { query: "select=*&order=created_at.desc" })
   ]);
 
-  if (results.some((result) => result.error)) return getNativeBillingRecords();
+  if (results.some((result) => result.error)) return getEmptyTenantBillingRecords();
 
   const [shiftRows, staffRows, noteRows, pricingRows, supportItemRows, agreementRows, agreementItemRows, invoiceRows, invoiceLineRows] = results.map((result) => result.data || []);
   const clientNames = new Map(clients.map((client) => [client.id, client.name]));
@@ -68,14 +69,12 @@ export async function loadTenantNativeBillingRecords(clients: ClientRecord[], st
     invoiceLines: invoiceLineRows.map(toInvoiceLine)
   };
 
-  const localRecords = getNativeBillingRecords();
-  if (!hasBillingRecords(records) && hasBillingRecords(localRecords)) {
-    queueNativeBillingCloudSync(localRecords);
-    return localRecords;
-  }
-
-  window.localStorage.setItem("empowernotes:native-billing-records", JSON.stringify(records));
+  window.localStorage.setItem(tenantStorageKey("empowernotes:native-billing-records"), JSON.stringify(records));
   return records;
+}
+
+function getEmptyTenantBillingRecords(): NativeBillingRecords {
+  return { shifts: [], pricingVersions: [], supportItems: [], agreements: [], agreementItems: [], invoices: [], invoiceLines: [] };
 }
 
 async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
@@ -184,16 +183,6 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     updated_at: new Date().toISOString()
   })));
   await flushOperations(operations);
-
-  pushUpsert(operations, "shift_staff", records.shifts.filter((shift) => isUuid(shift.staffId)).map((shift) => ({
-    id: shift.id,
-    organisation_id: organisationId,
-    shift_id: shift.id,
-    staff_user_id: null,
-    staff_invite_id: shift.staffId,
-    role: "assigned worker",
-    status: shift.status === "completed" ? "completed" : "assigned"
-  })));
 
   pushUpsert(operations, "shift_notes", records.shifts.filter((shift) => shift.noteRecordId).map((shift) => ({
     id: shift.id,
@@ -427,10 +416,6 @@ function toInvoiceLine(row: CloudRow): NativeInvoiceLine {
   };
 }
 
-function hasBillingRecords(records: NativeBillingRecords) {
-  return Object.values(records).some((rows) => rows.length > 0);
-}
-
 function asString(value: unknown) {
   return typeof value === "string" ? value : value == null ? "" : String(value);
 }
@@ -442,8 +427,4 @@ function asNumber(value: unknown) {
 
 function asNullableNumber(value: unknown) {
   return value == null || value === "" ? null : asNumber(value);
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

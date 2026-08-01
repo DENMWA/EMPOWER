@@ -1,8 +1,7 @@
 import { getEmployeeColourScheme } from "@/lib/roster";
-import { users } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
-export function EmployeeColourLegend({ workers = users }: { workers?: Array<{ id: string; name: string }> }) {
+export function EmployeeColourLegend({ workers = [] }: { workers?: Array<{ id: string; name: string }> }) {
   return (
     <div className="flex flex-wrap gap-2" aria-label="Employee colour legend">
       {workers.map((worker) => {

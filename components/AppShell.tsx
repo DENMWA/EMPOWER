@@ -7,9 +7,10 @@ import { AccessibilityToggle } from "@/components/accessibility/AccessibilityTog
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
-import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser, setAdminCurrentUser } from "@/lib/user-access";
+import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
 import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
 
@@ -35,34 +36,29 @@ const publicNavItems = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const testingAccessEnabled = process.env.NEXT_PUBLIC_TEST_ACCESS_BYPASS === "true";
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
   const [currentUser, setCurrentUser] = useState(getDefaultAppUser);
   const [signedIn, setSignedIn] = useState(false);
+  const [verifiedAdmin, setVerifiedAdmin] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
-  const hasWorkspaceAccess = signedIn || testingAccessEnabled;
+  const hasWorkspaceAccess = signedIn;
   const visibleNavItems = hasWorkspaceAccess
-    ? navItems.filter((item) => item.href !== "/signin" && item.href !== "/signup" && (item.href !== "/admin" || canAccessAdmin(currentUser.role)))
+    ? navItems.filter((item) => item.href !== "/signin" && item.href !== "/signup" && (item.href !== "/admin" || verifiedAdmin || canAccessAdmin(currentUser.role)))
     : publicNavItems;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
-    if (testingAccessEnabled) {
-      setAdminCurrentUser();
-      setCurrentUser(getCurrentAppUser());
-    } else {
-      setCurrentUser(getCurrentAppUser());
-    }
+    setCurrentUser(getCurrentAppUser());
     const authStatus = getCurrentAuthStatus();
     setSignedIn(authStatus.signedIn);
     setAuthChecked(true);
     setDataMode(authStatus.signedIn ? "real" : "demo");
-  }, [testingAccessEnabled]);
+  }, []);
 
   useEffect(() => {
     function syncAuth() {
@@ -70,6 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setSignedIn(authStatus.signedIn);
       setAuthChecked(true);
       setDataMode(authStatus.signedIn ? "real" : "demo");
+      if (!authStatus.signedIn) setVerifiedAdmin(false);
     }
 
     window.addEventListener(authSessionChangedEvent, syncAuth);
@@ -79,6 +76,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("storage", syncAuth);
     };
   }, []);
+
+  useEffect(() => {
+    async function verifyAdminNavigation() {
+      if (!signedIn) {
+        setVerifiedAdmin(false);
+        return;
+      }
+
+      const token = getStoredAccessToken();
+      if (!token) return;
+
+      try {
+        const response = await fetch("/api/auth/access?mode=admin", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        });
+        const result = await response.json() as { allowed?: boolean };
+        setVerifiedAdmin(Boolean(result.allowed));
+      } catch {
+        setVerifiedAdmin(false);
+      }
+    }
+
+    void verifyAdminNavigation();
+  }, [signedIn]);
 
   useEffect(() => {
     function syncAccess() {

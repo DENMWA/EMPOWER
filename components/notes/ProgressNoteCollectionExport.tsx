@@ -7,6 +7,7 @@ import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
 import { getTenantRetainedRecords } from "@/lib/retained-records";
 import { participants, progressNotes } from "@/lib/sample-data";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 type RetainedRecord = {
   id: string;
@@ -25,8 +26,9 @@ function getRetainedProgressNotes() {
   if (typeof window === "undefined") return [];
   if (isDemoModeEnabled()) return [];
 
+  const scopedPrefix = `${tenantStorageKey("empower-retained-record")}:`;
   return Object.keys(window.localStorage)
-    .filter((key) => key.startsWith("empower-retained-record:"))
+    .filter((key) => key.startsWith(scopedPrefix))
     .map((key) => {
       try {
         return JSON.parse(window.localStorage.getItem(key) || "") as RetainedRecord;

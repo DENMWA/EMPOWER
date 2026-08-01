@@ -25,6 +25,9 @@ export function InviteTeamMemberForm() {
   const [assignedHouseIds, setAssignedHouseIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [pendingStaffId, setPendingStaffId] = useState("");
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const accessibleHouseIds = useMemo(() => houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds, [assignedHouseIds, houseAccessMode, houses]);
   const houseScopedParticipants = useMemo(() => {
@@ -96,8 +99,13 @@ export function InviteTeamMemberForm() {
       return;
     }
 
+    setSaving(true);
+    setSaveFailed(false);
+    setMessage("Saving staff permissions...");
+    const staffId = pendingStaffId || createStaffId(cleanName);
+    if (!pendingStaffId) setPendingStaffId(staffId);
     const record = {
-      id: createStaffId(cleanName),
+      id: staffId,
       name: cleanName,
       role,
       roleLabel: roleLabelFor(role),
@@ -114,15 +122,18 @@ export function InviteTeamMemberForm() {
     const result = await saveTenantStaffInvite(record);
     if (result.error && result.error.includes("allows")) {
       setSaved(false);
+      setSaving(false);
+      setSaveFailed(true);
       setMessage(result.error);
       return;
     }
 
-    markTrialStepComplete("add-staff");
     setSaved(Boolean(result.savedToCloud));
     const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
     if (!result.savedToCloud) {
-      setMessage(`${localMessage} ${result.error || "Sign in to save it to this organisation's workspace."}`);
+      setSaving(false);
+      setSaveFailed(true);
+      setMessage(`Cloud save failed. The staff details remain here for retry. ${result.error || "Try again."}`);
       return;
     }
 
@@ -137,9 +148,17 @@ export function InviteTeamMemberForm() {
       setMessage(emailResult.ok
         ? `Invitation emailed to ${cleanEmail} and saved to this organisation.`
         : emailResult.error || "The invite was saved, but the email could not be delivered.");
+      setSaveFailed(!emailResult.ok);
+      if (!emailResult.ok) {
+        setSaving(false);
+        return;
+      }
     } else {
       setMessage(`${localMessage} Saved to this organisation.`);
     }
+    markTrialStepComplete("add-staff");
+    setSaving(false);
+    setPendingStaffId("");
     setName("");
     setEmail("");
   }
@@ -230,16 +249,16 @@ export function InviteTeamMemberForm() {
         </div>
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
-        <button type="button" onClick={() => saveInvite("sent")} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={() => saveInvite("sent")} disabled={saving} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
           <MailPlus size={18} aria-hidden="true" />
-          Send invite
+          {saving ? "Saving..." : saveFailed ? "Retry invite" : "Send invite"}
         </button>
-        <button type="button" onClick={() => saveInvite("saved")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400">
+        <button type="button" onClick={() => saveInvite("saved")} disabled={saving} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100">
           <ShieldCheck size={18} aria-hidden="true" />
           Save permissions
         </button>
       </div>
-      {message ? <p className={`mt-3 rounded-md px-3 py-2 text-sm font-semibold ${saved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-900"}`}>{message}</p> : null}
+      {message ? <p aria-live="polite" className={`mt-3 rounded-md px-3 py-2 text-sm font-semibold ${saved ? "bg-emerald-50 text-emerald-700" : saveFailed ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>{message}</p> : null}
     </Card>
   );
 }

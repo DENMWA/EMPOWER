@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkRequestEntitlement } from "@/lib/subscriptions/server-gate";
+import { guardAiRequest } from "@/lib/security/ai-request-guard";
 
 export const runtime = "nodejs";
 
@@ -34,6 +34,9 @@ function fileExtension(fileName: string) {
 
 async function extractTextFromFile(file: File) {
   const extension = fileExtension(file.name);
+  if (file.size > maxFileBytes) {
+    throw new Error("This file is larger than 10MB. Upload a smaller plan document for parsing.");
+  }
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
@@ -99,6 +102,7 @@ async function requestChatGptExtraction(messages: ChatMessage[]) {
       Authorization: `Bearer ${openAiApiKey}`,
       "Content-Type": "application/json"
     },
+    signal: AbortSignal.timeout(60000),
     body: JSON.stringify({
       model,
       temperature: 0.1,
@@ -108,8 +112,8 @@ async function requestChatGptExtraction(messages: ChatMessage[]) {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`ChatGPT plan parsing failed: ${detail || response.statusText}`);
+    console.error("ChatGPT plan parsing failed", response.status, await response.text());
+    throw new Error("ChatGPT could not parse this document right now. Try again shortly.");
   }
 
   const data = await response.json();
@@ -169,10 +173,17 @@ async function extractWithAi(text: string) {
 
 export async function POST(request: Request) {
   try {
-    const gate = await checkRequestEntitlement(request, "basicPlanParsing");
-    if (!gate.allowed) {
-      return NextResponse.json({ error: gate.message, tier: gate.tierName }, { status: 403 });
+    const access = await guardAiRequest(request, {
+      entitlement: "basicPlanParsing",
+      action: "parse_plan"
+    });
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.message },
+        { status: access.status, headers: access.retryAfterSeconds ? { "Retry-After": String(access.retryAfterSeconds) } : undefined }
+      );
     }
+    const gate = access.gate;
 
     const formData = await request.formData();
     const file = formData.get("file");

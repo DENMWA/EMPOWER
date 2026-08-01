@@ -1,4 +1,5 @@
 import { getTenantRetainedRecords, saveTenantRetainedRecord, type RetainedRecord } from "@/lib/retained-records";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type HouseRecord = {
   id: string;
@@ -35,7 +36,7 @@ export function getStoredHouses() {
   if (typeof window === "undefined") return [];
 
   try {
-    const stored = window.localStorage.getItem(houseStorageKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(houseStorageKey));
     return stored ? (JSON.parse(stored) as HouseRecord[]) : [];
   } catch {
     return [];
@@ -44,16 +45,14 @@ export function getStoredHouses() {
 
 function saveStoredHouses(houses: HouseRecord[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(houseStorageKey, JSON.stringify(houses));
+  window.localStorage.setItem(tenantStorageKey(houseStorageKey), JSON.stringify(houses));
   window.dispatchEvent(new Event(housesUpdatedEvent));
 }
 
 export async function getTenantHouses() {
-  const localHouses = getStoredHouses();
   const records = await getTenantRetainedRecords("house-profile").catch(() => []);
   const cloudHouses = records.map(parseHouseRecord).filter((house): house is HouseRecord => Boolean(house));
-  const localOnlyHouses = localHouses.filter((localHouse) => !cloudHouses.some((cloudHouse) => cloudHouse.id === localHouse.id));
-  return [...cloudHouses, ...localOnlyHouses];
+  return cloudHouses;
 }
 
 export async function saveTenantHouse(house: HouseRecord) {

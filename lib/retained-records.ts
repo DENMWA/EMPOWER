@@ -1,4 +1,5 @@
 import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type RetainedRecord = {
   id: string;
@@ -9,14 +10,15 @@ export type RetainedRecord = {
 };
 
 export function saveLocalRetainedRecord(record: RetainedRecord) {
-  window.localStorage.setItem(`empower-retained-record:${record.id}`, JSON.stringify(record));
+  window.localStorage.setItem(`${tenantStorageKey("empower-retained-record")}:${record.id}`, JSON.stringify(record));
 }
 
 export function getLocalRetainedRecords(type?: string) {
   if (typeof window === "undefined") return [];
 
+  const scopedPrefix = `${tenantStorageKey("empower-retained-record")}:`;
   return Object.keys(window.localStorage)
-    .filter((key) => key.startsWith("empower-retained-record:"))
+    .filter((key) => key.startsWith(scopedPrefix))
     .map((key) => {
       try {
         return JSON.parse(window.localStorage.getItem(key) || "") as RetainedRecord;
@@ -46,18 +48,16 @@ function toRetainedRecord(row: SupabaseRetainedRecordRow): RetainedRecord {
 }
 
 export async function getTenantRetainedRecords(type?: string) {
-  const localRecords = getLocalRetainedRecords(type);
   const typeFilter = type ? `&record_type=eq.${encodeURIComponent(type)}` : "";
 
   const result = await supabaseRequest<SupabaseRetainedRecordRow[]>("retained_records", {
     query: `select=id,record_type,title,body,saved_at${typeFilter}&order=saved_at.desc`
   });
 
-  if (!result.data || result.error) return localRecords;
+  if (!result.data || result.error) return [];
 
   const cloudRecords = result.data.map(toRetainedRecord);
-  const localOnlyRecords = localRecords.filter((localRecord) => !cloudRecords.some((cloudRecord) => cloudRecord.id === localRecord.id));
-  return [...cloudRecords, ...localOnlyRecords];
+  return cloudRecords;
 }
 
 export async function saveTenantRetainedRecord(record: RetainedRecord) {

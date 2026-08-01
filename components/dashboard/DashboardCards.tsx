@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
-import { getRosterSummary } from "@/lib/roster";
+import { getRosterSummary, type RosterShift } from "@/lib/roster";
+import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { participants, progressNotes, users } from "@/lib/sample-data";
 import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp } from "lucide-react";
@@ -119,7 +120,8 @@ export function WorkerDashboardCards() {
 }
 
 export function DashboardOperationalLists() {
-  const rosterSummary = getRosterSummary();
+  const [rosterShifts, setRosterShifts] = useState<RosterShift[]>([]);
+  const rosterSummary = getRosterSummary(rosterShifts);
   const [savedNotes, setSavedNotes] = useState<RetainedRecord[]>([]);
   const [savedStaff, setSavedStaff] = useState<StaffRecord[]>([]);
   const [demoMode, setDemoMode] = useState(false);
@@ -128,6 +130,7 @@ export function DashboardOperationalLists() {
     function loadRecords() {
       getTenantRetainedRecords("progress-note").then(setSavedNotes).catch(() => setSavedNotes([]));
       getTenantStaffInvites().then(setSavedStaff).catch(() => setSavedStaff([]));
+      loadTenantRosterShifts().then((result) => setRosterShifts(result.shifts)).catch(() => setRosterShifts([]));
     }
 
     loadRecords();

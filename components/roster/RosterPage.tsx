@@ -13,30 +13,36 @@ import { RosterWeekView } from "@/components/roster/RosterWeekView";
 import { Card, PageHeader, Section } from "@/components/ui";
 import {
   filterRosterShifts,
-  getStoredRosterShifts,
   getRosterShiftConflicts,
   getRosterSummary,
   getWeekRosterShifts,
   markRosterShiftCompleted,
   markRosterShiftNoteCompleted,
   getShiftAssignedWorkers,
-  rosterShifts,
   saveRosterShifts,
   type RosterFilters as RosterFiltersType,
   type RosterShift
 } from "@/lib/roster";
 import { cn } from "@/lib/utils";
+import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-cloud";
 
 export function RosterPage() {
   const [view, setView] = useState<"day" | "week" | "month">("week");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [filters, setFilters] = useState<RosterFiltersType>({ workerId: "all", status: "all", noteState: "all" });
-  const [shifts, setShifts] = useState<RosterShift[]>(rosterShifts);
+  const [shifts, setShifts] = useState<RosterShift[]>([]);
   const [activeShift, setActiveShift] = useState<RosterShift | null>(null);
   const [creating, setCreating] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("Loading roster from your workspace...");
 
   useEffect(() => {
-    setShifts(getStoredRosterShifts());
+    loadTenantRosterShifts().then((result) => {
+      setShifts(result.shifts);
+      setSyncMessage(result.error || "Roster connected to workspace.");
+    }).catch(() => {
+      setShifts([]);
+      setSyncMessage("The roster could not be loaded from the workspace.");
+    });
   }, []);
 
   const visibleShifts = useMemo(() => {
@@ -70,11 +76,18 @@ export function RosterPage() {
     setView("day");
   }
 
-  function updateActive(updatedShifts: RosterShift[]) {
+  function updateActive(updatedShifts: RosterShift[], shiftId: string) {
     setShifts(updatedShifts);
     saveRosterShifts(updatedShifts);
     if (activeShift) {
       setActiveShift(updatedShifts.find((shift) => shift.id === activeShift.id) ?? null);
+    }
+    const updatedShift = updatedShifts.find((shift) => shift.id === shiftId);
+    if (updatedShift) {
+      setSyncMessage("Saving roster change...");
+      void saveTenantRosterShift(updatedShift).then((result) => {
+        setSyncMessage(result.savedToCloud ? "Roster change saved to workspace." : result.error || "Roster change could not be saved.");
+      });
     }
   }
 
@@ -92,6 +105,10 @@ export function RosterPage() {
     setSelectedDate(shift.shiftDate);
     setView("day");
     setActiveShift(shift);
+    setSyncMessage("Saving new shift...");
+    void saveTenantRosterShift(shift).then((result) => {
+      setSyncMessage(result.savedToCloud ? "New shift saved to workspace." : result.error || "New shift could not be saved.");
+    });
     return "";
   }
 
@@ -109,6 +126,9 @@ export function RosterPage() {
       />
 
       <Section className="space-y-6">
+        <Card className={syncMessage.toLowerCase().includes("could not") ? "border-red-200 bg-red-50" : "border-sky-100 bg-sky-50"}>
+          <p className="text-sm font-semibold text-slate-700">{syncMessage}</p>
+        </Card>
         <Card className="border-teal-200 bg-teal-50">
           <div className="flex flex-wrap items-start gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-white text-teal-800 shadow-sm">
@@ -196,8 +216,8 @@ export function RosterPage() {
       <RosterShiftModal
         shift={activeShift}
         onClose={() => setActiveShift(null)}
-        onComplete={(shiftId) => updateActive(markRosterShiftCompleted(shifts, shiftId))}
-        onNoteCompleted={(shiftId) => updateActive(markRosterShiftNoteCompleted(shifts, shiftId))}
+        onComplete={(shiftId) => updateActive(markRosterShiftCompleted(shifts, shiftId), shiftId)}
+        onNoteCompleted={(shiftId) => updateActive(markRosterShiftNoteCompleted(shifts, shiftId), shiftId)}
       />
       <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} />
     </>

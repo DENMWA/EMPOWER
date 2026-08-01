@@ -1,103 +1,37 @@
 import { NextResponse } from "next/server";
+import { verifyServerAccess } from "@/lib/security/server-access";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function describePresence(name: string) {
-  const value = process.env[name];
-  return {
-    name,
-    configured: Boolean(value),
-    length: typeof value === "string" ? value.length : 0
-  };
-}
-
-function describeSupabaseUrl() {
-  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!value) {
-    return {
-      configured: false,
-      host: null,
-      projectRef: null,
-      validSupabaseUrl: false
-    };
+export async function GET(request: Request) {
+  const access = await verifyServerAccess(request, "platform");
+  if (!access.allowed) {
+    return NextResponse.json({ ok: false, error: access.reason }, { status: access.status });
   }
 
-  try {
-    const url = new URL(value);
-    const projectRef = url.hostname.endsWith(".supabase.co") ? url.hostname.replace(".supabase.co", "") : null;
-
-    return {
-      configured: true,
-      host: url.hostname,
-      projectRef,
-      validSupabaseUrl: Boolean(projectRef)
-    };
-  } catch {
-    return {
-      configured: true,
-      host: null,
-      projectRef: null,
-      validSupabaseUrl: false
-    };
-  }
-}
-
-async function checkRestHealth() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
   if (!supabaseUrl || !anonKey) {
-    return {
-      checked: false,
-      ok: false,
-      status: null,
-      message: "Supabase URL or anon key is missing."
-    };
+    return NextResponse.json({ ok: false, service: "Supabase", status: "configuration_required" }, { status: 503 });
   }
 
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/organisations?select=id&limit=1`, {
       headers: {
         apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`
+        Authorization: request.headers.get("authorization") || ""
       },
       cache: "no-store"
     });
 
-    return {
-      checked: true,
-      ok: response.ok || response.status === 401,
-      status: response.status,
-      message: response.ok
-        ? "Connected to Supabase REST."
-        : response.status === 401
-          ? "Reached Supabase REST, but access is protected by policies."
-          : await response.text()
-    };
-  } catch (error) {
-    return {
-      checked: true,
-      ok: false,
-      status: null,
-      message: error instanceof Error ? error.message : "Unable to reach Supabase REST."
-    };
+    return NextResponse.json({
+      ok: response.ok,
+      service: "Supabase",
+      status: response.ok ? "connected" : "unavailable",
+      serviceRoleConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+    }, { status: response.ok ? 200 : 503 });
+  } catch {
+    return NextResponse.json({ ok: false, service: "Supabase", status: "unavailable" }, { status: 503 });
   }
-}
-
-export async function GET() {
-  const url = describeSupabaseUrl();
-  const keys = [
-    describePresence("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-    describePresence("SUPABASE_SERVICE_ROLE_KEY")
-  ];
-  const rest = await checkRestHealth();
-
-  return NextResponse.json({
-    ok: url.validSupabaseUrl && keys[0].configured && rest.ok,
-    url,
-    keys,
-    rest,
-    note: "This endpoint confirms which Supabase project the deployed app can see. It never returns secret key values."
-  });
 }

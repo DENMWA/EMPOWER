@@ -8,11 +8,11 @@ import { getTenantClients } from "@/lib/client-records";
 import { getTenantStaffInvites } from "@/lib/staff-records";
 
 export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => string | void }) {
-  const { participants, workers, supportTypes } = getRosterSelectOptions();
-  const [participantOptions, setParticipantOptions] = useState(participants.map(({ id, name }) => ({ id, name })));
-  const [workerOptions, setWorkerOptions] = useState(workers.map(({ id, name }) => ({ id, name })));
-  const [participantId, setParticipantId] = useState(participants[0]?.id ?? "");
-  const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>(workers[0]?.id ? [workers[0].id] : []);
+  const { supportTypes } = getRosterSelectOptions();
+  const [participantOptions, setParticipantOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [workerOptions, setWorkerOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [participantId, setParticipantId] = useState("");
+  const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
   const [staffingRatio, setStaffingRatio] = useState("1:1");
   const [supportType, setSupportType] = useState(supportTypes[0] ?? "Community access");
   const [shiftDate, setShiftDate] = useState(new Date().toISOString().slice(0, 10));
@@ -27,17 +27,13 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
     Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clients, staff]) => {
       const nextParticipants = clients.map(({ id, name }) => ({ id, name }));
       const nextWorkers = staff.map(({ id, name }) => ({ id, name }));
-      if (nextParticipants.length) {
-        setParticipantOptions(nextParticipants);
-        setParticipantId((current) => nextParticipants.some((item) => item.id === current) ? current : nextParticipants[0].id);
-      }
-      if (nextWorkers.length) {
-        setWorkerOptions(nextWorkers);
-        setSelectedWorkerIds((current) => {
-          const valid = current.filter((workerId) => nextWorkers.some((item) => item.id === workerId));
-          return valid.length ? valid : [nextWorkers[0].id];
-        });
-      }
+      setParticipantOptions(nextParticipants);
+      setParticipantId((current) => nextParticipants.some((item) => item.id === current) ? current : nextParticipants[0]?.id || "");
+      setWorkerOptions(nextWorkers);
+      setSelectedWorkerIds((current) => {
+        const valid = current.filter((workerId) => nextWorkers.some((item) => item.id === workerId));
+        return valid.length ? valid : nextWorkers[0]?.id ? [nextWorkers[0].id] : [];
+      });
     }).catch(() => undefined);
   }, [open]);
 
@@ -50,6 +46,10 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!participantId) {
+      setError("Add a client before creating a roster shift.");
+      return;
+    }
     if (endTime <= startTime) {
       setError("End time must be later than start time.");
       return;
@@ -106,12 +106,14 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Participant
             <select className="min-h-11 rounded-md border border-slate-300 px-3" value={participantId} onChange={(event) => setParticipantId(event.target.value)}>
+              {!participantOptions.length ? <option value="">No clients available</option> : null}
               {participantOptions.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
             </select>
           </label>
           <fieldset className="grid gap-2 rounded-md border border-slate-200 p-3 sm:col-span-2">
             <legend className="px-1 text-sm font-medium text-slate-700">Assigned staff</legend>
             <div className="grid gap-2 sm:grid-cols-2">
+              {!workerOptions.length ? <p className="text-sm text-slate-600">Add staff before creating a roster shift.</p> : null}
               {workerOptions.map((worker) => (
                 <label key={worker.id} className="flex min-h-11 items-center gap-2 rounded-md bg-slate-50 px-3 text-sm font-semibold text-slate-700">
                   <input type="checkbox" checked={selectedWorkerIds.includes(worker.id)} onChange={() => toggleWorker(worker.id)} className="h-4 w-4 accent-teal-700" />

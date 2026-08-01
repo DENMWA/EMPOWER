@@ -1,4 +1,6 @@
 import { participants, supportTypes, users } from "@/lib/sample-data";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type RosterStatus = "Scheduled" | "In Progress" | "Completed" | "Note Required" | "Note Completed" | "Cancelled" | "No Show";
 
@@ -206,17 +208,18 @@ export function getRosterShifts() {
 
 export function getStoredRosterShifts() {
   if (typeof window === "undefined") return rosterShifts;
+  if (isPresentationModeEnabled()) return rosterShifts;
   try {
-    const stored = window.localStorage.getItem(rosterStorageKey);
-    return stored ? JSON.parse(stored) as RosterShift[] : rosterShifts;
+    const stored = window.localStorage.getItem(tenantStorageKey(rosterStorageKey));
+    return stored ? JSON.parse(stored) as RosterShift[] : [];
   } catch {
-    return rosterShifts;
+    return [];
   }
 }
 
 export function saveRosterShifts(shifts: RosterShift[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(rosterStorageKey, JSON.stringify(shifts));
+  window.localStorage.setItem(tenantStorageKey(rosterStorageKey), JSON.stringify(shifts));
 }
 
 export function getTodayRosterShifts(shifts: RosterShift[] = rosterShifts) {
@@ -378,6 +381,9 @@ function getRosterReportRange(period: RosterReportPeriod, selectedDate: string) 
 }
 
 export function getRosterSelectOptions() {
+  if (typeof window !== "undefined" && !isPresentationModeEnabled()) {
+    return { participants: [], workers: [], supportTypes };
+  }
   return {
     participants,
     workers: users,

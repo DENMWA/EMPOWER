@@ -24,12 +24,13 @@ import {
   type NativeInvoiceLine
 } from "@/lib/native-billing";
 import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
-import { getStoredRosterShifts, type RosterShift } from "@/lib/roster";
+import type { RosterShift } from "@/lib/roster";
+import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 
 export function NativeBillingWorkspace() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [notes, setNotes] = useState<RetainedRecord[]>([]);
-  const [records, setRecords] = useState<NativeBillingRecords>(getNativeBillingRecords());
+  const [records, setRecords] = useState<NativeBillingRecords>({ shifts: [], pricingVersions: [], supportItems: [], agreements: [], agreementItems: [], invoices: [], invoiceLines: [] });
   const [rosterServices, setRosterServices] = useState<RosterShift[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [agreementName, setAgreementName] = useState("");
@@ -69,7 +70,8 @@ export function NativeBillingWorkspace() {
       ]);
       setClients(clientItems);
       setNotes(noteItems);
-      setRosterServices(getStoredRosterShifts());
+      const rosterResult = await loadTenantRosterShifts();
+      setRosterServices(rosterResult.shifts);
       setSelectedClientId((current) => current || clientItems[0]?.id || "");
       const cloudRecords = await loadTenantNativeBillingRecords(clientItems, staffItems);
       setRecords(cloudRecords);

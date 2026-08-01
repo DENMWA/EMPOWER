@@ -2,6 +2,7 @@ import type { StaffUser, UserRole } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
 import { checkUserLimit } from "@/lib/subscriptions/client-limits";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type StaffRecord = StaffUser & {
   inviteStatus: "Invite sent" | "Draft" | "Active" | "Suspended";
@@ -12,13 +13,7 @@ const staffStorageKey = "empowernotes:staff";
 export const staffUpdatedEvent = "empowernotes:staff-updated";
 
 export function createStaffId(name: string) {
-  const slug = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return `${slug || "staff"}-${Date.now()}`;
+  return globalThis.crypto?.randomUUID?.() || `staff-${Date.now()}-${name.length}`;
 }
 
 export function roleLabelFor(role: UserRole) {
@@ -40,7 +35,7 @@ export function getStoredStaff() {
   if (isPresentationModeEnabled()) return [];
 
   try {
-    const stored = window.localStorage.getItem(staffStorageKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(staffStorageKey));
     return stored ? (JSON.parse(stored) as StaffRecord[]) : [];
   } catch {
     return [];
@@ -48,7 +43,7 @@ export function getStoredStaff() {
 }
 
 export function saveStoredStaff(staff: StaffRecord[]) {
-  window.localStorage.setItem(staffStorageKey, JSON.stringify(staff));
+  window.localStorage.setItem(tenantStorageKey(staffStorageKey), JSON.stringify(staff));
   window.dispatchEvent(new Event(staffUpdatedEvent));
 }
 
@@ -64,7 +59,8 @@ export function updateStoredStaffStatus(staffId: string, inviteStatus: StaffReco
 }
 
 export async function saveTenantStaffInvite(staff: StaffRecord) {
-  const limit = checkUserLimit(getStoredStaff().length);
+  const storedStaff = getStoredStaff();
+  const limit = checkUserLimit(storedStaff.some((item) => item.id === staff.id) ? Math.max(0, storedStaff.length - 1) : storedStaff.length);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
 
   addStoredStaff(staff);
@@ -74,7 +70,10 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
 
   const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
     method: "POST",
+    query: "on_conflict=id",
+    prefer: "resolution=merge-duplicates,return=representation",
     body: {
+      id: staff.id,
       organisation_id: organisationId,
       name: staff.name,
       email: staff.email,
@@ -142,15 +141,12 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
 
 export async function getTenantStaffInvites() {
   if (isPresentationModeEnabled()) return [];
-  const localStaff = getStoredStaff();
-
   const result = await supabaseRequest<SupabaseStaffInviteRow[]>("staff_invites", {
     query: "select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,created_at&order=created_at.desc"
   });
 
-  if (!result.data || result.error) return localStaff;
+  if (!result.data || result.error) return [];
 
   const cloudStaff = result.data.map(toStaffRecord);
-  const localOnlyStaff = localStaff.filter((localRecord) => !cloudStaff.some((cloudRecord) => cloudRecord.id === localRecord.id));
-  return [...cloudStaff, ...localOnlyStaff];
+  return cloudStaff;
 }

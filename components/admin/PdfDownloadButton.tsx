@@ -1,7 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
-import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
+import { printOrganisationReportPdf } from "@/lib/organisation-profile";
 import { cn } from "@/lib/utils";
 
 type PdfDownloadButtonProps = {
@@ -13,7 +13,7 @@ type PdfDownloadButtonProps = {
 
 export function PdfDownloadButton({ filename, title, lines, variant = "secondary" }: PdfDownloadButtonProps) {
   function download() {
-    downloadOrganisationReportHtml(filename, title, lines.join("\n"));
+    printOrganisationReportPdf(filename, title, lines.join("\n"));
   }
 
   return (
@@ -26,7 +26,7 @@ export function PdfDownloadButton({ filename, title, lines, variant = "secondary
       )}
     >
       <Download size={17} aria-hidden="true" />
-      Download report
+      Print / save PDF
     </button>
   );
 }

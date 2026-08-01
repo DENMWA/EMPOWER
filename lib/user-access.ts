@@ -1,9 +1,10 @@
 import { users, type StaffUser, type UserRole } from "@/lib/sample-data";
 import { getStoredStaff } from "@/lib/staff-records";
 import type { HouseRecord } from "@/lib/house-records";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export const currentUserStorageKey = "empowernotes:current-user";
-const adminUnlockedStorageKey = "empower-notes-admin-unlocked";
 export const accessChangedEvent = "empowernotes:access-updated";
 
 export const adminRoles: UserRole[] = ["owner", "admin", "service_manager", "sole_provider"];
@@ -17,6 +18,20 @@ export function canAccessAdmin(role: UserRole) {
 }
 
 export function getDefaultAppUser(): StaffUser {
+  if (typeof window !== "undefined" && !isPresentationModeEnabled()) {
+    return {
+      id: "",
+      name: "Signed-in user",
+      role: "support_worker",
+      roleLabel: "Support Worker",
+      email: "",
+      providerType: "organisation",
+      qualityTrend: [],
+      assignedParticipants: [],
+      assignedHouseIds: [],
+      houseAccessMode: "selected"
+    };
+  }
   return users.find((user) => user.role === "support_worker") ?? users[0];
 }
 
@@ -24,18 +39,14 @@ export function getCurrentAppUser(): StaffUser {
   if (typeof window === "undefined") return getDefaultAppUser();
 
   try {
-    const stored = window.localStorage.getItem(currentUserStorageKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(currentUserStorageKey));
     if (stored) {
       const user = JSON.parse(stored) as StaffUser;
       if (!isSuspendedUser(user)) return user;
-      window.localStorage.removeItem(currentUserStorageKey);
+      window.localStorage.removeItem(tenantStorageKey(currentUserStorageKey));
     }
   } catch {
     // Fall through to the role-safe defaults below.
-  }
-
-  if (window.localStorage.getItem(adminUnlockedStorageKey) === "true") {
-    return users.find((user) => user.role === "owner") ?? users[0];
   }
 
   return getDefaultAppUser();
@@ -44,19 +55,14 @@ export function getCurrentAppUser(): StaffUser {
 export function setCurrentAppUser(user: StaffUser) {
   if (typeof window === "undefined") return;
   if (isSuspendedUser(user)) return;
-  window.localStorage.setItem(currentUserStorageKey, JSON.stringify(user));
+  window.localStorage.setItem(tenantStorageKey(currentUserStorageKey), JSON.stringify(user));
   window.dispatchEvent(new Event(accessChangedEvent));
-}
-
-export function setAdminCurrentUser() {
-  const owner = users.find((user) => user.role === "owner") ?? users[0];
-  setCurrentAppUser(owner);
 }
 
 export function getAvailableAppUsers() {
   if (typeof window === "undefined") return users;
   const storedStaff = getStoredStaff().filter((staff) => !isSuspendedUser(staff));
-  return storedStaff.length ? [...users, ...storedStaff] : users;
+  return isPresentationModeEnabled() ? users : storedStaff;
 }
 
 export function getAccessibleParticipantIds(user = getCurrentAppUser()) {

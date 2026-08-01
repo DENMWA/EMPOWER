@@ -1,4 +1,5 @@
 import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type OrganisationProfile = {
   organisationName: string;
@@ -51,7 +52,7 @@ export function getOrganisationProfile() {
   if (typeof window === "undefined") return defaultOrganisationProfile;
 
   try {
-    const stored = window.localStorage.getItem(organisationProfileKey);
+    const stored = window.localStorage.getItem(tenantStorageKey(organisationProfileKey));
     return stored ? { ...defaultOrganisationProfile, ...(JSON.parse(stored) as OrganisationProfile) } : defaultOrganisationProfile;
   } catch {
     return defaultOrganisationProfile;
@@ -59,7 +60,7 @@ export function getOrganisationProfile() {
 }
 
 export function saveOrganisationProfile(profile: OrganisationProfile) {
-  window.localStorage.setItem(organisationProfileKey, JSON.stringify(profile));
+  window.localStorage.setItem(tenantStorageKey(organisationProfileKey), JSON.stringify(profile));
 }
 
 function toOrganisationProfile(row: OrganisationProfileRow): OrganisationProfile {
@@ -234,15 +235,41 @@ export function buildOrganisationReportHtml(title: string, body: string) {
 </html>`;
 }
 
-export function downloadOrganisationReportHtml(filename: string, title: string, body: string) {
+export function printOrganisationReportPdf(filename: string, title: string, body: string) {
   const content = buildOrganisationReportHtml(title, body);
-  const blob = new Blob([content], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${filenameWithoutExtension(filename)}.html`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.position = "fixed";
+  frame.style.width = "1px";
+  frame.style.height = "1px";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.border = "0";
+  frame.style.opacity = "0";
+  document.body.appendChild(frame);
+
+  const printWindow = frame.contentWindow;
+  const printDocument = frame.contentDocument;
+  if (!printWindow || !printDocument) {
+    frame.remove();
+    return false;
+  }
+
+  const printable = content.replace(/<title>.*?<\/title>/, `<title>${escapeHtml(filenameWithoutExtension(filename))}</title>`);
+  printDocument.open();
+  printDocument.write(printable);
+  printDocument.close();
+
+  const cleanup = () => window.setTimeout(() => frame.remove(), 500);
+  printWindow.addEventListener("afterprint", cleanup, { once: true });
+  window.setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+    window.setTimeout(cleanup, 60_000);
+  }, 500);
+  return true;
+}
+
+export function downloadOrganisationReportHtml(filename: string, title: string, body: string) {
+  return printOrganisationReportPdf(filename, title, body);
 }

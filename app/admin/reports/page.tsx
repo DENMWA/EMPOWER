@@ -10,7 +10,8 @@ import { SavedRecordsSummary } from "@/components/admin/SavedRecordsSummary";
 import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
-import { getRosterReportSummary, rosterShifts, type RosterReportPeriod } from "@/lib/roster";
+import { getRosterReportSummary, type RosterReportPeriod, type RosterShift } from "@/lib/roster";
+import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
@@ -21,6 +22,7 @@ export default function AdminReportsPage() {
   const [savedDocuments, setSavedDocuments] = useState<StoredDocumentRecord[]>([]);
   const [savedIncidents, setSavedIncidents] = useState<StoredIncidentReport[]>([]);
   const [savedProgressNotes, setSavedProgressNotes] = useState<RetainedRecord[]>([]);
+  const [savedRosterShifts, setSavedRosterShifts] = useState<RosterShift[]>([]);
   const today = new Date().toISOString().slice(0, 10);
   const unverifiedDocuments = savedDocuments.filter((doc) => !doc.status.toLowerCase().includes("verified"));
   const incidentsAwaitingReview = savedIncidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
@@ -30,6 +32,7 @@ export default function AdminReportsPage() {
       getTenantDocumentRecords().then(setSavedDocuments).catch(() => setSavedDocuments([]));
       getSavedIncidentReports().then((items) => setSavedIncidents(items.map((item) => item.report))).catch(() => setSavedIncidents([]));
       getTenantRetainedRecords("progress-note").then(setSavedProgressNotes).catch(() => setSavedProgressNotes([]));
+      loadTenantRosterShifts().then((result) => setSavedRosterShifts(result.shifts)).catch(() => setSavedRosterShifts([]));
     }
 
     loadReports();
@@ -57,7 +60,7 @@ export default function AdminReportsPage() {
 
         <div className="grid gap-4 lg:grid-cols-3">
           {periods.map((period) => {
-            const report = getRosterReportSummary(rosterShifts, period, today);
+            const report = getRosterReportSummary(savedRosterShifts, period, today);
             const reportLines = [
               `Period: ${report.label}`,
               `Date range: ${report.dateRange}`,

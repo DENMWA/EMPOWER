@@ -1,5 +1,6 @@
 import { getTenantRetainedRecords, saveTenantRetainedRecord, type RetainedRecord } from "@/lib/retained-records";
 import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
+import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type IncidentStatus = "Draft" | "Submitted" | "Needs Review" | "Locked";
 
@@ -126,7 +127,7 @@ export async function saveIncidentReport(report: StoredIncidentReport) {
   const result = await saveTenantRetainedRecord(record);
   const structuredResult = await saveStructuredIncidentReport(report);
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(`empowernotes-incident:${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}:${report.incidentId}`, record.body);
+    window.localStorage.setItem(`${tenantStorageKey("empowernotes-incident")}:${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}:${report.incidentId}`, record.body);
     window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 

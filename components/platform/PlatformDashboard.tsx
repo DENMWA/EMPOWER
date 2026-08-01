@@ -19,6 +19,7 @@ import { TrialRunChecklist } from "@/components/trial/TrialRunChecklist";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary, type PlatformOrganisationStatus } from "@/lib/platform-data";
 import { clearPlatformAccessStatus, getEffectivePlatformStatus, getPlatformAccessOverride, isAccessBlocked, setDemoCurrentOrganisation, setPlatformAccessStatus } from "@/lib/platform-access";
+import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { cn } from "@/lib/utils";
 
 type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "diagnostics" | "analytics" | "security" | "support" | "trial";
@@ -51,7 +52,14 @@ const supportEvents = [
 
 export function PlatformDashboard() {
   const [activeArea, setActiveArea] = useState<PlatformAreaId>("overview");
+  const [dataModeChecked, setDataModeChecked] = useState(false);
+  const [showDemoData, setShowDemoData] = useState(false);
   const active = consoleAreas.find((area) => area.id === activeArea) ?? consoleAreas[0];
+
+  useEffect(() => {
+    setShowDemoData(isPresentationModeEnabled());
+    setDataModeChecked(true);
+  }, []);
 
   useEffect(() => {
     function syncFromHash() {
@@ -65,6 +73,9 @@ export function PlatformDashboard() {
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
   }, []);
+
+  if (!dataModeChecked) return <div className="min-h-[55vh] bg-slate-100" aria-label="Loading platform data mode" />;
+  if (!showDemoData) return <LivePlatformDataPending />;
 
   return (
     <>
@@ -115,6 +126,30 @@ export function PlatformDashboard() {
 
         <div id={activeArea} className="scroll-mt-28">
           <PlatformAreaContent activeArea={activeArea} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function LivePlatformDataPending() {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Developer platform console"
+        title="Live platform operations"
+        description="Cross-tenant metrics remain private and appear here only after the production analytics and payment event pipeline is connected."
+        actions={<StatusBadge label="Owner only" tone="red" />}
+      />
+      <Section>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {["Organisations", "Subscriptions", "Payments", "System health"].map((label) => (
+            <Card key={label}>
+              <p className="text-sm font-medium text-slate-600">{label}</p>
+              <p className="mt-3 text-xl font-semibold text-ink">Connection pending</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">No demonstration or tenant records are displayed in the production console.</p>
+            </Card>
+          ))}
         </div>
       </Section>
     </>
