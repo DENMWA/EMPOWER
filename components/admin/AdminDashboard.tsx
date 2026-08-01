@@ -4,235 +4,192 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
-  ArrowUpRight,
+  ArrowRight,
+  BarChart3,
   CalendarDays,
-  ClipboardCheck,
-  FileCheck2,
-  FileWarning,
-  FolderLock,
-  LineChart,
+  CheckCircle2,
+  ClipboardList,
   ReceiptText,
-  Settings,
-  ShieldCheck,
-  UserRoundPlus,
-  UserPlus
+  UserPlus,
+  Users
 } from "lucide-react";
-import { ClientReportColourCards } from "@/components/admin/ClientReportColourCards";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { isRealModeEnabled } from "@/lib/presentation-mode";
-import { getRosterSummary } from "@/lib/roster";
-import { participants, progressNotes, users } from "@/lib/sample-data";
+import { getNativeBillingRecords, type NativeBillingRecords } from "@/lib/native-billing";
+import { getRosterShiftConflicts, getRosterSummary, getStoredRosterShifts, type RosterShift } from "@/lib/roster";
+import { progressNotes } from "@/lib/sample-data";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
+import { cn } from "@/lib/utils";
 
-const adminTools = [
+const emptyBilling: NativeBillingRecords = {
+  shifts: [], pricingVersions: [], supportItems: [], agreements: [], agreementItems: [], invoices: [], invoiceLines: []
+};
+
+const workspaces = [
   {
-    title: "Team Management",
-    detail: "Invite staff, set roles, deactivate users, and control participant access.",
-    href: "/admin/team",
-    icon: UserPlus,
-    badge: "Access"
-  },
-  {
-    title: "Add Staff",
-    detail: "Invite a new worker, manager, or admin and assign participant access.",
-    href: "/admin/staff/new",
-    icon: UserPlus,
-    badge: "Invite"
-  },
-  {
-    title: "Client Management",
-    detail: "View client profiles, colours, goals, risks, staff access, and document streams.",
+    title: "People",
+    detail: "Clients, staff, houses and access.",
     href: "/admin/clients",
-    icon: UserRoundPlus,
-    badge: "Clients"
-  },
-  {
-    title: "Add Client",
-    detail: "Create a client profile with support needs, risk alerts, goals, staff access, and reporting colour.",
-    href: "/admin/clients/new",
-    icon: UserRoundPlus,
-    badge: "Client"
+    icon: Users,
+    links: [["Add client", "/admin/clients/new"], ["Manage staff", "/admin/team"]]
   },
   {
     title: "Scheduling",
-    detail: "Plan shifts in day, week, or month calendar views, assign workers, check coverage, and follow outstanding notes.",
+    detail: "Coverage, shifts and conflicts.",
     href: "/admin/scheduling",
     icon: CalendarDays,
-    badge: "Calendar"
+    links: [["Open calendar", "/admin/scheduling"]]
   },
   {
-    title: "Status Reports",
-    detail: "Documentation health, roster-to-note completion, incidents, and evidence gaps.",
-    href: "/admin/reports",
-    icon: ClipboardCheck,
-    badge: "Reports"
+    title: "Records",
+    detail: "Notes, incidents and documents.",
+    href: "/admin/reviews",
+    icon: ClipboardList,
+    links: [["Review incidents", "/admin/incidents"], ["Documents", "/documents"]]
   },
   {
-    title: "Progress Intelligence",
-    detail: "Review plan-to-progress evidence, baselines, goal movement, and outcome signals.",
-    href: "/admin/progress",
-    icon: LineChart,
-    badge: "Outcomes"
-  },
-  {
-    title: "Service Agreements & Invoicing",
-    detail: "Manage service agreements, check NDIS pricing versions, generate native invoice drafts, and export PDF/CSV without Xero.",
+    title: "Billing",
+    detail: "Agreements, rendered services and invoices.",
     href: "/admin/billing",
     icon: ReceiptText,
-    badge: "NDIS billing"
+    links: [["Open billing", "/admin/billing"]]
   },
   {
-    title: "Note Review",
-    detail: "Review weak notes, missing detail, risky wording, and notes needing approval.",
-    href: "/admin/reviews",
-    icon: FileCheck2,
-    badge: "Quality"
-  },
-  {
-    title: "Incident Review",
-    detail: "Track incidents needing escalation, follow-up, manager review, or closure.",
-    href: "/admin/incidents",
-    icon: ShieldCheck,
-    badge: "Risk"
-  },
-  {
-    title: "Document Management",
-    detail: "Verify support plans, risk assessments, and worker-visible document access.",
-    href: "/documents",
-    icon: FolderLock,
-    badge: "Evidence"
-  },
-  {
-    title: "Audit Packs",
-    detail: "Prepare evidence exports by participant, date range, worker, or incident.",
-    href: "/admin/audit-packs",
-    icon: FileWarning,
-    badge: "Audit"
-  },
-  {
-    title: "Organisation Settings",
-    detail: "Business details, default templates, compliance wording, and service settings.",
-    href: "/admin/settings",
-    icon: Settings,
-    badge: "Setup"
+    title: "Reports",
+    detail: "Progress, operations and audit exports.",
+    href: "/admin/reports",
+    icon: BarChart3,
+    links: [["Progress", "/admin/progress"], ["Audit packs", "/admin/audit-packs"]]
   }
 ];
 
 export function AdminDashboard() {
-  const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
-  const [savedStaff, setSavedStaff] = useState<StaffRecord[]>([]);
-  const [realMode, setRealMode] = useState(false);
-  const rosterSummary = getRosterSummary();
-  const weakNotes = realMode ? 0 : progressNotes.filter((note) => note.score < 80 || note.missingDetails.length > 0).length;
-  const clientCount = savedClients.length || (realMode ? 0 : participants.length);
-  const staffCount = savedStaff.length || (realMode ? 0 : users.length);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [staff, setStaff] = useState<StaffRecord[]>([]);
+  const [shifts, setShifts] = useState<RosterShift[]>([]);
+  const [billing, setBilling] = useState<NativeBillingRecords>(emptyBilling);
 
   useEffect(() => {
-    getTenantClients().then(setSavedClients).catch(() => setSavedClients([]));
-    getTenantStaffInvites().then(setSavedStaff).catch(() => setSavedStaff([]));
+    Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clientRecords, staffRecords]) => {
+      setClients(clientRecords);
+      setStaff(staffRecords);
+    }).catch(() => undefined);
+    setShifts(getStoredRosterShifts());
+    setBilling(getNativeBillingRecords());
   }, []);
 
-  useEffect(() => {
-    function syncDataMode() {
-      setRealMode(isRealModeEnabled());
-    }
+  const rosterSummary = getRosterSummary(shifts);
+  const conflicts = shifts.flatMap((shift, index) => getRosterShiftConflicts(shift, shifts.slice(0, index)));
+  const notesNeedingReview = progressNotes.filter((note) => note.score < 80 || note.missingDetails.length > 0).length;
+  const servicesReady = billing.shifts.filter((service) =>
+    service.status === "completed" && !billing.invoiceLines.some((line) => line.shiftId === service.id && line.approvalStatus !== "needs_correction")
+  ).length;
+  const invoicesNeedingReview = billing.invoices.filter((invoice) => invoice.status === "review_required" || invoice.paymentStatus === "overdue").length;
 
-    syncDataMode();
-    window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
-    return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
-  }, []);
+  const attentionItems = [
+    { label: "Staff roster conflicts", count: conflicts.length, href: "/admin/scheduling", action: "Resolve conflicts", urgent: true },
+    { label: "Completed shifts missing notes", count: rosterSummary.completedNeedingNotes, href: "/admin/scheduling", action: "Review shifts", urgent: true },
+    { label: "Notes needing review", count: notesNeedingReview, href: "/admin/reviews", action: "Review notes" },
+    { label: "Rendered services ready", count: servicesReady, href: "/admin/billing", action: "Prepare invoices" },
+    { label: "Invoices needing attention", count: invoicesNeedingReview, href: "/admin/billing", action: "Review billing", urgent: true }
+  ].filter((item) => item.count > 0);
 
   return (
     <>
       <PageHeader
-        eyebrow="Admin control centre"
-        title="Manage the people, evidence, and reporting behind EmpowerNotes"
-        description="A locked admin workspace for roster planning, team access, note review, incident oversight, documents, audit packs, settings, and reporting."
-        actions={<StatusBadge label="Admin / owner only" tone="blue" />}
+        eyebrow="Admin today"
+        title="What needs your attention"
+        description="Your operational priorities, followed by the shortest path to complete them."
+        actions={<StatusBadge label={attentionItems.length ? `${attentionItems.length} action areas` : "All clear"} tone={attentionItems.length ? "amber" : "green"} />}
       />
 
-      <Section className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminMetric href="/admin/team" label="Active staff" value={staffCount} detail={savedStaff.length ? "Saved staff records" : realMode ? "Add staff to begin" : "Starter team records"} />
-          <AdminMetric href="/admin/clients" label="Active clients" value={clientCount} detail={savedClients.length ? "Saved colour-coded profiles" : realMode ? "Add clients to begin" : "Starter colour-coded profiles"} tone="blue" />
-          <AdminMetric href="/admin/scheduling" label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
-          <AdminMetric href="/admin/reviews" label="Notes needing review" value={weakNotes} detail="Quality or detail risk" tone="amber" />
+      <Section className="space-y-7">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryMetric label="Clients" value={clients.length} href="/admin/clients" />
+          <SummaryMetric label="Staff" value={staff.length} href="/admin/team" />
+          <SummaryMetric label="Rostered today" value={rosterSummary.todayCount} href="/admin/scheduling" />
+          <SummaryMetric label="Ready to invoice" value={servicesReady} href="/admin/billing" tone="green" />
         </div>
 
-        <ClientReportColourCards />
+        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+          <Card className="p-0">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Needs attention</h2>
+                <p className="mt-1 text-sm text-slate-600">Work from the top down.</p>
+              </div>
+              {attentionItems.length ? <AlertTriangle size={20} className="text-amber-700" aria-hidden="true" /> : <CheckCircle2 size={20} className="text-emerald-700" aria-hidden="true" />}
+            </div>
+            {attentionItems.length ? (
+              <div className="divide-y divide-slate-100">
+                {attentionItems.map((item) => (
+                  <Link key={item.label} href={item.href} className="group flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-slate-50">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className={cn("grid h-8 min-w-8 place-items-center rounded-md text-sm font-bold", item.urgent ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800")}>{item.count}</span>
+                      <p className="truncate text-sm font-semibold text-ink">{item.label}</p>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-teal-700">{item.action}<ArrowRight size={15} aria-hidden="true" /></span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-10 text-center">
+                <CheckCircle2 size={30} className="mx-auto text-emerald-600" aria-hidden="true" />
+                <p className="mt-3 font-semibold text-ink">No immediate actions</p>
+                <p className="mt-1 text-sm text-slate-600">The current workspace has no flagged operational items.</p>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <h2 className="text-lg font-semibold text-ink">Quick actions</h2>
+            <div className="mt-4 grid gap-2">
+              <QuickAction href="/admin/scheduling" icon={CalendarDays} label="Open scheduling" />
+              <QuickAction href="/admin/clients/new" icon={UserPlus} label="Add client" />
+              <QuickAction href="/admin/staff/new" icon={UserPlus} label="Add staff" />
+              <QuickAction href="/admin/billing" icon={ReceiptText} label="Open billing" />
+            </div>
+          </Card>
+        </div>
 
         <div>
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-ink">Administration</h2>
-            <p className="mt-1 text-sm text-slate-600">People, operations, quality and governance in one place.</p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {adminTools.map((tool) => {
-            const Icon = tool.icon;
-            return (
-              <a
-                key={tool.title}
-                href={tool.href}
-                className="group flex min-h-[245px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-soft hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-50 text-teal-800 group-hover:bg-teal-700 group-hover:text-white">
-                    <Icon size={20} aria-hidden="true" />
-                  </span>
-                  <StatusBadge label={tool.badge} tone="blue" />
-                </div>
-                <h3 className="mt-5 text-base font-semibold text-ink">{tool.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{tool.detail}</p>
-                <span className="mt-auto pt-5 text-sm font-semibold text-teal-700 group-hover:text-teal-900">
-                  Open workspace
-                </span>
-              </a>
-            );
-          })}
+          <h2 className="text-lg font-semibold text-ink">Workspaces</h2>
+          <p className="mt-1 text-sm text-slate-600">Everything else, grouped by the job being done.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {workspaces.map((workspace) => {
+              const Icon = workspace.icon;
+              return (
+                <Card key={workspace.title} className="flex min-h-48 flex-col p-4">
+                  <span className="grid h-9 w-9 place-items-center rounded-md bg-teal-50 text-teal-800"><Icon size={18} aria-hidden="true" /></span>
+                  <Link href={workspace.href} className="mt-4 font-semibold text-ink hover:text-teal-800">{workspace.title}</Link>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">{workspace.detail}</p>
+                  <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-4">
+                    {workspace.links.map(([label, href]) => <Link key={label} href={href} className="text-xs font-semibold text-teal-700 hover:text-teal-900">{label}</Link>)}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </div>
-
-        <Card className="grid gap-5 border-teal-200 bg-teal-50/60 lg:grid-cols-[auto_1fr_auto] lg:items-center">
-          <span className="grid h-12 w-12 place-items-center rounded-md bg-white text-teal-800 shadow-sm">
-            <AlertTriangle size={22} aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="text-xl font-semibold text-ink">Admin access should stay separate from worker actions</h2>
-            <p className="mt-1 text-sm leading-6 text-slate-700">Workers should move quickly through participant context, notes, incidents, and documents. Admins control rostering, access, reviews, reports, billing, and organisation settings.</p>
-          </div>
-          <Link href="/admin/reports" className="inline-flex min-h-11 items-center justify-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
-            View reports
-          </Link>
-        </Card>
       </Section>
     </>
   );
 }
 
-function AdminMetric({ href, label, value, detail, tone = "slate" }: { href: string; label: string; value: number; detail: string; tone?: "slate" | "amber" | "green" | "blue" }) {
-  const toneClasses = {
-    slate: "text-ink",
-    amber: "text-amber-800",
-    green: "text-emerald-800",
-    blue: "text-sky-800"
-  };
-
+function SummaryMetric({ label, value, href, tone = "slate" }: { label: string; value: number; href: string; tone?: "slate" | "green" }) {
   return (
-    <Link
-      href={href}
-      className="group relative min-h-[150px] overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-soft transition duration-200 hover:-translate-y-1 hover:border-teal-300 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 active:translate-y-0 active:shadow-soft"
-    >
-      <span className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-teal-600 transition-transform duration-200 group-hover:scale-x-100 group-focus-visible:scale-x-100" />
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-slate-600 transition-colors group-hover:text-teal-800">{label}</p>
-        <span className="grid h-8 w-8 place-items-center rounded-md bg-slate-50 text-slate-500 transition group-hover:bg-teal-50 group-hover:text-teal-800">
-          <ArrowUpRight size={16} aria-hidden="true" />
-        </span>
-      </div>
-      <p className={`mt-2 text-3xl font-bold ${toneClasses[tone]}`}>{value}</p>
-      <p className="mt-2 text-sm text-slate-600">{detail}</p>
-      <p className="mt-3 text-xs font-semibold text-teal-700 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Open details</p>
+    <Link href={href} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-300">
+      <p className="text-sm font-medium text-slate-600">{label}</p>
+      <p className={cn("mt-1 text-2xl font-bold", tone === "green" ? "text-emerald-700" : "text-ink")}>{value}</p>
+    </Link>
+  );
+}
+
+function QuickAction({ href, icon: Icon, label }: { href: string; icon: typeof CalendarDays; label: string }) {
+  return (
+    <Link href={href} className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-slate-200 px-3 text-sm font-semibold text-ink hover:border-teal-300 hover:bg-teal-50/50">
+      <span className="inline-flex items-center gap-2"><Icon size={17} className="text-teal-700" aria-hidden="true" />{label}</span>
+      <ArrowRight size={15} className="text-slate-400" aria-hidden="true" />
     </Link>
   );
 }

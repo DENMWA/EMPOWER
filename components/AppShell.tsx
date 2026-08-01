@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
+import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
@@ -173,6 +174,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         )}
+        {!isPlatform && pathname.startsWith("/admin") && hasWorkspaceAccess ? <AdminNavigation /> : null}
       </header>
       <main>
         <DemoAccessBoundary pathname={pathname} signedIn={hasWorkspaceAccess} authChecked={authChecked}>
