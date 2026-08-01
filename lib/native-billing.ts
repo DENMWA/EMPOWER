@@ -1,6 +1,7 @@
 import { getStoredClients, type ClientRecord } from "@/lib/client-records";
 import type { RetainedRecord } from "@/lib/retained-records";
 import type { StaffRecord } from "@/lib/staff-records";
+import type { RosterShift } from "@/lib/roster";
 
 export type ShiftStatus = "draft" | "scheduled" | "completed" | "cancelled" | "no_show" | "missed" | "archived";
 export type PricingVersionStatus = "draft" | "active" | "superseded" | "archived" | "failed";
@@ -27,6 +28,7 @@ export type SupportShift = {
   cancellationReason?: string;
   billableCancellation?: boolean;
   noteRecordId?: string;
+  rosterShiftId?: string;
   createdAt: string;
 };
 
@@ -322,6 +324,41 @@ export function completeShift(shiftId: string, noteRecordId: string) {
     ...records,
     shifts: records.shifts.map((shift) => shift.id === shiftId ? { ...shift, status: "completed", noteRecordId } : shift)
   });
+}
+
+export function linkCompletedRosterService(input: {
+  rosterShift: RosterShift;
+  agreement: ServiceAgreement;
+  noteRecordId?: string;
+}) {
+  const records = getNativeBillingRecords();
+  const existing = records.shifts.find((shift) => shift.rosterShiftId === input.rosterShift.id);
+  if (existing) return { shift: existing, error: "This completed roster service is already linked to billing." };
+
+  const assignedStaff = input.rosterShift.assignedWorkers?.length
+    ? input.rosterShift.assignedWorkers
+    : [{ id: input.rosterShift.workerId, name: input.rosterShift.workerName }];
+  const shift: SupportShift = {
+    id: createId("shift"),
+    rosterShiftId: input.rosterShift.id,
+    participantId: input.rosterShift.participantId,
+    participantName: input.rosterShift.participantName,
+    staffId: assignedStaff[0]?.id || "",
+    staffName: assignedStaff.map((worker) => worker.name).join(", "),
+    serviceAgreementId: input.agreement.id,
+    title: input.rosterShift.supportType,
+    supportType: input.rosterShift.supportType,
+    location: input.rosterShift.location,
+    startTime: `${input.rosterShift.shiftDate}T${input.rosterShift.startTime}:00`,
+    endTime: `${input.rosterShift.shiftDate}T${input.rosterShift.endTime}:00`,
+    status: "completed",
+    recurrenceRule: "",
+    noteRecordId: input.noteRecordId,
+    createdAt: new Date().toISOString()
+  };
+
+  saveNativeBillingRecords({ ...records, shifts: [shift, ...records.shifts] });
+  return { shift, error: "" };
 }
 
 export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[]) {

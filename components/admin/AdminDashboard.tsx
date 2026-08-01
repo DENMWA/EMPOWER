@@ -156,7 +156,7 @@ export function AdminDashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <AdminMetric href="/admin/team" label="Active staff" value={staffCount} detail={savedStaff.length ? "Saved staff records" : realMode ? "Add staff to begin" : "Starter team records"} />
           <AdminMetric href="/admin/clients" label="Active clients" value={clientCount} detail={savedClients.length ? "Saved colour-coded profiles" : realMode ? "Add clients to begin" : "Starter colour-coded profiles"} tone="blue" />
-          <AdminMetric href="/roster" label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
+          <AdminMetric href="/admin/scheduling" label="Rostered today" value={rosterSummary.todayCount} detail="Admin roster shifts" />
           <AdminMetric href="/admin/reviews" label="Notes needing review" value={weakNotes} detail="Quality or detail risk" tone="amber" />
         </div>
 

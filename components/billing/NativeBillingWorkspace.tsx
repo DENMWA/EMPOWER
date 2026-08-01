@@ -1,23 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
+import { ClipboardCheck, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { downloadOrganisationReportHtml, getOrganisationProfile } from "@/lib/organisation-profile";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
-import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
+import { getTenantStaffInvites } from "@/lib/staff-records";
 import {
   activatePricingVersion,
   addServiceAgreementItem,
   buildInvoiceCsv,
-  completeShift,
   createInvoiceFromShift,
   createPricingVersionFromManualUpload,
   createServiceAgreement,
-  createSupportShift,
   getBudgetUsage,
   getNativeBillingRecords,
+  linkCompletedRosterService,
   markInvoicePaymentStatus,
   nativeBillingUpdatedEvent,
   type NativeBillingRecords,
@@ -25,14 +24,14 @@ import {
   type NativeInvoiceLine
 } from "@/lib/native-billing";
 import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
+import { getStoredRosterShifts, type RosterShift } from "@/lib/roster";
 
 export function NativeBillingWorkspace() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [staff, setStaff] = useState<StaffRecord[]>([]);
   const [notes, setNotes] = useState<RetainedRecord[]>([]);
   const [records, setRecords] = useState<NativeBillingRecords>(getNativeBillingRecords());
+  const [rosterServices, setRosterServices] = useState<RosterShift[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
-  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [agreementName, setAgreementName] = useState("");
   const [agreementStartDate, setAgreementStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [agreementEndDate, setAgreementEndDate] = useState("");
@@ -53,11 +52,13 @@ export function NativeBillingWorkspace() {
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
   const supportItems = activePricingVersion ? records.supportItems.filter((item) => item.pricingVersionId === activePricingVersion.id) : [];
   const selectedClient = clients.find((client) => client.id === selectedClientId) || clients[0];
-  const selectedStaff = staff.find((item) => item.id === selectedStaffId) || staff[0];
   const selectedAgreement = selectedClient ? records.agreements.find((agreement) => agreement.participantId === selectedClient.id && agreement.status === "active") : undefined;
   const selectedSupportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
   const budgetRows = selectedClient ? getBudgetUsage(records, selectedClient.id) : [];
   const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason);
+  const completedRosterServices = selectedClient ? rosterServices.filter((shift) =>
+    shift.participantId === selectedClient.id && (shift.status === "Completed" || shift.status === "Note Completed")
+  ) : [];
 
   useEffect(() => {
     async function loadRecords() {
@@ -67,10 +68,9 @@ export function NativeBillingWorkspace() {
         getTenantRetainedRecords("progress-note").catch(() => [])
       ]);
       setClients(clientItems);
-      setStaff(staffItems);
       setNotes(noteItems);
+      setRosterServices(getStoredRosterShifts());
       setSelectedClientId((current) => current || clientItems[0]?.id || "");
-      setSelectedStaffId((current) => current || staffItems[0]?.id || "");
       const cloudRecords = await loadTenantNativeBillingRecords(clientItems, staffItems);
       setRecords(cloudRecords);
     }
@@ -164,44 +164,22 @@ export function NativeBillingWorkspace() {
     setMessage(`${selectedSupportItem.supportItemName} added at $${rate.toFixed(2)} per ${selectedSupportItem.unitType}.`);
   }
 
-  function scheduleShift() {
-    if (!selectedClient || !selectedAgreement) {
-      setMessage("Create a service agreement before scheduling a billable shift.");
+  function linkRenderedService(rosterShift: RosterShift) {
+    if (!selectedAgreement) {
+      setMessage("Create an active service agreement for this client before linking delivered support.");
       return;
     }
-
-    const start = new Date();
-    start.setHours(9, 0, 0, 0);
-    const end = new Date(start);
-    end.setHours(11, 0, 0, 0);
-    const shift = createSupportShift({
-      participant: selectedClient,
-      staff: selectedStaff,
-      agreement: selectedAgreement,
-      title: "Scheduled direct support",
-      supportType: "Community access",
-      location: "Participant preferred community location",
-      startTime: start.toISOString(),
-      endTime: end.toISOString()
-    });
-    setMessage(`${shift.title} scheduled for ${selectedClient.name}.`);
+    const matchingNote = notes.find((note) => note.body.includes(rosterShift.participantName) || note.id.includes(rosterShift.participantId));
+    const result = linkCompletedRosterService({ rosterShift, agreement: selectedAgreement, noteRecordId: matchingNote?.id });
+    setMessage(result.error || (matchingNote
+      ? "Completed service linked to its service agreement and progress-note evidence."
+      : "Completed service linked. The invoice will flag that supporting note evidence is missing."));
   }
 
-  function completeFirstShift() {
-    const shift = records.shifts.find((item) => item.participantId === selectedClient?.id && item.status === "scheduled");
+  function generateInvoice(serviceId: string) {
+    const shift = records.shifts.find((item) => item.id === serviceId && item.participantId === selectedClient?.id && item.status === "completed");
     if (!shift) {
-      setMessage("Schedule a shift first.");
-      return;
-    }
-    const matchingNote = notes.find((note) => note.body.includes(selectedClient?.name || "") || note.id.includes(selectedClient?.id || ""));
-    completeShift(shift.id, matchingNote?.id || "");
-    setMessage(matchingNote ? "Shift completed and linked to a saved progress note." : "Shift completed. Missing-note evidence warning will appear on invoice.");
-  }
-
-  function generateInvoice() {
-    const shift = records.shifts.find((item) => item.participantId === selectedClient?.id && item.status === "completed");
-    if (!shift) {
-      setMessage("Complete a shift before generating an invoice draft.");
+      setMessage("This rendered service is not available for invoicing.");
       return;
     }
 
@@ -235,7 +213,7 @@ export function NativeBillingWorkspace() {
         `Pricing version: ${line.pricingVersionName}`,
         `Evidence linked: ${line.evidenceStatus === "evidence_linked" || line.evidenceStatus === "approved" ? "Yes" : "No"}`,
         `Support note reference: ${line.noteReference}`,
-        `Shift reference: ${line.shiftId}`,
+        `Service record reference: ${line.shiftId}`,
         `Price check: ${line.priceCheckStatus}`
       ].join("\n")),
       "",
@@ -264,19 +242,12 @@ export function NativeBillingWorkspace() {
         <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This invoice uses the selected NDIS Pricing Arrangements and Price Limits version. Confirm the support item, claim type and billing rules before issuing.</p>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
           Client
           <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
             {!clients.length ? <option>Add a client first</option> : null}
             {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-semibold text-slate-700">
-          Staff
-          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedStaff?.id || ""} onChange={(event) => setSelectedStaffId(event.target.value)}>
-            {!staff.length ? <option>Add staff first</option> : null}
-            {staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>
         <StatusPanel records={records} exceptionCount={exceptionLines.length} />
@@ -380,21 +351,37 @@ export function NativeBillingWorkspace() {
         </Card>
 
         <Card>
-          <h2 className="text-xl font-semibold text-ink">3. Schedule and complete shift</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Completed shifts can be linked to progress notes before invoicing. Missing notes are flagged but not silently blocked.</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button type="button" onClick={scheduleShift} className="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white"><CalendarDays size={17} /> Schedule shift</button>
-            <button type="button" onClick={completeFirstShift} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Complete next shift</button>
-          </div>
-          <div className="mt-4 space-y-2">
-            {records.shifts.map((shift) => <p key={shift.id} className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">{shift.participantName} - {shift.supportType} - {shift.status} - note: {shift.noteRecordId || "missing"}</p>)}
+          <h2 className="text-xl font-semibold text-ink">3. Completed services</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Only support marked completed in the admin roster can be linked to billing. Each service remains tied to its client, service agreement, staff team, date, duration and evidence.</p>
+          <div className="mt-4 space-y-3">
+            {!completedRosterServices.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No completed roster services are available for this client.</p> : null}
+            {completedRosterServices.map((shift) => {
+              const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
+              const linked = Boolean(billingService);
+              const invoiced = Boolean(billingService && records.invoiceLines.some((line) => line.shiftId === billingService.id && line.approvalStatus !== "needs_correction"));
+              return (
+                <div key={shift.id} className="rounded-md border border-slate-200 p-3">
+                  <p className="font-semibold text-ink">{shift.shiftDate} - {shift.supportType}</p>
+                  <p className="mt-1 text-sm text-slate-600">{shift.startTime}-{shift.endTime} - {shift.location} - {shift.assignedWorkers?.map((worker) => worker.name).join(", ") || shift.workerName}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" disabled={linked} onClick={() => linkRenderedService(shift)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
+                      <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked to billing" : "Link rendered service"}
+                    </button>
+                    {billingService ? (
+                      <button type="button" disabled={invoiced} onClick={() => generateInvoice(billingService.id)} className="inline-flex items-center gap-2 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+                        <ReceiptText size={16} aria-hidden="true" />{invoiced ? "Invoice created" : "Create invoice"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
         <Card>
           <h2 className="text-xl font-semibold text-ink">4. Native invoice draft</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Invoice lines store support item, pricing version, price limit, agreed rate, evidence status, and payment status permanently.</p>
-          <button type="button" onClick={generateInvoice} className="mt-4 inline-flex items-center gap-2 rounded-md bg-sea px-4 py-3 text-sm font-semibold text-white"><ReceiptText size={17} /> Create invoice from completed shift</button>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Invoice lines are generated only from linked services rendered and store the agreement item, pricing limit, agreed rate, evidence and payment status.</p>
           <div className="mt-4 space-y-3">
             {records.invoices.map((invoice) => {
               const lines = records.invoiceLines.filter((line) => line.invoiceId === invoice.id);
@@ -442,7 +429,7 @@ function StatusPanel({ records, exceptionCount }: { records: NativeBillingRecord
   return (
     <div className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
       <div className="flex flex-wrap gap-2">
-        <StatusBadge label={`${records.shifts.length} shifts`} tone="blue" />
+        <StatusBadge label={`${records.shifts.length} rendered services`} tone="blue" />
         <StatusBadge label={`${records.agreements.length} agreements`} tone="green" />
         <StatusBadge label={`${records.invoices.length} invoices`} tone="blue" />
         <StatusBadge label={`${exceptionCount} exceptions`} tone={exceptionCount ? "amber" : "green"} />

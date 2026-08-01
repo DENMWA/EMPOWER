@@ -168,6 +168,7 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     id: shift.id,
     organisation_id: organisationId,
     participant_id: shift.participantId,
+    source_roster_shift_id: shift.rosterShiftId || null,
     service_agreement_id: shift.serviceAgreementId || null,
     title: shift.title,
     support_type: shift.supportType,
@@ -282,7 +283,6 @@ function toShift(row: CloudRow, clientNames: Map<string, string>, staffNames: Ma
     id,
     participantId,
     participantName: clientNames.get(participantId) || "Client",
-    participantNdisNumber: asString(row.participant_ndis_number),
     staffId,
     staffName: staffNames.get(staffId) || "Unassigned staff",
     serviceAgreementId: asString(row.service_agreement_id),
@@ -294,6 +294,7 @@ function toShift(row: CloudRow, clientNames: Map<string, string>, staffNames: Ma
     status: asString(row.status) as SupportShift["status"],
     recurrenceRule: asString(row.recurrence_rule),
     noteRecordId: shiftNotes.get(id) || "",
+    rosterShiftId: asString(row.source_roster_shift_id) || undefined,
     createdAt: asString(row.created_at)
   };
 }
@@ -383,6 +384,7 @@ function toInvoice(row: CloudRow, clientNames: Map<string, string>): NativeInvoi
     invoiceNumber: asString(row.invoice_number),
     participantId,
     participantName: clientNames.get(participantId) || "Client",
+    participantNdisNumber: asString(row.participant_ndis_number),
     recipientName: asString(row.recipient_name),
     recipientEmail: asString(row.recipient_email),
     billingPeriodStart: asString(row.billing_period_start),
