@@ -84,10 +84,10 @@ const enterprise: BillingEntitlements = {
   ...provider,
   maxInvoiceLinesPerMonth: null,
   maxActiveServiceAgreements: null,
-  xeroIntegration: true,
-  myobIntegration: true,
-  quickbooksIntegration: true,
-  apiBillingAccess: true
+  xeroIntegration: false,
+  myobIntegration: false,
+  quickbooksIntegration: false,
+  apiBillingAccess: false
 };
 
 export const billingEntitlements: Record<SubscriptionTier, BillingEntitlements> = {

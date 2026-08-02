@@ -3,14 +3,14 @@ import { verifyServerAccess } from "@/lib/security/server-access";
 import { getOrganisationBilling, getStripePriceId, stripeRequest } from "@/lib/stripe/server";
 import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
 
-const tiers = new Set<SubscriptionTier>(["solo", "practice", "provider", "enterprise"]);
+const tiers = new Set<SubscriptionTier>(["solo", "practice", "provider"]);
 
 export async function POST(request: Request) {
   const access = await verifyServerAccess(request, "admin");
   if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: access.status });
 
   const input = await request.json().catch(() => ({})) as { tier?: SubscriptionTier };
-  if (!input.tier || !tiers.has(input.tier)) return NextResponse.json({ error: "Choose a valid EmpowerNotes plan." }, { status: 400 });
+  if (!input.tier || !tiers.has(input.tier)) return NextResponse.json({ error: "Choose a self-service EmpowerNotes plan. Enterprise subscriptions are arranged with the sales team." }, { status: 400 });
   const priceId = getStripePriceId(input.tier);
   if (!priceId.startsWith("price_")) return NextResponse.json({ error: "This plan has not been connected to Stripe." }, { status: 503 });
 

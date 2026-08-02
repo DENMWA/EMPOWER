@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ButtonLink, Section, StatusBadge } from "@/components/ui";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { AlertTriangle, ArrowRight, Building2, CheckCircle2, FileText, FolderLock, LineChart, Mic2, ShieldCheck, Smartphone, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { plans as pricingPlans } from "@/lib/pricing-data";
 
 const outcomes = [
   {
@@ -62,12 +63,19 @@ const steps = [
   "Review reports"
 ];
 
-const plans = [
-  { name: "Solo", detail: "Independent providers", price: "A$49.99", href: "/signup", cue: "Start lean" },
-  { name: "Practice", detail: "Small support teams", price: "A$129.99", href: "/signup", cue: "Most popular", featured: true },
-  { name: "Provider", detail: "Growing organisations", price: "A$299.99", href: "/contact", cue: "Scale teams" },
-  { name: "Enterprise", detail: "Multi-site governance", price: "A$799.99", href: "/contact", cue: "Governance ready" }
-];
+const planDetails: Record<string, { detail: string; cue: string }> = {
+  solo: { detail: "Independent providers", cue: "Start lean" },
+  practice: { detail: "Small support teams", cue: "Most popular" },
+  provider: { detail: "Growing organisations", cue: "Scale teams" },
+  enterprise: { detail: "Multi-site governance", cue: "Tailored setup" }
+};
+
+const plans = pricingPlans.map((plan) => ({
+  ...plan,
+  detail: planDetails[plan.tier].detail,
+  cue: planDetails[plan.tier].cue,
+  featured: plan.highlighted
+}));
 
 export default function HomePage() {
   const softwareJsonLd = {
@@ -224,7 +232,7 @@ export default function HomePage() {
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-700 via-sky-600 to-amber-500 opacity-0 transition group-hover:opacity-100" />
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-bold text-ink">{plan.name}</p>
+                  <p className="font-bold text-ink">{plan.shortName}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{plan.detail}</p>
                 </div>
                 <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-md ${plan.featured ? "bg-mint text-teal-900" : "bg-slate-100 text-slate-700"}`}>
@@ -232,8 +240,8 @@ export default function HomePage() {
                 </span>
               </div>
               <div className="mt-5">
-                <p className="text-2xl font-bold text-sea">{plan.price}</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">per month</p>
+                <p className="text-2xl font-bold text-sea">{plan.price.replace("/month", "")}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{plan.selfService ? "per month" : "Tailored agreement"}</p>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
                 <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${plan.featured ? "bg-teal-50 text-teal-800" : "bg-slate-50 text-slate-700"}`}>{plan.cue}</span>

@@ -77,15 +77,15 @@ const practice: PlanToProgressEntitlements = {
 
 const provider: PlanToProgressEntitlements = {
   ...practice, maxActiveParticipants: 300, maxUsers: 50, maxDocumentsPerParticipant: null, maxAiAnalysedNotesPerMonth: 10000, maxStorageBytes: 250 * 1024 * 1024 * 1024, maxApprovalStages: 4,
-  multiDocumentParsing: true, automatedDocumentSync: true, paragraphLevelTraceability: true, conflictDetection: true, customBaselineTemplates: true, customProgressScales: true, customEvidenceRules: true,
-  cohortAnalytics: true, configurableDashboards: true, customReportBuilder: true, scheduledReports: true, sharePointIntegration: true, outlookIntegration: true, googleDriveIntegration: true,
+  multiDocumentParsing: true, automatedDocumentSync: false, paragraphLevelTraceability: true, conflictDetection: true, customBaselineTemplates: true, customProgressScales: true, customEvidenceRules: true,
+  cohortAnalytics: true, configurableDashboards: true, customReportBuilder: true, scheduledReports: true, sharePointIntegration: false, outlookIntegration: false, googleDriveIntegration: false,
   multiStageApproval: true, customAiRules: true, organisationPolicyIntelligence: true, customDocumentTypes: true
 };
 
 const enterprise: PlanToProgressEntitlements = {
   ...provider, maxActiveParticipants: null, maxUsers: null, maxAiAnalysedNotesPerMonth: null, maxStorageBytes: null, maxApprovalStages: null,
   bulkPlanProcessing: true, multipleBaselinesPerGoal: true, organisationWideAnalytics: true, executiveDashboards: true, boardReports: true,
-  teamsIntegration: true, apiAccess: true, dataWarehouseExport: true, customRoles: true, delegatedAdministration: true, whiteLabel: true
+  teamsIntegration: false, apiAccess: false, dataWarehouseExport: false, customRoles: false, delegatedAdministration: false, whiteLabel: true
 };
 
 export const planToProgressEntitlements: Record<SubscriptionTier, PlanToProgressEntitlements> = {

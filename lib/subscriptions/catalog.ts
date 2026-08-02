@@ -122,11 +122,11 @@ const operationalEntitlements: Record<SubscriptionTier, OperationalEntitlements>
     customTemplates: true,
     scheduledReports: true,
     advancedAnalytics: true,
-    customRoles: true,
-    delegatedAdministration: true,
+    customRoles: false,
+    delegatedAdministration: false,
     executiveDashboards: true,
-    apiAccess: true,
-    dataWarehouseExport: true,
+    apiAccess: false,
+    dataWarehouseExport: false,
     whiteLabel: true
   }
 };
@@ -167,4 +167,3 @@ export const planCatalogue: Record<SubscriptionTier, PlanCatalogueEntry> = {
   provider: getPlanCatalogueEntry("provider"),
   enterprise: getPlanCatalogueEntry("enterprise")
 };
-

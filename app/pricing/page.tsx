@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PricingCards } from "@/components/pricing/PricingCards";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
 import { CheckCircle2 } from "lucide-react";
+import { PlanComparison } from "@/components/pricing/PlanComparison";
 
 export const metadata: Metadata = {
   title: "Pricing for Australian NDIS Documentation Software",
@@ -42,6 +43,7 @@ export default function PricingPage() {
         </div>
       </Section>
       <Section><PricingCards /></Section>
+      <Section><PlanComparison /></Section>
       <Section>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-6">
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">After signup</p>

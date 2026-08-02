@@ -6,6 +6,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { selfServicePlans } from "@/lib/pricing-data";
 
 export function PlanManagementCard() {
   const [tier, setTier] = useState<SubscriptionTier>("practice");
@@ -80,8 +81,8 @@ export function PlanManagementCard() {
       <label className="mt-5 block max-w-sm text-sm font-semibold text-slate-700">
         Plan for checkout
         <select value={selectedTier} onChange={(event) => setSelectedTier(event.target.value as SubscriptionTier)} className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-ink shadow-sm">
-          {(Object.keys(subscriptionTiers) as SubscriptionTier[]).map((planTier) => (
-            <option key={planTier} value={planTier}>{subscriptionTiers[planTier].name}</option>
+          {selfServicePlans.map((plan) => (
+            <option key={plan.tier} value={plan.tier}>{plan.name} - {plan.price}</option>
           ))}
         </select>
       </label>

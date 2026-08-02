@@ -13,7 +13,7 @@ export function PricingCards() {
             {plan.highlighted ? <StatusBadge label="Popular" tone="green" /> : null}
           </div>
           <p className="mt-3 text-3xl font-bold text-sea">{plan.price.replace("/month", "")}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-500">per month</p>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{plan.selfService ? "per month" : "Tailored agreement"}</p>
           <p className="mt-4 min-h-24 text-sm leading-6 text-slate-700">{plan.bestFor}</p>
           <ul className="mt-4 space-y-3 text-sm text-slate-700">
             {plan.features.slice(0, 5).map((feature) => (

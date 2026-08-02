@@ -29,7 +29,7 @@ const businessTypes: Record<BusinessType, { label: string; detail: string; recom
   },
   enterprise: {
     label: "Large organisation",
-    detail: "Multi-site, complex governance, integrations, SSO, and executive reporting.",
+    detail: "Multi-site operations, complex governance, tailored implementation, and executive reporting.",
     recommendedTier: "enterprise"
   }
 };

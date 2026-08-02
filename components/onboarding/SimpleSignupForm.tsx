@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui";
 import { getCurrentAuthStatus, signUpWithPassword } from "@/lib/supabase-auth";
@@ -9,13 +9,9 @@ import { completePendingOnboarding, savePendingOnboarding } from "@/lib/pending-
 import { setDataMode } from "@/lib/presentation-mode";
 import { setCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { selfServicePlans } from "@/lib/pricing-data";
 
-const planOptions: Array<{ tier: SubscriptionTier; price: string }> = [
-  { tier: "solo", price: "A$49.99/month" },
-  { tier: "practice", price: "A$129.99/month" },
-  { tier: "provider", price: "A$299.99/month" },
-  { tier: "enterprise", price: "A$799.99/month" }
-];
+const planOptions = selfServicePlans.map(({ tier, price }) => ({ tier, price }));
 
 export function SimpleSignupForm() {
   const [organisationName, setOrganisationName] = useState("");
@@ -28,6 +24,11 @@ export function SimpleSignupForm() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const requestedPlan = new URLSearchParams(window.location.search).get("plan");
+    if (planOptions.some((plan) => plan.tier === requestedPlan)) setTier(requestedPlan as SubscriptionTier);
+  }, []);
 
   async function createWorkspace() {
     const cleanOrganisation = organisationName.trim();
@@ -117,7 +118,7 @@ export function SimpleSignupForm() {
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
           Starting plan
           <select value={tier} onChange={(event) => setTier(event.target.value as SubscriptionTier)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink shadow-sm">
-            {planOptions.map((plan) => <option key={plan.tier} value={plan.tier}>{subscriptionTiers[plan.tier].shortName} · {plan.price}</option>)}
+            {planOptions.map((plan) => <option key={plan.tier} value={plan.tier}>{subscriptionTiers[plan.tier].shortName} - {plan.price}</option>)}
           </select>
         </label>
       </div>
