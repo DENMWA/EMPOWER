@@ -90,8 +90,8 @@ export function mapStripeStatus(status: string) {
 }
 
 export async function getOrganisationBilling(organisationId: string) {
-  const rows = await supabaseServiceRequest<Array<{ id: string; name: string; contact_email: string | null; stripe_customer_id: string | null; stripe_subscription_id: string | null; subscription_status: string | null }>>(
-    `organisations?select=id,name,contact_email,stripe_customer_id,stripe_subscription_id,subscription_status&id=eq.${encodeURIComponent(organisationId)}&limit=1`
+  const rows = await supabaseServiceRequest<Array<{ id: string; name: string; contact_email: string | null; stripe_customer_id: string | null; stripe_subscription_id: string | null; subscription_status: string | null; subscription_grace_ends_at: string | null }>>(
+    `organisations?select=id,name,contact_email,stripe_customer_id,stripe_subscription_id,subscription_status,subscription_grace_ends_at&id=eq.${encodeURIComponent(organisationId)}&limit=1`
   );
   return rows.data?.[0] || null;
 }
@@ -111,13 +111,19 @@ export async function syncOrganisationSubscription(organisationId: string, subsc
   const priceId = subscription.items?.data?.[0]?.price?.id || "";
   const tier = getTierForStripePrice(priceId);
   const periodEnd = stripePeriodEnd(subscription);
+  const mappedStatus = mapStripeStatus(subscription.status);
+  const existingBilling = await getOrganisationBilling(organisationId);
+  const graceEndsAt = mappedStatus === "past_due"
+    ? existingBilling?.subscription_grace_ends_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    : null;
   return supabaseServiceRequest(`organisations?id=eq.${encodeURIComponent(organisationId)}`, "PATCH", {
     stripe_customer_id: stripeCustomerId(subscription.customer) || null,
     stripe_subscription_id: subscription.id,
     subscription_tier: tier || undefined,
-    subscription_status: mapStripeStatus(subscription.status),
+    subscription_status: mappedStatus,
     subscription_current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-    trial_ends_at: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null
+    trial_ends_at: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    subscription_grace_ends_at: graceEndsAt
   });
 }
 

@@ -11,6 +11,7 @@ export type ServerSubscriptionContext = {
   status: string;
   trialEndsAt: string;
   currentPeriodEnd: string;
+  graceEndsAt: string;
   enforcementMode: "monitor" | "enforce";
   source: "supabase" | "legacy-fallback";
   resolutionError: string;
@@ -80,7 +81,7 @@ export async function resolveServerSubscriptionContext(request: Request): Promis
     }
 
     const organisationResponse = await fetch(
-      `${supabaseUrl}/rest/v1/organisations?select=subscription_tier,subscription_status,subscription_enforcement_mode,trial_ends_at,subscription_current_period_end&id=eq.${encodeURIComponent(organisationId)}&limit=1`,
+      `${supabaseUrl}/rest/v1/organisations?select=subscription_tier,subscription_status,subscription_enforcement_mode,trial_ends_at,subscription_current_period_end,subscription_grace_ends_at&id=eq.${encodeURIComponent(organisationId)}&limit=1`,
       { method: "GET", headers, cache: "no-store" }
     );
     if (!organisationResponse.ok) {
@@ -99,6 +100,7 @@ export async function resolveServerSubscriptionContext(request: Request): Promis
       subscription_enforcement_mode?: string;
       trial_ends_at?: string;
       subscription_current_period_end?: string;
+      subscription_grace_ends_at?: string;
     }>;
     const organisation = organisations[0];
     const tier = normaliseSubscriptionTier(organisation?.subscription_tier || null);
@@ -121,6 +123,7 @@ export async function resolveServerSubscriptionContext(request: Request): Promis
       status: organisation.subscription_status || "trialing",
       trialEndsAt: organisation.trial_ends_at || "",
       currentPeriodEnd: organisation.subscription_current_period_end || "",
+      graceEndsAt: organisation.subscription_grace_ends_at || "",
       enforcementMode: organisation.subscription_enforcement_mode === "enforce" ? "enforce" : "monitor",
       source: "supabase",
       resolutionError: ""
@@ -182,6 +185,7 @@ function createFallbackContext(request: Request): ServerSubscriptionContext {
     status: "unknown",
     trialEndsAt: "",
     currentPeriodEnd: "",
+    graceEndsAt: "",
     enforcementMode: "monitor",
     source: "legacy-fallback",
     resolutionError: ""

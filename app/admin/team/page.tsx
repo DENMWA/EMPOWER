@@ -2,20 +2,23 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { InviteTeamMemberForm } from "@/components/admin/InviteTeamMemberForm";
 import { TeamMembersTable } from "@/components/admin/TeamMembersTable";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
+import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 
 export default function AdminTeamPage() {
   return (
     <AdminGate>
-      <PageHeader
-        eyebrow="Admin workspace"
-        title="Team members and access control"
-        description="Invite staff, assign participant/client access, choose roles, and monitor documentation quality from one premium admin surface."
-        actions={<StatusBadge label="Owner/admin/service manager only" tone="blue" />}
-      />
-      <Section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <InviteTeamMemberForm />
-        <TeamMembersTable />
-      </Section>
+      <ServerFeatureGate category="operations" feature="teamManagement" title="Team management requires Practice or above">
+        <PageHeader
+          eyebrow="Admin workspace"
+          title="Team members and access control"
+          description="Invite staff, assign participant/client access, choose roles, and monitor documentation quality from one premium admin surface."
+          actions={<StatusBadge label="Owner/admin/service manager only" tone="blue" />}
+        />
+        <Section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <InviteTeamMemberForm />
+          <TeamMembersTable />
+        </Section>
+      </ServerFeatureGate>
     </AdminGate>
   );
 }

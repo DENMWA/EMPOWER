@@ -107,22 +107,14 @@ export function DocumentUploadCard() {
       fileName: selectedFile?.name || fileName
     });
     if (!pendingFilePath) setPendingFilePath(filePath);
-    const uploadResult = selectedFile ? await uploadTenantDocumentFile(selectedFile, filePath) : { uploaded: false, error: "No file selected; metadata saved only." };
-    if (selectedFile && !uploadResult.uploaded) {
-      setMessage(`File upload stopped: ${uploadResult.error}`);
-      setSaveFailed(true);
-      setSaving(false);
-      return;
-    }
-
     const documentId = pendingDocumentId || createDocumentId();
     if (!pendingDocumentId) setPendingDocumentId(documentId);
-    const result = await saveTenantDocumentRecord({
+    const documentRecord = {
       id: documentId,
       participantId: selectedClient.id,
       clientName: selectedClient.name,
       type: documentType,
-      status: selectedFile ? "Uploaded, awaiting verification" : "Metadata saved, file pending upload",
+      status: "Metadata saved, file pending upload",
       visibility,
       confidence: 0,
       startDate,
@@ -130,8 +122,10 @@ export function DocumentUploadCard() {
       fileName: selectedFile?.name || fileName,
       filePath,
       storageBucket: "participant-documents",
+      fileSizeBytes: selectedFile?.size || 0,
       savedAt: new Date().toISOString()
-    });
+    };
+    const result = await saveTenantDocumentRecord(documentRecord);
 
     if (result.error && result.error.includes("allows")) {
       setMessage(result.error);
@@ -141,10 +135,28 @@ export function DocumentUploadCard() {
     }
 
     if (!result.savedToCloud) {
-      setMessage(`Cloud save failed. The document details remain here for retry. ${result.error || "Try again."}`);
+      setMessage(`Cloud save failed, so the file was not uploaded. ${result.error || "Try again."}`);
       setSaveFailed(true);
       setSaving(false);
       return;
+    }
+
+    const uploadResult = selectedFile ? await uploadTenantDocumentFile(selectedFile, filePath) : { uploaded: false, error: "No file selected; metadata saved only." };
+    if (selectedFile && !uploadResult.uploaded) {
+      setMessage(`Document details saved, but the private file upload stopped: ${uploadResult.error}`);
+      setSaveFailed(true);
+      setSaving(false);
+      return;
+    }
+
+    if (selectedFile) {
+      const completedResult = await saveTenantDocumentRecord({ ...documentRecord, status: "Uploaded, awaiting verification" });
+      if (!completedResult.savedToCloud) {
+        setMessage(`The file uploaded, but final verification status could not be saved. ${completedResult.error || "Retry the upload."}`);
+        setSaveFailed(true);
+        setSaving(false);
+        return;
+      }
     }
 
     const fileText = selectedFile ? "File uploaded to private storage." : "No file selected; document metadata saved only.";

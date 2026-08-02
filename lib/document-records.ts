@@ -10,6 +10,7 @@ export type StoredDocumentRecord = SupportDocument & {
   fileName?: string;
   filePath?: string;
   storageBucket?: string;
+  fileSizeBytes?: number;
   savedAt: string;
 };
 
@@ -53,6 +54,7 @@ type SupabaseDocumentRow = {
   start_date: string | null;
   expiry_date: string | null;
   created_at: string;
+  file_size_bytes: number | null;
 };
 
 function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client"): StoredDocumentRecord {
@@ -69,6 +71,7 @@ function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client")
     fileName: row.file_path.split("/").pop(),
     filePath: row.file_path,
     storageBucket: row.storage_bucket || "participant-documents",
+    fileSizeBytes: Number(row.file_size_bytes) || 0,
     savedAt: row.created_at
   };
 }
@@ -76,7 +79,7 @@ function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client")
 export async function getTenantDocumentRecords() {
   if (isPresentationModeEnabled()) return [];
   const result = await supabaseRequest<SupabaseDocumentRow[]>("documents", {
-    query: "select=id,participant_id,document_type,file_path,storage_bucket,visibility,status,manager_verified,start_date,expiry_date,created_at&order=created_at.desc"
+    query: "select=id,participant_id,document_type,file_path,storage_bucket,visibility,status,manager_verified,start_date,expiry_date,file_size_bytes,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return [];
@@ -121,7 +124,8 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
       status: record.status,
       manager_verified: record.status.toLowerCase().includes("verified"),
       start_date: record.startDate,
-      expiry_date: record.expiryDate
+      expiry_date: record.expiryDate,
+      file_size_bytes: Math.max(0, Math.round(record.fileSizeBytes || 0))
     }
   });
 

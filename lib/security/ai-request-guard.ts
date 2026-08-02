@@ -1,4 +1,4 @@
-import type { PlanToProgressEntitlementKey } from "@/lib/subscriptions/entitlements";
+import { getPlanToProgressEntitlements, type PlanToProgressEntitlementKey } from "@/lib/subscriptions/entitlements";
 import { checkRequestEntitlement } from "@/lib/subscriptions/server-gate";
 
 type RateLimitResult = {
@@ -30,6 +30,29 @@ export async function guardAiRequest(request: Request, options: {
       retryAfterSeconds: 0,
       gate
     };
+  }
+
+  if (options.action === "improve_note") {
+    const monthlyLimit = getPlanToProgressEntitlements(gate.tier).maxAiAnalysedNotesPerMonth;
+    const monthlyUsage = await getMonthlyAiUsage(gate.organisationId);
+    if (monthlyUsage === null && gate.enforcementMode === "enforce") {
+      return {
+        ok: false as const,
+        status: 503,
+        message: "AI usage could not be verified securely. Try again shortly.",
+        retryAfterSeconds: 30,
+        gate
+      };
+    }
+    if (monthlyLimit !== null && monthlyUsage !== null && monthlyUsage >= monthlyLimit && gate.enforcementMode === "enforce") {
+      return {
+        ok: false as const,
+        status: 429,
+        message: `This organisation has reached its monthly allowance of ${monthlyLimit.toLocaleString("en-AU")} AI-analysed notes.`,
+        retryAfterSeconds: secondsUntilNextMonth(),
+        gate
+      };
+    }
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -90,4 +113,45 @@ export async function guardAiRequest(request: Request, options: {
       gate
     };
   }
+}
+
+async function getMonthlyAiUsage(organisationId: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey || !organisationId) return null;
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const query = new URLSearchParams({
+    select: "id",
+    organisation_id: `eq.${organisationId}`,
+    resource: "eq.enabled",
+    action_name: "eq.usage_consumed",
+    observed_at: `gte.${monthStart.toISOString()}`
+  });
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/entitlement_observations?${query}`, {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Prefer: "count=exact",
+        Range: "0-0"
+      },
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+    const total = response.headers.get("content-range")?.split("/")[1];
+    const parsed = Number(total);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function secondsUntilNextMonth() {
+  const now = new Date();
+  const nextMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+  return Math.max(60, Math.ceil((nextMonth - now.getTime()) / 1000));
 }

@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPlanCatalogueEntry } from "@/lib/subscriptions/catalog";
+import { resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
 
 const managerRoles = new Set(["team_leader", "case_manager", "service_manager", "admin", "owner", "sole_provider"]);
 const assignableRoles = new Set(["support_worker", "team_leader", "case_manager", "service_manager", "admin", "owner", "sole_provider"]);
 
 export async function POST(request: NextRequest) {
+  const subscription = await resolveServerSubscriptionContext(request);
+  if (!subscription.authenticated || subscription.source !== "supabase") {
+    return NextResponse.json({ ok: false, error: subscription.resolutionError || "Sign in before sending invitations." }, { status: 401 });
+  }
+  if (!getPlanCatalogueEntry(subscription.tier).operations.teamManagement) {
+    return NextResponse.json({ ok: false, error: "Team management requires the Practice plan or above." }, { status: 403 });
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
