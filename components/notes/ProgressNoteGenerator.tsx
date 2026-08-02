@@ -241,7 +241,8 @@ export function ProgressNoteGenerator() {
   }, [baseParticipants, selectedHouse]);
   const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
-  const quality = scoreNoteQuality();
+  const participantGoals = selectedParticipant?.goals || [];
+  const quality = scoreNoteQuality(roughNote, participantGoals.length > 0);
   const showPersonalCareRecord = ["Personal care", "Bowel care"].includes(supportType);
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
@@ -664,11 +665,12 @@ export function ProgressNoteGenerator() {
         <NoteQualityScore quality={quality} />
         <MissingDetailChecker missing={missing.length ? missing : ["Location", "Exact start and finish time", "Goal link", "Specific follow-up owner"]} />
       </div>
-      <PersonCentredRewrite text="Client was aggressive and refused to listen." />
+      {roughNote.trim() ? <PersonCentredRewrite text={roughNote} /> : null}
       <Card>
         <h2 className="text-xl font-semibold text-ink">Goal-linking Assistant</h2>
         <div className="mt-4 flex flex-wrap gap-2">
-          {suggestGoalLinks().map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
+          {(participantGoals.length ? participantGoals : realMode ? [] : suggestGoalLinks()).map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
+          {!participantGoals.length && realMode ? <p className="text-sm text-slate-600">No verified goals are available for this client yet.</p> : null}
         </div>
       </Card>
     </div>

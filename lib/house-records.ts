@@ -36,7 +36,7 @@ export function getStoredHouses() {
   if (typeof window === "undefined") return [];
 
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(houseStorageKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(houseStorageKey));
     return stored ? (JSON.parse(stored) as HouseRecord[]) : [];
   } catch {
     return [];
@@ -45,7 +45,7 @@ export function getStoredHouses() {
 
 function saveStoredHouses(houses: HouseRecord[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(tenantStorageKey(houseStorageKey), JSON.stringify(houses));
+  window.sessionStorage.setItem(tenantStorageKey(houseStorageKey), JSON.stringify(houses));
   window.dispatchEvent(new Event(housesUpdatedEvent));
 }
 
@@ -56,9 +56,6 @@ export async function getTenantHouses() {
 }
 
 export async function saveTenantHouse(house: HouseRecord) {
-  const currentHouses = getStoredHouses();
-  saveStoredHouses([...currentHouses.filter((item) => item.id !== house.id), house]);
-
   const result = await saveTenantRetainedRecord({
     id: `house-${house.id}`,
     type: "house-profile",
@@ -66,6 +63,11 @@ export async function saveTenantHouse(house: HouseRecord) {
     body: JSON.stringify(house, null, 2),
     savedAt: new Date().toISOString()
   });
+
+  if (result.savedToCloud) {
+    const currentHouses = getStoredHouses();
+    saveStoredHouses([...currentHouses.filter((item) => item.id !== house.id), house]);
+  }
 
   return result;
 }

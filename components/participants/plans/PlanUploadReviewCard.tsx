@@ -90,7 +90,7 @@ export function PlanUploadReviewCard({ participantId, participantName }: { parti
     });
 
     setStatus("Baseline verification queued");
-    setMessage(result.savedToCloud ? "Plan extraction items were saved for authorised baseline review." : "Plan extraction items were saved locally. Sign in to retain them in this workspace.");
+    setMessage(result.savedToCloud ? "Plan extraction items were saved for authorised baseline review." : `Plan extraction items were not saved. ${result.error || "Sign in and try again."}`);
   }
 
   return (

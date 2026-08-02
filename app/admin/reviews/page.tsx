@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FileCheck2 } from "lucide-react";
 import { AdminGate } from "@/components/admin/AdminGate";
+import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
@@ -57,6 +58,7 @@ export default function AdminReviewsPage() {
 
   return (
     <AdminGate>
+      <ServerFeatureGate category="operations" feature="managerReview" title="Manager review requires Practice or above">
       <PageHeader
         eyebrow="Admin note review"
         title="Review note quality before it becomes evidence"
@@ -93,6 +95,7 @@ export default function AdminReviewsPage() {
           <FileCheck2 size={18} aria-hidden="true" />Open note workspace
         </Link>
       </Section>
+      </ServerFeatureGate>
     </AdminGate>
   );
 }

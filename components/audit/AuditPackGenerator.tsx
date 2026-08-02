@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
-import { generateAuditPack } from "@/lib/ai-mock";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { downloadOrganisationReportHtml } from "@/lib/organisation-profile";
 import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 
 export function AuditPackGenerator() {
-  const pack = generateAuditPack();
+  const packSections = ["Progress note summary", "Goal progress evidence", "Incident summary", "Manager approval trail", "Document evidence summary", "Invoice-readiness evidence"];
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("all");
   const [fromDate, setFromDate] = useState("2026-06-01");
@@ -55,7 +54,7 @@ export function AuditPackGenerator() {
       `Saved documents: ${filteredDocuments.length}`,
       "",
       "Sections:",
-      ...pack.sections.map((section) => `- ${section}`),
+      ...packSections.map((section) => `- ${section}`),
       "",
       "Saved progress note titles:",
       ...(filteredProgressNotes.length ? filteredProgressNotes.map((record) => `- ${record.title} (${new Date(record.savedAt).toLocaleString("en-AU")})`) : ["- None saved for this client and period"]),
@@ -83,7 +82,7 @@ export function AuditPackGenerator() {
         <label className="text-sm font-semibold text-slate-700">Start date<input className="mt-2 w-full rounded-md border border-slate-300 p-3" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
         <label className="text-sm font-semibold text-slate-700">End date<input className="mt-2 w-full rounded-md border border-slate-300 p-3" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">{pack.sections.map((section) => <StatusBadge key={section} label={section} tone="blue" />)}</div>
+      <div className="mt-4 flex flex-wrap gap-2">{packSections.map((section) => <StatusBadge key={section} label={section} tone="blue" />)}</div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <MiniMetric label="Saved notes" value={filteredProgressNotes.length} />
         <MiniMetric label="Saved incidents" value={filteredIncidentReports.length} />

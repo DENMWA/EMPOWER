@@ -52,7 +52,7 @@ export function getOrganisationProfile() {
   if (typeof window === "undefined") return defaultOrganisationProfile;
 
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(organisationProfileKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(organisationProfileKey));
     return stored ? { ...defaultOrganisationProfile, ...(JSON.parse(stored) as OrganisationProfile) } : defaultOrganisationProfile;
   } catch {
     return defaultOrganisationProfile;
@@ -60,7 +60,7 @@ export function getOrganisationProfile() {
 }
 
 export function saveOrganisationProfile(profile: OrganisationProfile) {
-  window.localStorage.setItem(tenantStorageKey(organisationProfileKey), JSON.stringify(profile));
+  window.sessionStorage.setItem(tenantStorageKey(organisationProfileKey), JSON.stringify(profile));
 }
 
 function toOrganisationProfile(row: OrganisationProfileRow): OrganisationProfile {
@@ -96,8 +96,6 @@ export async function getTenantOrganisationProfile() {
 }
 
 export async function saveTenantOrganisationProfile(profile: OrganisationProfile) {
-  saveOrganisationProfile(profile);
-
   const organisationId = await getCurrentOrganisationId();
   if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
@@ -123,7 +121,9 @@ export async function saveTenantOrganisationProfile(profile: OrganisationProfile
     }
   });
 
-  return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+  const savedToCloud = Boolean(result.data && !result.error);
+  if (savedToCloud) saveOrganisationProfile(profile);
+  return { savedToCloud, error: result.error };
 }
 
 export function getOrganisationReportHeader() {

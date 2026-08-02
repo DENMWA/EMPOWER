@@ -21,6 +21,7 @@ import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisati
 import { clearPlatformAccessStatus, getEffectivePlatformStatus, getPlatformAccessOverride, isAccessBlocked, setDemoCurrentOrganisation, setPlatformAccessStatus } from "@/lib/platform-access";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { cn } from "@/lib/utils";
+import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 
 type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "diagnostics" | "analytics" | "security" | "support" | "trial";
 
@@ -132,25 +133,57 @@ export function PlatformDashboard() {
   );
 }
 
+type LivePlatformSummary = {
+  generatedAt: string;
+  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; paymentRisk: number };
+  organisations: Array<{ id: string; name: string; tier: string; status: string; renewal: string; users: number; clients: number; incidents: number }>;
+};
+
 function LivePlatformDataPending() {
+  const [data, setData] = useState<LivePlatformSummary | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json() as LivePlatformSummary & { error?: string };
+        if (!response.ok) throw new Error(result.error || "Live platform data could not be loaded.");
+        setData(result);
+      })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Live platform data could not be loaded."));
+  }, []);
+
   return (
     <>
       <PageHeader
         eyebrow="Developer platform console"
         title="Live platform operations"
-        description="Cross-tenant metrics remain private and appear here only after the production analytics and payment event pipeline is connected."
+        description="Private cross-tenant operational counts from the production workspace. Stripe revenue analytics remain separate from clinical and operational data."
         actions={<StatusBadge label="Owner only" tone="red" />}
       />
       <Section>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {["Organisations", "Subscriptions", "Payments", "System health"].map((label) => (
-            <Card key={label}>
-              <p className="text-sm font-medium text-slate-600">{label}</p>
-              <p className="mt-3 text-xl font-semibold text-ink">Connection pending</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">No demonstration or tenant records are displayed in the production console.</p>
-            </Card>
-          ))}
-        </div>
+        {error ? <Card className="border-red-200"><p className="font-semibold text-red-800">{error}</p></Card> : null}
+        {!data && !error ? <Card><p className="font-semibold text-ink">Loading live platform data...</p></Card> : null}
+        {data ? <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} />
+            <PlatformMetric label="Active users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" />
+            <PlatformMetric label="Incidents" value={data.summary.incidents} detail="Across tenant workspaces" icon={AlertTriangle} tone="amber" />
+            <PlatformMetric label="Payment risk" value={data.summary.paymentRisk} detail="Past-due organisations" icon={CreditCard} tone="green" />
+          </div>
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold text-ink">Live organisations</h2>
+              <StatusBadge label={`Updated ${new Date(data.generatedAt).toLocaleString("en-AU")}`} tone="green" />
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Organisation</th><th className="py-3 pr-4">Plan</th><th className="py-3 pr-4">Users</th><th className="py-3 pr-4">Clients</th><th className="py-3 pr-4">Incidents</th><th className="py-3 pr-4">Status</th><th className="py-3">Renewal</th></tr></thead>
+                <tbody>{data.organisations.map((organisation) => <tr key={organisation.id} className="border-b border-slate-100"><td className="py-3 pr-4 font-semibold text-ink">{organisation.name}</td><td className="py-3 pr-4 capitalize">{organisation.tier}</td><td className="py-3 pr-4">{organisation.users}</td><td className="py-3 pr-4">{organisation.clients}</td><td className="py-3 pr-4">{organisation.incidents}</td><td className="py-3 pr-4"><StatusBadge label={organisation.status} tone={organisation.status === "past_due" ? "amber" : organisation.status === "active" ? "green" : "blue"} /></td><td className="py-3">{organisation.renewal ? new Date(organisation.renewal).toLocaleDateString("en-AU") : "Not set"}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </Card>
+        </div> : null}
       </Section>
     </>
   );

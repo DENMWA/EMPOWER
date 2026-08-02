@@ -31,7 +31,7 @@ export async function checkRequestEntitlement(request: Request, entitlement: Pla
   };
 }
 
-function hasSubscriptionWriteAccess(status: string, trialEndsAt: string, graceEndsAt: string) {
+export function hasSubscriptionWriteAccess(status: string, trialEndsAt: string, graceEndsAt: string) {
   if (status === "active") return true;
   if (status === "trialing") return !trialEndsAt || new Date(trialEndsAt).getTime() > Date.now();
   if (status === "past_due") return Boolean(graceEndsAt && new Date(graceEndsAt).getTime() > Date.now());

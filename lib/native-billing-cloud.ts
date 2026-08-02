@@ -18,15 +18,17 @@ import { tenantStorageKey } from "@/lib/tenant-storage";
 type CloudRow = Record<string, unknown>;
 let syncQueue = Promise.resolve();
 
-export function queueNativeBillingCloudSync(records: NativeBillingRecords) {
+export function queueNativeBillingCloudSync(records: NativeBillingRecords, previousRecords: NativeBillingRecords) {
   if (typeof window === "undefined" || isPresentationModeEnabled()) return;
   syncQueue = syncQueue
     .then(() => syncNativeBillingRecordsToCloud(records))
     .then(() => undefined)
     .catch((error) => {
       console.error("Native billing cloud sync failed", error);
+      window.sessionStorage.setItem(tenantStorageKey("empowernotes:native-billing-records"), JSON.stringify(previousRecords));
+      window.dispatchEvent(new Event("empowernotes:native-billing-updated"));
       window.dispatchEvent(new CustomEvent("empowernotes:native-billing-cloud-status", {
-        detail: { ok: false, message: "Billing changes are saved locally but could not sync to the workspace." }
+        detail: { ok: false, message: "Billing changes could not be saved and were rolled back. Review the error and try again." }
       }));
     });
 }
@@ -69,7 +71,7 @@ export async function loadTenantNativeBillingRecords(clients: ClientRecord[], st
     invoiceLines: invoiceLineRows.map(toInvoiceLine)
   };
 
-  window.localStorage.setItem(tenantStorageKey("empowernotes:native-billing-records"), JSON.stringify(records));
+  window.sessionStorage.setItem(tenantStorageKey("empowernotes:native-billing-records"), JSON.stringify(records));
   return records;
 }
 

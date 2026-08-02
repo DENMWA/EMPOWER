@@ -25,7 +25,7 @@ export function getStoredClients() {
   if (isPresentationModeEnabled()) return [];
 
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(clientStorageKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(clientStorageKey));
     return stored ? (JSON.parse(stored) as ClientRecord[]) : [];
   } catch {
     return [];
@@ -33,7 +33,7 @@ export function getStoredClients() {
 }
 
 export function saveStoredClients(clients: ClientRecord[]) {
-  window.localStorage.setItem(tenantStorageKey(clientStorageKey), JSON.stringify(clients));
+  window.sessionStorage.setItem(tenantStorageKey(clientStorageKey), JSON.stringify(clients));
   window.dispatchEvent(new Event(clientsUpdatedEvent));
 }
 
@@ -95,8 +95,6 @@ export async function saveTenantClient(client: ClientRecord) {
   const storedClients = getStoredClients();
   const limit = checkActiveParticipantLimit(storedClients.some((item) => item.id === client.id) ? Math.max(0, storedClients.length - 1) : storedClients.length);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
-
-  addStoredClient(client);
 
   const organisationId = await getCurrentOrganisationId();
   if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };

@@ -164,7 +164,7 @@ export function getNativeBillingRecords(): NativeBillingRecords {
   if (typeof window === "undefined") return getEmptyBillingRecords();
 
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(storageKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(storageKey));
     return stored ? { ...getEmptyBillingRecords(), ...JSON.parse(stored) as NativeBillingRecords } : getEmptyBillingRecords();
   } catch {
     return getEmptyBillingRecords();
@@ -172,9 +172,10 @@ export function getNativeBillingRecords(): NativeBillingRecords {
 }
 
 export function saveNativeBillingRecords(records: NativeBillingRecords) {
-  window.localStorage.setItem(tenantStorageKey(storageKey), JSON.stringify(records));
+  const previousRecords = getNativeBillingRecords();
+  window.sessionStorage.setItem(tenantStorageKey(storageKey), JSON.stringify(records));
   window.dispatchEvent(new Event(nativeBillingUpdatedEvent));
-  void import("@/lib/native-billing-cloud").then(({ queueNativeBillingCloudSync }) => queueNativeBillingCloudSync(records));
+  void import("@/lib/native-billing-cloud").then(({ queueNativeBillingCloudSync }) => queueNativeBillingCloudSync(records, previousRecords));
 }
 
 export function createPricingVersionFromManualUpload(input: { versionName: string; effectiveFrom: string; sourceFilename: string }) {

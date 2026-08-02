@@ -26,7 +26,7 @@ export function getStoredDocumentRecords() {
   if (isPresentationModeEnabled()) return [];
 
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(documentStorageKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(documentStorageKey));
     return stored ? (JSON.parse(stored) as StoredDocumentRecord[]) : [];
   } catch {
     return [];
@@ -34,7 +34,7 @@ export function getStoredDocumentRecords() {
 }
 
 export function saveStoredDocumentRecords(records: StoredDocumentRecord[]) {
-  window.localStorage.setItem(tenantStorageKey(documentStorageKey), JSON.stringify(records));
+  window.sessionStorage.setItem(tenantStorageKey(documentStorageKey), JSON.stringify(records));
   window.dispatchEvent(new Event(documentsUpdatedEvent));
 }
 
@@ -97,8 +97,6 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
   const limit = checkDocumentsPerParticipantLimit(existingClientDocuments, record.clientName);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
 
-  addStoredDocumentRecord(record);
-
   const organisationId = await getCurrentOrganisationId();
   const userId = getCurrentUserId();
   if (!organisationId || !userId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
@@ -129,7 +127,9 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
     }
   });
 
-  return { savedToCloud: Boolean(result.data && !result.error), error: result.error, documentId: result.data?.[0]?.id || record.id };
+  const savedToCloud = Boolean(result.data && !result.error);
+  if (savedToCloud) addStoredDocumentRecord(record);
+  return { savedToCloud, error: result.error, documentId: result.data?.[0]?.id || record.id };
 }
 
 export function getSafeDocumentType(type: string) {

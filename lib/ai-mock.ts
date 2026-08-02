@@ -65,17 +65,23 @@ export function readNoteAloud(text: string) {
   return `Read-back queued: ${text.slice(0, 120)}... Would you like to approve, edit, add more details, or save as draft?`;
 }
 
-export function scoreNoteQuality(): NoteQuality {
+export function scoreNoteQuality(note = "", hasGoal = false): NoteQuality {
+  const missing = checkMissingDetails(note);
+  const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
+  const objectiveWording = /\b(observed|reported|supported|prompted|assisted|completed)\b/i.test(note) ? 9 : 6;
+  const personCentredLanguage = /\b(aggressive|non-compliant|attention-seeking|lazy|naughty)\b/i.test(note) ? 4 : 9;
+  const detailLevel = Math.min(10, Math.max(2, Math.round(wordCount / 12)));
+  const auditReadiness = Math.max(20, Math.min(95, 95 - missing.length * 12 - (wordCount < 30 ? 15 : 0)));
   return {
-    auditReadiness: 74,
-    personCentredLanguage: 9,
-    objectiveWording: 8,
-    detailLevel: 7,
-    goalConnection: "Missing",
-    followUpAction: "Weak",
-    riskClarity: 7,
-    billingEvidenceScore: 68,
-    improvements: ["Add exact location and support duration.", "Link the support to a participant goal.", "Clarify who will complete the follow-up action."]
+    auditReadiness,
+    personCentredLanguage,
+    objectiveWording,
+    detailLevel,
+    goalConnection: hasGoal ? "Linked" : "Missing",
+    followUpAction: /follow-up|follow up|next action/i.test(note) ? "Clear" : "Weak",
+    riskClarity: /risk|incident|injury|hazard|safe/i.test(note) ? 8 : 5,
+    billingEvidenceScore: Math.max(20, Math.min(95, auditReadiness - (hasGoal ? 0 : 8))),
+    improvements: missing.map((item) => `Confirm ${item.toLowerCase()}.`)
   };
 }
 

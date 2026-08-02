@@ -10,18 +10,18 @@ export type RetainedRecord = {
 };
 
 export function saveLocalRetainedRecord(record: RetainedRecord) {
-  window.localStorage.setItem(`${tenantStorageKey("empower-retained-record")}:${record.id}`, JSON.stringify(record));
+  window.sessionStorage.setItem(`${tenantStorageKey("empower-retained-record")}:${record.id}`, JSON.stringify(record));
 }
 
 export function getLocalRetainedRecords(type?: string) {
   if (typeof window === "undefined") return [];
 
   const scopedPrefix = `${tenantStorageKey("empower-retained-record")}:`;
-  return Object.keys(window.localStorage)
+  return Object.keys(window.sessionStorage)
     .filter((key) => key.startsWith(scopedPrefix))
     .map((key) => {
       try {
-        return JSON.parse(window.localStorage.getItem(key) || "") as RetainedRecord;
+        return JSON.parse(window.sessionStorage.getItem(key) || "") as RetainedRecord;
       } catch {
         return null;
       }
@@ -61,8 +61,6 @@ export async function getTenantRetainedRecords(type?: string) {
 }
 
 export async function saveTenantRetainedRecord(record: RetainedRecord) {
-  saveLocalRetainedRecord(record);
-
   const organisationId = await getCurrentOrganisationId();
   if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
@@ -81,5 +79,7 @@ export async function saveTenantRetainedRecord(record: RetainedRecord) {
     }
   });
 
-  return { savedToCloud: Boolean(result.data && !result.error), error: result.error };
+  const savedToCloud = Boolean(result.data && !result.error);
+  if (savedToCloud) saveLocalRetainedRecord(record);
+  return { savedToCloud, error: result.error };
 }

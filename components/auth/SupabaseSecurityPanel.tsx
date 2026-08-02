@@ -184,6 +184,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setTotp(null);
       setAuthStatus(getCurrentAuthStatus());
       setMessage("2FA verified. This session is now upgraded for safer access.");
+      await continueToRequestedPage();
     });
   }
 
@@ -225,6 +226,13 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
     }
 
     const safePath = safeRequestedPath || defaultPath;
+    const privilegedPath = safePath === "/admin" || safePath.startsWith("/admin/") || safePath === "/platform" || safePath.startsWith("/platform/");
+    if (privilegedPath && getCurrentAuthStatus().aal !== "aal2") {
+      setMessage(factorId
+        ? "Enter your authenticator code below to continue to privileged controls."
+        : "Set up authenticator 2FA below before opening privileged controls.");
+      return;
+    }
     window.location.assign(safePath);
   }
 

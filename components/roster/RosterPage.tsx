@@ -86,6 +86,11 @@ export function RosterPage() {
     if (updatedShift) {
       setSyncMessage("Saving roster change...");
       void saveTenantRosterShift(updatedShift).then((result) => {
+        if (!result.savedToCloud) {
+          setShifts(shifts);
+          saveRosterShifts(shifts);
+          setActiveShift(shifts.find((shift) => shift.id === activeShift?.id) ?? null);
+        }
         setSyncMessage(result.savedToCloud ? "Roster change saved to workspace." : result.error || "Roster change could not be saved.");
       });
     }
@@ -107,6 +112,11 @@ export function RosterPage() {
     setActiveShift(shift);
     setSyncMessage("Saving new shift...");
     void saveTenantRosterShift(shift).then((result) => {
+      if (!result.savedToCloud) {
+        setShifts(shifts);
+        saveRosterShifts(shifts);
+        setActiveShift(null);
+      }
       setSyncMessage(result.savedToCloud ? "New shift saved to workspace." : result.error || "New shift could not be saved.");
     });
     return "";

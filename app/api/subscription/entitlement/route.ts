@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPlanCatalogueEntry } from "@/lib/subscriptions/catalog";
 import { resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
+import { hasSubscriptionWriteAccess } from "@/lib/subscriptions/server-gate";
 
 const categories = new Set(["operations", "billing", "intelligence"]);
 
@@ -23,8 +24,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Choose a valid subscription capability." }, { status: 400 });
   }
 
+  const subscriptionActive = hasSubscriptionWriteAccess(context.status, context.trialEndsAt, context.graceEndsAt);
+  const configuredAllowed = Boolean(capabilities[feature]);
   return NextResponse.json({
-    allowed: Boolean(capabilities[feature]),
+    allowed: configuredAllowed && (context.enforcementMode !== "enforce" || subscriptionActive),
+    configuredAllowed,
+    subscriptionActive,
     tier: context.tier,
     status: context.status,
     enforcementMode: context.enforcementMode

@@ -35,7 +35,7 @@ export function getStoredStaff() {
   if (isPresentationModeEnabled()) return [];
 
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(staffStorageKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(staffStorageKey));
     return stored ? (JSON.parse(stored) as StaffRecord[]) : [];
   } catch {
     return [];
@@ -43,7 +43,7 @@ export function getStoredStaff() {
 }
 
 export function saveStoredStaff(staff: StaffRecord[]) {
-  window.localStorage.setItem(tenantStorageKey(staffStorageKey), JSON.stringify(staff));
+  window.sessionStorage.setItem(tenantStorageKey(staffStorageKey), JSON.stringify(staff));
   window.dispatchEvent(new Event(staffUpdatedEvent));
 }
 
@@ -62,8 +62,6 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
   const storedStaff = getStoredStaff();
   const limit = checkUserLimit(storedStaff.some((item) => item.id === staff.id) ? Math.max(0, storedStaff.length - 1) : storedStaff.length);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
-
-  addStoredStaff(staff);
 
   const organisationId = await getCurrentOrganisationId();
   if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
@@ -94,8 +92,6 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
 }
 
 export async function updateTenantStaffInviteStatus(staffId: string, inviteStatus: StaffRecord["inviteStatus"]) {
-  updateStoredStaffStatus(staffId, inviteStatus);
-
   const organisationId = await getCurrentOrganisationId();
   if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
 
@@ -107,7 +103,9 @@ export async function updateTenantStaffInviteStatus(staffId: string, inviteStatu
     }
   });
 
-  return { savedToCloud: Boolean(result.data?.length && !result.error), error: result.error };
+  const savedToCloud = Boolean(result.data?.length && !result.error);
+  if (savedToCloud) updateStoredStaffStatus(staffId, inviteStatus);
+  return { savedToCloud, error: result.error };
 }
 
 type SupabaseStaffInviteRow = {

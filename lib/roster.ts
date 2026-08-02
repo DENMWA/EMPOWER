@@ -210,7 +210,7 @@ export function getStoredRosterShifts() {
   if (typeof window === "undefined") return rosterShifts;
   if (isPresentationModeEnabled()) return rosterShifts;
   try {
-    const stored = window.localStorage.getItem(tenantStorageKey(rosterStorageKey));
+    const stored = window.sessionStorage.getItem(tenantStorageKey(rosterStorageKey));
     return stored ? JSON.parse(stored) as RosterShift[] : [];
   } catch {
     return [];
@@ -219,7 +219,7 @@ export function getStoredRosterShifts() {
 
 export function saveRosterShifts(shifts: RosterShift[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(tenantStorageKey(rosterStorageKey), JSON.stringify(shifts));
+  window.sessionStorage.setItem(tenantStorageKey(rosterStorageKey), JSON.stringify(shifts));
 }
 
 export function getTodayRosterShifts(shifts: RosterShift[] = rosterShifts) {

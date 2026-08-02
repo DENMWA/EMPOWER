@@ -1,10 +1,12 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { ProgressDashboard } from "@/components/participants/progress/ProgressDashboard";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
+import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 
 export default function AdminProgressPage() {
   return (
     <AdminGate>
+      <ServerFeatureGate category="intelligence" feature="enabled" title="Progress intelligence is not available on this plan">
       <PageHeader
         eyebrow="Admin progress intelligence"
         title="Plan-to-Progress Intelligence"
@@ -12,6 +14,7 @@ export default function AdminProgressPage() {
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
       <Section><ProgressDashboard /></Section>
+      </ServerFeatureGate>
     </AdminGate>
   );
 }

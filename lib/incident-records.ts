@@ -126,8 +126,8 @@ export async function saveIncidentReport(report: StoredIncidentReport) {
 
   const result = await saveTenantRetainedRecord(record);
   const structuredResult = await saveStructuredIncidentReport(report);
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(`${tenantStorageKey("empowernotes-incident")}:${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}:${report.incidentId}`, record.body);
+  if (result.savedToCloud && structuredResult.savedToCloud && typeof window !== "undefined") {
+    window.sessionStorage.setItem(`${tenantStorageKey("empowernotes-incident")}:${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}:${report.incidentId}`, record.body);
     window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 

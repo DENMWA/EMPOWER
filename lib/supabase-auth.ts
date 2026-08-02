@@ -1,4 +1,4 @@
-import { getSupabaseProjectConfig, getStoredAccessToken } from "@/lib/supabase-rest";
+import { getCurrentUserId, getSupabaseProjectConfig, getStoredAccessToken } from "@/lib/supabase-rest";
 
 type AuthSession = {
   access_token: string;
@@ -127,6 +127,15 @@ export async function verifyPhoneOtp(phone: string, token: string) {
 
 export function signOutSupabaseSession() {
   if (typeof window === "undefined") return;
+  const userId = getCurrentUserId();
+  if (userId) {
+    const scopedSuffix = `:${userId}`;
+    for (const storage of [window.localStorage, window.sessionStorage]) {
+      for (const key of Object.keys(storage)) {
+        if (key.includes(scopedSuffix)) storage.removeItem(key);
+      }
+    }
+  }
   window.localStorage.removeItem(getAuthSessionStorageKey());
   window.dispatchEvent(new Event(authSessionChangedEvent));
 }
