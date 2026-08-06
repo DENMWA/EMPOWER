@@ -93,6 +93,18 @@ export async function signInWithPassword(email: string, password: string) {
   return result;
 }
 
+export async function sendPasswordResetEmail(email: string) {
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  const appUrl = configuredAppUrl || (typeof window === "undefined" ? "" : window.location.origin);
+  const redirectTo = appUrl ? `${appUrl}/signin?mode=reset` : "";
+  const path = redirectTo ? `/recover?redirect_to=${encodeURIComponent(redirectTo)}` : "/recover";
+  return authRequest<{ message?: string }>(path, { email });
+}
+
+export async function updatePassword(password: string) {
+  return authRequest<{ id?: string }>("/user", { password }, "PUT");
+}
+
 export async function sendEmailOtp(email: string) {
   return authRequest<{ message?: string }>("/otp", {
     email,
@@ -203,7 +215,7 @@ function saveAuthSession(session: AuthSession) {
   window.dispatchEvent(new Event(authSessionChangedEvent));
 }
 
-async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POST" = "POST") {
+async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POST" | "PUT" = "POST") {
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Secure sign-in is not configured." };
 
