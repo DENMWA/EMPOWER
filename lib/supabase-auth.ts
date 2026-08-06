@@ -10,24 +10,6 @@ type AuthSession = {
   };
 };
 
-type MfaFactor = {
-  id: string;
-  friendly_name?: string;
-  factor_type?: string;
-  status?: string;
-};
-
-type MfaEnrollResponse = {
-  id: string;
-  type?: string;
-  friendly_name?: string;
-  totp?: {
-    qr_code?: string;
-    secret?: string;
-    uri?: string;
-  };
-};
-
 export const authSessionChangedEvent = "empowernotes:auth-session-updated";
 
 export function getDefaultAuthStatus() {
@@ -181,30 +163,6 @@ export function getAuthRedirectError() {
   const error = hashParams.get("error") || queryParams.get("error");
 
   return description?.replace(/\+/g, " ") || error?.replace(/\+/g, " ") || "";
-}
-
-export async function listMfaFactors() {
-  return authRequest<{ all?: MfaFactor[]; totp?: MfaFactor[] }>("/factors", undefined, "GET");
-}
-
-export async function enrollTotpFactor(friendlyName = "EmpowerNotes authenticator") {
-  return authRequest<MfaEnrollResponse>("/factors", {
-    factor_type: "totp",
-    friendly_name: friendlyName
-  });
-}
-
-export async function challengeMfaFactor(factorId: string) {
-  return authRequest<{ id: string }>("/factors/" + encodeURIComponent(factorId) + "/challenge", {});
-}
-
-export async function verifyMfaFactor(factorId: string, challengeId: string, code: string) {
-  const result = await authRequest<AuthSession>("/factors/" + encodeURIComponent(factorId) + "/verify", {
-    challenge_id: challengeId,
-    code
-  });
-  if (result.data?.access_token) saveAuthSession(result.data);
-  return result;
 }
 
 function saveAuthSession(session: AuthSession) {

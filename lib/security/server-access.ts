@@ -48,10 +48,6 @@ export async function verifyServerAccess(request: Request, mode: AccessMode): Pr
 
     const authUser = await authResponse.json() as AuthUser;
     if (!authUser.id) return denied(401, "The signed-in account could not be verified.");
-    if (getJwtAuthenticationLevel(authorization) !== "aal2") {
-      return denied(403, "Complete two-factor authentication to access privileged workspace controls.");
-    }
-
     const profileResponse = await fetch(
       `${supabaseUrl}/rest/v1/users?select=role,organisation_id&id=eq.${encodeURIComponent(authUser.id)}&limit=1`,
       {
@@ -89,17 +85,5 @@ export async function verifyServerAccess(request: Request, mode: AccessMode): Pr
     };
   } catch {
     return denied(503, "Secure access verification is temporarily unavailable.");
-  }
-}
-
-function getJwtAuthenticationLevel(authorization: string) {
-  try {
-    const token = authorization.replace(/^Bearer\s+/i, "");
-    const payload = token.split(".")[1];
-    if (!payload) return "";
-    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { aal?: string };
-    return decoded.aal || "";
-  } catch {
-    return "";
   }
 }

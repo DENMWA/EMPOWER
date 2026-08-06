@@ -4,7 +4,7 @@ import { PageHeader, Section } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Sign In to EmpowerNotes",
-  description: "Sign in to EmpowerNotes with email, phone code, and authenticator 2FA.",
+  description: "Sign in securely to your EmpowerNotes workspace with your email and password.",
   alternates: {
     canonical: "/signin"
   }
