@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
 
-const publicPages = new Set(["/", "/features", "/pricing", "/contact", "/signup", "/signin"]);
+const publicPages = new Set(["/", "/features", "/pricing", "/contact", "/signup", "/signin", "/reset-password"]);
 
 export function DemoAccessBoundary({
   children,

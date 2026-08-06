@@ -74,7 +74,7 @@ export function getAuthenticatedApiHeaders(headers: Record<string, string> = {})
 export async function signUpWithPassword(email: string, password: string) {
   const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
   const appUrl = configuredAppUrl || (typeof window === "undefined" ? "" : window.location.origin);
-  const redirectTo = appUrl ? `${appUrl}/signin` : "";
+  const redirectTo = appUrl ? `${appUrl}/reset-password` : "";
   const path = redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup";
   const result = await authRequest<AuthSession>(path, {
     email,
