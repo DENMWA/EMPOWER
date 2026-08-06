@@ -12,15 +12,10 @@ import {
   getCurrentAuthStatus,
   getDefaultAuthStatus,
   listMfaFactors,
-  sendEmailOtp,
   sendPasswordResetEmail,
-  sendPhoneOtp,
   signInWithPassword,
   signOutSupabaseSession,
-  signUpWithPassword,
   updatePassword,
-  verifyEmailOtp,
-  verifyPhoneOtp,
   verifyMfaFactor
 } from "@/lib/supabase-auth";
 import { getCurrentUserId, isSupabaseConfigured, supabaseRequest } from "@/lib/supabase-rest";
@@ -35,12 +30,9 @@ type EnrolledTotp = {
 
 export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirectAfterSignIn?: boolean }) {
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [code, setCode] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpChannel, setOtpChannel] = useState<"email" | "phone">("email");
   const [authStatus, setAuthStatus] = useState(getDefaultAuthStatus);
   const [totp, setTotp] = useState<EnrolledTotp | null>(null);
   const [factorId, setFactorId] = useState("");
@@ -81,15 +73,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
     window.addEventListener(authSessionChangedEvent, syncAuthStatus);
     return () => window.removeEventListener(authSessionChangedEvent, syncAuthStatus);
   }, []);
-
-  async function createAccount() {
-    await withBusy(async () => {
-      const result = await signUpWithPassword(email.trim(), password);
-      setMessage(result.error
-        ? result.error
-        : "Account created. If email confirmation is enabled, confirm your email, then sign in.");
-    });
-  }
 
   async function signIn() {
     await withBusy(async () => {
@@ -138,46 +121,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setResetMode(false);
       setMessage("Password updated successfully. You can now continue securely.");
       window.history.replaceState({}, document.title, "/signin");
-    });
-  }
-
-  async function requestOtp() {
-    await withBusy(async () => {
-      const result = otpChannel === "email"
-        ? await sendEmailOtp(email.trim())
-        : await sendPhoneOtp(phone.trim());
-
-      if (result.error) {
-        setMessage(result.error);
-        return;
-      }
-
-      setMessage(otpChannel === "email"
-        ? "Email code sent. Enter the code from your inbox to sign in."
-        : "SMS code sent. Enter the code from your phone to sign in. Phone sign-in must be enabled for this workspace.");
-    });
-  }
-
-  async function verifyOtp() {
-    await withBusy(async () => {
-      const result = otpChannel === "email"
-        ? await verifyEmailOtp(email.trim(), otpCode.trim())
-        : await verifyPhoneOtp(phone.trim(), otpCode.trim());
-
-      if (result.error) {
-        setMessage(result.error);
-        return;
-      }
-
-      setOtpCode("");
-      setMessage("Code verified. Cloud saves are now available for this user.");
-      await loadVerifiedMfaFactor();
-      const setup = await completePendingOnboarding();
-      if (setup.error) {
-        setMessage(setup.error);
-        return;
-      }
-      await continueToRequestedPage();
     });
   }
 
@@ -312,9 +255,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
           <KeyRound size={17} aria-hidden="true" />
           Sign in
         </button>
-        <button type="button" disabled={busy || !configured} onClick={createAccount} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100">
-          Create auth user
-        </button>
         <button type="button" disabled={busy || !configured} onClick={requestPasswordReset} className="inline-flex min-h-11 items-center gap-2 px-2 text-sm font-semibold text-teal-700 hover:text-teal-900 disabled:cursor-not-allowed disabled:text-slate-400">
           Forgot password?
         </button>
@@ -324,38 +264,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
             Sign out
           </button>
         ) : null}
-      </div>
-
-      <div className="mt-6 rounded-md border border-sky-100 bg-sky-50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">Sign in with a one-time code</p>
-            <p className="mt-1 text-sm leading-6 text-slate-700">Use email code by default. Phone/SMS works once phone sign-in is enabled.</p>
-          </div>
-          <div className="flex rounded-md border border-slate-300 bg-white p-1">
-            <button type="button" onClick={() => setOtpChannel("email")} className={otpChannel === "email" ? "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" : "rounded-md px-3 py-2 text-sm font-semibold text-slate-700"}>
-              Email
-            </button>
-            <button type="button" onClick={() => setOtpChannel("phone")} className={otpChannel === "phone" ? "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" : "rounded-md px-3 py-2 text-sm font-semibold text-slate-700"}>
-              Phone
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_180px_auto_auto]">
-          {otpChannel === "email" ? (
-            <Field label="Email for code" value={email} onChange={setEmail} type="email" autoComplete="email" />
-          ) : (
-            <Field label="Phone for SMS code" value={phone} onChange={setPhone} type="tel" autoComplete="tel" placeholder="+614..." />
-          )}
-          <Field label="Code" value={otpCode} onChange={setOtpCode} inputMode="numeric" autoComplete="one-time-code" />
-          <button type="button" disabled={busy || !configured || (otpChannel === "email" ? !email.trim() : !phone.trim())} onClick={requestOtp} className="self-end inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100">
-            Send code
-          </button>
-          <button type="button" disabled={busy || !configured || !otpCode.trim()} onClick={verifyOtp} className="self-end inline-flex min-h-11 items-center justify-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
-            Verify code
-          </button>
-        </div>
       </div>
 
       {authStatus.signedIn ? (
