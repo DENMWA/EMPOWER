@@ -95,8 +95,9 @@ export async function signInWithPassword(email: string, password: string) {
 
 export async function sendPasswordResetEmail(email: string) {
   const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
-  const appUrl = configuredAppUrl || (typeof window === "undefined" ? "" : window.location.origin);
-  const redirectTo = appUrl ? `${appUrl}/signin?mode=reset` : "";
+  const browserAppUrl = typeof window === "undefined" ? "" : window.location.origin;
+  const appUrl = browserAppUrl || configuredAppUrl;
+  const redirectTo = appUrl ? `${appUrl}/signin` : "";
   const path = redirectTo ? `/recover?redirect_to=${encodeURIComponent(redirectTo)}` : "/recover";
   return authRequest<{ message?: string }>(path, { email });
 }

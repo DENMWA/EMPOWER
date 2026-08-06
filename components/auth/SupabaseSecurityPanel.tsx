@@ -47,8 +47,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setAuthStatus(getCurrentAuthStatus());
     }
 
-    const isPasswordRecovery = new URLSearchParams(window.location.search).get("mode") === "reset"
-      || window.location.hash.includes("type=recovery");
+    const isPasswordRecovery = window.location.hash.includes("type=recovery");
     const acceptedInvite = consumeAuthRedirectSession();
     setResetMode(isPasswordRecovery);
     syncAuthStatus();
