@@ -44,7 +44,8 @@ export function PasswordResetForm() {
         return;
       }
       setComplete(true);
-      setMessage("Your password has been updated successfully.");
+      setMessage("Your password has been updated. Signing you in...");
+      window.setTimeout(() => window.location.assign("/dashboard"), 900);
     } finally {
       setBusy(false);
     }
@@ -56,9 +57,9 @@ export function PasswordResetForm() {
         <div className="text-center">
           <CheckCircle2 className="mx-auto text-emerald-600" size={36} aria-hidden="true" />
           <h2 className="mt-4 text-xl font-bold text-ink">Password updated</h2>
-          <p className="mt-2 text-sm text-slate-600">Your new password is ready to use.</p>
-          <Link href="/signin" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift hover:bg-slate-800">
-            Continue to sign in
+          <p className="mt-2 text-sm text-slate-600">You are signed in. Opening your dashboard...</p>
+          <Link href="/dashboard" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-ink px-5 text-sm font-semibold text-white shadow-lift hover:bg-slate-800">
+            Continue to dashboard
           </Link>
         </div>
       ) : (
