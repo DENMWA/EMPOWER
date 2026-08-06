@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
+import { PasswordResetForm } from "@/components/auth/PasswordResetForm";
 import { PageHeader, Section } from "@/components/ui";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default function ResetPasswordPage() {
         description="Choose a new password to regain access to your EmpowerNotes workspace."
       />
       <Section>
-        <SupabaseSecurityPanel />
+        <PasswordResetForm />
       </Section>
     </>
   );

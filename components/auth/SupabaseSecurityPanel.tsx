@@ -15,7 +15,6 @@ import {
   sendPasswordResetEmail,
   signInWithPassword,
   signOutSupabaseSession,
-  updatePassword,
   verifyMfaFactor
 } from "@/lib/supabase-auth";
 import { getCurrentUserId, isSupabaseConfigured, supabaseRequest } from "@/lib/supabase-rest";
@@ -31,14 +30,12 @@ type EnrolledTotp = {
 export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirectAfterSignIn?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [code, setCode] = useState("");
   const [authStatus, setAuthStatus] = useState(getDefaultAuthStatus);
   const [totp, setTotp] = useState<EnrolledTotp | null>(null);
   const [factorId, setFactorId] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [resetMode, setResetMode] = useState(false);
   const configured = isSupabaseConfigured();
   const mfaReady = authStatus.aal === "aal2";
 
@@ -47,10 +44,11 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setAuthStatus(getCurrentAuthStatus());
     }
 
-    const isPasswordRecovery = window.location.pathname === "/reset-password"
-      || window.location.hash.includes("type=recovery");
+    if (window.location.hash.includes("type=recovery")) {
+      window.location.replace(`/reset-password${window.location.hash}`);
+      return;
+    }
     const acceptedInvite = consumeAuthRedirectSession();
-    setResetMode(isPasswordRecovery);
     syncAuthStatus();
     const redirectError = getAuthRedirectError();
     if (redirectError) {
@@ -58,9 +56,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
-    if (acceptedInvite && isPasswordRecovery) {
-      setMessage("Reset link verified. Choose a new password below.");
-    } else if (acceptedInvite) {
+    if (acceptedInvite) {
       completePendingOnboarding().then((setup) => {
         if (setup.error) {
           setMessage(setup.error);
@@ -103,24 +99,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       setMessage(result.error
         ? result.error
         : "If an account exists for that email, a secure password reset link has been sent.");
-    });
-  }
-
-  async function saveNewPassword() {
-    if (newPassword.length < 8) {
-      setMessage("Use a new password with at least 8 characters.");
-      return;
-    }
-    await withBusy(async () => {
-      const result = await updatePassword(newPassword);
-      if (result.error) {
-        setMessage(result.error);
-        return;
-      }
-      setNewPassword("");
-      setResetMode(false);
-      setMessage("Password updated successfully. You can now continue securely.");
-      window.history.replaceState({}, document.title, "/signin");
     });
   }
 
@@ -236,19 +214,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
         <Field label="Email" value={email} onChange={setEmail} type="email" autoComplete="email" />
         <Field label="Password" value={password} onChange={setPassword} type="password" autoComplete="current-password" />
       </div>
-
-      {resetMode ? (
-        <div className="mt-5 rounded-md border border-teal-200 bg-teal-50 p-4">
-          <p className="text-sm font-semibold text-ink">Choose a new password</p>
-          <p className="mt-1 text-sm text-slate-700">Use at least 8 characters and avoid reusing an old password.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <Field label="New password" value={newPassword} onChange={setNewPassword} type="password" autoComplete="new-password" />
-            <button type="button" disabled={busy || newPassword.length < 8} onClick={saveNewPassword} className="self-end inline-flex min-h-11 items-center justify-center rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
-              Update password
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" disabled={busy || !configured} onClick={signIn} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
