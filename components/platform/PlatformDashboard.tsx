@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { TrialRunChecklist } from "@/components/trial/TrialRunChecklist";
+import { SystemHealthPanel } from "@/components/platform/SystemHealthPanel";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary, type PlatformOrganisationStatus } from "@/lib/platform-data";
 import { clearPlatformAccessStatus, getEffectivePlatformStatus, getPlatformAccessOverride, isAccessBlocked, setDemoCurrentOrganisation, setPlatformAccessStatus } from "@/lib/platform-access";
@@ -171,6 +172,7 @@ function LivePlatformDataPending() {
             <PlatformMetric label="Incidents" value={data.summary.incidents} detail="Across tenant workspaces" icon={AlertTriangle} tone="amber" />
             <PlatformMetric label="Payment risk" value={data.summary.paymentRisk} detail="Past-due organisations" icon={CreditCard} tone="green" />
           </div>
+          <SystemHealthPanel />
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-ink">Live organisations</h2>

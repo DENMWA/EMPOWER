@@ -38,6 +38,13 @@ test("platform analytics endpoint requires platform-owner verification", async (
   assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 
+test("system health monitoring is owner-only and read-only", async () => {
+  const route = await source("app/api/platform/health/route.ts");
+  assert.match(route, /verifyServerAccess\(request, "platform"\)/);
+  assert.doesNotMatch(route, /method:\s*"(POST|PATCH|PUT|DELETE)"/);
+  assert.doesNotMatch(route, /chat\/completions|responses/);
+});
+
 test("client writes remain manager and organisation scoped", async () => {
   const policy = await source("supabase/repair-client-rls.sql");
   assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
