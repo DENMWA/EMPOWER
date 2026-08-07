@@ -22,10 +22,23 @@ type HealthSnapshot = {
   checks: HealthCheck[];
 };
 
+type HealthIncident = {
+  id: string;
+  check_name: string;
+  severity: "warning" | "critical";
+  detail: string;
+  first_detected_at: string;
+  last_detected_at: string;
+  resolved_at: string | null;
+  occurrence_count: number;
+};
+
 export function SystemHealthPanel() {
   const [snapshot, setSnapshot] = useState<HealthSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [incidents, setIncidents] = useState<HealthIncident[]>([]);
+  const [historyMessage, setHistoryMessage] = useState("");
 
   const scan = useCallback(async () => {
     setLoading(true);
@@ -35,6 +48,14 @@ export function SystemHealthPanel() {
       const result = await response.json() as HealthSnapshot & { error?: string };
       if (!response.ok) throw new Error(result.error || "System health scan could not be completed.");
       setSnapshot(result);
+      const historyResponse = await fetch("/api/platform/health/incidents", { headers: getAuthenticatedApiHeaders(), cache: "no-store" });
+      const history = await historyResponse.json() as { incidents?: HealthIncident[]; error?: string };
+      if (historyResponse.ok) {
+        setIncidents(history.incidents || []);
+        setHistoryMessage("");
+      } else {
+        setHistoryMessage(history.error || "Monitoring history is not ready.");
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "System health scan could not be completed.");
     } finally {
@@ -91,6 +112,29 @@ export function SystemHealthPanel() {
             ))}
           </div>
           <p className="mt-4 text-xs font-medium text-slate-500">Last scan: {new Date(snapshot.checkedAt).toLocaleString("en-AU")} · Automatically rescans every five minutes while this console is open.</p>
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-ink">Background issue history</h3>
+                <p className="mt-1 text-sm text-slate-600">Scheduled scans report failures and record when services recover. No automatic repairs are permitted.</p>
+              </div>
+              <StatusBadge label={`${incidents.filter((incident) => !incident.resolved_at).length} active`} tone={incidents.some((incident) => !incident.resolved_at) ? "amber" : "green"} />
+            </div>
+            {historyMessage ? <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{historyMessage}</p> : null}
+            <div className="mt-4 space-y-3">
+              {incidents.map((incident) => (
+                <div key={incident.id} className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-slate-200 bg-white p-4">
+                  <div>
+                    <p className="font-semibold text-ink">{incident.check_name}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-700">{incident.detail}</p>
+                    <p className="mt-2 text-xs text-slate-500">First detected {new Date(incident.first_detected_at).toLocaleString("en-AU")} · Last detected {new Date(incident.last_detected_at).toLocaleString("en-AU")} · {incident.occurrence_count} observation{incident.occurrence_count === 1 ? "" : "s"}</p>
+                  </div>
+                  <StatusBadge label={incident.resolved_at ? `Resolved ${new Date(incident.resolved_at).toLocaleDateString("en-AU")}` : incident.severity} tone={incident.resolved_at ? "green" : incident.severity === "critical" ? "red" : "amber"} />
+                </div>
+              ))}
+              {!incidents.length && !historyMessage ? <p className="rounded-md bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-800">No background incidents have been recorded.</p> : null}
+            </div>
+          </div>
         </>
       ) : null}
     </Card>

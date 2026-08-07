@@ -45,6 +45,17 @@ test("system health monitoring is owner-only and read-only", async () => {
   assert.doesNotMatch(route, /chat\/completions|responses/);
 });
 
+test("background health monitoring requires a cron secret and isolates incident history", async () => {
+  const [cron, policy] = await Promise.all([
+    source("app/api/cron/platform-health/route.ts"),
+    source("supabase/platform-health-monitoring.sql")
+  ]);
+  assert.match(cron, /CRON_SECRET/);
+  assert.match(cron, /Bearer \$\{secret\}/);
+  assert.match(policy, /enable row level security/);
+  assert.match(policy, /revoke all on table public\.platform_health_incidents from anon, authenticated/);
+});
+
 test("client writes remain manager and organisation scoped", async () => {
   const policy = await source("supabase/repair-client-rls.sql");
   assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
