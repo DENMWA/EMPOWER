@@ -6,13 +6,13 @@ import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
-import { authSessionChangedEvent, getCurrentAuthStatus } from "@/lib/supabase-auth";
+import { authSessionChangedEvent, getCurrentAuthStatus, signOutSupabaseSession } from "@/lib/supabase-auth";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
 import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -119,6 +119,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("empower-accessibility-mode", String(accessibilityMode));
   }, [accessibilityMode]);
 
+  function signOut() {
+    signOutSupabaseSession();
+    window.location.assign("/signin");
+  }
+
   return (
     <div className={cn("min-h-screen", isPlatform ? "bg-slate-100" : "bg-mist", accessibilityMode && "accessibility-mode")}>
       <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-xl">
@@ -136,6 +141,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {isPlatform ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100">Internal platform</span> : null}
             {!signedIn && !isPlatform ? <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-teal-100">Product preview</span> : null}
             <AccessibilityToggle enabled={accessibilityMode} onChange={setAccessibilityMode} />
+            {signedIn ? (
+              <button type="button" onClick={signOut} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-red-300 hover:text-red-700" aria-label="Sign out of EmpowerNotes">
+                <LogOut size={17} aria-hidden="true" />
+                Sign out
+              </button>
+            ) : null}
           </div>
         </div>
         {isPlatform ? (
