@@ -31,12 +31,20 @@ export function getCurrentUserId() {
   if (!token) return "";
 
   try {
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(window.atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string };
+    const decoded = decodeJwtPayload<{ sub?: string }>(token);
     return decoded.sub || "";
   } catch {
     return "";
   }
+}
+
+export function decodeJwtPayload<T>(token: string): T {
+  const payload = token.split(".")[1];
+  if (!payload) throw new Error("Invalid access token.");
+
+  const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  return JSON.parse(window.atob(paddedBase64)) as T;
 }
 
 export function isSupabaseConfigured() {

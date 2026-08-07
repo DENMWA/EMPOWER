@@ -1,4 +1,4 @@
-import { getCurrentUserId, getSupabaseProjectConfig, getStoredAccessToken } from "@/lib/supabase-rest";
+import { decodeJwtPayload, getCurrentUserId, getSupabaseProjectConfig, getStoredAccessToken } from "@/lib/supabase-rest";
 
 type AuthSession = {
   access_token: string;
@@ -27,9 +27,7 @@ export function getCurrentAuthStatus() {
   if (!token) return getDefaultAuthStatus();
 
   try {
-    const payload = token.split(".")[1];
-    if (!payload) return getDefaultAuthStatus();
-    const decoded = JSON.parse(window.atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string; email?: string; aal?: string; exp?: number };
+    const decoded = decodeJwtPayload<{ sub?: string; email?: string; aal?: string; exp?: number }>(token);
     if (!decoded.sub || (decoded.exp && decoded.exp * 1000 <= Date.now())) {
       signOutSupabaseSession();
       return getDefaultAuthStatus();
