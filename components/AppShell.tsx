@@ -168,7 +168,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
         ) : (
-          <nav className="premium-scrollbar mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8" aria-label="Primary navigation">
+          <nav
+            className={cn(
+              "premium-scrollbar mx-auto max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8",
+              pathname === "/" ? "hidden md:flex" : "flex"
+            )}
+            aria-label="Primary navigation"
+          >
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
