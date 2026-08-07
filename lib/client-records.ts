@@ -6,6 +6,19 @@ import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type ClientRecord = Participant & {
   ndisNumber?: string;
+  preferredName?: string;
+  dateOfBirth?: string;
+  pronouns?: string;
+  address?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  diagnoses?: string[];
+  medicalConditions?: string[];
+  allergies?: string[];
+  medications?: string[];
+  behaviourSupportNotes?: string;
+  emergencyContacts?: Array<{ name: string; relationship: string; phone: string }>;
+  keyWorkerId?: string;
   colourSchemeId?: string;
   primaryHouseId?: string;
   primaryHouseName?: string;
@@ -56,6 +69,19 @@ type SupabaseClientRow = {
   primary_house_name: string | null;
   service_name: string | null;
   ndis_number: string | null;
+  preferred_name: string | null;
+  date_of_birth: string | null;
+  pronouns: string | null;
+  address: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  diagnoses: string[] | null;
+  medical_conditions: string[] | null;
+  allergies: string[] | null;
+  medications: string[] | null;
+  behaviour_support_notes: string | null;
+  emergency_contacts: Array<{ name?: string; relationship?: string; phone?: string }> | null;
+  key_worker_id: string | null;
   created_at: string;
 };
 
@@ -75,6 +101,23 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
     primaryHouseName: row.primary_house_name || undefined,
     serviceName: row.service_name || undefined,
     ndisNumber: row.ndis_number || undefined,
+    preferredName: row.preferred_name || undefined,
+    dateOfBirth: row.date_of_birth || undefined,
+    pronouns: row.pronouns || undefined,
+    address: row.address || undefined,
+    contactPhone: row.contact_phone || undefined,
+    contactEmail: row.contact_email || undefined,
+    diagnoses: row.diagnoses || [],
+    medicalConditions: row.medical_conditions || [],
+    allergies: row.allergies || [],
+    medications: row.medications || [],
+    behaviourSupportNotes: row.behaviour_support_notes || undefined,
+    emergencyContacts: (row.emergency_contacts || []).map((contact) => ({
+      name: contact.name || "",
+      relationship: contact.relationship || "",
+      phone: contact.phone || ""
+    })),
+    keyWorkerId: row.key_worker_id || undefined,
     createdAt: row.created_at
   };
 }
@@ -82,7 +125,7 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
 export async function getTenantClients() {
   if (isPresentationModeEnabled()) return [];
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
-    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,ndis_number,created_at&order=created_at.desc"
+    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return [];
@@ -116,7 +159,20 @@ export async function saveTenantClient(client: ClientRecord) {
       primary_house_id: client.primaryHouseId || null,
       primary_house_name: client.primaryHouseName || null,
       service_name: client.serviceName || null,
-      ndis_number: client.ndisNumber || null
+      ndis_number: client.ndisNumber || null,
+      preferred_name: client.preferredName || null,
+      date_of_birth: client.dateOfBirth || null,
+      pronouns: client.pronouns || null,
+      address: client.address || null,
+      contact_phone: client.contactPhone || null,
+      contact_email: client.contactEmail || null,
+      diagnoses: client.diagnoses || [],
+      medical_conditions: client.medicalConditions || [],
+      allergies: client.allergies || [],
+      medications: client.medications || [],
+      behaviour_support_notes: client.behaviourSupportNotes || null,
+      emergency_contacts: client.emergencyContacts || [],
+      key_worker_id: client.keyWorkerId || null
     }
   });
 

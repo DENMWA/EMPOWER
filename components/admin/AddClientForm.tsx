@@ -17,6 +17,21 @@ export function AddClientForm() {
   const [name, setName] = useState("");
   const [initials, setInitials] = useState("");
   const [ndisNumber, setNdisNumber] = useState("");
+  const [preferredName, setPreferredName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [pronouns, setPronouns] = useState("");
+  const [address, setAddress] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [diagnoses, setDiagnoses] = useState("");
+  const [medicalConditions, setMedicalConditions] = useState("");
+  const [allergies, setAllergies] = useState("");
+  const [medications, setMedications] = useState("");
+  const [behaviourSupportNotes, setBehaviourSupportNotes] = useState("");
+  const [emergencyContactName, setEmergencyContactName] = useState("");
+  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState("");
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [keyWorkerId, setKeyWorkerId] = useState("");
   const [supportNeeds, setSupportNeeds] = useState("");
   const [communication, setCommunication] = useState("");
   const [riskAlerts, setRiskAlerts] = useState("");
@@ -96,6 +111,23 @@ export function AddClientForm() {
       id: clientId,
       name: cleanName,
       ndisNumber: ndisNumber.trim(),
+      preferredName: preferredName.trim(),
+      dateOfBirth: dateOfBirth || undefined,
+      pronouns: pronouns.trim(),
+      address: address.trim(),
+      contactPhone: contactPhone.trim(),
+      contactEmail: contactEmail.trim(),
+      diagnoses: toLines(diagnoses),
+      medicalConditions: toLines(medicalConditions),
+      allergies: toLines(allergies),
+      medications: toLines(medications),
+      behaviourSupportNotes: behaviourSupportNotes.trim(),
+      emergencyContacts: emergencyContactName.trim() || emergencyContactPhone.trim() ? [{
+        name: emergencyContactName.trim(),
+        relationship: emergencyContactRelationship.trim(),
+        phone: emergencyContactPhone.trim()
+      }] : [],
+      keyWorkerId: keyWorkerId || undefined,
       initials: (initials.trim() || cleanName.split(/\s+/).map((part) => part[0]).join("")).slice(0, 4).toUpperCase(),
       supportNeeds: supportNeeds.trim() || "Support needs to be added.",
       communication: communication.trim() || "Communication preferences to be added.",
@@ -147,6 +179,21 @@ export function AddClientForm() {
     setName("");
     setInitials("");
     setNdisNumber("");
+    setPreferredName("");
+    setDateOfBirth("");
+    setPronouns("");
+    setAddress("");
+    setContactPhone("");
+    setContactEmail("");
+    setDiagnoses("");
+    setMedicalConditions("");
+    setAllergies("");
+    setMedications("");
+    setBehaviourSupportNotes("");
+    setEmergencyContactName("");
+    setEmergencyContactRelationship("");
+    setEmergencyContactPhone("");
+    setKeyWorkerId("");
     setSupportNeeds("");
     setCommunication("");
     setRiskAlerts("");
@@ -174,6 +221,18 @@ export function AddClientForm() {
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. GM" maxLength={4} value={initials} onChange={(event) => setInitials(event.target.value.toUpperCase())} />
         </label>
         <label className="block text-sm font-semibold text-slate-700">
+          Preferred name
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={preferredName} onChange={(event) => setPreferredName(event.target.value)} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Date of birth
+          <input type="date" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Pronouns
+          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. she/her" value={pronouns} onChange={(event) => setPronouns(event.target.value)} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
           Participant NDIS number
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={ndisNumber} onChange={(event) => setNdisNumber(event.target.value)} inputMode="numeric" autoComplete="off" />
         </label>
@@ -188,6 +247,18 @@ export function AddClientForm() {
           Service name
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. SIL weekday support" value={serviceName} onChange={(event) => setServiceName(event.target.value)} />
         </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Client phone
+          <input type="tel" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Client email
+          <input type="email" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
+          Address
+          <textarea className="mt-2 min-h-20 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={address} onChange={(event) => setAddress(event.target.value)} />
+        </label>
         <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
           Support needs
           <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Daily living, community access, behaviour support, communication support..." value={supportNeeds} onChange={(event) => setSupportNeeds(event.target.value)} />
@@ -200,6 +271,46 @@ export function AddClientForm() {
           Risk alerts
           <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Known triggers, escalation instructions, medication prompts, falls risk..." value={riskAlerts} onChange={(event) => setRiskAlerts(event.target.value)} />
         </label>
+      </div>
+
+      <div className="mt-6 border-t border-slate-200 pt-6">
+        <h3 className="text-lg font-semibold text-ink">Health and support profile</h3>
+        <p className="mt-1 text-sm text-slate-600">Enter one item per line. Record only information relevant to safe service delivery.</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <MultiLineField label="Diagnoses" value={diagnoses} onChange={setDiagnoses} placeholder="Known diagnoses" />
+          <MultiLineField label="Medical conditions" value={medicalConditions} onChange={setMedicalConditions} placeholder="Diabetes, epilepsy, asthma..." />
+          <MultiLineField label="Allergies" value={allergies} onChange={setAllergies} placeholder="Allergen and known response" />
+          <MultiLineField label="Medications" value={medications} onChange={setMedications} placeholder="Medication name and relevant support note" />
+          <label className="block text-sm font-semibold text-slate-700 lg:col-span-2">
+            Behaviour support notes
+            <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="Known strategies, triggers, regulated practices, and plan references" value={behaviourSupportNotes} onChange={(event) => setBehaviourSupportNotes(event.target.value)} />
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-6 border-t border-slate-200 pt-6">
+        <h3 className="text-lg font-semibold text-ink">Emergency contact and key worker</h3>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <label className="block text-sm font-semibold text-slate-700">
+            Emergency contact name
+            <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={emergencyContactName} onChange={(event) => setEmergencyContactName(event.target.value)} />
+          </label>
+          <label className="block text-sm font-semibold text-slate-700">
+            Relationship
+            <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={emergencyContactRelationship} onChange={(event) => setEmergencyContactRelationship(event.target.value)} />
+          </label>
+          <label className="block text-sm font-semibold text-slate-700">
+            Emergency contact phone
+            <input type="tel" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={emergencyContactPhone} onChange={(event) => setEmergencyContactPhone(event.target.value)} />
+          </label>
+          <label className="block text-sm font-semibold text-slate-700">
+            Designated key worker
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={keyWorkerId} onChange={(event) => setKeyWorkerId(event.target.value)}>
+              <option value="">No key worker assigned</option>
+              {allStaff.map((staff) => <option key={staff.id} value={staff.id}>{staff.name} - {staff.roleLabel}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -265,4 +376,17 @@ export function AddClientForm() {
       {message ? <p aria-live="polite" className={cn("mt-3 rounded-md px-3 py-2 text-sm font-semibold", saved ? "bg-emerald-50 text-emerald-700" : saveFailed ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700")}>{message}</p> : null}
     </Card>
   );
+}
+
+function MultiLineField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
+  return (
+    <label className="block text-sm font-semibold text-slate-700">
+      {label}
+      <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function toLines(value: string) {
+  return value.split("\n").map((item) => item.trim()).filter(Boolean);
 }
