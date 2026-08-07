@@ -48,10 +48,12 @@ export function NativeBillingWorkspace() {
   const [allowNonFaceToFace, setAllowNonFaceToFace] = useState(false);
   const [allowCancellations, setAllowCancellations] = useState(false);
   const [message, setMessage] = useState("");
-  const activePricingVersion = records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
-    || records.pricingVersions.find((version) => version.status === "active");
+  const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
+    || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
-  const supportItems = activePricingVersion ? records.supportItems.filter((item) => item.pricingVersionId === activePricingVersion.id) : [];
+  const supportItems = useMemo(() => activePricingVersion
+    ? records.supportItems.filter((item) => item.pricingVersionId === activePricingVersion.id)
+    : [], [activePricingVersion, records.supportItems]);
   const selectedClient = clients.find((client) => client.id === selectedClientId) || clients[0];
   const selectedAgreement = selectedClient ? records.agreements.find((agreement) => agreement.participantId === selectedClient.id && agreement.status === "active") : undefined;
   const selectedSupportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
@@ -96,15 +98,17 @@ export function NativeBillingWorkspace() {
   }, []);
 
   useEffect(() => {
-    setAgreementName(selectedClient ? `${selectedClient.name} NDIS service agreement` : "");
-    setRecipientName(selectedClient?.name || "");
-  }, [selectedClient?.id, selectedClient?.name]);
+    const client = clients.find((item) => item.id === selectedClientId) || clients[0];
+    setAgreementName(client ? `${client.name} NDIS service agreement` : "");
+    setRecipientName(client?.name || "");
+  }, [clients, selectedClientId]);
 
   useEffect(() => {
-    if (!selectedSupportItem) return;
-    setSelectedSupportItemId(selectedSupportItem.id);
-    setAgreedRate(String(selectedSupportItem.priceLimit || ""));
-  }, [selectedSupportItem?.id, selectedSupportItem?.priceLimit]);
+    const supportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
+    if (!supportItem) return;
+    setSelectedSupportItemId(supportItem.id);
+    setAgreedRate(String(supportItem.priceLimit || ""));
+  }, [selectedSupportItemId, supportItems]);
 
   function importPricingVersion() {
     const version = createPricingVersionFromManualUpload({

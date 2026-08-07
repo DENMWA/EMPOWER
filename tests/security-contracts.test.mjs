@@ -6,9 +6,12 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("privileged server access requires aal2", async () => {
+test("privileged server access verifies the Supabase user and stored organisation role", async () => {
   const access = await source("lib/security/server-access.ts");
-  assert.match(access, /getJwtAuthenticationLevel\(authorization\) !== "aal2"/);
+  assert.match(access, /\/auth\/v1\/user/);
+  assert.match(access, /users\?select=role,organisation_id/);
+  assert.match(access, /adminRoles\.has\(profile\.role\)/);
+  assert.match(access, /PLATFORM_OWNER_EMAILS/);
 });
 
 test("sensitive tenant caches are written only after cloud success", async () => {
@@ -33,4 +36,24 @@ test("platform analytics endpoint requires platform-owner verification", async (
   const route = await source("app/api/platform/summary/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);
   assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test("client writes remain manager and organisation scoped", async () => {
+  const policy = await source("supabase/repair-client-rls.sql");
+  assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
+  assert.match(policy, /public\.current_user_is_manager\(\)/);
+  assert.match(policy, /for insert\s+to authenticated\s+with check/s);
+  assert.match(policy, /for update\s+to authenticated\s+using/s);
+});
+
+test("billing headers and lines use atomic database bundles", async () => {
+  const [cloudSync, transactionSql] = await Promise.all([
+    source("lib/native-billing-cloud.ts"),
+    source("supabase/atomic-billing-sync.sql")
+  ]);
+  assert.match(cloudSync, /supabaseRpc\("sync_service_agreement_bundle"/);
+  assert.match(cloudSync, /supabaseRpc\("sync_native_invoice_bundle"/);
+  assert.match(transactionSql, /security invoker/);
+  assert.match(transactionSql, /Cross-organisation invoice data is not permitted/);
+  assert.match(transactionSql, /revoke all on function public\.sync_native_invoice_bundle/);
 });

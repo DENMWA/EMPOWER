@@ -11,7 +11,7 @@ import type {
 } from "@/lib/native-billing";
 import { getNativeBillingRecords } from "@/lib/native-billing";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
-import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
+import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest, supabaseRpc } from "@/lib/supabase-rest";
 import type { StaffRecord } from "@/lib/staff-records";
 import { tenantStorageKey } from "@/lib/tenant-storage";
 
@@ -124,7 +124,7 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     effective_to: item.effectiveTo || null
   })));
 
-  pushUpsert(operations, "service_agreements", records.agreements.map((agreement) => ({
+  const agreementRows = records.agreements.map((agreement) => ({
     id: agreement.id,
     organisation_id: organisationId,
     participant_id: agreement.participantId,
@@ -140,10 +140,9 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     status: agreement.status,
     created_by: userId,
     created_at: agreement.createdAt
-  })));
-  await flushOperations(operations);
+  }));
 
-  pushUpsert(operations, "service_agreement_items", records.agreementItems.map((item) => ({
+  const agreementItemRows = records.agreementItems.map((item) => ({
     id: item.id,
     organisation_id: organisationId,
     service_agreement_id: item.serviceAgreementId,
@@ -162,8 +161,14 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     allow_non_face_to_face: item.allowNonFaceToFace,
     allow_cancellations: item.allowCancellations,
     status: item.status
-  })));
-  await flushOperations(operations);
+  }));
+  if (agreementRows.length || agreementItemRows.length) {
+    operations.push(supabaseRpc("sync_service_agreement_bundle", {
+      agreement_rows: agreementRows,
+      agreement_item_rows: agreementItemRows
+    }));
+    await flushOperations(operations);
+  }
 
   pushUpsert(operations, "support_shifts", records.shifts.map((shift) => ({
     id: shift.id,
@@ -195,7 +200,7 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     created_by: userId
   })));
 
-  pushUpsert(operations, "native_invoices", records.invoices.map((invoice) => ({
+  const invoiceRows = records.invoices.map((invoice) => ({
     id: invoice.id,
     organisation_id: organisationId,
     participant_id: invoice.participantId,
@@ -212,10 +217,9 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     total_amount: invoice.totalAmount,
     created_by: userId,
     created_at: invoice.createdAt
-  })));
-  await flushOperations(operations);
+  }));
 
-  pushUpsert(operations, "native_invoice_lines", records.invoiceLines.map((line) => ({
+  const invoiceLineRows = records.invoiceLines.map((line) => ({
     id: line.id,
     organisation_id: organisationId,
     invoice_id: line.invoiceId,
@@ -241,8 +245,14 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     approval_status: line.approvalStatus,
     exception_reason: line.exceptionReason || null,
     note_reference: line.noteReference || null
-  })));
-  await flushOperations(operations);
+  }));
+  if (invoiceRows.length || invoiceLineRows.length) {
+    operations.push(supabaseRpc("sync_native_invoice_bundle", {
+      invoice_rows: invoiceRows,
+      invoice_line_rows: invoiceLineRows
+    }));
+    await flushOperations(operations);
+  }
 
   window.dispatchEvent(new CustomEvent("empowernotes:native-billing-cloud-status", {
     detail: { ok: true, message: "Billing changes synced to the organisation workspace." }

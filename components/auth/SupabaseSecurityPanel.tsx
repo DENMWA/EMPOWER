@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { KeyRound, LogOut } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import {
@@ -23,6 +23,26 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const configured = isSupabaseConfigured();
+
+  const continueToRequestedPage = useCallback(async () => {
+    if (!redirectAfterSignIn || typeof window === "undefined") return;
+    const requestedPath = new URLSearchParams(window.location.search).get("next");
+    const safeRequestedPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "";
+    const userId = getCurrentUserId();
+    let defaultPath = "/dashboard";
+
+    if (userId) {
+      const profile = await supabaseRequest<Array<{ role?: string }>>("users", {
+        query: `select=role&id=eq.${encodeURIComponent(userId)}&limit=1`
+      });
+      const role = profile.data?.[0]?.role || "";
+      if (["owner", "admin", "service_manager", "sole_provider"].includes(role)) {
+        defaultPath = "/admin";
+      }
+    }
+
+    window.location.assign(safeRequestedPath || defaultPath);
+  }, [redirectAfterSignIn]);
 
   useEffect(() => {
     function syncAuthStatus() {
@@ -53,7 +73,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
     }
     window.addEventListener(authSessionChangedEvent, syncAuthStatus);
     return () => window.removeEventListener(authSessionChangedEvent, syncAuthStatus);
-  }, []);
+  }, [continueToRequestedPage, redirectAfterSignIn]);
 
   async function signIn() {
     await withBusy(async () => {
@@ -93,27 +113,6 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
     } finally {
       setBusy(false);
     }
-  }
-
-  async function continueToRequestedPage() {
-    if (!redirectAfterSignIn || typeof window === "undefined") return;
-    const requestedPath = new URLSearchParams(window.location.search).get("next");
-    const safeRequestedPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "";
-    const userId = getCurrentUserId();
-    let defaultPath = "/dashboard";
-
-    if (userId) {
-      const profile = await supabaseRequest<Array<{ role?: string }>>("users", {
-        query: `select=role&id=eq.${encodeURIComponent(userId)}&limit=1`
-      });
-      const role = profile.data?.[0]?.role || "";
-      if (["owner", "admin", "service_manager", "sole_provider"].includes(role)) {
-        defaultPath = "/admin";
-      }
-    }
-
-    const safePath = safeRequestedPath || defaultPath;
-    window.location.assign(safePath);
   }
 
   return (
