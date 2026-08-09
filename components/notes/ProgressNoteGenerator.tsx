@@ -5,7 +5,6 @@ import Image from "next/image";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
-import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -437,7 +436,7 @@ export function ProgressNoteGenerator() {
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Progress note studio</p>
             <h2 className="mt-1 text-2xl font-bold text-ink">Improve shift notes without changing the facts</h2>
           </div>
-          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">Original note preserved</span>
+          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">Worker-controlled wording</span>
         </div>
         <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
           <p className="font-semibold">Fidelity-first improvement</p>
@@ -626,7 +625,7 @@ export function ProgressNoteGenerator() {
           </div>
         ) : null}
         <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
-          {loading ? "Improving note..." : "Improve Note with Fidelity"}
+          {loading ? "Preparing options..." : "Optional: rephrase note"}
         </button>
         {selectedHouse ? (
           <RecordActions
@@ -717,7 +716,6 @@ export function ProgressNoteGenerator() {
         <NoteQualityScore quality={quality} />
         <MissingDetailChecker missing={missing.length ? missing : ["Location", "Exact start and finish time", "Goal link", "Specific follow-up owner"]} />
       </div>
-      {roughNote.trim() ? <PersonCentredRewrite text={roughNote} /> : null}
       <Card>
         <h2 className="text-xl font-semibold text-ink">Goal-linking Assistant</h2>
         <div className="mt-4 flex flex-wrap gap-2">
