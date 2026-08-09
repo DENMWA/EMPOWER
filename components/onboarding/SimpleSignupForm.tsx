@@ -27,7 +27,10 @@ export function SimpleSignupForm() {
 
   useEffect(() => {
     const requestedPlan = new URLSearchParams(window.location.search).get("plan");
-    if (planOptions.some((plan) => plan.tier === requestedPlan)) setTier(requestedPlan as SubscriptionTier);
+    if (planOptions.some((plan) => plan.tier === requestedPlan)) {
+      setTier(requestedPlan as SubscriptionTier);
+      if (requestedPlan === "solo") setProviderType("sole_provider");
+    }
   }, []);
 
   async function createWorkspace() {
@@ -84,7 +87,7 @@ export function SimpleSignupForm() {
         setSuccess(true);
         setMessage("Your workspace is ready.");
         setDataMode("real");
-        window.setTimeout(() => window.location.assign(getSafeNextPath()), 500);
+        window.setTimeout(() => window.location.assign(getSafeNextPath(providerType)), 500);
         return;
       }
 
@@ -117,7 +120,11 @@ export function SimpleSignupForm() {
         </label>
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
           Starting plan
-          <select value={tier} onChange={(event) => setTier(event.target.value as SubscriptionTier)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink shadow-sm">
+          <select value={tier} onChange={(event) => {
+            const nextTier = event.target.value as SubscriptionTier;
+            setTier(nextTier);
+            if (nextTier === "solo") setProviderType("sole_provider");
+          }} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink shadow-sm">
             {planOptions.map((plan) => <option key={plan.tier} value={plan.tier}>{subscriptionTiers[plan.tier].shortName} - {plan.price}</option>)}
           </select>
         </label>
@@ -148,7 +155,7 @@ function Field({ label, value, onChange, type = "text", autoComplete }: { label:
   );
 }
 
-function getSafeNextPath() {
+function getSafeNextPath(providerType: "organisation" | "sole_provider") {
   const next = new URLSearchParams(window.location.search).get("next");
-  return next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  return next?.startsWith("/") && !next.startsWith("//") ? next : providerType === "sole_provider" ? "/admin" : "/dashboard";
 }

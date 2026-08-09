@@ -64,7 +64,7 @@ export function OrganisationAccountSetup() {
 
     if (result.data && !result.error) {
       const requestedPath = new URLSearchParams(window.location.search).get("next");
-      const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
+      const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : providerType === "sole_provider" ? "/admin" : "/dashboard";
       window.setTimeout(() => window.location.assign(safePath), 500);
     }
   }
