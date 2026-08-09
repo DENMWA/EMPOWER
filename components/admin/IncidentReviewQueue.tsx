@@ -123,20 +123,29 @@ function IncidentBaselineChart({ reports, clients, houses }: { reports: StoredIn
 }
 
 function IncidentScoreBar({ label, value, count, color }: { label: string; value: number; count: string; color: string }) {
+  const [selected, setSelected] = useState(false);
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3 text-sm">
         <span className="font-semibold text-ink">{label}</span>
         <span className="font-bold text-ink">{value}%</span>
       </div>
-      <div className="relative h-8 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200">
+      <button
+        type="button"
+        onClick={() => setSelected((current) => !current)}
+        className={`relative block h-8 w-full overflow-hidden rounded-md bg-slate-100 text-left ring-1 transition hover:ring-teal-500 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-teal-700 ${selected ? "ring-2 ring-teal-700" : "ring-slate-200"}`}
+        aria-label={`${label}: ${value}%, ${count} incidents, target ${incidentBaselineTarget}%`}
+        aria-pressed={selected}
+      >
         <span className="absolute left-[90%] top-0 h-full w-px bg-amber-500" aria-hidden="true" />
         <span className={`block h-full rounded-md ${color}`} style={{ width: `${Math.min(value, 100)}%` }} aria-hidden="true" />
-      </div>
+      </button>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
         <span>{count} incidents</span>
         <span>Target {incidentBaselineTarget}%</span>
       </div>
+      {selected ? <p className="mt-2 rounded-md bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-900" aria-live="polite">{label}: {value}% ({count} incidents) against the {incidentBaselineTarget}% target.</p> : null}
     </div>
   );
 }

@@ -82,6 +82,8 @@ export function ReportingInsightsChart() {
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [clientFilter, setClientFilter] = useState("all");
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey | "all">("all");
+  const [selectedPoint, setSelectedPoint] = useState<{ period: string; metric: string; value: number } | null>(null);
   const clientNames = useMemo(() => getClientNames(records), [records]);
   const filteredRecords = useMemo(() => clientFilter === "all" ? records : records.filter((record) => recordToEvents(record).some((event) => event.clientName === clientFilter)), [clientFilter, records]);
   const liveTrendData = useMemo(() => buildTrendData(filteredRecords), [filteredRecords]);
@@ -207,7 +209,16 @@ export function ReportingInsightsChart() {
                 <div key={point.label} className="relative z-10 grid min-w-24 flex-1 gap-3">
                   <div className="flex h-56 items-end justify-center gap-2">
                     {metrics.map((metric) => (
-                      <Bar key={metric.key} label={metric.label} value={point[metric.key]} maxValue={maxValue} color={metric.color} />
+                      <Bar
+                        key={metric.key}
+                        label={metric.label}
+                        value={point[metric.key]}
+                        maxValue={maxValue}
+                        color={metric.color}
+                        muted={selectedMetric !== "all" && selectedMetric !== metric.key}
+                        selected={selectedPoint?.period === point.label && selectedPoint.metric === metric.label}
+                        onSelect={() => setSelectedPoint({ period: point.label, metric: metric.label, value: point[metric.key] })}
+                      />
                     ))}
                   </div>
                   <p className="text-center text-xs font-semibold text-slate-600">{point.label}</p>
@@ -216,14 +227,21 @@ export function ReportingInsightsChart() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-2" aria-label="Chart metric filter">
+            <button type="button" onClick={() => setSelectedMetric("all")} className={cn("min-h-10 rounded-md border px-3 text-sm font-semibold transition", selectedMetric === "all" ? "border-sea bg-sea text-white" : "border-slate-200 bg-white text-slate-700 hover:border-teal-400")}>All metrics</button>
             {metrics.map((metric) => (
-              <span key={metric.key} className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <button key={metric.key} type="button" onClick={() => setSelectedMetric(metric.key)} aria-pressed={selectedMetric === metric.key} className={cn("inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition", selectedMetric === metric.key ? "border-sea bg-teal-50 text-teal-900" : "border-slate-200 bg-white text-slate-700 hover:border-teal-400")}>
                 <span className={cn("h-3 w-3 rounded-sm", metric.color)} />
                 {metric.label}
-              </span>
+              </button>
             ))}
           </div>
+          {selectedPoint ? (
+            <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3" aria-live="polite">
+              <p className="text-xs font-semibold uppercase tracking-wide text-teal-800">Selected result</p>
+              <p className="mt-1 font-semibold text-ink">{selectedPoint.period}: {selectedPoint.metric} {selectedPoint.value}</p>
+            </div>
+          ) : null}
         </div>
 
         <div className="border-t border-slate-200 bg-slate-50 p-5 lg:border-l lg:border-t-0">
@@ -260,13 +278,13 @@ export function ReportingInsightsChart() {
   );
 }
 
-function Bar({ label, value, maxValue, color }: { label: string; value: number; maxValue: number; color: string }) {
+function Bar({ label, value, maxValue, color, muted, selected, onSelect }: { label: string; value: number; maxValue: number; color: string; muted: boolean; selected: boolean; onSelect: () => void }) {
   const height = maxValue === 0 ? 0 : Math.max(8, Math.round((value / maxValue) * 210));
 
   return (
-    <div className="flex w-6 flex-col items-center gap-2">
+    <div className={cn("flex w-6 flex-col items-center gap-2 transition-opacity", muted && "opacity-20")}>
       <span className="text-[11px] font-semibold text-slate-600">{value}</span>
-      <div className={cn("w-full rounded-t-md shadow-sm transition-all", color)} style={{ height }} title={`${label}: ${value}`} />
+      <button type="button" onClick={onSelect} className={cn("w-full rounded-t-md shadow-sm transition hover:brightness-90 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-teal-700", color, selected && "ring-2 ring-ink ring-offset-2")} style={{ height }} title={`${label}: ${value}`} aria-label={`${label}: ${value}`} aria-pressed={selected} />
     </div>
   );
 }

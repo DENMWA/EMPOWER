@@ -11,6 +11,14 @@
   --line: #dfe5e9;
   --brand: #087f73;
   --brand-deep: #075e57;
+  --chart-sea: #0f766e;
+  --chart-sky: #0284c7;
+  --chart-emerald: #059669;
+  --chart-amber: #d97706;
+  --chart-red: #dc2626;
+  --chart-navy: #19324d;
+  --chart-slate: #64748b;
+  --chart-gold: #b7791f;
 }
 
 * {

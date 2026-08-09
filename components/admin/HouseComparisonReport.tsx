@@ -24,7 +24,7 @@ const pieMetrics: Array<{ key: PieMetric; label: string }> = [
   { key: "actionedIncidents", label: "Actioned incidents" },
   { key: "openTasks", label: "Open admin tasks" }
 ];
-const pieColours = ["#0f766e", "#dc2626", "#0284c7", "#d97706", "#7c3aed", "#059669", "#be185d", "#475569"];
+const pieColours = ["var(--chart-sea)", "var(--chart-sky)", "var(--chart-emerald)", "var(--chart-amber)", "var(--chart-red)", "var(--chart-navy)", "var(--chart-slate)", "var(--chart-gold)"];
 
 function incidentIsActioned(report: StoredIncidentReport) {
   const review = (report.managerReview || "").trim().toLowerCase();
