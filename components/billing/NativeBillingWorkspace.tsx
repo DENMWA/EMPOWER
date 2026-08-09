@@ -51,6 +51,7 @@ export function NativeBillingWorkspace() {
   const [allowCancellations, setAllowCancellations] = useState(false);
   const [message, setMessage] = useState("");
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
+  const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -206,15 +207,32 @@ export function NativeBillingWorkspace() {
       : "Completed service linked. The invoice will flag that supporting note evidence is missing."));
   }
 
-  function generateInvoice(serviceId: string) {
+  async function generateInvoice(serviceId: string) {
     const shift = records.shifts.find((item) => item.id === serviceId && item.participantId === selectedClient?.id && item.status === "completed");
     if (!shift) {
       setMessage("This rendered service is not available for invoicing.");
       return;
     }
 
+    setCreatingInvoiceId(serviceId);
+    setMessage("Creating invoice draft...");
     const result = createInvoiceFromShift(shift.id, notes);
-    setMessage(result.error || `${result.invoice?.invoiceNumber} created as native EmpowerNotes invoice draft.`);
+    if (result.error || !result.invoice) {
+      setCreatingInvoiceId("");
+      setMessage(result.error || "The invoice could not be created.");
+      return;
+    }
+
+    try {
+      await waitForNativeBillingSave();
+      setRecords(getNativeBillingRecords());
+      setMessage(`${result.invoice.invoiceNumber} created and saved as an EmpowerNotes invoice draft.`);
+    } catch {
+      setRecords(getNativeBillingRecords());
+      setMessage("The invoice draft was not saved. Check your billing access and try again.");
+    } finally {
+      setCreatingInvoiceId("");
+    }
   }
 
   function exportInvoice(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
@@ -332,7 +350,7 @@ export function NativeBillingWorkspace() {
             <Save size={17} aria-hidden="true" /> {savingAction === "agreement" ? "Saving..." : selectedAgreement ? "Update agreement" : "Save agreement"}
           </button>
 
-          <div className="mt-6 border-t border-slate-200 pt-5">
+          <div id="agreed-support-items" className="mt-6 scroll-mt-24 border-t border-slate-200 pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-ink">Agreed support items</h3>
@@ -398,6 +416,9 @@ export function NativeBillingWorkspace() {
             {completedRosterServices.map((shift) => {
               const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
               const linked = Boolean(billingService);
+              const agreementItem = billingService
+                ? records.agreementItems.find((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
+                : undefined;
               const invoiced = Boolean(billingService && records.invoiceLines.some((line) => line.shiftId === billingService.id && line.approvalStatus !== "needs_correction"));
               return (
                 <div key={shift.id} className="rounded-md border border-slate-200 p-3">
@@ -407,12 +428,17 @@ export function NativeBillingWorkspace() {
                     <button type="button" disabled={linked} onClick={() => linkRenderedService(shift)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
                       <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked to billing" : "Link rendered service"}
                     </button>
-                    {billingService ? (
-                      <button type="button" disabled={invoiced} onClick={() => generateInvoice(billingService.id)} className="inline-flex items-center gap-2 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
-                        <ReceiptText size={16} aria-hidden="true" />{invoiced ? "Invoice created" : "Create invoice"}
+                    {billingService && agreementItem ? (
+                      <button type="button" disabled={invoiced || creatingInvoiceId === billingService.id} onClick={() => void generateInvoice(billingService.id)} className="inline-flex items-center gap-2 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+                        <ReceiptText size={16} aria-hidden="true" />{invoiced ? "Invoice created" : creatingInvoiceId === billingService.id ? "Creating invoice..." : "Create invoice"}
                       </button>
+                    ) : billingService ? (
+                      <a href="#agreed-support-items" className="inline-flex items-center gap-2 rounded-md bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-200">
+                        <Plus size={16} aria-hidden="true" />Add agreed rate first
+                      </a>
                     ) : null}
                   </div>
+                  {billingService && !agreementItem ? <p className="mt-3 text-sm font-semibold text-amber-800">Invoice creation needs an active support item and agreed rate for this service agreement.</p> : null}
                 </div>
               );
             })}
