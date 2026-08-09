@@ -14,9 +14,10 @@ type RecordActionsProps = {
   filename: string;
   className?: string;
   allowDownload?: boolean;
+  saveRelatedRecord?: () => Promise<{ savedToCloud: boolean; error: string }>;
 };
 
-export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true }: RecordActionsProps) {
+export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true, saveRelatedRecord }: RecordActionsProps) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [message, setMessage] = useState("");
 
@@ -31,11 +32,13 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
       savedAt: new Date().toISOString()
     };
     const result = await saveTenantRetainedRecord(record);
-    setSaveState(result.savedToCloud ? "saved" : "failed");
-    setMessage(result.savedToCloud
+    const relatedResult = result.savedToCloud && saveRelatedRecord ? await saveRelatedRecord() : { savedToCloud: true, error: "" };
+    const savedToCloud = result.savedToCloud && relatedResult.savedToCloud;
+    setSaveState(savedToCloud ? "saved" : "failed");
+    setMessage(savedToCloud
       ? "Saved to this organisation."
-      : `Cloud save failed. A recovery draft remains on this device. ${result.error || "Try again."}`);
-    if (result.savedToCloud) window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
+      : `Cloud save failed. A recovery draft remains on this device. ${relatedResult.error || result.error || "Try again."}`);
+    if (savedToCloud) window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
 
   function downloadRecord() {

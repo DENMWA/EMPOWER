@@ -56,12 +56,6 @@ export function AddClientForm() {
   }, []);
 
   useEffect(() => {
-    if (!primaryHouseId && houses[0]) {
-      setPrimaryHouseId(houses[0].id);
-    }
-  }, [houses, primaryHouseId]);
-
-  useEffect(() => {
     function syncDataMode() {
       setRealMode(isRealModeEnabled());
     }
@@ -95,6 +89,12 @@ export function AddClientForm() {
     if (!cleanName) {
       setSaved(false);
       setMessage("Add the client's full name before saving.");
+      return;
+    }
+    if (!primaryHouseId) {
+      setSaved(false);
+      setSaveFailed(true);
+      setMessage(houses.length ? "Select the client's house or service before saving." : "Add a house or service location before adding this client.");
       return;
     }
 
@@ -236,17 +236,24 @@ export function AddClientForm() {
           Participant NDIS number
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={ndisNumber} onChange={(event) => setNdisNumber(event.target.value)} inputMode="numeric" autoComplete="off" />
         </label>
-        <label className="block text-sm font-semibold text-slate-700">
-          Primary house/service
-          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={primaryHouseId} onChange={(event) => setPrimaryHouseId(event.target.value)}>
-            {!houses.length ? <option value="">Add a house first or leave blank</option> : null}
-            {houses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
-          </select>
-        </label>
-        <label className="block text-sm font-semibold text-slate-700">
-          Service name
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. SIL weekday support" value={serviceName} onChange={(event) => setServiceName(event.target.value)} />
-        </label>
+        <div className="rounded-md border border-teal-200 bg-teal-50/60 p-4 lg:col-span-2">
+          <h3 className="font-semibold text-ink">House and service assignment</h3>
+          <p className="mt-1 text-sm text-slate-600">Required so shift notes, incidents, rostering and reports use the correct service context.</p>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <label className="block text-sm font-semibold text-slate-700">
+              Primary house/service
+              <select required className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={primaryHouseId} onChange={(event) => setPrimaryHouseId(event.target.value)}>
+                <option value="">Select house or service</option>
+                {houses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-semibold text-slate-700">
+              Service name
+              <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. SIL weekday support" value={serviceName} onChange={(event) => setServiceName(event.target.value)} />
+            </label>
+          </div>
+          {!houses.length ? <p className="mt-3 text-sm font-semibold text-amber-800">Create a house or service location in Admin Settings before saving this client.</p> : null}
+        </div>
         <label className="block text-sm font-semibold text-slate-700">
           Client phone
           <input type="tel" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />

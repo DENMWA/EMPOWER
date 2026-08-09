@@ -8,12 +8,13 @@ import { PersonCentredRewrite } from "@/components/notes/PersonCentredRewrite";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
+import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { filterByParticipantAccess, filterHousesByAccess } from "@/lib/user-access";
+import { saveTenantProgressNote } from "@/lib/progress-note-records";
 
 type ContinenceCareRecord = {
   applicableSupports: string[];
@@ -221,6 +222,7 @@ export function ProgressNoteGenerator() {
   const [realMode, setRealMode] = useState(false);
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
   const [selectedHouseId, setSelectedHouseId] = useState("");
+  const [progressNoteId] = useState(() => globalThis.crypto?.randomUUID?.() || `progress-note-${Date.now()}`);
   const [roughNote, setRoughNote] = useState("");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -233,13 +235,10 @@ export function ProgressNoteGenerator() {
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const accessibleHouses = useMemo(() => filterHousesByAccess(houses), [houses]);
-  const selectedHouse = accessibleHouses.find((house) => house.id === selectedHouseId) ?? accessibleHouses[0];
   const baseParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
-  const allParticipants = useMemo<NoteClient[]>(() => {
-    if (!selectedHouse) return [];
-    return baseParticipants.filter((participant) => houseHasClient(selectedHouse, participant));
-  }, [baseParticipants, selectedHouse]);
-  const selectedParticipant = allParticipants.find((participant) => participant.id === selectedParticipantId) ?? allParticipants[0];
+  const selectedParticipant = baseParticipants.find((participant) => participant.id === selectedParticipantId) ?? baseParticipants[0];
+  const participantHouses = useMemo(() => selectedParticipant ? getHousesForClient(accessibleHouses, selectedParticipant) : [], [accessibleHouses, selectedParticipant]);
+  const selectedHouse = participantHouses.find((house) => house.id === selectedHouseId) ?? participantHouses[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const participantGoals = selectedParticipant?.goals || [];
   const quality = scoreNoteQuality(roughNote, participantGoals.length > 0);
@@ -284,26 +283,26 @@ export function ProgressNoteGenerator() {
   }, [realMode, roughNote]);
 
   useEffect(() => {
-    if ((!selectedParticipantId || !allParticipants.some((participant) => participant.id === selectedParticipantId)) && allParticipants[0]) {
-      setSelectedParticipantId(allParticipants[0].id);
+    if ((!selectedParticipantId || !baseParticipants.some((participant) => participant.id === selectedParticipantId)) && baseParticipants[0]) {
+      setSelectedParticipantId(baseParticipants[0].id);
       return;
     }
 
-    if (!allParticipants.length && selectedParticipantId) {
+    if (!baseParticipants.length && selectedParticipantId) {
       setSelectedParticipantId("");
     }
-  }, [allParticipants, selectedParticipantId]);
+  }, [baseParticipants, selectedParticipantId]);
 
   useEffect(() => {
-    if (accessibleHouses.length && !accessibleHouses.some((house) => house.id === selectedHouseId)) {
-      setSelectedHouseId(accessibleHouses[0].id);
+    if (participantHouses.length && !participantHouses.some((house) => house.id === selectedHouseId)) {
+      setSelectedHouseId(participantHouses[0].id);
       return;
     }
 
-    if (!accessibleHouses.length && selectedHouseId) {
+    if (!participantHouses.length && selectedHouseId) {
       setSelectedHouseId("");
     }
-  }, [accessibleHouses, selectedHouseId]);
+  }, [participantHouses, selectedHouseId]);
 
   function updateContinenceField<K extends keyof ContinenceCareRecord>(field: K, value: ContinenceCareRecord[K]) {
     setContinenceRecord((current) => ({ ...current, [field]: value }));
@@ -429,17 +428,17 @@ export function ProgressNoteGenerator() {
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
-            House/service
-            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
-              {!accessibleHouses.length ? <option value="">No house assigned</option> : null}
-              {accessibleHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+            Participant/client
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipantId} onChange={(event) => setSelectedParticipantId(event.target.value)}>
+              {!baseParticipants.length ? <option value="">No clients available</option> : null}
+              {baseParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
-            Participant/client
-            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedParticipantId} onChange={(event) => setSelectedParticipantId(event.target.value)}>
-              {!allParticipants.length ? <option value="">No clients in this house/service</option> : null}
-              {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
+            House/service
+            <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
+              {!participantHouses.length ? <option value="">No house assigned to this client</option> : null}
+              {participantHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
@@ -599,9 +598,22 @@ export function ProgressNoteGenerator() {
             body={noteRecordBody}
             filename={`empower-notes-progress-note-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${selectedHouseSlug}-${supportDate}`}
             allowDownload={false}
+            saveRelatedRecord={() => saveTenantProgressNote({
+              id: progressNoteId,
+              participantId: selectedParticipantId,
+              supportDate,
+              startTime,
+              endTime: finishTime,
+              supportType,
+              roughNote,
+              finalNote: noteRecordBody,
+              missingDetails: missing,
+              qualityScore: quality.auditReadiness,
+              billingEvidenceScore: quality.billingEvidenceScore
+            })}
           />
         ) : (
-          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Ask admin to assign this client to a house/service before saving the progress note.</p>
+          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This client needs a house/service assignment before the shift note can be saved. Ask an administrator to update the client profile.</p>
         )}
       </Card>
       {showMonthlyReport ? (

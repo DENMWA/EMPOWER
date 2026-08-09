@@ -119,3 +119,16 @@ test("billing headers and lines use atomic database bundles", async () => {
   assert.match(transactionSql, /Cross-organisation invoice data is not permitted/);
   assert.match(transactionSql, /revoke all on function public\.sync_native_invoice_bundle/);
 });
+
+test("shift notes persist against an authorised client and signed-in worker", async () => {
+  const [noteRecords, generator] = await Promise.all([
+    source("lib/progress-note-records.ts"),
+    source("components/notes/ProgressNoteGenerator.tsx")
+  ]);
+
+  assert.match(noteRecords, /participant_id:\s*input\.participantId/);
+  assert.match(noteRecords, /staff_id:\s*staffId/);
+  assert.match(noteRecords, /getCurrentOrganisationId/);
+  assert.match(generator, /saveRelatedRecord=.*saveTenantProgressNote/s);
+  assert.match(generator, /baseParticipants\.map\(\(participant\)/);
+});
