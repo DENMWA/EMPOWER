@@ -294,6 +294,13 @@ export function getShiftAssignedWorkers(shift: RosterShift) {
   return shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }];
 }
 
+export function getShiftStaffLabel(shift: RosterShift, compact = false) {
+  const workers = getShiftAssignedWorkers(shift).filter((worker) => worker.name && worker.name !== "Unassigned");
+  if (!workers.length) return "Staff not assigned";
+  if (!compact || workers.length === 1) return workers.map((worker) => worker.name).join(", ");
+  return `${workers[0].name} +${workers.length - 1}`;
+}
+
 export type RosterShiftConflict = {
   workerId: string;
   workerName: string;

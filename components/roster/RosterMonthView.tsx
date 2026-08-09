@@ -1,6 +1,6 @@
 "use client";
 
-import { getEmployeeColourScheme, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
+import { getEmployeeColourScheme, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -65,16 +65,18 @@ export function RosterMonthView({
                 </button>
                 <div className="mt-2 space-y-1">
                   {dayShifts.slice(0, 3).map((shift) => {
-                    const colour = getEmployeeColourScheme(shift.workerId);
+                    const assignedWorkers = getShiftAssignedWorkers(shift);
+                    const colour = getEmployeeColourScheme(assignedWorkers[0]?.id || shift.workerId);
                     return (
                       <button
                         key={shift.id}
                         type="button"
                         onClick={() => onOpenShift(shift)}
-                        className={cn("block w-full truncate rounded border-l-4 px-2 py-1 text-left text-xs font-semibold", colour.softBg, colour.border, colour.text)}
-                        title={`${shift.startTime} ${shift.participantName} - ${getShiftAssignedWorkers(shift).map((worker) => worker.name).join(", ")}`}
+                        className={cn("block w-full rounded border-l-4 px-2 py-1.5 text-left text-xs", colour.softBg, colour.border)}
+                        title={`${shift.startTime} ${shift.participantName} - ${getShiftStaffLabel(shift)}`}
                       >
-                        {shift.startTime} {shift.participantName}
+                        <span className={cn("block truncate font-semibold", colour.text)}>{shift.startTime} {shift.participantName}</span>
+                        <span className="mt-0.5 block truncate font-medium text-slate-600">{getShiftStaffLabel(shift, true)}</span>
                       </button>
                     );
                   })}

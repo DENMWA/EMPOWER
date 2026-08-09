@@ -2,12 +2,12 @@
 
 import { FileText, MapPin, UserRound } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
-import { getEmployeeColourScheme, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
+import { getEmployeeColourScheme, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterShiftCard({ shift, onOpen }: { shift: RosterShift; onOpen: (shift: RosterShift) => void }) {
-  const colour = getEmployeeColourScheme(shift.workerId);
   const assignedWorkers = getShiftAssignedWorkers(shift);
+  const colour = getEmployeeColourScheme(assignedWorkers[0]?.id || shift.workerId);
 
   return (
     <button
@@ -27,7 +27,7 @@ export function RosterShiftCard({ shift, onOpen }: { shift: RosterShift; onOpen:
         <RosterStatusBadge status={shift.status} />
       </div>
       <div className="mt-4 grid gap-2 text-sm text-slate-600">
-        <span className="inline-flex items-start gap-2"><UserRound size={16} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{assignedWorkers.map((worker) => worker.name).join(", ")}{shift.staffingRatio ? ` (${shift.staffingRatio})` : ""}</span></span>
+        <span className="inline-flex items-start gap-2"><UserRound size={16} className="mt-0.5 shrink-0" aria-hidden="true" /><span><strong className="font-semibold text-slate-700">{getShiftStaffLabel(shift)}</strong>{shift.staffingRatio ? ` (${shift.staffingRatio})` : ""}</span></span>
         <span className="inline-flex items-center gap-2"><MapPin size={16} aria-hidden="true" />{shift.location}</span>
         <span className="inline-flex items-center gap-2">
           <FileText size={16} aria-hidden="true" />

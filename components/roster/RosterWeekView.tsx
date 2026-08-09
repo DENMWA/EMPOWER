@@ -1,7 +1,7 @@
 "use client";
 
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
-import { getEmployeeColourScheme, getRosterWeekDays, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
+import { getEmployeeColourScheme, getRosterWeekDays, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selectedDate: string; shifts: RosterShift[]; onOpenShift: (shift: RosterShift) => void }) {
@@ -20,7 +20,7 @@ export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selected
             <div className="mt-3 space-y-2">
               {dayShifts.length === 0 ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">No shifts</p> : null}
               {dayShifts.map((shift) => {
-                const colour = getEmployeeColourScheme(shift.workerId);
+                const colour = getEmployeeColourScheme(getShiftAssignedWorkers(shift)[0]?.id || shift.workerId);
                 return (
                   <button
                     key={shift.id}
@@ -30,7 +30,8 @@ export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selected
                   >
                     <p className="text-xs font-semibold text-slate-600">{shift.startTime} - {shift.endTime}</p>
                     <p className={cn("mt-1 text-sm font-semibold", colour.text)}>{shift.participantName}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-600">{getShiftAssignedWorkers(shift).map((worker) => worker.name).join(", ")} - {shift.supportType}</p>
+                    <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-700">{getShiftStaffLabel(shift)}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-600">{shift.supportType}</p>
                     <RosterStatusBadge status={shift.status} className="mt-2" />
                   </button>
                 );
