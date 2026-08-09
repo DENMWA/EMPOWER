@@ -13,9 +13,12 @@ function isActioned(report: StoredIncidentReport) {
 
 export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIncidentReport[] }) {
   const [selectedReporter, setSelectedReporter] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const services = useMemo(() => Array.from(new Set(incidents.map((incident) => incident.houseName || "Unassigned service"))).sort(), [incidents]);
+  const filteredIncidents = useMemo(() => serviceFilter === "all" ? incidents : incidents.filter((incident) => (incident.houseName || "Unassigned service") === serviceFilter), [incidents, serviceFilter]);
   const rows = useMemo(() => {
     const grouped = new Map<string, StoredIncidentReport[]>();
-    incidents.forEach((incident) => {
+    filteredIncidents.forEach((incident) => {
       const reporter = incident.reporter?.trim() || "Reporter not recorded";
       grouped.set(reporter, [...(grouped.get(reporter) || []), incident]);
     });
@@ -27,7 +30,7 @@ export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIn
       actioned: reports.filter(isActioned).length,
       clients: new Set(reports.map((report) => report.participantId).filter(Boolean)).size
     })).sort((a, b) => b.total - a.total || a.reporter.localeCompare(b.reporter));
-  }, [incidents]);
+  }, [filteredIncidents]);
   const maximum = Math.max(1, ...rows.map((row) => row.total));
   const selected = rows.find((row) => row.reporter === selectedReporter) || rows[0];
 
@@ -39,14 +42,20 @@ export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIn
           <h2 className="mt-2 text-2xl font-bold">Incident reporting by staff</h2>
           <p className="mt-2 text-sm text-slate-300">Live reporting volume, submission completion, and manager action by recorded reporter.</p>
         </div>
-        <StatusBadge label={`${rows.length} reporters`} tone="blue" />
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={serviceFilter} onChange={(event) => { setServiceFilter(event.target.value); setSelectedReporter(""); }} className="min-h-10 rounded-md border border-white/15 bg-white/10 px-3 text-sm font-semibold text-white focus:outline focus:outline-2 focus:outline-teal-300" aria-label="Filter staff incident statistics by service">
+            <option className="text-ink" value="all">All services</option>
+            {services.map((service) => <option className="text-ink" key={service} value={service}>{service}</option>)}
+          </select>
+          <StatusBadge label={`${rows.length} reporters`} tone="blue" />
+        </div>
       </div>
 
       <div className="grid gap-5 p-5 lg:grid-cols-[1.5fr_1fr]">
         <div className="grid gap-3">
           {!rows.length ? <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Staff statistics will appear after incident reports are saved with a completed-by name.</div> : null}
           {rows.map((row) => {
-            const share = incidents.length ? Math.round((row.total / incidents.length) * 100) : 0;
+            const share = filteredIncidents.length ? Math.round((row.total / filteredIncidents.length) * 100) : 0;
             const active = selected?.reporter === row.reporter;
             return (
               <button key={row.reporter} type="button" onClick={() => setSelectedReporter(row.reporter)} aria-pressed={active} className={cn("rounded-md border bg-white p-4 text-left transition hover:border-teal-400 focus:outline focus:outline-2 focus:outline-teal-700", active ? "border-teal-600 ring-1 ring-teal-600" : "border-slate-200")}>

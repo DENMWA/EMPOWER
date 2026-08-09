@@ -144,7 +144,7 @@ export function HouseComparisonReport({ houses, clients, incidents, shifts, docu
           </div>
           <div className="grid gap-4 p-5 xl:grid-cols-2">
           {rows.map((row) => (
-            <div key={row.id} className={`rounded-md border bg-white p-4 transition ${selectedHouseId === row.id ? "border-teal-500 ring-2 ring-teal-100" : selectedHouseId ? "border-slate-200 opacity-60" : "border-slate-200"}`}>
+            <div key={row.id} role="button" tabIndex={0} onClick={() => setSelectedHouseId(row.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedHouseId(row.id); } }} className={`cursor-pointer rounded-md border bg-white p-4 transition hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700 ${selectedHouseId === row.id ? "border-teal-500 ring-2 ring-teal-100" : selectedHouseId ? "border-slate-200 opacity-60" : "border-slate-200"}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-md bg-teal-50 text-teal-800"><Building2 size={19} aria-hidden="true" /></span>

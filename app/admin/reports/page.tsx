@@ -7,7 +7,7 @@ import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCol
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { ReportingInsightsChart } from "@/components/admin/ReportingInsightsChart";
 import { SavedRecordsSummary } from "@/components/admin/SavedRecordsSummary";
-import { ClipboardCheck, FileWarning, ShieldCheck } from "lucide-react";
+import { BarChart3, Building2, ClipboardCheck, Download, FileWarning, ShieldCheck, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getRosterReportSummary, type RosterReportPeriod, type RosterShift } from "@/lib/roster";
@@ -69,12 +69,21 @@ export default function AdminReportsPage() {
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
       <Section className="space-y-6">
-        <ReportingInsightsChart />
-        <StaffIncidentReportingStats incidents={savedIncidents} />
-        <HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} />
-        <SavedRecordsSummary />
+        <div className="sticky top-3 z-20 overflow-x-auto rounded-md border border-slate-200 bg-white/95 p-2 shadow-lift backdrop-blur">
+          <nav className="flex min-w-max gap-2" aria-label="Report workspace sections">
+            <ReportJump href="#service-trends" icon={BarChart3} label="Service trends" value={savedProgressNotes.length + savedIncidents.length} />
+            <ReportJump href="#staff-reporting" icon={Users} label="Staff reporting" value={new Set(savedIncidents.map((incident) => incident.reporter).filter(Boolean)).size} />
+            <ReportJump href="#house-comparison" icon={Building2} label="Houses" value={savedHouses.length} />
+            <ReportJump href="#records" icon={ClipboardCheck} label="Records" value={savedProgressNotes.length} />
+            <ReportJump href="#exports" icon={Download} label="Exports" value={periods.length} />
+          </nav>
+        </div>
+        <div id="service-trends" className="scroll-mt-24"><ReportingInsightsChart /></div>
+        <div id="staff-reporting" className="scroll-mt-24"><StaffIncidentReportingStats incidents={savedIncidents} /></div>
+        <div id="house-comparison" className="scroll-mt-24"><HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} /></div>
+        <div id="records" className="scroll-mt-24"><SavedRecordsSummary /></div>
         <ClientReportColourCards />
-        <ProgressNoteCollectionExport />
+        <div id="exports" className="scroll-mt-24"><ProgressNoteCollectionExport /></div>
 
         <div className="grid gap-4 lg:grid-cols-3">
           {periods.map((period) => {
@@ -114,6 +123,10 @@ export default function AdminReportsPage() {
       </Section>
     </AdminGate>
   );
+}
+
+function ReportJump({ href, icon: Icon, label, value }: { href: string; icon: LucideIcon; label: string; value: number }) {
+  return <a href={href} className="group inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-900 focus:outline focus:outline-2 focus:outline-teal-700"><Icon size={17} className="text-teal-700" aria-hidden="true" /><span>{label}</span><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600 group-hover:bg-white">{value}</span></a>;
 }
 
 function ReportCard({ icon: Icon, title, value, detail, tone }: { icon: LucideIcon; title: string; value: number; detail: string; tone: "amber" | "red" | "blue" }) {

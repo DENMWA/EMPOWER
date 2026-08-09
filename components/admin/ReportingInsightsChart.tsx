@@ -86,13 +86,20 @@ export function ReportingInsightsChart() {
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [clientFilter, setClientFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey | "all">("all");
   const [selectedPoint, setSelectedPoint] = useState<{ period: string; metric: string; value: number } | null>(null);
   const clientNames = useMemo(() => getClientNames(records), [records]);
-  const filteredRecords = useMemo(() => clientFilter === "all" ? records : records.filter((record) => recordToEvents(record).some((event) => event.clientName === clientFilter)), [clientFilter, records]);
+  const serviceNames = useMemo(() => getServiceNames(records), [records]);
+  const filteredRecords = useMemo(() => records.filter((record) => recordToEvents(record).some((event) => {
+    const clientMatch = clientFilter === "all" || event.clientName === clientFilter;
+    const serviceMatch = serviceFilter === "all" || event.serviceName === serviceFilter;
+    return clientMatch && serviceMatch;
+  })), [clientFilter, records, serviceFilter]);
   const liveTrendData = useMemo(() => buildTrendData(filteredRecords), [filteredRecords]);
   const livePointCount = useMemo(() => countTrendActivity(liveTrendData), [liveTrendData]);
-  const trendData = livePointCount > 0 || !demoMode ? liveTrendData : demoTrendData;
+  const showDemoTrend = demoMode && clientFilter === "all" && serviceFilter === "all" && livePointCount === 0;
+  const trendData = showDemoTrend ? demoTrendData : liveTrendData;
   const points = trendData[period];
   const maxValue = Math.max(1, ...points.flatMap((point) => metrics.map((metric) => point[metric.key])));
   const insights = useMemo(() => buildInsights(points), [points]);
@@ -112,6 +119,10 @@ export function ReportingInsightsChart() {
       setClientFilter("all");
     }
   }, [clientFilter, clientNames]);
+
+  useEffect(() => {
+    if (serviceFilter !== "all" && !serviceNames.includes(serviceFilter)) setServiceFilter("all");
+  }, [serviceFilter, serviceNames]);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,9 +161,10 @@ export function ReportingInsightsChart() {
           <h2 className="mt-4 text-2xl font-bold">Comparative support trends</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Track incident reports, community access, and irregular support patterns over time so admin can see progress, risk movement, and where follow-up is needed.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <StatusBadge label={livePointCount > 0 ? "Using saved organisation records" : demoMode ? "Demo trend shown" : "Waiting for saved records"} tone={livePointCount > 0 ? "green" : "blue"} />
+            <StatusBadge label={livePointCount > 0 ? "Using saved organisation records" : showDemoTrend ? "Demo trend shown" : "Waiting for saved records"} tone={livePointCount > 0 ? "green" : "blue"} />
             <StatusBadge label={loading ? "Refreshing..." : `${records.length} saved records checked`} tone="slate" />
             {clientNames.slice(0, 3).map((client) => <StatusBadge key={client} label={client} tone="blue" />)}
+            {serviceFilter !== "all" ? <StatusBadge label={serviceFilter} tone="green" /> : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -164,6 +176,15 @@ export function ReportingInsightsChart() {
           >
             <option className="text-ink" value="all">All clients</option>
             {clientNames.map((client) => <option className="text-ink" key={client} value={client}>{client}</option>)}
+          </select>
+          <select
+            className="min-h-10 rounded-md border border-white/15 bg-white/10 px-3 text-sm font-semibold text-white focus:outline focus:outline-2 focus:outline-teal-300"
+            value={serviceFilter}
+            onChange={(event) => setServiceFilter(event.target.value)}
+            aria-label="Filter chart by house or service"
+          >
+            <option className="text-ink" value="all">All services</option>
+            {serviceNames.map((service) => <option className="text-ink" key={service} value={service}>{service}</option>)}
           </select>
           {(Object.keys(periodLabels) as ComparisonPeriod[]).map((item) => (
             <button
@@ -198,7 +219,7 @@ export function ReportingInsightsChart() {
             </div>
           </div>
 
-          {livePointCount === 0 && !demoMode ? (
+          {livePointCount === 0 && !showDemoTrend ? (
             <div className="mb-5 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
               <p className="font-semibold text-ink">No live chart data yet</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">Save progress notes and incident reports to the workspace, then this chart will update for weekly, monthly, half-yearly, and yearly reporting.</p>
@@ -259,6 +280,7 @@ export function ReportingInsightsChart() {
             <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3" aria-live="polite">
               <p className="text-xs font-semibold uppercase tracking-wide text-teal-800">Selected result</p>
               <p className="mt-1 font-semibold text-ink">{selectedPoint.period}: {selectedPoint.metric} {selectedPoint.value}</p>
+              <p className="mt-1 text-sm text-slate-600">{clientFilter === "all" ? "All clients" : clientFilter} - {serviceFilter === "all" ? "All services" : serviceFilter}</p>
             </div>
           ) : null}
         </div>
@@ -402,6 +424,7 @@ function buildTrendData(records: RetainedRecord[]): Record<ComparisonPeriod, Tre
 type ChartEvent = {
   date: Date;
   clientName: string;
+  serviceName: string;
   metric: MetricKey;
 };
 
@@ -413,6 +436,7 @@ function recordToEvents(record: RetainedRecord): ChartEvent[] {
     return [{
       date: parseDate(incident?.date) ?? fallbackDate,
       clientName: incident?.participant || extractField(record.body, "Client") || "Unassigned client",
+      serviceName: incident?.houseName || "Unassigned service",
       metric: "incidentReports"
     }];
   }
@@ -427,13 +451,14 @@ function recordToEvents(record: RetainedRecord): ChartEvent[] {
   return [{
     date: parseDate(extractField(record.body, "Date")) ?? fallbackDate,
     clientName: extractField(record.body, "Client") || "Unassigned client",
+    serviceName: extractField(record.body, "House/service") || "Unassigned service",
     metric
   }];
 }
 
 function parseIncidentBody(body: string) {
   try {
-    return JSON.parse(body) as { date?: string; participant?: string };
+    return JSON.parse(body) as { date?: string; participant?: string; houseName?: string };
   } catch {
     return null;
   }
@@ -513,6 +538,10 @@ function addDays(date: Date, days: number) {
 
 function getClientNames(records: RetainedRecord[]) {
   return Array.from(new Set(records.flatMap(recordToEvents).map((event) => event.clientName).filter(Boolean))).sort();
+}
+
+function getServiceNames(records: RetainedRecord[]) {
+  return Array.from(new Set(records.flatMap(recordToEvents).map((event) => event.serviceName).filter((name) => name && name !== "Unassigned service"))).sort();
 }
 
 function buildInsights(points: TrendPoint[]) {
