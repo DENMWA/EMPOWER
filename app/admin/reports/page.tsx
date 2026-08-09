@@ -79,7 +79,7 @@ export default function AdminReportsPage() {
           <nav className="flex min-w-max gap-2" aria-label="Report workspace sections">
             <ReportJump href="#service-trends" icon={BarChart3} label="Service trends" value={savedProgressNotes.length + savedIncidents.length} />
             <ReportJump href="#client-incidents" icon={ShieldCheck} label="Client incidents" value={savedClients.length} />
-            <ReportJump href="#staff-reporting" icon={Users} label="Staff reporting" value={new Set(savedIncidents.map((incident) => incident.reporter).filter(Boolean)).size} />
+            <ReportJump href="#staff-reporting" icon={Users} label="Staff reporting" value={savedStaff.length} />
             <ReportJump href="#house-comparison" icon={Building2} label="Houses" value={savedHouses.length} />
             <ReportJump href="#records" icon={ClipboardCheck} label="Records" value={savedProgressNotes.length} />
             <ReportJump href="#exports" icon={Download} label="Exports" value={periods.length} />

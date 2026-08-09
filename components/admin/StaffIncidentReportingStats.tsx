@@ -18,27 +18,43 @@ export function StaffIncidentReportingStats({ incidents, staff }: { incidents: S
   const services = useMemo(() => Array.from(new Set(incidents.map((incident) => incident.houseName || "Unassigned service"))).sort(), [incidents]);
   const filteredIncidents = useMemo(() => serviceFilter === "all" ? incidents : incidents.filter((incident) => (incident.houseName || "Unassigned service") === serviceFilter), [incidents, serviceFilter]);
   const rows = useMemo(() => {
-    const grouped = new Map<string, StoredIncidentReport[]>();
-    filteredIncidents.forEach((incident) => {
-      const reporterKey = incident.reportedByUserId || `name:${normaliseName(incident.reporter) || "unknown"}`;
-      grouped.set(reporterKey, [...(grouped.get(reporterKey) || []), incident]);
+    const claimed = new Set<StoredIncidentReport>();
+    const staffRows = staff.map((member) => {
+      const reports = filteredIncidents.filter((incident) => {
+        if (claimed.has(incident)) return false;
+        const identityMatch = Boolean(member.authUserId && incident.reportedByUserId === member.authUserId);
+        const nameMatch = normaliseName(member.name) === normaliseName(incident.reporter);
+        const fallbackMatch = nameMatch && (!incident.reportedByUserId || !member.authUserId);
+        if (identityMatch || fallbackMatch) claimed.add(incident);
+        return identityMatch || fallbackMatch;
+      });
+      return buildRow({
+        reporterKey: `staff:${member.id}`,
+        reporter: member.name,
+        role: member.roleLabel,
+        linked: true,
+        accountLinked: Boolean(member.authUserId),
+        inviteStatus: member.inviteStatus,
+        reports
+      });
     });
 
-    return Array.from(grouped, ([reporterKey, reports]) => {
-      const linkedStaff = staff.find((member) => member.authUserId === reporterKey)
-        || staff.find((member) => normaliseName(member.name) === normaliseName(reports[0]?.reporter));
-      return {
-        reporterKey,
-        reporter: linkedStaff?.name || reports[0]?.reporter?.trim() || "Reporter not recorded",
-        staffId: linkedStaff?.id || "",
-        role: linkedStaff?.roleLabel || "Staff link unavailable",
-        linked: Boolean(linkedStaff),
-        total: reports.length,
-        submitted: reports.filter((report) => report.status !== "Draft").length,
-        actioned: reports.filter(isActioned).length,
-        clients: new Set(reports.map((report) => report.participantId).filter(Boolean)).size
-      };
-    }).sort((a, b) => b.total - a.total || a.reporter.localeCompare(b.reporter));
+    const unmatchedGroups = new Map<string, StoredIncidentReport[]>();
+    filteredIncidents.filter((incident) => !claimed.has(incident)).forEach((incident) => {
+      const reporterKey = incident.reportedByUserId || `name:${normaliseName(incident.reporter) || "unknown"}`;
+      unmatchedGroups.set(reporterKey, [...(unmatchedGroups.get(reporterKey) || []), incident]);
+    });
+    const unmatchedRows = Array.from(unmatchedGroups, ([reporterKey, reports]) => buildRow({
+      reporterKey: `legacy:${reporterKey}`,
+      reporter: reports[0]?.reporter?.trim() || "Reporter not recorded",
+      role: "Historical report",
+      linked: false,
+      accountLinked: false,
+      inviteStatus: "Legacy",
+      reports
+    }));
+
+    return [...staffRows, ...unmatchedRows].sort((a, b) => b.total - a.total || a.reporter.localeCompare(b.reporter));
   }, [filteredIncidents, staff]);
   const maximum = Math.max(1, ...rows.map((row) => row.total));
   const selected = rows.find((row) => row.reporterKey === selectedReporterKey) || rows[0];
@@ -56,19 +72,19 @@ export function StaffIncidentReportingStats({ incidents, staff }: { incidents: S
             <option className="text-ink" value="all">All services</option>
             {services.map((service) => <option className="text-ink" key={service} value={service}>{service}</option>)}
           </select>
-          <StatusBadge label={`${rows.filter((row) => row.linked).length}/${rows.length} staff linked`} tone={rows.every((row) => row.linked) ? "green" : "blue"} />
+          <StatusBadge label={`${staff.length} staff profiles - ${staff.filter((member) => member.authUserId).length} accounts linked`} tone={staff.length ? "green" : "blue"} />
         </div>
       </div>
 
       <div className="grid gap-5 p-5 lg:grid-cols-[1.5fr_1fr]">
         <div className="grid gap-3">
-          {!rows.length ? <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Staff statistics will appear after incident reports are saved with a completed-by name.</div> : null}
+          {!rows.length ? <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Add staff in Admin to create their live incident reporting stream.</div> : null}
           {rows.map((row) => {
             const share = filteredIncidents.length ? Math.round((row.total / filteredIncidents.length) * 100) : 0;
             const active = selected?.reporterKey === row.reporterKey;
             return (
               <button key={row.reporterKey} type="button" onClick={() => setSelectedReporterKey(row.reporterKey)} aria-pressed={active} className={cn("rounded-md border bg-white p-4 text-left transition hover:border-teal-400 focus:outline focus:outline-2 focus:outline-teal-700", active ? "border-teal-600 ring-1 ring-teal-600" : "border-slate-200")}>
-                <div className="flex items-center justify-between gap-3"><span><span className="block font-semibold text-ink">{row.reporter}</span><span className="mt-0.5 block text-xs font-medium text-slate-500">{row.role}</span></span><span className="text-sm font-bold text-teal-800">{row.total} reports</span></div>
+                <div className="flex items-center justify-between gap-3"><span><span className="block font-semibold text-ink">{row.reporter}</span><span className="mt-0.5 block text-xs font-medium text-slate-500">{row.role} - {row.inviteStatus}</span></span><span className="text-sm font-bold text-teal-800">{row.total} reports</span></div>
                 <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-sea transition-all" style={{ width: `${Math.max(4, (row.total / maximum) * 100)}%` }} /></div>
                 <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>{share}% of reports</span><span>{row.actioned} actioned</span></div>
               </button>
@@ -80,7 +96,7 @@ export function StaffIncidentReportingStats({ incidents, staff }: { incidents: S
           <ClipboardCheck size={22} className="text-teal-700" aria-hidden="true" />
           <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-teal-800">Selected reporter</p>
           <h3 className="mt-1 text-xl font-bold text-ink">{selected?.reporter || "No reporting data"}</h3>
-          {selected ? <p className="mt-1 text-sm font-semibold text-slate-600">{selected.role}{selected.linked ? " - verified staff profile" : " - legacy name match"}</p> : null}
+          {selected ? <p className="mt-1 text-sm font-semibold text-slate-600">{selected.role}{selected.accountLinked ? " - authenticated account linked" : selected.linked ? " - staff profile ready; awaiting account acceptance" : " - unmatched historical report"}</p> : null}
           <dl className="mt-4 grid grid-cols-2 gap-3">
             <StaffMetric label="Filed" value={selected?.total || 0} />
             <StaffMetric label="Submitted" value={selected?.submitted || 0} />
@@ -95,6 +111,29 @@ export function StaffIncidentReportingStats({ incidents, staff }: { incidents: S
 
 function normaliseName(value: string | undefined) {
   return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function buildRow({ reporterKey, reporter, role, linked, accountLinked, inviteStatus, reports }: {
+  reporterKey: string;
+  reporter: string;
+  role: string;
+  linked: boolean;
+  accountLinked: boolean;
+  inviteStatus: string;
+  reports: StoredIncidentReport[];
+}) {
+  return {
+    reporterKey,
+    reporter,
+    role,
+    linked,
+    accountLinked,
+    inviteStatus,
+    total: reports.length,
+    submitted: reports.filter((report) => report.status !== "Draft").length,
+    actioned: reports.filter(isActioned).length,
+    clients: new Set(reports.map((report) => report.participantId).filter(Boolean)).size
+  };
 }
 
 function StaffMetric({ label, value }: { label: string; value: number }) {
