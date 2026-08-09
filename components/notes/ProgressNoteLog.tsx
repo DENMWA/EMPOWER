@@ -75,6 +75,7 @@ export function ProgressNoteLog() {
                 </div>
                 <StatusBadge label={supportDate} tone="slate" />
               </div>
+              <PrivateEvidencePhotos pathKey={photoPaths.join("|")} />
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 <p className="text-xs font-medium text-slate-500">{supportTime || `Saved ${new Date(record.savedAt).toLocaleString("en-AU")}`}</p>
                 <button
@@ -88,10 +89,7 @@ export function ProgressNoteLog() {
                 </button>
               </div>
               {isOpen ? (
-                <>
-                  <PrivateEvidencePhotos pathKey={photoPaths.join("|")} />
-                  <pre className="mt-4 whitespace-pre-wrap rounded-md bg-slate-50 p-4 font-sans text-sm leading-7 text-slate-800">{record.body.replace(/\n\nPhoto evidence:[\s\S]*$/, "")}</pre>
-                </>
+                <pre className="mt-4 whitespace-pre-wrap rounded-md bg-slate-50 p-4 font-sans text-sm leading-7 text-slate-800">{record.body.replace(/\n\nPhoto evidence:[\s\S]*$/, "")}</pre>
               ) : null}
             </Card>
           );
