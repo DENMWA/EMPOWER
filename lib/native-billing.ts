@@ -159,6 +159,7 @@ export type NativeBillingRecords = {
 
 const storageKey = "empowernotes:native-billing-records";
 export const nativeBillingUpdatedEvent = "empowernotes:native-billing-updated";
+let pendingCloudSave: Promise<unknown> = Promise.resolve();
 
 export function getNativeBillingRecords(): NativeBillingRecords {
   if (typeof window === "undefined") return getEmptyBillingRecords();
@@ -175,7 +176,12 @@ export function saveNativeBillingRecords(records: NativeBillingRecords) {
   const previousRecords = getNativeBillingRecords();
   window.sessionStorage.setItem(tenantStorageKey(storageKey), JSON.stringify(records));
   window.dispatchEvent(new Event(nativeBillingUpdatedEvent));
-  void import("@/lib/native-billing-cloud").then(({ queueNativeBillingCloudSync }) => queueNativeBillingCloudSync(records, previousRecords));
+  pendingCloudSave = import("@/lib/native-billing-cloud").then(({ queueNativeBillingCloudSync }) => queueNativeBillingCloudSync(records, previousRecords));
+  return pendingCloudSave;
+}
+
+export function waitForNativeBillingSave() {
+  return pendingCloudSave;
 }
 
 export function createPricingVersionFromManualUpload(input: { versionName: string; effectiveFrom: string; sourceFilename: string }) {
@@ -259,6 +265,7 @@ export function addServiceAgreementItem(input: {
   supportItem: NdisSupportItem;
   pricingVersion: NdisPricingVersion;
   agreedRate: number;
+  ratePeriod?: "hour" | "week" | "month";
   budgetAllocated: number;
   allowTravel?: boolean;
   allowKilometres?: boolean;
@@ -274,8 +281,8 @@ export function addServiceAgreementItem(input: {
     supportItemNumber: input.supportItem.supportItemNumber,
     supportItemName: input.supportItem.supportItemName,
     agreedRate: input.agreedRate,
-    ndisPriceLimit: input.supportItem.priceLimit,
-    unitType: input.supportItem.unitType,
+    ndisPriceLimit: normaliseRatePeriod(input.supportItem.unitType) === input.ratePeriod ? input.supportItem.priceLimit : null,
+    unitType: input.ratePeriod || normaliseRatePeriod(input.supportItem.unitType),
     budgetCategory: input.supportItem.supportCategory || "Core",
     budgetAllocated: input.budgetAllocated,
     allowTravel: Boolean(input.allowTravel),
@@ -377,7 +384,9 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[])
   const agreementItem = records.agreementItems.find((item) => item.serviceAgreementId === agreement.id && item.status === "active");
   if (!agreementItem) return { invoice: null, lines: [], error: "Add a service agreement item before invoicing." };
   const pricingVersion = records.pricingVersions.find((item) => item.id === agreementItem.pricingVersionId);
-  const quantity = Math.max(0.25, getHoursBetween(shift.startTime, shift.endTime));
+  const quantity = agreementItem.unitType === "hour"
+    ? Math.max(0.25, getHoursBetween(shift.startTime, shift.endTime))
+    : 1;
   const evidenceStatus = getEvidenceStatus(shift, notes);
   const priceCheckStatus = getPriceCheckStatus(agreementItem.agreedRate, agreementItem.ndisPriceLimit);
   const duplicate = records.invoiceLines.some((line) => line.shiftId === shift.id && line.approvalStatus !== "needs_correction");
@@ -544,6 +553,13 @@ function getPriceCheckStatus(agreedRate: number, priceLimit: number | null): Pri
 function getEvidenceStatus(shift: SupportShift, notes: RetainedRecord[]): EvidenceStatus {
   if (!shift.noteRecordId) return "missing_note";
   return notes.some((note) => note.id === shift.noteRecordId) ? "evidence_linked" : "review_required";
+}
+
+function normaliseRatePeriod(unitType: string): "hour" | "week" | "month" {
+  const unit = unitType.toLowerCase();
+  if (unit.includes("week")) return "week";
+  if (unit.includes("month")) return "month";
+  return "hour";
 }
 
 function isServiceDateInsideAgreement(serviceDate: string, agreement: ServiceAgreement) {

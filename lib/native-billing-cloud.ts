@@ -19,8 +19,8 @@ type CloudRow = Record<string, unknown>;
 let syncQueue = Promise.resolve();
 
 export function queueNativeBillingCloudSync(records: NativeBillingRecords, previousRecords: NativeBillingRecords) {
-  if (typeof window === "undefined" || isPresentationModeEnabled()) return;
-  syncQueue = syncQueue
+  if (typeof window === "undefined" || isPresentationModeEnabled()) return Promise.resolve();
+  const operation = syncQueue
     .then(() => syncNativeBillingRecordsToCloud(records))
     .then(() => undefined)
     .catch((error) => {
@@ -30,7 +30,14 @@ export function queueNativeBillingCloudSync(records: NativeBillingRecords, previ
       window.dispatchEvent(new CustomEvent("empowernotes:native-billing-cloud-status", {
         detail: { ok: false, message: "Billing changes could not be saved and were rolled back. Review the error and try again." }
       }));
+      throw error;
     });
+  syncQueue = operation.catch(() => undefined);
+  return operation;
+}
+
+export function waitForNativeBillingCloudSync() {
+  return syncQueue;
 }
 
 export async function loadTenantNativeBillingRecords(clients: ClientRecord[], staff: StaffRecord[]) {

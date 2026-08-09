@@ -19,6 +19,7 @@ import {
   linkCompletedRosterService,
   markInvoicePaymentStatus,
   nativeBillingUpdatedEvent,
+  waitForNativeBillingSave,
   type NativeBillingRecords,
   type NativeInvoice,
   type NativeInvoiceLine
@@ -42,12 +43,14 @@ export function NativeBillingWorkspace() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [selectedSupportItemId, setSelectedSupportItemId] = useState("");
   const [agreedRate, setAgreedRate] = useState("");
+  const [ratePeriod, setRatePeriod] = useState<"hour" | "week" | "month">("hour");
   const [budgetAllocated, setBudgetAllocated] = useState("");
   const [allowTravel, setAllowTravel] = useState(false);
   const [allowKilometres, setAllowKilometres] = useState(false);
   const [allowNonFaceToFace, setAllowNonFaceToFace] = useState(false);
   const [allowCancellations, setAllowCancellations] = useState(false);
   const [message, setMessage] = useState("");
+  const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -108,6 +111,8 @@ export function NativeBillingWorkspace() {
     if (!supportItem) return;
     setSelectedSupportItemId(supportItem.id);
     setAgreedRate(String(supportItem.priceLimit || ""));
+    const unit = supportItem.unitType.toLowerCase();
+    setRatePeriod(unit.includes("week") ? "week" : unit.includes("month") ? "month" : "hour");
   }, [selectedSupportItemId, supportItems]);
 
   function importPricingVersion() {
@@ -124,12 +129,14 @@ export function NativeBillingWorkspace() {
     setMessage("Pricing version activated. Older active versions are preserved as superseded.");
   }
 
-  function saveAgreement() {
+  async function saveAgreement() {
     if (!selectedClient) {
       setMessage("Add and select a client first.");
       return;
     }
 
+    setSavingAction("agreement");
+    setMessage("Saving agreement...");
     const agreement = createServiceAgreement({
       participant: selectedClient,
       agreementName,
@@ -142,10 +149,17 @@ export function NativeBillingWorkspace() {
       planManagerName: recipientType === "plan_managed" ? recipientName : "",
       planManagerEmail: recipientType === "plan_managed" ? recipientEmail : ""
     });
-    setMessage(`${agreement.agreementName} saved for ${selectedClient.name}. Add one or more agreed support items below.`);
+    try {
+      await waitForNativeBillingSave();
+      setMessage(`${agreement.agreementName} saved for ${selectedClient.name}.`);
+    } catch {
+      setMessage("Agreement was not saved. Check your access and try again.");
+    } finally {
+      setSavingAction("");
+    }
   }
 
-  function addAgreementItem() {
+  async function addAgreementItem() {
     if (!selectedAgreement || !activePricingVersion || !selectedSupportItem) {
       setMessage("Save an active agreement and activate a pricing version first.");
       return;
@@ -156,18 +170,28 @@ export function NativeBillingWorkspace() {
       setMessage("Enter a valid agreed rate and allocated budget.");
       return;
     }
+    setSavingAction("item");
+    setMessage("Saving agreed rate...");
     addServiceAgreementItem({
       agreement: selectedAgreement,
       supportItem: selectedSupportItem,
       pricingVersion: activePricingVersion,
       agreedRate: rate,
+      ratePeriod,
       budgetAllocated: budget,
       allowTravel,
       allowKilometres,
       allowNonFaceToFace,
       allowCancellations
     });
-    setMessage(`${selectedSupportItem.supportItemName} added at $${rate.toFixed(2)} per ${selectedSupportItem.unitType}.`);
+    try {
+      await waitForNativeBillingSave();
+      setMessage(`${selectedSupportItem.supportItemName} saved at $${rate.toFixed(2)} per ${ratePeriod}.`);
+    } catch {
+      setMessage("The agreed rate was not saved. Check your access and try again.");
+    } finally {
+      setSavingAction("");
+    }
   }
 
   function linkRenderedService(rosterShift: RosterShift) {
@@ -241,12 +265,14 @@ export function NativeBillingWorkspace() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Service delivery and native invoicing</p>
             <h2 className="mt-1 text-2xl font-bold text-ink">Evidence-backed NDIS billing workflow</h2>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Connect completed supports to service agreements, activate reviewed pricing versions, generate native EmpowerNotes invoice drafts, and export PDF/CSV without Xero.</p>
+            <p className="mt-2 text-sm text-slate-600">Agreement, delivered service, evidence, invoice.</p>
           </div>
           <StatusBadge label="No Xero dependency" tone="green" />
         </div>
         <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This invoice uses the selected NDIS Pricing Arrangements and Price Limits version. Confirm the support item, claim type and billing rules before issuing.</p>
       </Card>
+
+      {message ? <div role="status" aria-live="polite" className="sticky top-3 z-20 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-900 shadow-sm">{message}</div> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -274,7 +300,7 @@ export function NativeBillingWorkspace() {
 
         <Card className="xl:col-span-2">
           <h2 className="text-xl font-semibold text-ink">2. Service agreement</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Save the client-specific agreement first, then add every funded support item with its agreed rate, budget and billing permissions.</p>
+          <p className="mt-1 text-sm text-slate-600">Set the agreement, then add its funded rates.</p>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <BillingField label="Agreement name" value={agreementName} onChange={setAgreementName} />
@@ -302,19 +328,19 @@ export function NativeBillingWorkspace() {
             <BillingField label={recipientType === "plan_managed" ? "Plan manager / recipient name" : "Invoice recipient name"} value={recipientName} onChange={setRecipientName} />
             <BillingField label="Recipient email" value={recipientEmail} onChange={setRecipientEmail} type="email" />
           </div>
-          <button type="button" onClick={saveAgreement} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white">
-            <Save size={17} aria-hidden="true" /> Save agreement
+          <button type="button" disabled={Boolean(savingAction)} onClick={() => void saveAgreement()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">
+            <Save size={17} aria-hidden="true" /> {savingAction === "agreement" ? "Saving..." : selectedAgreement ? "Update agreement" : "Save agreement"}
           </button>
 
           <div className="mt-6 border-t border-slate-200 pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-ink">Agreed support items</h3>
-                <p className="mt-1 text-sm text-slate-600">Rates are checked against the active NDIS pricing version when invoices are generated.</p>
+                <p className="mt-1 text-sm text-slate-600">Choose the support, rate period and budget.</p>
               </div>
               <StatusBadge label={selectedAgreement ? "Active agreement" : "Save agreement first"} tone={selectedAgreement ? "green" : "amber"} />
             </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <label className="grid gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
                 Support item
                 <select value={selectedSupportItem?.id || ""} onChange={(event) => setSelectedSupportItemId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
@@ -322,7 +348,15 @@ export function NativeBillingWorkspace() {
                   {supportItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName}</option>)}
                 </select>
               </label>
-              <BillingField label={`Agreed rate${selectedSupportItem ? ` / ${selectedSupportItem.unitType}` : ""}`} value={agreedRate} onChange={setAgreedRate} type="number" />
+              <BillingField label="Agreed rate" value={agreedRate} onChange={setAgreedRate} type="number" />
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Rate period
+                <select value={ratePeriod} onChange={(event) => setRatePeriod(event.target.value as typeof ratePeriod)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                  <option value="hour">Hourly</option>
+                  <option value="week">Weekly</option>
+                  <option value="month">Monthly</option>
+                </select>
+              </label>
               <BillingField label="Allocated budget" value={budgetAllocated} onChange={setBudgetAllocated} type="number" />
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
@@ -331,8 +365,8 @@ export function NativeBillingWorkspace() {
               <BillingCheck label="Non-face-to-face" checked={allowNonFaceToFace} onChange={setAllowNonFaceToFace} />
               <BillingCheck label="Cancellations" checked={allowCancellations} onChange={setAllowCancellations} />
             </div>
-            <button type="button" onClick={addAgreementItem} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white">
-              <Plus size={17} aria-hidden="true" /> Add agreed item
+            <button type="button" disabled={Boolean(savingAction)} onClick={() => void addAgreementItem()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">
+              <Plus size={17} aria-hidden="true" /> {savingAction === "item" ? "Saving..." : "Save agreed rate"}
             </button>
           </div>
 
@@ -426,7 +460,6 @@ export function NativeBillingWorkspace() {
         </Card>
       </div>
 
-      {message ? <p className="rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800">{message}</p> : null}
     </div>
   );
 }
