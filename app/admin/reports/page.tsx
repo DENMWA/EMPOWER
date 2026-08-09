@@ -7,7 +7,7 @@ import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCol
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { ReportingInsightsChart } from "@/components/admin/ReportingInsightsChart";
 import { SavedRecordsSummary } from "@/components/admin/SavedRecordsSummary";
-import { ArrowRight, BarChart3, Building2, ClipboardCheck, Download, FileWarning, Radio, ReceiptText, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BarChart3, BrainCircuit, Building2, CheckCircle2, ClipboardCheck, Download, FileCheck2, FileWarning, Radio, ReceiptText, ShieldCheck, Target, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getRosterReportSummary, type RosterReportPeriod, type RosterShift } from "@/lib/roster";
@@ -24,6 +24,7 @@ import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantStaffInvites, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
 import { nativeBillingUpdatedEvent, type NativeBillingRecords } from "@/lib/native-billing";
 import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
+import { cn } from "@/lib/utils";
 
 const periods: RosterReportPeriod[] = ["weekly", "fortnightly", "monthly"];
 const reportSections = ["service-trends", "client-incidents", "client-invoices", "staff-reporting", "house-comparison", "records", "exports"];
@@ -46,6 +47,12 @@ export default function AdminReportsPage() {
   const linkedStaff = savedStaff.filter((staff) => staff.authUserId).length;
   const pendingInvoices = billingRecords.invoices.filter((invoice) => ["draft", "review_required", "approved"].includes(invoice.status)).length;
   const paidInvoices = billingRecords.invoices.filter((invoice) => invoice.paymentStatus === "paid").length;
+  const activeInvoices = billingRecords.invoices.filter((invoice) => invoice.status !== "void");
+  const completedInvoices = activeInvoices.filter((invoice) => ["sent", "paid"].includes(invoice.status)).length;
+  const actionedIncidents = savedIncidents.filter((incident) => incident.status === "Locked" || Boolean(incident.managerReview?.trim() && !incident.managerReview.toLowerCase().startsWith("pending manager review"))).length;
+  const verifiedDocuments = savedDocuments.length - unverifiedDocuments.length;
+  const noteRelevantShifts = savedRosterShifts.filter((shift) => shift.noteRequired || shift.status === "Note Required" || shift.status === "Note Completed");
+  const completedShiftNotes = noteRelevantShifts.filter((shift) => shift.noteCompleted || shift.status === "Note Completed").length;
   const priorityCount = incidentsAwaitingReview.length + unverifiedDocuments.length + notesAwaitingCompletion;
   const priorityHref = incidentsAwaitingReview.length ? "#client-incidents" : unverifiedDocuments.length ? "#records" : notesAwaitingCompletion ? "#service-trends" : "#house-comparison";
 
@@ -138,6 +145,20 @@ export default function AdminReportsPage() {
             <ReportJump href="#exports" icon={Download} label="Exports" value={periods.length} active={activeSection === "exports"} />
           </nav>
         </div>
+        <StatisticalIntelligence
+          metrics={[
+            { key: "incidents", label: "Incident actioning", value: percentage(actionedIncidents, savedIncidents.length), numerator: actionedIncidents, denominator: savedIncidents.length, detail: "Manager action recorded against submitted incident reports.", colour: "var(--chart-red)", icon: ShieldCheck },
+            { key: "invoices", label: "Invoice completion", value: percentage(completedInvoices, activeInvoices.length), numerator: completedInvoices, denominator: activeInvoices.length, detail: "Invoices progressed to sent or paid status.", colour: "var(--chart-emerald)", icon: ReceiptText },
+            { key: "evidence", label: "Evidence verified", value: percentage(verifiedDocuments, savedDocuments.length), numerator: verifiedDocuments, denominator: savedDocuments.length, detail: "Documents that no longer require manager verification.", colour: "var(--chart-sky)", icon: FileCheck2 },
+            { key: "notes", label: "Shift notes complete", value: percentage(completedShiftNotes, noteRelevantShifts.length), numerator: completedShiftNotes, denominator: noteRelevantShifts.length, detail: "Completed notes across shifts where documentation is required.", colour: "var(--chart-amber)", icon: ClipboardCheck }
+          ]}
+          priorities={[
+            { label: "Incident reviews", value: incidentsAwaitingReview.length, href: "#client-incidents", tone: "red" },
+            { label: "Evidence checks", value: unverifiedDocuments.length, href: "#records", tone: "amber" },
+            { label: "Invoices preparing", value: pendingInvoices, href: "#client-invoices", tone: "sky" },
+            { label: "Shift notes due", value: notesAwaitingCompletion, href: "#service-trends", tone: "teal" }
+          ]}
+        />
         <div id="service-trends" className="scroll-mt-24"><ReportingInsightsChart /></div>
         <div id="client-incidents" className="scroll-mt-24"><ClientIncidentMetrics clients={savedClients} incidents={savedIncidents} /></div>
         <div id="client-invoices" className="scroll-mt-24"><ClientInvoiceMetrics clients={savedClients} invoices={billingRecords.invoices} /></div>
@@ -185,6 +206,63 @@ export default function AdminReportsPage() {
       </Section>
     </AdminGate>
   );
+}
+
+type IntelligenceMetric = {
+  key: string;
+  label: string;
+  value: number;
+  numerator: number;
+  denominator: number;
+  detail: string;
+  colour: string;
+  icon: LucideIcon;
+};
+
+function StatisticalIntelligence({ metrics, priorities }: { metrics: IntelligenceMetric[]; priorities: Array<{ label: string; value: number; href: string; tone: "red" | "amber" | "sky" | "teal" }> }) {
+  const [selectedKey, setSelectedKey] = useState(metrics[0]?.key || "");
+  const selected = metrics.find((metric) => metric.key === selectedKey) || metrics[0];
+  const orderedPriorities = [...priorities].sort((a, b) => b.value - a.value);
+  const totalPriorityItems = priorities.reduce((total, priority) => total + priority.value, 0);
+
+  return (
+    <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-soft" aria-labelledby="statistical-intelligence-title">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <div><p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-sea"><BrainCircuit size={18} aria-hidden="true" />Statistical intelligence</p><h2 id="statistical-intelligence-title" className="mt-1 text-2xl font-bold text-ink">Performance ratios and decision focus</h2></div>
+        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 text-sm font-bold text-teal-800"><Target size={16} aria-hidden="true" />{totalPriorityItems ? `${totalPriorityItems} open signals` : "Operating within current thresholds"}</span>
+      </div>
+      <div className="grid lg:grid-cols-[1.5fr_0.8fr]">
+        <div className="grid grid-cols-2 border-b border-slate-200 lg:border-b-0 lg:border-r xl:grid-cols-4">
+          {metrics.map((metric) => {
+            const Icon = metric.icon;
+            const active = selected?.key === metric.key;
+            return (
+              <button key={metric.key} type="button" onClick={() => setSelectedKey(metric.key)} aria-pressed={active} className={cn("group relative min-h-[220px] border-b border-r border-slate-100 p-4 text-left transition hover:bg-slate-50 focus:z-10 focus:outline focus:outline-2 focus:outline-teal-700", active && "bg-teal-50/60")}>
+                <div className="mx-auto grid h-28 w-28 place-items-center rounded-full" style={{ background: `conic-gradient(${metric.colour} ${metric.value}%, #e2e8f0 ${metric.value}% 100%)` }}>
+                  <span className="grid h-[82px] w-[82px] place-items-center rounded-full bg-white text-center shadow-inner"><span><strong className="block text-2xl text-ink">{metric.value}%</strong><span className="text-[11px] font-bold uppercase text-slate-500">rate</span></span></span>
+                </div>
+                <div className="mt-4 flex items-start gap-2"><Icon size={17} className="mt-0.5 shrink-0 text-teal-700" aria-hidden="true" /><span><span className="block text-sm font-bold text-ink">{metric.label}</span><span className="mt-1 block text-xs font-semibold text-slate-500">{metric.numerator} of {metric.denominator || 0} records</span></span></div>
+                {active ? <span className="absolute inset-x-4 bottom-0 h-1 rounded-t-full bg-sea" /> : null}
+              </button>
+            );
+          })}
+        </div>
+        <div className="grid bg-slate-50">
+          <div className="border-b border-slate-200 p-5" aria-live="polite"><div className="flex items-center gap-2 text-teal-800"><CheckCircle2 size={18} aria-hidden="true" /><span className="text-xs font-bold uppercase tracking-wide">Selected measure</span></div><h3 className="mt-3 text-xl font-bold text-ink">{selected?.label}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{selected?.detail}</p><p className="mt-3 text-sm font-semibold text-slate-700">Sample: {selected?.denominator || 0} organisation records</p></div>
+          <div className="p-5"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Decision matrix</p><div className="mt-3 grid gap-2">{orderedPriorities.map((priority) => <PriorityLink key={priority.label} {...priority} />)}</div></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PriorityLink({ label, value, href, tone }: { label: string; value: number; href: string; tone: "red" | "amber" | "sky" | "teal" }) {
+  const tones = { red: "bg-red-500", amber: "bg-amber-500", sky: "bg-sky-600", teal: "bg-teal-600" };
+  return <a href={href} className="group flex min-h-11 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-teal-400 hover:shadow-sm"><span className="inline-flex items-center gap-2"><span className={cn("h-2.5 w-2.5 rounded-full", tones[tone])} />{label}</span><span className="inline-flex items-center gap-2 font-bold text-ink">{value}<ArrowRight size={15} className="text-slate-400 transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></span></a>;
+}
+
+function percentage(numerator: number, denominator: number) {
+  return denominator ? Math.round((numerator / denominator) * 100) : 0;
 }
 
 function ReportJump({ href, icon: Icon, label, value, active }: { href: string; icon: LucideIcon; label: string; value: number; active: boolean }) {
