@@ -14,7 +14,6 @@ import { participants, sampleRoughNote, supportTypes, type Participant } from "@
 import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
-import { filterByParticipantAccess, filterHousesByAccess } from "@/lib/user-access";
 import { saveTenantProgressNote } from "@/lib/progress-note-records";
 
 type ContinenceCareRecord = {
@@ -236,8 +235,8 @@ export function ProgressNoteGenerator() {
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
-  const accessibleHouses = useMemo(() => filterHousesByAccess(houses), [houses]);
-  const baseParticipants = useMemo<NoteClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
+  const accessibleHouses = houses;
+  const baseParticipants = useMemo<NoteClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const selectedParticipant = baseParticipants.find((participant) => participant.id === selectedParticipantId) ?? baseParticipants[0];
   const participantHouses = useMemo(() => selectedParticipant ? getHousesForClient(accessibleHouses, selectedParticipant) : [], [accessibleHouses, selectedParticipant]);
   const selectedHouse = participantHouses.find((house) => house.id === selectedHouseId) ?? participantHouses[0];

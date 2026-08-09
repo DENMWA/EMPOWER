@@ -146,3 +146,10 @@ test("client and shift photos remain private path references", async () => {
   assert.match(noteRecords, /participant-documents|uploadTenantDocumentFile/);
   assert.doesNotMatch(noteRecords, /getPublicUrl|publicURL/);
 });
+
+test("shift-note selectors trust Supabase RLS results without empty local-role filtering", async () => {
+  const generator = await source("components/notes/ProgressNoteGenerator.tsx");
+  assert.match(generator, /storedClients\.length \? storedClients/);
+  assert.doesNotMatch(generator, /filterByParticipantAccess\(storedClients/);
+  assert.match(generator, /getHousesForClient\(accessibleHouses, selectedParticipant\)/);
+});
