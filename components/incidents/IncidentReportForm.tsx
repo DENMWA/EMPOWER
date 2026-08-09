@@ -5,12 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
-import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
+import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { saveIncidentReport } from "@/lib/incident-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants, type Participant } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
-import { filterByParticipantAccess, filterHousesByAccess } from "@/lib/user-access";
 
 export type BodyView = "front" | "left" | "right" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
@@ -253,7 +252,7 @@ const initialReport: IncidentReport = {
   attachments: [{ id: "attachment-1", name: "fall-body-map-export.pdf", type: "Body map export", notes: "Attach body map/photo evidence to the participant incident record in production." }]
 };
 
-type IncidentClient = Participant & { colourSchemeId?: string; preferredName?: string; profilePhotoPath?: string };
+type IncidentClient = Participant & Partial<ClientRecord>;
 
 function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
@@ -363,12 +362,24 @@ export function IncidentReportForm() {
   const [retryReport, setRetryReport] = useState<typeof initialReport | null>(null);
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
-  const accessibleHouses = useMemo(() => filterHousesByAccess(houses), [houses]);
-  const baseParticipants = useMemo<IncidentClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
+  // Supabase RLS is the source of truth for which tenant records this signed-in user may see.
+  const accessibleHouses = houses;
+  const baseParticipants = useMemo<IncidentClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const selectedParticipant = baseParticipants.find((participant) => participant.id === report.participantId) ?? baseParticipants[0];
-  const participantHouses = useMemo(() => selectedParticipant
-    ? accessibleHouses.filter((house) => houseHasClient(house, selectedParticipant))
-    : [], [accessibleHouses, selectedParticipant]);
+  const participantHouses = useMemo(() => {
+    if (!selectedParticipant) return [];
+    const linkedHouses = getHousesForClient(accessibleHouses, selectedParticipant);
+    if (linkedHouses.length) return linkedHouses;
+    if (!selectedParticipant.primaryHouseId && !selectedParticipant.primaryHouseName) return [];
+    return [{
+      id: selectedParticipant.primaryHouseId || `client-service-${selectedParticipant.id}`,
+      name: selectedParticipant.primaryHouseName || selectedParticipant.serviceName || "Assigned service",
+      address: selectedParticipant.address || "",
+      serviceType: selectedParticipant.serviceName || "Client support",
+      clientIds: [selectedParticipant.id],
+      createdAt: selectedParticipant.createdAt || new Date().toISOString()
+    }];
+  }, [accessibleHouses, selectedParticipant]);
   const selectedHouse = participantHouses.find((house) => house.id === report.houseId) ?? participantHouses[0];
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
@@ -433,7 +444,7 @@ export function IncidentReportForm() {
 
   function selectParticipant(participantId: string) {
     const participant = baseParticipants.find((item) => item.id === participantId);
-    const assignedHouses = participant ? accessibleHouses.filter((house) => houseHasClient(house, participant)) : [];
+    const assignedHouses = participant ? getHousesForClient(accessibleHouses, participant) : [];
     const nextHouse = assignedHouses.find((house) => house.id === report.houseId) ?? assignedHouses[0];
     setReport((current) => ({
       ...current,

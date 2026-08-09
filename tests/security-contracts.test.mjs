@@ -153,3 +153,11 @@ test("shift-note selectors trust Supabase RLS results without empty local-role f
   assert.doesNotMatch(generator, /filterByParticipantAccess\(storedClients/);
   assert.match(generator, /getHousesForClient\(accessibleHouses, selectedParticipant\)/);
 });
+
+test("incident selectors trust Supabase RLS results and remain client first", async () => {
+  const form = await source("components/incidents/IncidentReportForm.tsx");
+  assert.match(form, /storedClients\.length \? storedClients/);
+  assert.doesNotMatch(form, /filterByParticipantAccess|filterHousesByAccess/);
+  assert.match(form, /getHousesForClient\(accessibleHouses, selectedParticipant\)/);
+  assert.match(form, /Who is this incident about\?/);
+});
