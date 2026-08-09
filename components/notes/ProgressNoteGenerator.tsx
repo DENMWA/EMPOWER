@@ -66,6 +66,26 @@ const continenceSupportOptions = [
   "Colostomy bag care"
 ];
 
+const bowelCareOptions = [
+  "Prompting provided",
+  "Physical assistance provided",
+  "Privacy and dignity maintained",
+  "Hygiene support completed",
+  "Continence aid changed",
+  "Colostomy bag checked",
+  "Colostomy bag changed",
+  "Fluids encouraged",
+  "Concern reported to supervisor"
+];
+
+const bowelMovementOptions = [
+  "Bowel movement passed",
+  "No bowel movement",
+  "Attempted but not passed",
+  "Support declined",
+  "Not observed"
+];
+
 const bristolStoolOptions = [
   "Not applicable / no bowel movement observed",
   "Type 1 - Separate hard lumps",
@@ -101,7 +121,7 @@ const drinkTypeOptions = ["Water", "Tea", "Coffee", "Juice", "Soft drink", "Milk
 
 const initialContinenceRecord: ContinenceCareRecord = {
   applicableSupports: [],
-  bowelMovement: "Not observed during support",
+  bowelMovement: "Not observed",
   bristolType: bristolStoolOptions[0],
   urineRecord: urineRecordOptions[0],
   urineAppearance: "Not observed",
@@ -243,8 +263,10 @@ export function ProgressNoteGenerator() {
   const selectedHouse = participantHouses.find((house) => house.id === selectedHouseId) ?? participantHouses[0];
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const participantGoals = selectedParticipant?.goals || [];
-  const quality = scoreNoteQuality(roughNote, participantGoals.length > 0);
-  const showPersonalCareRecord = ["Personal care", "Bowel care"].includes(supportType);
+  const isBowelCare = supportType === "Bowel care";
+  const showPersonalCareRecord = supportType === "Personal care";
+  const recordNarrative = isBowelCare ? formatBowelCareSummary() : roughNote;
+  const quality = scoreNoteQuality(recordNarrative, participantGoals.length > 0);
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
@@ -354,6 +376,16 @@ export function ProgressNoteGenerator() {
     ].join("\n");
   }
 
+  function formatBowelCareSummary() {
+    const selectedSupports = continenceRecord.applicableSupports.filter((support) => bowelCareOptions.includes(support));
+    return [
+      "Bowel care record:",
+      `Outcome: ${continenceRecord.bowelMovement}.`,
+      `Bristol Stool Chart: ${continenceRecord.bristolType}.`,
+      `Support provided: ${selectedSupports.length ? selectedSupports.join(", ") : "None selected"}.`
+    ].join("\n");
+  }
+
   function formatMealsAndFluidSummary() {
     if (!showMealsAndFluidLog) return "";
 
@@ -423,7 +455,7 @@ export function ProgressNoteGenerator() {
     `Date: ${supportDate}`,
     `Time: ${startTime} to ${finishTime}`,
     "",
-    roughNote
+    recordNarrative
   ].join("\n");
 
   const noteRecordId = `progress-note-${selectedParticipantId || "client"}-${selectedHouseId || "service"}-${supportDate}-${startTime.replace(":", "")}-${finishTime.replace(":", "")}`;
@@ -435,15 +467,15 @@ export function ProgressNoteGenerator() {
       <Card className="border-teal-100">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Progress note studio</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">Improve shift notes without changing the facts</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">{isBowelCare ? "Care record" : "Progress note studio"}</p>
+            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : "Improve shift notes without changing the facts"}</h2>
           </div>
-          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">Worker-controlled wording</span>
+          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">{isBowelCare ? "Focused entry" : "Worker-controlled wording"}</span>
         </div>
-        <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
+        {!isBowelCare ? <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
           <p className="font-semibold">Fidelity-first improvement</p>
           <p className="mt-1">EmpowerNotes keeps the worker&apos;s original shift note first, then expands only within the documented facts. Missing details are flagged for confirmation instead of being invented.</p>
-        </div>
+        </div> : null}
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
             Participant/client
@@ -481,11 +513,12 @@ export function ProgressNoteGenerator() {
           </div>
         </div>
         {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
-        <label className="mt-5 block text-sm font-semibold text-slate-700">
-          Shift note
-          <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
-        </label>
-        <div className="mt-4 rounded-md border border-teal-200 bg-teal-50/40 p-4">
+        {!isBowelCare ? <>
+          <label className="mt-5 block text-sm font-semibold text-slate-700">
+            Shift note
+            <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
+          </label>
+          <div className="mt-4 rounded-md border border-teal-200 bg-teal-50/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="flex items-center gap-2 text-sm font-bold text-ink"><Camera size={18} aria-hidden="true" />Attach photos to this note</p>
@@ -508,8 +541,48 @@ export function ProgressNoteGenerator() {
               ))}
             </div>
           ) : null}
-        </div>
-        <GuidedVoiceDocumentation embedded onUseTranscript={applyVoiceTranscript} />
+          </div>
+          <GuidedVoiceDocumentation embedded onUseTranscript={applyVoiceTranscript} />
+        </> : null}
+        {isBowelCare ? (
+          <div className="mt-5 rounded-md border border-amber-200 bg-amber-50/50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-amber-800">Bowel care</p>
+                <h3 className="mt-1 text-xl font-bold text-ink">Bowel movement record</h3>
+              </div>
+              <span className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-amber-900">Select what applies</span>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-semibold text-slate-700">
+                Bowel movement outcome
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.bowelMovement} onChange={(event) => updateContinenceField("bowelMovement", event.target.value)}>
+                  {bowelMovementOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                Bristol stool type
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.bristolType} onChange={(event) => updateContinenceField("bristolType", event.target.value)}>
+                  {bristolStoolOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+            </div>
+            <fieldset className="mt-4">
+              <legend className="text-sm font-semibold text-slate-700">Support provided</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {bowelCareOptions.map((option) => (
+                  <label key={option} className="flex min-h-11 items-center gap-3 rounded-md border border-amber-100 bg-white px-3 text-sm font-semibold text-slate-700">
+                    <input type="checkbox" checked={continenceRecord.applicableSupports.includes(option)} onChange={() => toggleApplicableSupport(option)} />
+                    {option}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="mt-4">
+              <BristolStoolChartReference selectedType={continenceRecord.bristolType} onSelect={(value) => updateContinenceField("bristolType", value)} />
+            </div>
+          </div>
+        ) : null}
         {showPersonalCareRecord ? (
           <div className="mt-5 rounded-md border border-teal-100 bg-teal-50/60 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -629,9 +702,9 @@ export function ProgressNoteGenerator() {
             </div>
           </div>
         ) : null}
-        <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
+        {!isBowelCare ? <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
           {loading ? "Preparing options..." : "Optional: rephrase note"}
-        </button>
+        </button> : null}
         {selectedHouse ? (
           <RecordActions
             className="mt-3"
@@ -648,12 +721,12 @@ export function ProgressNoteGenerator() {
               startTime,
               endTime: finishTime,
               supportType,
-              roughNote,
+              roughNote: recordNarrative,
               finalNote: noteRecordBody,
               missingDetails: missing,
               qualityScore: quality.auditReadiness,
               billingEvidenceScore: quality.billingEvidenceScore,
-              photoFiles: photoEvidence.map((photo) => photo.file)
+              photoFiles: isBowelCare ? [] : photoEvidence.map((photo) => photo.file)
             })}
           />
         ) : (
@@ -693,7 +766,7 @@ export function ProgressNoteGenerator() {
           />
         </Card>
       ) : null}
-      {rewriteOptions.length ? (
+      {!isBowelCare && rewriteOptions.length ? (
         <Card>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -717,17 +790,17 @@ export function ProgressNoteGenerator() {
           </div>
         </Card>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {!isBowelCare ? <div className="grid gap-6 lg:grid-cols-2">
         <NoteQualityScore quality={quality} />
         <MissingDetailChecker missing={missing.length ? missing : ["Location", "Exact start and finish time", "Goal link", "Specific follow-up owner"]} />
-      </div>
-      <Card>
+      </div> : null}
+      {!isBowelCare ? <Card>
         <h2 className="text-xl font-semibold text-ink">Goal-linking Assistant</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           {(participantGoals.length ? participantGoals : realMode ? [] : suggestGoalLinks()).map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
           {!participantGoals.length && realMode ? <p className="text-sm text-slate-600">No verified goals are available for this client yet.</p> : null}
         </div>
-      </Card>
+      </Card> : null}
     </div>
   );
 }
