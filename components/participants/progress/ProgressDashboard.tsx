@@ -9,13 +9,14 @@ import { samplePlanExtractions, participantProgressGoals } from "@/lib/plan-prog
 import { formatPlanLimit, getUsageLimitRows } from "@/lib/subscriptions/limits";
 import { GoalProgressCard } from "@/components/participants/progress/GoalProgressCard";
 import { PlanUploadReviewCard } from "@/components/participants/plans/PlanUploadReviewCard";
+import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
 import { getPlanVerificationQueues, type PlanVerificationQueue } from "@/lib/plan-progress/verification-records";
 
-type ProgressClient = Participant & { colourSchemeId?: string };
+type ProgressClient = Participant & { colourSchemeId?: string; preferredName?: string; profilePhotoPath?: string };
 
 function getColourSchemeId(client: ProgressClient | undefined) {
   return typeof client?.colourSchemeId === "string" ? client.colourSchemeId : undefined;
@@ -99,6 +100,7 @@ export function ProgressDashboard() {
         </div>
         {selectedClient ? (
           <div className={`mt-5 grid gap-3 rounded-md p-4 ${selectedColour.panel} md:grid-cols-3`}>
+            <ClientIdentity client={selectedClient} detail="Progress intelligence" className="md:col-span-3" />
             <p className="text-sm leading-6 text-slate-700"><span className={`font-semibold ${selectedColour.text}`}>Support needs:</span> {selectedClient.supportNeeds}</p>
             <p className="text-sm leading-6 text-slate-700"><span className={`font-semibold ${selectedColour.text}`}>Goals:</span> {selectedClient.goals.length ? selectedClient.goals.join(", ") : "No goals added yet."}</p>
             <p className="text-sm leading-6 text-slate-700"><span className={`font-semibold ${selectedColour.text}`}>Risks:</span> {selectedClient.riskAlerts.length ? selectedClient.riskAlerts.join(", ") : "No risk alerts added."}</p>

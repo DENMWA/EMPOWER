@@ -6,6 +6,7 @@ import { Camera, CheckCircle2 } from "lucide-react";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
+import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -54,7 +55,7 @@ type MonthlyReport = {
   nextMonth: string;
 };
 
-type NoteClient = Participant & { colourSchemeId?: string };
+type NoteClient = Participant & { colourSchemeId?: string; preferredName?: string; profilePhotoPath?: string };
 
 const continenceSupportOptions = [
   "Incontinence support",
@@ -479,6 +480,7 @@ export function ProgressNoteGenerator() {
             </label>
           </div>
         </div>
+        {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
         <label className="mt-5 block text-sm font-semibold text-slate-700">
           Shift note
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />

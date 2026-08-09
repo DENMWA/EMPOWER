@@ -5,13 +5,14 @@ import { useEffect, useState } from "react";
 import { FileText, ShieldAlert, UserRoundPlus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui";
+import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants, progressNotes, type Participant } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
 
-type ReportClient = Participant & { colourSchemeId?: string };
+type ReportClient = Participant & { colourSchemeId?: string; profilePhotoPath?: string };
 
 export function ClientReportColourCards() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
@@ -66,7 +67,7 @@ export function ClientReportColourCards() {
             <Link key={participant.id} href="/admin/clients" className={cn("group rounded-md border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700", colour.border)}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className={cn("grid h-11 w-11 place-items-center rounded-md text-sm font-bold", colour.avatar)}>{participant.initials}</span>
+                  <PrivateClientPhoto path={participant.profilePhotoPath} alt={`${participant.name} profile`} fallback={participant.initials} className={colour.avatar} />
                   <div>
                     <h3 className="font-semibold text-ink">{participant.name}</h3>
                     <p className="text-xs font-medium text-slate-500">{colour.label} client stream</p>

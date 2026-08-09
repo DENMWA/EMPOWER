@@ -2,6 +2,7 @@
 
 import { FileText, MapPin, UserRound } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
+import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
 import { getEmployeeColourScheme, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
@@ -19,10 +20,13 @@ export function RosterShiftCard({ shift, onOpen }: { shift: RosterShift; onOpen:
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex items-start gap-3">
+          <PrivateClientPhoto path={shift.participantPhotoPath} alt={`${shift.participantName} profile`} fallback={getInitials(shift.participantName)} />
+          <div>
           <p className="text-sm font-semibold text-slate-500">{shift.startTime} - {shift.endTime}</p>
           <h3 className="mt-1 text-lg font-semibold text-ink">{shift.participantName}</h3>
           <p className="mt-1 text-sm font-medium text-slate-700">{shift.supportType}</p>
+          </div>
         </div>
         <RosterStatusBadge status={shift.status} />
       </div>
@@ -37,4 +41,8 @@ export function RosterShiftCard({ shift, onOpen }: { shift: RosterShift; onOpen:
       <div className={cn("mt-4 h-1.5 rounded-full", colour.bg)} aria-hidden="true" />
     </button>
   );
+}
+
+function getInitials(name: string) {
+  return name.split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase();
 }

@@ -9,7 +9,7 @@ import { getTenantStaffInvites } from "@/lib/staff-records";
 
 export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => string | void }) {
   const { supportTypes } = getRosterSelectOptions();
-  const [participantOptions, setParticipantOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [participantOptions, setParticipantOptions] = useState<Array<{ id: string; name: string; profilePhotoPath?: string }>>([]);
   const [workerOptions, setWorkerOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [participantId, setParticipantId] = useState("");
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
@@ -25,7 +25,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
   useEffect(() => {
     if (!open) return;
     Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clients, staff]) => {
-      const nextParticipants = clients.map(({ id, name }) => ({ id, name }));
+      const nextParticipants = clients.map(({ id, name, profilePhotoPath }) => ({ id, name, profilePhotoPath }));
       const nextWorkers = staff.map(({ id, name }) => ({ id, name }));
       setParticipantOptions(nextParticipants);
       setParticipantId((current) => nextParticipants.some((item) => item.id === current) ? current : nextParticipants[0]?.id || "");
@@ -67,6 +67,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
     const creationError = onCreate(createRosterShift({
       participantId,
       participantName: participantOptions.find((item) => item.id === participantId)?.name,
+      participantPhotoPath: participantOptions.find((item) => item.id === participantId)?.profilePhotoPath,
       workerId: assignedWorkers[0].id,
       workerName: assignedWorkers[0].name,
       assignedWorkers,

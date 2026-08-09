@@ -8,6 +8,7 @@ export type RosterShift = {
   id: string;
   participantId: string;
   participantName: string;
+  participantPhotoPath?: string;
   workerId: string;
   workerName: string;
   assignedWorkers?: Array<{ id: string; name: string }>;

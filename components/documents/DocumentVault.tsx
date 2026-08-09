@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { RecordActions } from "@/components/records/RecordActions";
+import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { documentsUpdatedEvent, getTenantDocumentDownloadUrl, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
@@ -102,7 +103,7 @@ export function DocumentVault() {
           return (
             <div key={doc.id} className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border border-l-4 p-4", colour.border)}>
               <div className="flex items-start gap-3">
-                <span className={cn("grid h-10 w-10 place-items-center rounded-md text-xs font-bold", colour.avatar)}>{participant?.initials ?? "CL"}</span>
+                <PrivateClientPhoto path={participant && "profilePhotoPath" in participant && typeof participant.profilePhotoPath === "string" ? participant.profilePhotoPath : undefined} alt={`${participant?.name ?? "Client"} profile`} fallback={participant?.initials ?? "CL"} className={colour.avatar} />
                 <div>
                   <p className="font-semibold text-ink">{doc.type}</p>
                   <p className="text-sm text-slate-600">{participant?.name ?? doc.clientName ?? "Unassigned client"} - {doc.confidence ? `${doc.confidence}% extraction confidence` : "Awaiting AI extraction"}</p>

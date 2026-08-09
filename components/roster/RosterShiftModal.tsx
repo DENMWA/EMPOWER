@@ -2,6 +2,7 @@
 
 import { CheckCircle2, FileCheck2, MapPin, X } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
+import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
 import { getEmployeeColourScheme, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
@@ -27,10 +28,13 @@ export function RosterShiftModal({
         <div className={cn("h-2", colour.bg)} />
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="flex items-start gap-3">
+              <PrivateClientPhoto path={shift.participantPhotoPath} alt={`${shift.participantName} profile`} fallback={shift.participantName.split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase()} />
+              <div>
               <RosterStatusBadge status={shift.status} />
               <h2 id="roster-shift-title" className="mt-3 text-2xl font-bold text-ink">{shift.participantName}</h2>
               <p className="mt-1 text-sm font-medium text-slate-600">{shift.supportType}</p>
+              </div>
             </div>
             <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Close shift details">
               <X size={18} aria-hidden="true" />

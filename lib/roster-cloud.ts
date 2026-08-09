@@ -54,7 +54,7 @@ export async function loadTenantRosterShifts() {
     return { shifts: [] as RosterShift[], error: "The roster could not be loaded from the workspace." };
   }
 
-  const clientNames = new Map(clients.map((client) => [client.id, client.name]));
+  const clientsById = new Map(clients.map((client) => [client.id, client]));
   const staffNames = new Map(staff.map((worker) => [worker.id, worker.name]));
   const assignmentsByShift = new Map<string, Array<{ id: string; name: string }>>();
 
@@ -74,7 +74,8 @@ export async function loadTenantRosterShifts() {
       return {
         id: row.id,
         participantId: row.participant_id,
-        participantName: clientNames.get(row.participant_id) || "Client",
+        participantName: clientsById.get(row.participant_id)?.name || "Client",
+        participantPhotoPath: clientsById.get(row.participant_id)?.profilePhotoPath,
         workerId: firstWorker.id,
         workerName: firstWorker.name,
         assignedWorkers: workers,

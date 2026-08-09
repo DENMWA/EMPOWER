@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
 import { saveIncidentReport } from "@/lib/incident-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
@@ -252,7 +253,7 @@ const initialReport: IncidentReport = {
   attachments: [{ id: "attachment-1", name: "fall-body-map-export.pdf", type: "Body map export", notes: "Attach body map/photo evidence to the participant incident record in production." }]
 };
 
-type IncidentClient = Participant & { colourSchemeId?: string };
+type IncidentClient = Participant & { colourSchemeId?: string; preferredName?: string; profilePhotoPath?: string };
 
 function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
@@ -764,6 +765,7 @@ export function IncidentReportForm() {
               Property damage involved
             </label>
           </div>
+          {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={selectedHouse ? `${selectedHouse.name} - ${selectedHouse.serviceType}` : "No house/service selected"} className="rounded-md border border-slate-200 bg-slate-50 p-3" /> : null}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {propertyDamageItems.map((item) => (
               <label key={item} className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">

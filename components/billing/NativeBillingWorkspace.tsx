@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
+import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { downloadOrganisationReportHtml, getOrganisationProfile } from "@/lib/organisation-profile";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
@@ -293,13 +294,16 @@ export function NativeBillingWorkspace() {
       {message ? <div role="status" aria-live="polite" className="sticky top-3 z-20 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-900 shadow-sm">{message}</div> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <label className="grid gap-2 text-sm font-semibold text-slate-700">
-          Client
-          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
-            {!clients.length ? <option>Add a client first</option> : null}
-            {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-          </select>
-        </label>
+        <div>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">
+            Client
+            <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
+              {!clients.length ? <option>Add a client first</option> : null}
+              {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+            </select>
+          </label>
+          <ClientIdentity client={selectedClient} detail={[selectedClient?.primaryHouseName, selectedClient?.serviceName].filter(Boolean).join(" - ")} className="mt-2 rounded-md border border-slate-200 bg-white p-3" />
+        </div>
         <StatusPanel records={records} exceptionCount={exceptionLines.length} />
       </div>
 
