@@ -32,6 +32,16 @@ test("global response hardening remains configured", async () => {
   }
 });
 
+test("the public Vercel hostname redirects to the EmpowerNotes domain", async () => {
+  const nextConfig = await source("next.config.mjs");
+  const layout = await source("app/layout.tsx");
+
+  assert.match(nextConfig, /empower-opal\.vercel\.app/);
+  assert.match(nextConfig, /https:\/\/www\.empowernotes\.org\/\:path\*/);
+  assert.match(nextConfig, /permanent:\s*true/);
+  assert.match(layout, /https:\/\/www\.empowernotes\.org/);
+});
+
 test("platform analytics endpoint requires platform-owner verification", async () => {
   const route = await source("app/api/platform/summary/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);

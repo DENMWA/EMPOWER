@@ -4,6 +4,14 @@ const contentSecurityPolicy = `default-src 'self'; base-uri 'self'; object-src '
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async redirects() {
+    return [{
+      source: "/:path*",
+      has: [{ type: "host", value: "empower-opal.vercel.app" }],
+      destination: "https://www.empowernotes.org/:path*",
+      permanent: true
+    }];
+  },
   async headers() {
     return [{
       source: "/:path*",

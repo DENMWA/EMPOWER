@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://empowernotes.com.au";
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.empowernotes.org";
 const seoDescription =
   "EmpowerNotes is Australian NDIS documentation software for disability support, social work, youth work, and community service providers who need audit-ready progress notes, incident reports, rostering, billing, and client records.";
 
