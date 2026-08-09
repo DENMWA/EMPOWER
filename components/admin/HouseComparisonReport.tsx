@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle, Building2, CheckCircle2, ClipboardCheck } from "lucide-react";
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { Card, StatusBadge } from "@/components/ui";
@@ -17,12 +18,22 @@ type HouseComparisonReportProps = {
   documents: StoredDocumentRecord[];
 };
 
+type PieMetric = "incidents" | "actionedIncidents" | "openTasks";
+const pieMetrics: Array<{ key: PieMetric; label: string }> = [
+  { key: "incidents", label: "Incident share" },
+  { key: "actionedIncidents", label: "Actioned incidents" },
+  { key: "openTasks", label: "Open admin tasks" }
+];
+const pieColours = ["#0f766e", "#dc2626", "#0284c7", "#d97706", "#7c3aed", "#059669", "#be185d", "#475569"];
+
 function incidentIsActioned(report: StoredIncidentReport) {
   const review = (report.managerReview || "").trim().toLowerCase();
   return report.status === "Locked" || Boolean(review && !review.startsWith("pending manager review"));
 }
 
 export function HouseComparisonReport({ houses, clients, incidents, shifts, documents }: HouseComparisonReportProps) {
+  const [pieMetric, setPieMetric] = useState<PieMetric>("incidents");
+  const [selectedHouseId, setSelectedHouseId] = useState("");
   const rows = houses.map((house) => {
     const houseClients = clients.filter((client) => houseHasClient(house, client));
     const operationalClientIds = new Set(clients.filter((client) => resolveClientHouseId(client, houses) === house.id).map((client) => client.id));
@@ -58,6 +69,18 @@ export function HouseComparisonReport({ houses, clients, incidents, shifts, docu
   }).sort((a, b) => b.openTasks - a.openTasks || b.incidents - a.incidents || a.name.localeCompare(b.name));
 
   const maxIncidents = Math.max(1, ...rows.map((row) => row.incidents));
+  const pieTotal = rows.reduce((total, row) => total + row[pieMetric], 0);
+  let cumulativePercentage = 0;
+  const pieSlices = rows.map((row, index) => {
+    const percentage = pieTotal ? (row[pieMetric] / pieTotal) * 100 : 0;
+    const start = cumulativePercentage;
+    cumulativePercentage += percentage;
+    return { ...row, percentage, start, end: cumulativePercentage, colour: pieColours[index % pieColours.length] };
+  });
+  const pieBackground = pieTotal
+    ? `conic-gradient(${pieSlices.map((slice) => `${slice.colour} ${slice.start}% ${slice.end}%`).join(", ")})`
+    : "#e2e8f0";
+  const selectedSlice = pieSlices.find((slice) => slice.id === selectedHouseId);
   const reportLines = rows.flatMap((row) => [
     row.name,
     `Service: ${row.serviceType}`,
@@ -86,9 +109,42 @@ export function HouseComparisonReport({ houses, clients, incidents, shifts, docu
           <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Add houses and assign clients to build the comparison.</p>
         </div>
       ) : (
-        <div className="grid gap-4 p-5 xl:grid-cols-2">
+        <>
+          <div className="grid gap-6 border-b border-slate-200 p-5 lg:grid-cols-[260px_1fr] lg:items-center">
+            <button
+              type="button"
+              className="relative mx-auto grid h-[220px] w-[220px] place-items-center rounded-full focus:outline focus:outline-2 focus:outline-teal-700"
+              style={{ background: pieBackground }}
+              onClick={() => setSelectedHouseId("")}
+              aria-label={`House comparison chart for ${pieMetrics.find((metric) => metric.key === pieMetric)?.label}. Select a house from the legend for details.`}
+            >
+              <span className="grid h-[126px] w-[126px] place-items-center rounded-full bg-white px-3 text-center shadow-inner">
+                <span>
+                  <strong className="block text-2xl text-ink">{selectedSlice ? `${Math.round(selectedSlice.percentage)}%` : pieTotal}</strong>
+                  <span className="mt-1 block text-xs font-semibold text-slate-600">{selectedSlice ? selectedSlice.name : pieMetrics.find((metric) => metric.key === pieMetric)?.label}</span>
+                </span>
+              </span>
+            </button>
+            <div>
+              <div className="flex flex-wrap gap-2" aria-label="Select house chart measure">
+                {pieMetrics.map((metric) => (
+                  <button key={metric.key} type="button" onClick={() => { setPieMetric(metric.key); setSelectedHouseId(""); }} className={`min-h-10 rounded-md border px-3 text-sm font-semibold ${pieMetric === metric.key ? "border-teal-700 bg-teal-50 text-teal-800" : "border-slate-300 bg-white text-slate-700 hover:border-teal-400"}`}>{metric.label}</button>
+                ))}
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {pieSlices.map((slice) => (
+                  <button key={slice.id} type="button" onClick={() => setSelectedHouseId(slice.id)} className={`flex min-h-11 items-center justify-between gap-3 rounded-md border px-3 text-left text-sm ${selectedHouseId === slice.id ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white hover:border-slate-400"}`}>
+                    <span className="flex min-w-0 items-center gap-2"><span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: slice.colour }} /><span className="truncate font-semibold text-ink">{slice.name}</span></span>
+                    <span className="shrink-0 font-bold text-slate-700">{Math.round(slice.percentage)}%</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs font-medium text-slate-500">Live organisation data · refreshes every minute and when records change</p>
+            </div>
+          </div>
+          <div className="grid gap-4 p-5 xl:grid-cols-2">
           {rows.map((row) => (
-            <div key={row.id} className="rounded-md border border-slate-200 bg-white p-4">
+            <div key={row.id} className={`rounded-md border bg-white p-4 transition ${selectedHouseId === row.id ? "border-teal-500 ring-2 ring-teal-100" : selectedHouseId ? "border-slate-200 opacity-60" : "border-slate-200"}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-md bg-teal-50 text-teal-800"><Building2 size={19} aria-hidden="true" /></span>
@@ -115,7 +171,8 @@ export function HouseComparisonReport({ houses, clients, incidents, shifts, docu
               {row.openIncidentTasks ? <p className="mt-4 text-sm font-semibold text-red-700">{row.openIncidentTasks} incident {row.openIncidentTasks === 1 ? "review requires" : "reviews require"} action.</p> : null}
             </div>
           ))}
-        </div>
+          </div>
+        </>
       )}
     </Card>
   );

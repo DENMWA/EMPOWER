@@ -16,7 +16,7 @@ import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRec
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { HouseComparisonReport } from "@/components/admin/HouseComparisonReport";
-import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 
 const periods: RosterReportPeriod[] = ["weekly", "fortnightly", "monthly"];
@@ -43,11 +43,19 @@ export default function AdminReportsPage() {
     }
 
     loadReports();
+    const refreshInterval = window.setInterval(loadReports, 60000);
     window.addEventListener(documentsUpdatedEvent, loadReports);
     window.addEventListener("empowernotes:retained-records-updated", loadReports);
+    window.addEventListener(housesUpdatedEvent, loadReports);
+    window.addEventListener("empowernotes:roster-updated", loadReports);
+    window.addEventListener("focus", loadReports);
     return () => {
+      window.clearInterval(refreshInterval);
       window.removeEventListener(documentsUpdatedEvent, loadReports);
       window.removeEventListener("empowernotes:retained-records-updated", loadReports);
+      window.removeEventListener(housesUpdatedEvent, loadReports);
+      window.removeEventListener("empowernotes:roster-updated", loadReports);
+      window.removeEventListener("focus", loadReports);
     };
   }, []);
 
