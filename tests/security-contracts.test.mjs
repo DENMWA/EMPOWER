@@ -64,6 +64,15 @@ test("client writes remain manager and organisation scoped", async () => {
   assert.match(policy, /for update\s+to authenticated\s+using/s);
 });
 
+test("staff invitations remain manager and organisation scoped", async () => {
+  const policy = await source("supabase/repair-staff-invites-rls.sql");
+  assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
+  assert.match(policy, /public\.current_user_is_manager\(\)/);
+  assert.match(policy, /for insert\s+to authenticated\s+with check/s);
+  assert.match(policy, /for update\s+to authenticated\s+using/s);
+  assert.match(policy, /grant select, insert, update, delete on public\.staff_invites to authenticated/);
+});
+
 test("billing headers and lines use atomic database bundles", async () => {
   const [cloudSync, transactionSql] = await Promise.all([
     source("lib/native-billing-cloud.ts"),
