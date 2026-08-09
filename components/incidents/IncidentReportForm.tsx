@@ -364,13 +364,12 @@ export function IncidentReportForm() {
   const [bodyMapExpanded, setBodyMapExpanded] = useState(false);
 
   const accessibleHouses = useMemo(() => filterHousesByAccess(houses), [houses]);
-  const selectedHouse = accessibleHouses.find((house) => house.id === report.houseId) ?? accessibleHouses[0];
   const baseParticipants = useMemo<IncidentClient[]>(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
-  const allParticipants = useMemo<IncidentClient[]>(() => {
-    if (!selectedHouse) return [];
-    return baseParticipants.filter((participant) => houseHasClient(selectedHouse, participant));
-  }, [baseParticipants, selectedHouse]);
-  const selectedParticipant = allParticipants.find((participant) => participant.id === report.participantId) ?? allParticipants[0];
+  const selectedParticipant = baseParticipants.find((participant) => participant.id === report.participantId) ?? baseParticipants[0];
+  const participantHouses = useMemo(() => selectedParticipant
+    ? accessibleHouses.filter((house) => houseHasClient(house, selectedParticipant))
+    : [], [accessibleHouses, selectedParticipant]);
+  const selectedHouse = participantHouses.find((house) => house.id === report.houseId) ?? participantHouses[0];
   const selectedMarker = report.markers.find((marker) => marker.id === selectedMarkerId);
   const activeTemplate = incidentTemplates.find((template) => template.id === report.templateId) ?? incidentTemplates[0];
   const showPropertyDamage = activeTemplate.propertyDamage || report.propertyDamage.involved || report.incidentTypes.includes("Property damage/destruction");
@@ -400,59 +399,59 @@ export function IncidentReportForm() {
       }));
     }
 
-    if (!allParticipants.length && report.participantId) {
+    if (!baseParticipants.length && report.participantId) {
       setReport((current) => ({
         ...current,
         participantId: "",
         participant: ""
       }));
     }
-  }, [allParticipants, report.participantId, selectedParticipant]);
+  }, [baseParticipants, report.participantId, selectedParticipant]);
 
   useEffect(() => {
     if (selectedHouse && selectedHouse.id !== report.houseId) {
-      const nextParticipant = allParticipants.find((participant) => houseHasClient(selectedHouse, participant));
       setReport((current) => ({
         ...current,
         houseId: selectedHouse.id,
         houseName: selectedHouse.name,
-        participantId: nextParticipant?.id ?? current.participantId,
-        participant: nextParticipant?.name ?? current.participant,
         location: current.location || selectedHouse.address || selectedHouse.name
       }));
     }
 
-    if (!accessibleHouses.length && report.houseId) {
+    if (!participantHouses.length && report.houseId) {
       setReport((current) => ({
         ...current,
         houseId: "",
         houseName: ""
       }));
     }
-  }, [accessibleHouses, allParticipants, report.houseId, selectedHouse]);
+  }, [participantHouses, report.houseId, selectedHouse]);
 
   function update<K extends keyof IncidentReport>(field: K, value: IncidentReport[K]) {
     setReport((current) => ({ ...current, [field]: value }));
   }
 
   function selectParticipant(participantId: string) {
-    const participant = allParticipants.find((item) => item.id === participantId);
+    const participant = baseParticipants.find((item) => item.id === participantId);
+    const assignedHouses = participant ? accessibleHouses.filter((house) => houseHasClient(house, participant)) : [];
+    const nextHouse = assignedHouses.find((house) => house.id === report.houseId) ?? assignedHouses[0];
     setReport((current) => ({
       ...current,
       participantId,
-      participant: participant?.name ?? ""
+      participant: participant?.name ?? "",
+      houseId: nextHouse?.id ?? "",
+      houseName: nextHouse?.name ?? "",
+      location: nextHouse?.address || nextHouse?.name || ""
     }));
   }
 
   function selectHouse(houseId: string) {
-    const house = accessibleHouses.find((item) => item.id === houseId);
-    const nextParticipant = house ? baseParticipants.find((participant) => houseHasClient(house, participant)) : undefined;
+    const house = participantHouses.find((item) => item.id === houseId);
     setReport((current) => ({
       ...current,
       houseId,
       houseName: house?.name ?? "",
-      participantId: nextParticipant?.id ?? "",
-      participant: nextParticipant?.name ?? ""
+      location: house?.address || house?.name || current.location
     }));
   }
 
@@ -671,20 +670,11 @@ export function IncidentReportForm() {
         </section>
 
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-soft">
-          <h3 className="text-xl font-bold text-ink">Incident basics</h3>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Client context</p>
+            <h3 className="mt-1 text-xl font-bold text-ink">Who is this incident about?</h3>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Incident ID" value={report.incidentId} onChange={(value) => update("incidentId", value)} />
-            <label className="grid gap-2 text-sm font-semibold text-slate-700">
-              <span>House/service</span>
-              <select
-                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
-                value={report.houseId}
-                onChange={(event) => selectHouse(event.target.value)}
-              >
-                {!accessibleHouses.length ? <option value="">No house/service assigned</option> : null}
-                {accessibleHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
-              </select>
-            </label>
             <label className="grid gap-2 text-sm font-semibold text-slate-700">
               <span>Participant/client</span>
               <select
@@ -692,10 +682,26 @@ export function IncidentReportForm() {
                 value={report.participantId}
                 onChange={(event) => selectParticipant(event.target.value)}
               >
-                {!allParticipants.length ? <option value="">No clients in this house/service</option> : null}
-                {allParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
+                {!baseParticipants.length ? <option value="">No accessible clients</option> : null}
+                {baseParticipants.map((participant) => <option key={participant.id} value={participant.id}>{participant.name}</option>)}
               </select>
             </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              <span>House/service</span>
+              <select
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                value={report.houseId}
+                onChange={(event) => selectHouse(event.target.value)}
+              >
+                {!participantHouses.length ? <option value="">No service assigned to this client</option> : null}
+                {participantHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+              </select>
+            </label>
+          </div>
+          {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={selectedHouse ? `${selectedHouse.name} - ${selectedHouse.serviceType}` : "No house/service assigned"} className="rounded-md border border-teal-100 bg-teal-50/50 p-4" /> : <p className="rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-900">Choose a client before completing the incident report.</p>}
+          <h3 className="mt-2 text-lg font-bold text-ink">Incident basics</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Incident ID" value={report.incidentId} onChange={(value) => update("incidentId", value)} />
             <Field label="Date" type="date" value={report.date} onChange={(value) => update("date", value)} />
             <Field label="Time" type="time" value={report.time} onChange={(value) => update("time", value)} />
             <Field label="Location" value={report.location} onChange={(value) => update("location", value)} />
