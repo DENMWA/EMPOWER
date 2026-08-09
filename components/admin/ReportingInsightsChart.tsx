@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, BarChart3, CalendarRange, TrendingDown, TrendingUp } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, CalendarRange, LineChart, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, StatusBadge } from "@/components/ui";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
@@ -53,6 +53,7 @@ const metrics = [
     label: "Incident reports",
     detail: "Lower is better when support quality and early intervention improve.",
     color: "bg-red-500",
+    lineColor: "var(--chart-red)",
     soft: "bg-red-50 text-red-700",
     icon: AlertTriangle
   },
@@ -61,6 +62,7 @@ const metrics = [
     label: "Community access",
     detail: "Higher can show stronger participation and service delivery.",
     color: "bg-emerald-500",
+    lineColor: "var(--chart-emerald)",
     soft: "bg-emerald-50 text-emerald-700",
     icon: Activity
   },
@@ -69,6 +71,7 @@ const metrics = [
     label: "Irregular support",
     detail: "Lower suggests fewer cancelled, disrupted, or unplanned supports.",
     color: "bg-amber-500",
+    lineColor: "var(--chart-amber)",
     soft: "bg-amber-50 text-amber-800",
     icon: CalendarRange
   }
@@ -78,6 +81,7 @@ type MetricKey = (typeof metrics)[number]["key"];
 
 export function ReportingInsightsChart() {
   const [period, setPeriod] = useState<ComparisonPeriod>("monthly");
+  const [chartType, setChartType] = useState<"bar" | "line">("bar");
   const [records, setRecords] = useState<RetainedRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
@@ -184,7 +188,14 @@ export function ReportingInsightsChart() {
               <h3 className="text-lg font-semibold text-ink">{periodLabels[period]} comparison</h3>
               <p className="mt-1 text-sm text-slate-600">Grouped bars compare saved service activity and risk signals across the selected period.</p>
             </div>
-            <StatusBadge label="Admin-only analysis" tone="blue" />
+            <div className="grid grid-cols-2 rounded-md border border-slate-300 bg-white p-1" aria-label="Chart display type">
+              <button type="button" onClick={() => setChartType("bar")} aria-pressed={chartType === "bar"} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition", chartType === "bar" ? "bg-sea text-white" : "text-slate-700 hover:bg-slate-50")}>
+                <BarChart3 size={16} aria-hidden="true" />Bars
+              </button>
+              <button type="button" onClick={() => setChartType("line")} aria-pressed={chartType === "line"} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition", chartType === "line" ? "bg-sea text-white" : "text-slate-700 hover:bg-slate-50")}>
+                <LineChart size={16} aria-hidden="true" />Lines
+              </button>
+            </div>
           </div>
 
           {livePointCount === 0 && !demoMode ? (
@@ -194,7 +205,7 @@ export function ReportingInsightsChart() {
             </div>
           ) : null}
 
-          <div className="grid min-h-[280px] grid-cols-[auto_1fr] gap-3">
+          {chartType === "bar" ? <div className="grid min-h-[280px] grid-cols-[auto_1fr] gap-3">
             <div className="flex flex-col justify-between pb-9 pt-2 text-right text-xs font-medium text-slate-500">
               <span>{maxValue}</span>
               <span>{Math.round(maxValue * 0.66)}</span>
@@ -225,7 +236,15 @@ export function ReportingInsightsChart() {
                 </div>
               ))}
             </div>
-          </div>
+          </div> : (
+            <InteractiveLineChart
+              points={points}
+              maxValue={maxValue}
+              selectedMetric={selectedMetric}
+              selectedPoint={selectedPoint}
+              onSelect={setSelectedPoint}
+            />
+          )}
 
           <div className="mt-5 flex flex-wrap gap-2" aria-label="Chart metric filter">
             <button type="button" onClick={() => setSelectedMetric("all")} className={cn("min-h-10 rounded-md border px-3 text-sm font-semibold transition", selectedMetric === "all" ? "border-sea bg-sea text-white" : "border-slate-200 bg-white text-slate-700 hover:border-teal-400")}>All metrics</button>
@@ -285,6 +304,78 @@ function Bar({ label, value, maxValue, color, muted, selected, onSelect }: { lab
     <div className={cn("flex w-6 flex-col items-center gap-2 transition-opacity", muted && "opacity-20")}>
       <span className="text-[11px] font-semibold text-slate-600">{value}</span>
       <button type="button" onClick={onSelect} className={cn("w-full rounded-t-md shadow-sm transition hover:brightness-90 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-teal-700", color, selected && "ring-2 ring-ink ring-offset-2")} style={{ height }} title={`${label}: ${value}`} aria-label={`${label}: ${value}`} aria-pressed={selected} />
+    </div>
+  );
+}
+
+function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint, onSelect }: {
+  points: TrendPoint[];
+  maxValue: number;
+  selectedMetric: MetricKey | "all";
+  selectedPoint: { period: string; metric: string; value: number } | null;
+  onSelect: (point: { period: string; metric: string; value: number }) => void;
+}) {
+  const width = 640;
+  const height = 260;
+  const left = 42;
+  const right = 18;
+  const top = 18;
+  const bottom = 38;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const xAt = (index: number) => left + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
+  const yAt = (value: number) => top + plotHeight - (value / maxValue) * plotHeight;
+  const visibleMetrics = selectedMetric === "all" ? metrics : metrics.filter((metric) => metric.key === selectedMetric);
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3">
+      <svg viewBox={`0 0 ${width} ${height}`} className="min-h-[280px] min-w-[560px] w-full" role="img" aria-label="Interactive line chart. Select a point to view its exact value.">
+        {[0, 0.33, 0.66, 1].map((ratio) => {
+          const y = top + plotHeight - ratio * plotHeight;
+          return (
+            <g key={ratio}>
+              <line x1={left} x2={width - right} y1={y} y2={y} stroke="var(--line)" strokeWidth="1" />
+              <text x={left - 8} y={y + 4} textAnchor="end" className="fill-slate-500 text-[11px]">{Math.round(maxValue * ratio)}</text>
+            </g>
+          );
+        })}
+        {points.map((point, index) => <text key={point.label} x={xAt(index)} y={height - 10} textAnchor="middle" className="fill-slate-600 text-[11px] font-semibold">{point.label}</text>)}
+        {visibleMetrics.map((metric) => {
+          const coordinates = points.map((point, index) => `${xAt(index)},${yAt(point[metric.key])}`).join(" ");
+          return (
+            <g key={metric.key}>
+              <polyline points={coordinates} fill="none" stroke={metric.lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+              {points.map((point, index) => {
+                const selection = { period: point.label, metric: metric.label, value: point[metric.key] };
+                const selected = selectedPoint?.period === selection.period && selectedPoint.metric === selection.metric;
+                return (
+                  <circle
+                    key={`${metric.key}-${point.label}`}
+                    cx={xAt(index)}
+                    cy={yAt(point[metric.key])}
+                    r={selected ? 8 : 6}
+                    fill="white"
+                    stroke={metric.lineColor}
+                    strokeWidth={selected ? 4 : 3}
+                    className="cursor-pointer outline-none transition hover:brightness-90 focus:stroke-slate-950"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${point.label}, ${metric.label}: ${point[metric.key]}`}
+                    aria-pressed={selected}
+                    onClick={() => onSelect(selection)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelect(selection);
+                      }
+                    }}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
