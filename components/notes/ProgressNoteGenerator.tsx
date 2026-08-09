@@ -42,6 +42,15 @@ type MealAndFluidEntry = {
   fluidNotes: string;
 };
 
+type PersonalCareRecord = {
+  showerOutcome: string;
+  clientInvolvement: string;
+  showerPosition: string;
+  equipmentUsed: string[];
+  careTasks: string[];
+  skinObservation: string;
+};
+
 type MonthlyReport = {
   wellbeing: string;
   goals: string;
@@ -85,6 +94,13 @@ const bowelMovementOptions = [
   "Support declined",
   "Not observed"
 ];
+
+const showerOutcomeOptions = ["Shower completed", "Partial shower completed", "Bed wash completed", "Personal care declined", "Not required"];
+const clientInvolvementOptions = ["Independent", "Prompting only", "Partial physical assistance", "Full physical assistance"];
+const showerPositionOptions = ["Standing", "Seated on shower chair", "Seated on commode chair", "Seated and standing", "Bed-based care"];
+const personalCareEquipmentOptions = ["Shower chair", "Commode chair", "Hand-held shower", "Grab rails", "Non-slip mat", "Transfer belt", "Hoist", "Personal protective equipment"];
+const personalCareTaskOptions = ["Body wash", "Hair washed", "Intimate care", "Oral care", "Shaving/grooming", "Skin care applied", "Dressing support", "Continence aid changed"];
+const skinObservationOptions = ["No concerns observed", "Redness observed", "Bruising observed", "Rash observed", "Wound/dressing observed", "Pain or discomfort reported", "Concern escalated"];
 
 const bristolStoolOptions = [
   "Not applicable / no bowel movement observed",
@@ -136,6 +152,15 @@ const initialMealAndFluidLog: MealAndFluidEntry[] = [
   { id: "meal-fluid-1", time: "08:00", mealContext: "Breakfast", foodName: "Toast and fruit", portionPercent: "75", foodNotes: "Ate independently with verbal prompting", drinkType: "Water", amountMl: "250", fluidNotes: "With breakfast" },
   { id: "meal-fluid-2", time: "10:30", mealContext: "Morning tea", foodName: "Biscuit", portionPercent: "100", foodNotes: "No concerns observed", drinkType: "Tea", amountMl: "200", fluidNotes: "Morning tea" }
 ];
+
+const initialPersonalCareRecord: PersonalCareRecord = {
+  showerOutcome: showerOutcomeOptions[0],
+  clientInvolvement: clientInvolvementOptions[0],
+  showerPosition: showerPositionOptions[0],
+  equipmentUsed: [],
+  careTasks: [],
+  skinObservation: skinObservationOptions[0]
+};
 
 const monthlyReportFields: { key: keyof MonthlyReport; title: string; prompt: string }[] = [
   { key: "wellbeing", title: "Overall wellbeing and presentation", prompt: "Mood, engagement, emotional wellbeing, communication, routines, and any notable changes this month." },
@@ -254,6 +279,7 @@ export function ProgressNoteGenerator() {
   const [startTime, setStartTime] = useState("10:00");
   const [finishTime, setFinishTime] = useState("12:00");
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
+  const [personalCareRecord, setPersonalCareRecord] = useState<PersonalCareRecord>(initialPersonalCareRecord);
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const accessibleHouses = houses;
@@ -264,10 +290,10 @@ export function ProgressNoteGenerator() {
   const selectedParticipantName = selectedParticipant?.name ?? "Client";
   const participantGoals = selectedParticipant?.goals || [];
   const isBowelCare = supportType === "Bowel care";
-  const showPersonalCareRecord = supportType === "Personal care";
+  const isPersonalCare = supportType === "Personal care";
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
-  const isFocusedCareLog = isBowelCare || showMealsAndFluidLog;
-  const recordNarrative = isBowelCare ? formatBowelCareSummary() : showMealsAndFluidLog ? formatMealsAndFluidSummary() : roughNote;
+  const isFocusedCareLog = isBowelCare || isPersonalCare || showMealsAndFluidLog;
+  const recordNarrative = isBowelCare ? formatBowelCareSummary() : isPersonalCare ? formatPersonalCareSummary() : showMealsAndFluidLog ? formatMealsAndFluidSummary() : roughNote;
   const quality = scoreNoteQuality(recordNarrative, participantGoals.length > 0);
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
@@ -346,6 +372,15 @@ export function ProgressNoteGenerator() {
     setMealAndFluidLog((current) => current.map((entry) => entry.id === id ? { ...entry, ...patch } : entry));
   }
 
+  function togglePersonalCareSelection(field: "equipmentUsed" | "careTasks", value: string) {
+    setPersonalCareRecord((current) => ({
+      ...current,
+      [field]: current[field].includes(value)
+        ? current[field].filter((item) => item !== value)
+        : [...current[field], value]
+    }));
+  }
+
   function addMealAndFluidEntry() {
     setMealAndFluidLog((current) => [
       ...current,
@@ -361,19 +396,15 @@ export function ProgressNoteGenerator() {
     setMonthlyReport((current) => ({ ...current, [field]: value }));
   }
 
-  function formatContinenceSummary() {
-    if (!showPersonalCareRecord) return "";
-
+  function formatPersonalCareSummary() {
     return [
-      "Personal care continence/toileting record:",
-      `Applicable support: ${continenceRecord.applicableSupports.length ? continenceRecord.applicableSupports.join(", ") : "Not selected"}.`,
-      `Bowel movement: ${continenceRecord.bowelMovement}. Bristol Stool Chart: ${continenceRecord.bristolType}.`,
-      `Urination record: ${continenceRecord.urineRecord}. Appearance/concerns: ${continenceRecord.urineAppearance}.`,
-      `Uridome care: ${continenceRecord.uridomeCare}.`,
-      `Catheter care: ${continenceRecord.catheterCare}.`,
-      `Colostomy bag care: ${continenceRecord.colostomyBagCare}.`,
-      `Incontinence support: ${continenceRecord.incontinenceSupport}.`,
-      `Additional personal care notes: ${continenceRecord.personalCareNotes}.`
+      "Personal care record:",
+      `Outcome: ${personalCareRecord.showerOutcome}.`,
+      `Client involvement: ${personalCareRecord.clientInvolvement}.`,
+      `Position: ${personalCareRecord.showerPosition}.`,
+      `Equipment used: ${personalCareRecord.equipmentUsed.length ? personalCareRecord.equipmentUsed.join(", ") : "None selected"}.`,
+      `Care completed: ${personalCareRecord.careTasks.length ? personalCareRecord.careTasks.join(", ") : "None selected"}.`,
+      `Skin observation: ${personalCareRecord.skinObservation}.`
     ].join("\n");
   }
 
@@ -414,15 +445,13 @@ export function ProgressNoteGenerator() {
   }
 
   function applyRewriteOption(option: string) {
-    const continenceSummary = formatContinenceSummary();
     const mealsAndFluidSummary = formatMealsAndFluidSummary();
-    const careSummaries = [continenceSummary, mealsAndFluidSummary].filter(Boolean).join("\n\n");
+    const careSummaries = [mealsAndFluidSummary].filter(Boolean).join("\n\n");
     const noteWithCareRecord = careSummaries ? `${option}\n\n${careSummaries}` : option;
     setRoughNote(noteWithCareRecord);
     setRewriteOptions([]);
     setMissing([
       ...checkMissingDetails(noteWithCareRecord),
-      ...(showPersonalCareRecord && continenceRecord.applicableSupports.length === 0 ? ["Select applicable continence/toileting support"] : [])
     ]);
     markTrialStepComplete("progress-note");
   }
@@ -469,7 +498,7 @@ export function ProgressNoteGenerator() {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">{isFocusedCareLog ? "Care record" : "Progress note studio"}</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : showMealsAndFluidLog ? "Record meals and fluid intake" : "Improve shift notes without changing the facts"}</h2>
+            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : isPersonalCare ? "Record shower and personal care" : showMealsAndFluidLog ? "Record meals and fluid intake" : "Improve shift notes without changing the facts"}</h2>
           </div>
           <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">{isFocusedCareLog ? "Focused entry" : "Worker-controlled wording"}</span>
         </div>
@@ -584,66 +613,53 @@ export function ProgressNoteGenerator() {
             </div>
           </div>
         ) : null}
-        {showPersonalCareRecord ? (
+        {isPersonalCare ? (
           <div className="mt-5 rounded-md border border-teal-100 bg-teal-50/60 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-sea">Personal care record</p>
-                <h3 className="mt-1 text-xl font-bold text-ink">Bowel, continence and urinary support</h3>
+                <h3 className="mt-1 text-xl font-bold text-ink">Shower, hygiene and client participation</h3>
               </div>
               <span className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-teal-900">Choose what applies</span>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {continenceSupportOptions.map((option) => (
-                <label key={option} className="flex min-h-11 items-center gap-2 rounded-md border border-teal-100 bg-white px-3 text-sm font-semibold text-slate-700">
-                  <input type="checkbox" checked={continenceRecord.applicableSupports.includes(option)} onChange={() => toggleApplicableSupport(option)} />
-                  {option}
-                </label>
-              ))}
-            </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
               <label className="text-sm font-semibold text-slate-700">
-                Bowel movement
-                <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.bowelMovement} onChange={(event) => updateContinenceField("bowelMovement", event.target.value)} />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Bristol Stool Chart
-                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.bristolType} onChange={(event) => updateContinenceField("bristolType", event.target.value)}>
-                  {bristolStoolOptions.map((option) => <option key={option}>{option}</option>)}
-                </select>
-              </label>
-              <BristolStoolChartReference selectedType={continenceRecord.bristolType} onSelect={(value) => updateContinenceField("bristolType", value)} />
-              <label className="text-sm font-semibold text-slate-700">
-                Urination / uridome / catheter record
-                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineRecord} onChange={(event) => updateContinenceField("urineRecord", event.target.value)}>
-                  {urineRecordOptions.map((option) => <option key={option}>{option}</option>)}
+                Shower outcome
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={personalCareRecord.showerOutcome} onChange={(event) => setPersonalCareRecord((current) => ({ ...current, showerOutcome: event.target.value }))}>
+                  {showerOutcomeOptions.map((option) => <option key={option}>{option}</option>)}
                 </select>
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Urine appearance / concerns
-                <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={continenceRecord.urineAppearance} onChange={(event) => updateContinenceField("urineAppearance", event.target.value)} />
+                Client involvement
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={personalCareRecord.clientInvolvement} onChange={(event) => setPersonalCareRecord((current) => ({ ...current, clientInvolvement: event.target.value }))}>
+                  {clientInvolvementOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Uridome care
-                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.uridomeCare} onChange={(event) => updateContinenceField("uridomeCare", event.target.value)} />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Catheter care
-                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.catheterCare} onChange={(event) => updateContinenceField("catheterCare", event.target.value)} />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Colostomy bag care
-                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.colostomyBagCare} onChange={(event) => updateContinenceField("colostomyBagCare", event.target.value)} />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Incontinence support provided
-                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.incontinenceSupport} onChange={(event) => updateContinenceField("incontinenceSupport", event.target.value)} />
-              </label>
-              <label className="text-sm font-semibold text-slate-700 lg:col-span-2">
-                Privacy, dignity, consent, hygiene and follow-up notes
-                <textarea className="mt-2 min-h-28 w-full rounded-md border border-slate-300 bg-white p-3 leading-6 shadow-sm" value={continenceRecord.personalCareNotes} onChange={(event) => updateContinenceField("personalCareNotes", event.target.value)} />
+                Position used
+                <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={personalCareRecord.showerPosition} onChange={(event) => setPersonalCareRecord((current) => ({ ...current, showerPosition: event.target.value }))}>
+                  {showerPositionOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
               </label>
             </div>
+            <fieldset className="mt-4">
+              <legend className="text-sm font-semibold text-slate-700">Equipment used</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {personalCareEquipmentOptions.map((option) => <label key={option} className="flex min-h-11 items-center gap-3 rounded-md border border-teal-100 bg-white px-3 text-sm font-semibold text-slate-700"><input type="checkbox" checked={personalCareRecord.equipmentUsed.includes(option)} onChange={() => togglePersonalCareSelection("equipmentUsed", option)} />{option}</label>)}
+              </div>
+            </fieldset>
+            <fieldset className="mt-4">
+              <legend className="text-sm font-semibold text-slate-700">Care completed</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {personalCareTaskOptions.map((option) => <label key={option} className="flex min-h-11 items-center gap-3 rounded-md border border-teal-100 bg-white px-3 text-sm font-semibold text-slate-700"><input type="checkbox" checked={personalCareRecord.careTasks.includes(option)} onChange={() => togglePersonalCareSelection("careTasks", option)} />{option}</label>)}
+              </div>
+            </fieldset>
+            <label className="mt-4 block max-w-xl text-sm font-semibold text-slate-700">
+              Skin observation
+              <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={personalCareRecord.skinObservation} onChange={(event) => setPersonalCareRecord((current) => ({ ...current, skinObservation: event.target.value }))}>
+                {skinObservationOptions.map((option) => <option key={option}>{option}</option>)}
+              </select>
+            </label>
           </div>
         ) : null}
         {showMealsAndFluidLog ? (
