@@ -73,6 +73,18 @@ test("staff invitations remain manager and organisation scoped", async () => {
   assert.match(policy, /grant select, insert, update, delete on public\.staff_invites to authenticated/);
 });
 
+test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
+  const [route, client] = await Promise.all([
+    source("app/api/team/staff/route.ts"),
+    source("lib/staff-records.ts")
+  ]);
+  assert.match(route, /verifyServerAccess\(request, "admin"\)/);
+  assert.match(route, /organisation_id: context\.organisationId/);
+  assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(client, /fetch\("\/api\/team\/staff"/);
+  assert.doesNotMatch(client, /supabaseRequest.*staff_invites/s);
+});
+
 test("billing headers and lines use atomic database bundles", async () => {
   const [cloudSync, transactionSql] = await Promise.all([
     source("lib/native-billing-cloud.ts"),

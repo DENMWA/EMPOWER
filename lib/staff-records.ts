@@ -1,6 +1,6 @@
 import type { StaffUser, UserRole } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
-import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { checkUserLimit } from "@/lib/subscriptions/client-limits";
 import { tenantStorageKey } from "@/lib/tenant-storage";
 
@@ -63,24 +63,15 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
   const limit = checkUserLimit(storedStaff.some((item) => item.id === staff.id) ? Math.max(0, storedStaff.length - 1) : storedStaff.length);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
 
-  const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
-
-  const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
-    method: "POST",
-    query: "on_conflict=id",
-    prefer: "resolution=merge-duplicates,return=representation",
-    body: {
+  const result = await staffApiRequest<Array<{ id: string }>>("POST", {
       id: staff.id,
-      organisation_id: organisationId,
       name: staff.name,
       email: staff.email,
       role: staff.role,
-      invite_status: staff.inviteStatus,
-      assigned_participant_ids: staff.assignedParticipants,
-      house_access_mode: staff.houseAccessMode || "selected",
-      assigned_house_ids: staff.assignedHouseIds || []
-    }
+      inviteStatus: staff.inviteStatus,
+      assignedParticipantIds: staff.assignedParticipants,
+      houseAccessMode: staff.houseAccessMode || "selected",
+      assignedHouseIds: staff.assignedHouseIds || []
   });
 
   const cloudId = result.data?.[0]?.id;
@@ -92,16 +83,7 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
 }
 
 export async function updateTenantStaffInviteStatus(staffId: string, inviteStatus: StaffRecord["inviteStatus"]) {
-  const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
-
-  const result = await supabaseRequest<Array<{ id: string }>>("staff_invites", {
-    method: "PATCH",
-    query: `id=eq.${encodeURIComponent(staffId)}`,
-    body: {
-      invite_status: inviteStatus
-    }
-  });
+  const result = await staffApiRequest<Array<{ id: string }>>("PATCH", { id: staffId, inviteStatus });
 
   const savedToCloud = Boolean(result.data?.length && !result.error);
   if (savedToCloud) updateStoredStaffStatus(staffId, inviteStatus);
@@ -139,12 +121,24 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
 
 export async function getTenantStaffInvites() {
   if (isPresentationModeEnabled()) return [];
-  const result = await supabaseRequest<SupabaseStaffInviteRow[]>("staff_invites", {
-    query: "select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,created_at&order=created_at.desc"
-  });
+  const result = await staffApiRequest<SupabaseStaffInviteRow[]>("GET");
 
   if (!result.data || result.error) return [];
 
   const cloudStaff = result.data.map(toStaffRecord);
   return cloudStaff;
+}
+
+async function staffApiRequest<T>(method: "GET" | "POST" | "PATCH", body?: unknown) {
+  const token = getStoredAccessToken();
+  if (!token) return { data: null as T | null, error: "Sign in before accessing staff records." };
+  const response = await fetch("/api/team/staff", {
+    method,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store"
+  });
+  const result = await response.json() as T & { error?: string };
+  if (!response.ok) return { data: null as T | null, error: result.error || "Staff records could not be saved." };
+  return { data: result as T, error: "" };
 }
