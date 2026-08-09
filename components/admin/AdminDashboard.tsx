@@ -19,6 +19,7 @@ import { getNativeBillingRecords, type NativeBillingRecords } from "@/lib/native
 import { getRosterShiftConflicts, getRosterSummary, type RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getTenantRetainedRecords } from "@/lib/retained-records";
+import { getSavedIncidentReports } from "@/lib/incident-records";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,7 @@ export function AdminDashboard() {
   const [shifts, setShifts] = useState<RosterShift[]>([]);
   const [billing, setBilling] = useState<NativeBillingRecords>(emptyBilling);
   const [notesNeedingReview, setNotesNeedingReview] = useState(0);
+  const [incidentsAwaitingAction, setIncidentsAwaitingAction] = useState(0);
 
   useEffect(() => {
     Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clientRecords, staffRecords]) => {
@@ -88,6 +90,9 @@ export function AdminDashboard() {
         }
       }).length);
     }).catch(() => setNotesNeedingReview(0));
+    getSavedIncidentReports()
+      .then((records) => setIncidentsAwaitingAction(records.filter(({ report }) => report.status === "Submitted" || report.status === "Needs Review").length))
+      .catch(() => setIncidentsAwaitingAction(0));
   }, []);
 
   const rosterSummary = getRosterSummary(shifts);
@@ -101,6 +106,7 @@ export function AdminDashboard() {
     { label: "Staff roster conflicts", count: conflicts.length, href: "/admin/scheduling", action: "Resolve conflicts", urgent: true },
     { label: "Completed shifts missing notes", count: rosterSummary.completedNeedingNotes, href: "/admin/scheduling", action: "Review shifts", urgent: true },
     { label: "Notes needing review", count: notesNeedingReview, href: "/admin/reviews", action: "Review notes" },
+    { label: "Incident escalations", count: incidentsAwaitingAction, href: "/admin/incidents", action: "Action incidents", urgent: true },
     { label: "Rendered services ready", count: servicesReady, href: "/admin/billing", action: "Prepare invoices" },
     { label: "Invoices needing attention", count: invoicesNeedingReview, href: "/admin/billing", action: "Review billing", urgent: true }
   ].filter((item) => item.count > 0);

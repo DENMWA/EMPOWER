@@ -3,6 +3,7 @@ import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/l
 import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type IncidentStatus = "Draft" | "Submitted" | "Needs Review" | "Locked";
+export type IncidentEscalationPriority = "Routine" | "Urgent" | "Critical";
 
 export type StoredIncidentReport = {
   incidentId: string;
@@ -22,6 +23,10 @@ export type StoredIncidentReport = {
   notifications: string;
   followUp: string;
   managerReview: string;
+  escalationPriority?: IncidentEscalationPriority;
+  escalationActions?: string[];
+  escalationAssignedTo?: string;
+  escalationDueDate?: string;
   propertyDamage?: {
     involved: boolean;
     items: string[];

@@ -6,9 +6,20 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
-import { getSavedIncidentReports, saveIncidentReport, type IncidentStatus, type StoredIncidentReport } from "@/lib/incident-records";
+import { getSavedIncidentReports, saveIncidentReport, type IncidentEscalationPriority, type IncidentStatus, type StoredIncidentReport } from "@/lib/incident-records";
 
 const reviewStatuses: IncidentStatus[] = ["Submitted", "Needs Review", "Locked"];
+const escalationPriorities: IncidentEscalationPriority[] = ["Routine", "Urgent", "Critical"];
+const escalationActionOptions = [
+  "Client wellbeing follow-up",
+  "Medical review or first-aid follow-up",
+  "Notify family, guardian or nominee",
+  "Notify senior manager",
+  "Assess NDIS Commission notification",
+  "Update risk assessment or support plan",
+  "Staff debrief and practice review",
+  "Property repair or environmental action"
+];
 const incidentBaselineTarget = 90;
 
 function hasManagerAction(report: StoredIncidentReport) {
@@ -18,6 +29,12 @@ function hasManagerAction(report: StoredIncidentReport) {
 
 function getPercentage(value: number, total: number) {
   return total ? Math.round((value / total) * 100) : 0;
+}
+
+function getSuggestedPriority(report: StoredIncidentReport): IncidentEscalationPriority {
+  if (report.incidentTypes.some((type) => ["Safeguarding concern", "Medical event"].includes(type))) return "Critical";
+  if (report.incidentTypes.some((type) => ["Fall", "Injury", "Absconding / missing client", "Medication incident"].includes(type))) return "Urgent";
+  return "Routine";
 }
 
 function IncidentBaselineChart({ reports, clients, houses }: { reports: StoredIncidentReport[]; clients: ClientRecord[]; houses: HouseRecord[] }) {
@@ -138,7 +155,12 @@ export function IncidentReviewQueue() {
       return clientMatch && houseMatch;
     });
   }, [reports, selectedClientId, selectedHouseId]);
-  const queuedReports = useMemo(() => filteredReports.filter((report) => report.status !== "Draft"), [filteredReports]);
+  const queuedReports = useMemo(() => {
+    const rank: Record<IncidentEscalationPriority, number> = { Critical: 0, Urgent: 1, Routine: 2 };
+    return filteredReports
+      .filter((report) => report.status === "Submitted" || report.status === "Needs Review")
+      .sort((a, b) => rank[a.escalationPriority || getSuggestedPriority(a)] - rank[b.escalationPriority || getSuggestedPriority(b)] || b.date.localeCompare(a.date));
+  }, [filteredReports]);
 
   useEffect(() => {
     getTenantClients().then(setClients).catch(() => setClients([]));
@@ -161,13 +183,22 @@ export function IncidentReviewQueue() {
     setReports((current) => current.map((report) => getReportKey(report) === reportKey ? { ...report, ...patch } : report));
   }
 
+  function toggleEscalationAction(reportKey: string, report: StoredIncidentReport, action: string) {
+    const actions = report.escalationActions || [];
+    updateReport(reportKey, {
+      escalationActions: actions.includes(action) ? actions.filter((item) => item !== action) : [...actions, action]
+    });
+  }
+
   async function saveManagerResponse(report: StoredIncidentReport) {
     const nextReport = {
       ...report,
+      escalationPriority: report.escalationPriority || getSuggestedPriority(report),
       status: report.status === "Submitted" ? "Needs Review" as const : report.status
     };
     const result = await saveIncidentReport(nextReport);
-    setMessage(result.savedToCloud ? `${report.incidentId} manager response saved.` : `${report.incidentId} manager response was not saved. ${result.error || result.structuredError || "Sign in and try again."}`);
+    const fullySaved = result.savedToCloud && result.savedToStructuredCloud;
+    setMessage(fullySaved ? `${report.incidentId} escalation action saved.` : `${report.incidentId} escalation action was not fully saved. ${result.structuredError || result.error || "Sign in and try again."}`);
     await loadReports();
   }
 
@@ -200,8 +231,6 @@ export function IncidentReviewQueue() {
         </select>
       </label>
 
-      <IncidentBaselineChart reports={reports} clients={clients} houses={houses} />
-
       <div className="mt-5 grid gap-4">
         {!queuedReports.length ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
@@ -214,6 +243,7 @@ export function IncidentReviewQueue() {
           const client = clients.find((item) => item.id === report.participantId);
           const colour = getClientColourScheme(report.participantId, client?.colourSchemeId);
           const reportKey = getReportKey(report);
+          const escalationPriority = report.escalationPriority || getSuggestedPriority(report);
           return (
           <div key={reportKey} className={`rounded-md border border-l-4 bg-slate-50 p-4 ${colour.border}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -224,7 +254,10 @@ export function IncidentReviewQueue() {
                 <p className="mt-1 text-sm font-semibold text-slate-700">House/service: {report.houseName || "Unassigned house/service"}</p>
                 <span className={`mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${colour.badge}`}>{colour.label} client file</span>
               </div>
-              <StatusBadge label={report.status} tone={report.status === "Locked" ? "green" : report.status === "Needs Review" ? "amber" : "blue"} />
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge label={escalationPriority} tone={escalationPriority === "Critical" ? "red" : escalationPriority === "Urgent" ? "amber" : "blue"} />
+                <StatusBadge label={report.status} tone={report.status === "Locked" ? "green" : report.status === "Needs Review" ? "amber" : "blue"} />
+              </div>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_0.8fr]">
@@ -236,6 +269,28 @@ export function IncidentReviewQueue() {
               </div>
 
               <div className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                    Escalation priority
+                    <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={escalationPriority} onChange={(event) => updateReport(reportKey, { escalationPriority: event.target.value as IncidentEscalationPriority })}>
+                      {escalationPriorities.map((priority) => <option key={priority}>{priority}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                    Action due
+                    <input type="date" className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={report.escalationDueDate || ""} onChange={(event) => updateReport(reportKey, { escalationDueDate: event.target.value })} />
+                  </label>
+                </div>
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Assigned manager
+                  <input className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={report.escalationAssignedTo || ""} onChange={(event) => updateReport(reportKey, { escalationAssignedTo: event.target.value })} placeholder="Manager responsible for follow-up" />
+                </label>
+                <fieldset className="rounded-md border border-slate-200 bg-white p-3">
+                  <legend className="px-1 text-sm font-semibold text-slate-700">Required actions</legend>
+                  <div className="mt-2 grid gap-2">
+                    {escalationActionOptions.map((action) => <label key={action} className="flex min-h-10 items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={(report.escalationActions || []).includes(action)} onChange={() => toggleEscalationAction(reportKey, report, action)} />{action}</label>)}
+                  </div>
+                </fieldset>
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
                   Review status
                   <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={report.status} onChange={(event) => updateReport(reportKey, { status: event.target.value as IncidentStatus })}>
@@ -260,6 +315,8 @@ export function IncidentReviewQueue() {
           </div>
         );})}
       </div>
+
+      <IncidentBaselineChart reports={reports} clients={clients} houses={houses} />
 
       <div className="mt-5 flex items-start gap-3 rounded-md border border-amber-100 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
         <ShieldCheck size={18} className="mt-0.5 shrink-0" aria-hidden="true" />

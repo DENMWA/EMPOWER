@@ -161,3 +161,17 @@ test("incident selectors trust Supabase RLS results and remain client first", as
   assert.match(form, /getHousesForClient\(accessibleHouses, selectedParticipant\)/);
   assert.match(form, /Who is this incident about\?/);
 });
+
+test("submitted incidents expose an actionable admin escalation workflow", async () => {
+  const [queue, dashboard, records] = await Promise.all([
+    source("components/admin/IncidentReviewQueue.tsx"),
+    source("components/admin/AdminDashboard.tsx"),
+    source("lib/incident-records.ts")
+  ]);
+  assert.match(queue, /Escalation priority/);
+  assert.match(queue, /Assigned manager/);
+  assert.match(queue, /Required actions/);
+  assert.match(queue, /escalationDueDate/);
+  assert.match(dashboard, /Incident escalations/);
+  assert.match(records, /IncidentEscalationPriority/);
+});
