@@ -7,7 +7,7 @@ import { ProgressNoteCollectionExport } from "@/components/notes/ProgressNoteCol
 import { PdfDownloadButton } from "@/components/admin/PdfDownloadButton";
 import { ReportingInsightsChart } from "@/components/admin/ReportingInsightsChart";
 import { SavedRecordsSummary } from "@/components/admin/SavedRecordsSummary";
-import { ArrowRight, BarChart3, Building2, ClipboardCheck, Download, FileWarning, Radio, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Building2, ClipboardCheck, Download, FileWarning, Radio, ReceiptText, ShieldCheck, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { getRosterReportSummary, type RosterReportPeriod, type RosterShift } from "@/lib/roster";
@@ -18,12 +18,16 @@ import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-re
 import { HouseComparisonReport } from "@/components/admin/HouseComparisonReport";
 import { StaffIncidentReportingStats } from "@/components/admin/StaffIncidentReportingStats";
 import { ClientIncidentMetrics } from "@/components/admin/ClientIncidentMetrics";
+import { ClientInvoiceMetrics } from "@/components/admin/ClientInvoiceMetrics";
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantStaffInvites, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
+import { nativeBillingUpdatedEvent, type NativeBillingRecords } from "@/lib/native-billing";
+import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
 
 const periods: RosterReportPeriod[] = ["weekly", "fortnightly", "monthly"];
-const reportSections = ["service-trends", "client-incidents", "staff-reporting", "house-comparison", "records", "exports"];
+const reportSections = ["service-trends", "client-incidents", "client-invoices", "staff-reporting", "house-comparison", "records", "exports"];
+const emptyBillingRecords: NativeBillingRecords = { shifts: [], pricingVersions: [], supportItems: [], agreements: [], agreementItems: [], invoices: [], invoiceLines: [] };
 
 export default function AdminReportsPage() {
   const [savedDocuments, setSavedDocuments] = useState<StoredDocumentRecord[]>([]);
@@ -33,24 +37,29 @@ export default function AdminReportsPage() {
   const [savedHouses, setSavedHouses] = useState<HouseRecord[]>([]);
   const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
   const [savedStaff, setSavedStaff] = useState<StaffRecord[]>([]);
+  const [billingRecords, setBillingRecords] = useState<NativeBillingRecords>(emptyBillingRecords);
   const [activeSection, setActiveSection] = useState("service-trends");
   const today = new Date().toISOString().slice(0, 10);
   const unverifiedDocuments = savedDocuments.filter((doc) => !doc.status.toLowerCase().includes("verified"));
   const incidentsAwaitingReview = savedIncidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
   const notesAwaitingCompletion = savedRosterShifts.filter((shift) => shift.status === "Note Required" || (shift.noteRequired && !shift.noteCompleted)).length;
   const linkedStaff = savedStaff.filter((staff) => staff.authUserId).length;
+  const pendingInvoices = billingRecords.invoices.filter((invoice) => ["draft", "review_required", "approved"].includes(invoice.status)).length;
+  const paidInvoices = billingRecords.invoices.filter((invoice) => invoice.paymentStatus === "paid").length;
   const priorityCount = incidentsAwaitingReview.length + unverifiedDocuments.length + notesAwaitingCompletion;
   const priorityHref = incidentsAwaitingReview.length ? "#client-incidents" : unverifiedDocuments.length ? "#records" : notesAwaitingCompletion ? "#service-trends" : "#house-comparison";
 
   useEffect(() => {
-    function loadReports() {
+    async function loadReports() {
       getTenantDocumentRecords().then(setSavedDocuments).catch(() => setSavedDocuments([]));
       getSavedIncidentReports().then((items) => setSavedIncidents(items.map((item) => item.report))).catch(() => setSavedIncidents([]));
       getTenantRetainedRecords("progress-note").then(setSavedProgressNotes).catch(() => setSavedProgressNotes([]));
       loadTenantRosterShifts().then((result) => setSavedRosterShifts(result.shifts)).catch(() => setSavedRosterShifts([]));
       getTenantHouses().then(setSavedHouses).catch(() => setSavedHouses([]));
-      getTenantClients().then(setSavedClients).catch(() => setSavedClients([]));
-      getTenantStaffInvites().then(setSavedStaff).catch(() => setSavedStaff([]));
+      const [clients, staff] = await Promise.all([getTenantClients().catch(() => []), getTenantStaffInvites().catch(() => [])]);
+      setSavedClients(clients);
+      setSavedStaff(staff);
+      loadTenantNativeBillingRecords(clients, staff).then(setBillingRecords).catch(() => setBillingRecords(emptyBillingRecords));
     }
 
     loadReports();
@@ -60,6 +69,7 @@ export default function AdminReportsPage() {
     window.addEventListener(housesUpdatedEvent, loadReports);
     window.addEventListener("empowernotes:roster-updated", loadReports);
     window.addEventListener(staffUpdatedEvent, loadReports);
+    window.addEventListener(nativeBillingUpdatedEvent, loadReports);
     window.addEventListener("focus", loadReports);
     return () => {
       window.clearInterval(refreshInterval);
@@ -68,6 +78,7 @@ export default function AdminReportsPage() {
       window.removeEventListener(housesUpdatedEvent, loadReports);
       window.removeEventListener("empowernotes:roster-updated", loadReports);
       window.removeEventListener(staffUpdatedEvent, loadReports);
+      window.removeEventListener(nativeBillingUpdatedEvent, loadReports);
       window.removeEventListener("focus", loadReports);
     };
   }, []);
@@ -104,11 +115,13 @@ export default function AdminReportsPage() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{priorityCount ? `${priorityCount} items currently require attention across incidents, evidence, and shift documentation.` : "No urgent reporting gaps detected across the current organisation records."}</p>
               <a href={priorityHref} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-teal-300 px-4 text-sm font-bold text-slate-950 shadow-sm hover:bg-teal-200 focus:outline focus:outline-2 focus:outline-teal-100">{priorityCount ? "Open priority intelligence" : "Review service performance"}<ArrowRight size={17} aria-hidden="true" /></a>
             </div>
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 sm:grid-cols-4 lg:grid-cols-2">
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 sm:grid-cols-3">
               <CommandMetric icon={ShieldCheck} label="Open incidents" value={incidentsAwaitingReview.length} tone="red" />
               <CommandMetric icon={FileWarning} label="Evidence gaps" value={unverifiedDocuments.length} tone="amber" />
               <CommandMetric icon={Building2} label="Live services" value={savedHouses.length} tone="sky" />
               <CommandMetric icon={Users} label="Linked staff" value={`${linkedStaff}/${savedStaff.length}`} tone="teal" />
+              <CommandMetric icon={ReceiptText} label="Pending invoices" value={pendingInvoices} tone="amber" />
+              <CommandMetric icon={ReceiptText} label="Paid invoices" value={paidInvoices} tone="teal" />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4 border-t border-white/10 bg-white/[0.03] px-5 py-3 text-xs font-semibold text-slate-400"><span className="inline-flex items-center gap-2 text-teal-200"><Radio size={14} aria-hidden="true" />Tenant-isolated live records</span><span>{savedClients.length} clients monitored</span><span>{savedProgressNotes.length} progress records</span><span>{savedIncidents.length} incident records</span></div>
@@ -118,6 +131,7 @@ export default function AdminReportsPage() {
           <nav className="flex min-w-max gap-2" aria-label="Report workspace sections">
             <ReportJump href="#service-trends" icon={BarChart3} label="Service trends" value={savedProgressNotes.length + savedIncidents.length} active={activeSection === "service-trends"} />
             <ReportJump href="#client-incidents" icon={ShieldCheck} label="Client incidents" value={savedClients.length} active={activeSection === "client-incidents"} />
+            <ReportJump href="#client-invoices" icon={ReceiptText} label="Invoices" value={billingRecords.invoices.length} active={activeSection === "client-invoices"} />
             <ReportJump href="#staff-reporting" icon={Users} label="Staff reporting" value={savedStaff.length} active={activeSection === "staff-reporting"} />
             <ReportJump href="#house-comparison" icon={Building2} label="Houses" value={savedHouses.length} active={activeSection === "house-comparison"} />
             <ReportJump href="#records" icon={ClipboardCheck} label="Records" value={savedProgressNotes.length} active={activeSection === "records"} />
@@ -126,6 +140,7 @@ export default function AdminReportsPage() {
         </div>
         <div id="service-trends" className="scroll-mt-24"><ReportingInsightsChart /></div>
         <div id="client-incidents" className="scroll-mt-24"><ClientIncidentMetrics clients={savedClients} incidents={savedIncidents} /></div>
+        <div id="client-invoices" className="scroll-mt-24"><ClientInvoiceMetrics clients={savedClients} invoices={billingRecords.invoices} /></div>
         <div id="staff-reporting" className="scroll-mt-24"><StaffIncidentReportingStats incidents={savedIncidents} staff={savedStaff} /></div>
         <div id="house-comparison" className="scroll-mt-24"><HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} /></div>
         <div id="records" className="scroll-mt-24"><SavedRecordsSummary /></div>
