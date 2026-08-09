@@ -9,6 +9,7 @@ export type StaffRecord = StaffUser & {
   inviteStatus: "Invite sent" | "Draft" | "Active" | "Suspended";
   createdAt: string;
   adminPermissions?: AdminPermission[];
+  authUserId?: string;
 };
 
 const staffStorageKey = "empowernotes:staff";
@@ -104,6 +105,7 @@ type SupabaseStaffInviteRow = {
   house_access_mode?: StaffRecord["houseAccessMode"] | null;
   created_at: string;
   admin_permissions?: AdminPermission[] | null;
+  auth_user_id?: string | null;
 };
 
 function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
@@ -120,7 +122,8 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
     assignedHouseIds: row.assigned_house_ids || [],
     inviteStatus: row.invite_status,
     createdAt: row.created_at,
-    adminPermissions: row.admin_permissions || []
+    adminPermissions: row.admin_permissions || [],
+    authUserId: row.auth_user_id || undefined
   };
 }
 

@@ -15,6 +15,7 @@ export type StoredIncidentReport = {
   location: string;
   participant: string;
   reporter: string;
+  reportedByUserId?: string;
   status: IncidentStatus;
   incidentTypes: string[];
   whatHappened: string;
@@ -63,6 +64,7 @@ type SupabaseIncidentReportRow = {
   house_name: string | null;
   participant_name: string | null;
   reporter_name: string | null;
+  reported_by: string | null;
   incident_date: string;
   incident_time: string;
   location: string | null;
@@ -121,16 +123,18 @@ export async function getSavedIncidentReports() {
 
 export async function saveIncidentReport(report: StoredIncidentReport) {
   const savedIso = new Date().toISOString();
+  const reportedByUserId = getCurrentUserId() || report.reportedByUserId;
+  const reportWithIdentity = { ...report, reportedByUserId };
   const record = {
     id: `incident-${report.participantId || "unassigned-client"}-${report.houseId || "unassigned-house"}-${report.incidentId}`,
     type: "incident-report",
     title: `Incident Report - ${report.participant} - ${report.houseName || "Unassigned house/service"} - ${report.incidentId}`,
-    body: JSON.stringify(report, null, 2),
+    body: JSON.stringify(reportWithIdentity, null, 2),
     savedAt: savedIso
   };
 
   const result = await saveTenantRetainedRecord(record);
-  const structuredResult = await saveStructuredIncidentReport(report);
+  const structuredResult = await saveStructuredIncidentReport(reportWithIdentity);
   if (result.savedToCloud && structuredResult.savedToCloud && typeof window !== "undefined") {
     window.sessionStorage.setItem(`${tenantStorageKey("empowernotes-incident")}:${report.participantId || "unassigned-client"}:${report.houseId || "unassigned-house"}:${report.incidentId}`, record.body);
     window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
@@ -152,6 +156,7 @@ function toStructuredIncidentReport(row: SupabaseIncidentReportRow): StoredIncid
   if (row.incident_payload?.incidentId) {
     return {
       ...row.incident_payload,
+      reportedByUserId: row.reported_by || row.incident_payload.reportedByUserId,
       status: row.status || row.incident_payload.status || "Draft",
       managerReview: row.manager_comments || row.incident_payload.managerReview || ""
     };
@@ -167,6 +172,7 @@ function toStructuredIncidentReport(row: SupabaseIncidentReportRow): StoredIncid
     location: row.location || "",
     participant: row.participant_name || "Unassigned client",
     reporter: row.reporter_name || "",
+    reportedByUserId: row.reported_by || undefined,
     status: row.status || "Draft",
     incidentTypes: row.incident_types || [],
     whatHappened: row.what_happened || "",
@@ -183,7 +189,7 @@ function toStructuredIncidentReport(row: SupabaseIncidentReportRow): StoredIncid
 
 async function getStructuredIncidentReports() {
   const result = await supabaseRequest<SupabaseIncidentReportRow[]>("incident_reports", {
-    query: "select=id,app_incident_id,app_participant_id,house_id,house_name,participant_name,reporter_name,incident_date,incident_time,location,status,incident_types,what_happened,injury_harm_summary,immediate_action_taken,notification_notes,follow_up_notes,manager_comments,property_damage,body_markers,attachments,incident_payload,created_at,updated_at&order=updated_at.desc"
+    query: "select=id,app_incident_id,app_participant_id,house_id,house_name,participant_name,reporter_name,reported_by,incident_date,incident_time,location,status,incident_types,what_happened,injury_harm_summary,immediate_action_taken,notification_notes,follow_up_notes,manager_comments,property_damage,body_markers,attachments,incident_payload,created_at,updated_at&order=updated_at.desc"
   });
 
   if (!result.data || result.error) return [];

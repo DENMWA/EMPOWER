@@ -18,7 +18,18 @@ export async function GET(request: Request) {
     cache: "no-store"
   });
   if (!response.ok) return databaseError(response, "Staff records could not be loaded.");
-  return NextResponse.json(await response.json(), { headers: { "Cache-Control": "no-store" } });
+  const staff = await response.json() as Array<Record<string, unknown> & { email?: string }>;
+  const usersResponse = await fetch(`${context.url}/rest/v1/users?select=id,email&organisation_id=eq.${encodeURIComponent(context.organisationId)}`, {
+    headers: context.headers,
+    cache: "no-store"
+  });
+  const users = usersResponse.ok ? await usersResponse.json() as Array<{ id: string; email: string }> : [];
+  const userIdByEmail = new Map(users.map((user) => [user.email.trim().toLowerCase(), user.id]));
+  const linkedStaff = staff.map((member) => ({
+    ...member,
+    auth_user_id: member.email ? userIdByEmail.get(member.email.trim().toLowerCase()) || null : null
+  }));
+  return NextResponse.json(linkedStaff, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {

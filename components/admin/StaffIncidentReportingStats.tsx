@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ClipboardCheck, Users } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import type { StoredIncidentReport } from "@/lib/incident-records";
+import type { StaffRecord } from "@/lib/staff-records";
 import { cn } from "@/lib/utils";
 
 function isActioned(report: StoredIncidentReport) {
@@ -11,28 +12,36 @@ function isActioned(report: StoredIncidentReport) {
   return report.status === "Locked" || Boolean(review && !review.startsWith("pending manager review"));
 }
 
-export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIncidentReport[] }) {
-  const [selectedReporter, setSelectedReporter] = useState("");
+export function StaffIncidentReportingStats({ incidents, staff }: { incidents: StoredIncidentReport[]; staff: StaffRecord[] }) {
+  const [selectedReporterKey, setSelectedReporterKey] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const services = useMemo(() => Array.from(new Set(incidents.map((incident) => incident.houseName || "Unassigned service"))).sort(), [incidents]);
   const filteredIncidents = useMemo(() => serviceFilter === "all" ? incidents : incidents.filter((incident) => (incident.houseName || "Unassigned service") === serviceFilter), [incidents, serviceFilter]);
   const rows = useMemo(() => {
     const grouped = new Map<string, StoredIncidentReport[]>();
     filteredIncidents.forEach((incident) => {
-      const reporter = incident.reporter?.trim() || "Reporter not recorded";
-      grouped.set(reporter, [...(grouped.get(reporter) || []), incident]);
+      const reporterKey = incident.reportedByUserId || `name:${normaliseName(incident.reporter) || "unknown"}`;
+      grouped.set(reporterKey, [...(grouped.get(reporterKey) || []), incident]);
     });
 
-    return Array.from(grouped, ([reporter, reports]) => ({
-      reporter,
-      total: reports.length,
-      submitted: reports.filter((report) => report.status !== "Draft").length,
-      actioned: reports.filter(isActioned).length,
-      clients: new Set(reports.map((report) => report.participantId).filter(Boolean)).size
-    })).sort((a, b) => b.total - a.total || a.reporter.localeCompare(b.reporter));
-  }, [filteredIncidents]);
+    return Array.from(grouped, ([reporterKey, reports]) => {
+      const linkedStaff = staff.find((member) => member.authUserId === reporterKey)
+        || staff.find((member) => normaliseName(member.name) === normaliseName(reports[0]?.reporter));
+      return {
+        reporterKey,
+        reporter: linkedStaff?.name || reports[0]?.reporter?.trim() || "Reporter not recorded",
+        staffId: linkedStaff?.id || "",
+        role: linkedStaff?.roleLabel || "Staff link unavailable",
+        linked: Boolean(linkedStaff),
+        total: reports.length,
+        submitted: reports.filter((report) => report.status !== "Draft").length,
+        actioned: reports.filter(isActioned).length,
+        clients: new Set(reports.map((report) => report.participantId).filter(Boolean)).size
+      };
+    }).sort((a, b) => b.total - a.total || a.reporter.localeCompare(b.reporter));
+  }, [filteredIncidents, staff]);
   const maximum = Math.max(1, ...rows.map((row) => row.total));
-  const selected = rows.find((row) => row.reporter === selectedReporter) || rows[0];
+  const selected = rows.find((row) => row.reporterKey === selectedReporterKey) || rows[0];
 
   return (
     <Card className="overflow-hidden p-0">
@@ -43,11 +52,11 @@ export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIn
           <p className="mt-2 text-sm text-slate-300">Live reporting volume, submission completion, and manager action by recorded reporter.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={serviceFilter} onChange={(event) => { setServiceFilter(event.target.value); setSelectedReporter(""); }} className="min-h-10 rounded-md border border-white/15 bg-white/10 px-3 text-sm font-semibold text-white focus:outline focus:outline-2 focus:outline-teal-300" aria-label="Filter staff incident statistics by service">
+          <select value={serviceFilter} onChange={(event) => { setServiceFilter(event.target.value); setSelectedReporterKey(""); }} className="min-h-10 rounded-md border border-white/15 bg-white/10 px-3 text-sm font-semibold text-white focus:outline focus:outline-2 focus:outline-teal-300" aria-label="Filter staff incident statistics by service">
             <option className="text-ink" value="all">All services</option>
             {services.map((service) => <option className="text-ink" key={service} value={service}>{service}</option>)}
           </select>
-          <StatusBadge label={`${rows.length} reporters`} tone="blue" />
+          <StatusBadge label={`${rows.filter((row) => row.linked).length}/${rows.length} staff linked`} tone={rows.every((row) => row.linked) ? "green" : "blue"} />
         </div>
       </div>
 
@@ -56,10 +65,10 @@ export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIn
           {!rows.length ? <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Staff statistics will appear after incident reports are saved with a completed-by name.</div> : null}
           {rows.map((row) => {
             const share = filteredIncidents.length ? Math.round((row.total / filteredIncidents.length) * 100) : 0;
-            const active = selected?.reporter === row.reporter;
+            const active = selected?.reporterKey === row.reporterKey;
             return (
-              <button key={row.reporter} type="button" onClick={() => setSelectedReporter(row.reporter)} aria-pressed={active} className={cn("rounded-md border bg-white p-4 text-left transition hover:border-teal-400 focus:outline focus:outline-2 focus:outline-teal-700", active ? "border-teal-600 ring-1 ring-teal-600" : "border-slate-200")}>
-                <div className="flex items-center justify-between gap-3"><span className="font-semibold text-ink">{row.reporter}</span><span className="text-sm font-bold text-teal-800">{row.total} reports</span></div>
+              <button key={row.reporterKey} type="button" onClick={() => setSelectedReporterKey(row.reporterKey)} aria-pressed={active} className={cn("rounded-md border bg-white p-4 text-left transition hover:border-teal-400 focus:outline focus:outline-2 focus:outline-teal-700", active ? "border-teal-600 ring-1 ring-teal-600" : "border-slate-200")}>
+                <div className="flex items-center justify-between gap-3"><span><span className="block font-semibold text-ink">{row.reporter}</span><span className="mt-0.5 block text-xs font-medium text-slate-500">{row.role}</span></span><span className="text-sm font-bold text-teal-800">{row.total} reports</span></div>
                 <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-sea transition-all" style={{ width: `${Math.max(4, (row.total / maximum) * 100)}%` }} /></div>
                 <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>{share}% of reports</span><span>{row.actioned} actioned</span></div>
               </button>
@@ -71,6 +80,7 @@ export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIn
           <ClipboardCheck size={22} className="text-teal-700" aria-hidden="true" />
           <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-teal-800">Selected reporter</p>
           <h3 className="mt-1 text-xl font-bold text-ink">{selected?.reporter || "No reporting data"}</h3>
+          {selected ? <p className="mt-1 text-sm font-semibold text-slate-600">{selected.role}{selected.linked ? " - verified staff profile" : " - legacy name match"}</p> : null}
           <dl className="mt-4 grid grid-cols-2 gap-3">
             <StaffMetric label="Filed" value={selected?.total || 0} />
             <StaffMetric label="Submitted" value={selected?.submitted || 0} />
@@ -81,6 +91,10 @@ export function StaffIncidentReportingStats({ incidents }: { incidents: StoredIn
       </div>
     </Card>
   );
+}
+
+function normaliseName(value: string | undefined) {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function StaffMetric({ label, value }: { label: string; value: number }) {

@@ -19,6 +19,7 @@ import { HouseComparisonReport } from "@/components/admin/HouseComparisonReport"
 import { StaffIncidentReportingStats } from "@/components/admin/StaffIncidentReportingStats";
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { getTenantStaffInvites, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
 
 const periods: RosterReportPeriod[] = ["weekly", "fortnightly", "monthly"];
 
@@ -29,6 +30,7 @@ export default function AdminReportsPage() {
   const [savedRosterShifts, setSavedRosterShifts] = useState<RosterShift[]>([]);
   const [savedHouses, setSavedHouses] = useState<HouseRecord[]>([]);
   const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
+  const [savedStaff, setSavedStaff] = useState<StaffRecord[]>([]);
   const today = new Date().toISOString().slice(0, 10);
   const unverifiedDocuments = savedDocuments.filter((doc) => !doc.status.toLowerCase().includes("verified"));
   const incidentsAwaitingReview = savedIncidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
@@ -41,6 +43,7 @@ export default function AdminReportsPage() {
       loadTenantRosterShifts().then((result) => setSavedRosterShifts(result.shifts)).catch(() => setSavedRosterShifts([]));
       getTenantHouses().then(setSavedHouses).catch(() => setSavedHouses([]));
       getTenantClients().then(setSavedClients).catch(() => setSavedClients([]));
+      getTenantStaffInvites().then(setSavedStaff).catch(() => setSavedStaff([]));
     }
 
     loadReports();
@@ -49,6 +52,7 @@ export default function AdminReportsPage() {
     window.addEventListener("empowernotes:retained-records-updated", loadReports);
     window.addEventListener(housesUpdatedEvent, loadReports);
     window.addEventListener("empowernotes:roster-updated", loadReports);
+    window.addEventListener(staffUpdatedEvent, loadReports);
     window.addEventListener("focus", loadReports);
     return () => {
       window.clearInterval(refreshInterval);
@@ -56,6 +60,7 @@ export default function AdminReportsPage() {
       window.removeEventListener("empowernotes:retained-records-updated", loadReports);
       window.removeEventListener(housesUpdatedEvent, loadReports);
       window.removeEventListener("empowernotes:roster-updated", loadReports);
+      window.removeEventListener(staffUpdatedEvent, loadReports);
       window.removeEventListener("focus", loadReports);
     };
   }, []);
@@ -79,7 +84,7 @@ export default function AdminReportsPage() {
           </nav>
         </div>
         <div id="service-trends" className="scroll-mt-24"><ReportingInsightsChart /></div>
-        <div id="staff-reporting" className="scroll-mt-24"><StaffIncidentReportingStats incidents={savedIncidents} /></div>
+        <div id="staff-reporting" className="scroll-mt-24"><StaffIncidentReportingStats incidents={savedIncidents} staff={savedStaff} /></div>
         <div id="house-comparison" className="scroll-mt-24"><HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} /></div>
         <div id="records" className="scroll-mt-24"><SavedRecordsSummary /></div>
         <ClientReportColourCards />
