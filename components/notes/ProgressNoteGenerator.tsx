@@ -265,9 +265,10 @@ export function ProgressNoteGenerator() {
   const participantGoals = selectedParticipant?.goals || [];
   const isBowelCare = supportType === "Bowel care";
   const showPersonalCareRecord = supportType === "Personal care";
-  const recordNarrative = isBowelCare ? formatBowelCareSummary() : roughNote;
-  const quality = scoreNoteQuality(recordNarrative, participantGoals.length > 0);
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
+  const isFocusedCareLog = isBowelCare || showMealsAndFluidLog;
+  const recordNarrative = isBowelCare ? formatBowelCareSummary() : showMealsAndFluidLog ? formatMealsAndFluidSummary() : roughNote;
+  const quality = scoreNoteQuality(recordNarrative, participantGoals.length > 0);
   const showMonthlyReport = supportType === "Key Worker Monthly Report";
   const monthlyReportBody = useMemo(() => [
     `Key Worker Monthly Report`,
@@ -467,12 +468,12 @@ export function ProgressNoteGenerator() {
       <Card className="border-teal-100">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">{isBowelCare ? "Care record" : "Progress note studio"}</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : "Improve shift notes without changing the facts"}</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">{isFocusedCareLog ? "Care record" : "Progress note studio"}</p>
+            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : showMealsAndFluidLog ? "Record meals and fluid intake" : "Improve shift notes without changing the facts"}</h2>
           </div>
-          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">{isBowelCare ? "Focused entry" : "Worker-controlled wording"}</span>
+          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">{isFocusedCareLog ? "Focused entry" : "Worker-controlled wording"}</span>
         </div>
-        {!isBowelCare ? <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
+        {!isFocusedCareLog ? <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
           <p className="font-semibold">Fidelity-first improvement</p>
           <p className="mt-1">EmpowerNotes keeps the worker&apos;s original shift note first, then expands only within the documented facts. Missing details are flagged for confirmation instead of being invented.</p>
         </div> : null}
@@ -513,7 +514,7 @@ export function ProgressNoteGenerator() {
           </div>
         </div>
         {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
-        {!isBowelCare ? <>
+        {!isFocusedCareLog ? <>
           <label className="mt-5 block text-sm font-semibold text-slate-700">
             Shift note
             <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
@@ -702,7 +703,7 @@ export function ProgressNoteGenerator() {
             </div>
           </div>
         ) : null}
-        {!isBowelCare ? <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
+        {!isFocusedCareLog ? <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
           {loading ? "Preparing options..." : "Optional: rephrase note"}
         </button> : null}
         {selectedHouse ? (
@@ -726,7 +727,7 @@ export function ProgressNoteGenerator() {
               missingDetails: missing,
               qualityScore: quality.auditReadiness,
               billingEvidenceScore: quality.billingEvidenceScore,
-              photoFiles: isBowelCare ? [] : photoEvidence.map((photo) => photo.file)
+              photoFiles: isFocusedCareLog ? [] : photoEvidence.map((photo) => photo.file)
             })}
           />
         ) : (
@@ -766,7 +767,7 @@ export function ProgressNoteGenerator() {
           />
         </Card>
       ) : null}
-      {!isBowelCare && rewriteOptions.length ? (
+      {!isFocusedCareLog && rewriteOptions.length ? (
         <Card>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -790,11 +791,11 @@ export function ProgressNoteGenerator() {
           </div>
         </Card>
       ) : null}
-      {!isBowelCare ? <div className="grid gap-6 lg:grid-cols-2">
+      {!isFocusedCareLog ? <div className="grid gap-6 lg:grid-cols-2">
         <NoteQualityScore quality={quality} />
         <MissingDetailChecker missing={missing.length ? missing : ["Location", "Exact start and finish time", "Goal link", "Specific follow-up owner"]} />
       </div> : null}
-      {!isBowelCare ? <Card>
+      {!isFocusedCareLog ? <Card>
         <h2 className="text-xl font-semibold text-ink">Goal-linking Assistant</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           {(participantGoals.length ? participantGoals : realMode ? [] : suggestGoalLinks()).map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
