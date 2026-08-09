@@ -14,7 +14,7 @@ export default function AdminTeamPage() {
           description="Invite staff, assign participant/client access, choose roles, and monitor documentation quality from one premium admin surface."
           actions={<StatusBadge label="Owner/admin/service manager only" tone="blue" />}
         />
-        <Section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <Section className="space-y-6">
           <InviteTeamMemberForm />
           <TeamMembersTable />
         </Section>
