@@ -677,12 +677,20 @@ create policy "workers create own notes for assigned participants" on progress_n
   and staff_id = auth.uid()
   and (current_user_is_manager() or assigned_to_participant(participant_id))
 );
-create policy "workers update own draft notes" on progress_notes for update using (
+create policy "workers update own notes and managers update organisation notes"
+on progress_notes
+for update
+to authenticated
+using (
   organisation_id = current_user_organisation_id()
-  and (current_user_is_manager() or staff_id = auth.uid())
-) with check (
+  and (current_user_is_manager() or staff_id = (select auth.uid()))
+)
+with check (
   organisation_id = current_user_organisation_id()
-  and (current_user_is_manager() or staff_id = auth.uid())
+  and (
+    current_user_is_manager()
+    or (staff_id = (select auth.uid()) and assigned_to_participant(participant_id))
+  )
 );
 
 create policy "roster shifts visible to admins only" on roster_shifts for select using (
