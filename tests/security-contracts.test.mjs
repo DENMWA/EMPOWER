@@ -132,3 +132,17 @@ test("shift notes persist against an authorised client and signed-in worker", as
   assert.match(generator, /saveRelatedRecord=.*saveTenantProgressNote/s);
   assert.match(generator, /baseParticipants\.map\(\(participant\)/);
 });
+
+test("client and shift photos remain private path references", async () => {
+  const [migration, clientRecords, noteRecords] = await Promise.all([
+    source("supabase/client-and-note-photos.sql"),
+    source("lib/client-records.ts"),
+    source("lib/progress-note-records.ts")
+  ]);
+
+  assert.match(migration, /profile_photo_path text/);
+  assert.match(migration, /photo_evidence jsonb/);
+  assert.match(clientRecords, /profile_photo_path/);
+  assert.match(noteRecords, /participant-documents|uploadTenantDocumentFile/);
+  assert.doesNotMatch(noteRecords, /getPublicUrl|publicURL/);
+});

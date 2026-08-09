@@ -14,7 +14,7 @@ type RecordActionsProps = {
   filename: string;
   className?: string;
   allowDownload?: boolean;
-  saveRelatedRecord?: () => Promise<{ savedToCloud: boolean; error: string }>;
+  saveRelatedRecord?: () => Promise<{ savedToCloud: boolean; error: string; bodyAppend?: string }>;
 };
 
 export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true, saveRelatedRecord }: RecordActionsProps) {
@@ -24,16 +24,21 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
   async function saveRecord() {
     setSaveState("saving");
     setMessage("Saving to this organisation...");
+    const relatedResult = saveRelatedRecord ? await saveRelatedRecord() : { savedToCloud: true, error: "", bodyAppend: "" };
+    if (!relatedResult.savedToCloud) {
+      setSaveState("failed");
+      setMessage(`Cloud save failed. A recovery draft remains on this device. ${relatedResult.error || "Try again."}`);
+      return;
+    }
     const record = {
       id: recordId,
       type: recordType,
       title,
-      body,
+      body: `${body}${relatedResult.bodyAppend || ""}`,
       savedAt: new Date().toISOString()
     };
     const result = await saveTenantRetainedRecord(record);
-    const relatedResult = result.savedToCloud && saveRelatedRecord ? await saveRelatedRecord() : { savedToCloud: true, error: "" };
-    const savedToCloud = result.savedToCloud && relatedResult.savedToCloud;
+    const savedToCloud = result.savedToCloud;
     setSaveState(savedToCloud ? "saved" : "failed");
     setMessage(savedToCloud
       ? "Saved to this organisation."

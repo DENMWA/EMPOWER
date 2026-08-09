@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
@@ -225,6 +226,7 @@ export function ProgressNoteGenerator() {
   const [progressNoteId] = useState(() => globalThis.crypto?.randomUUID?.() || `progress-note-${Date.now()}`);
   const [roughNote, setRoughNote] = useState("");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
+  const [photoEvidence, setPhotoEvidence] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
   const [supportType, setSupportType] = useState("Community access");
@@ -398,6 +400,22 @@ export function ProgressNoteGenerator() {
     setMissing(checkMissingDetails(transcript));
   }
 
+  function addPhotoEvidence(files: FileList | null) {
+    const images = Array.from(files || []).filter((file) => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024);
+    setPhotoEvidence((current) => [
+      ...current,
+      ...images.slice(0, Math.max(0, 4 - current.length)).map((file) => ({ id: `${file.name}-${file.lastModified}`, file, previewUrl: URL.createObjectURL(file) }))
+    ]);
+  }
+
+  function removePhotoEvidence(id: string) {
+    setPhotoEvidence((current) => {
+      const removed = current.find((photo) => photo.id === id);
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return current.filter((photo) => photo.id !== id);
+    });
+  }
+
   const noteRecordBody = [
     `Client: ${selectedParticipantName}`,
     `House/service: ${selectedHouse?.name ?? "Not selected"}`,
@@ -466,6 +484,28 @@ export function ProgressNoteGenerator() {
           Shift note
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
+        <div className="mt-4 rounded-md border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-ink">Photo evidence</p>
+              <p className="mt-1 text-xs text-slate-500">Up to 4 private images, maximum 5 MB each.</p>
+            </div>
+            <label className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-400">
+              Add photos
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => { addPhotoEvidence(event.target.files); event.target.value = ""; }} />
+            </label>
+          </div>
+          {photoEvidence.length ? (
+            <div className="mt-3 flex flex-wrap gap-3">
+              {photoEvidence.map((photo) => (
+                <div key={photo.id} className="w-28 overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                  <Image src={photo.previewUrl} alt="Shift note evidence preview" width={112} height={84} unoptimized className="h-20 w-full object-cover" />
+                  <button type="button" onClick={() => removePhotoEvidence(photo.id)} className="min-h-9 w-full text-xs font-semibold text-red-700">Remove</button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <GuidedVoiceDocumentation embedded onUseTranscript={applyVoiceTranscript} />
         {showPersonalCareRecord ? (
           <div className="mt-5 rounded-md border border-teal-100 bg-teal-50/60 p-4">
@@ -609,7 +649,8 @@ export function ProgressNoteGenerator() {
               finalNote: noteRecordBody,
               missingDetails: missing,
               qualityScore: quality.auditReadiness,
-              billingEvidenceScore: quality.billingEvidenceScore
+              billingEvidenceScore: quality.billingEvidenceScore,
+              photoFiles: photoEvidence.map((photo) => photo.file)
             })}
           />
         ) : (

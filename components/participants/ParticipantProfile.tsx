@@ -2,6 +2,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import type { Participant } from "@/lib/sample-data";
 import { cn } from "@/lib/utils";
+import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
 
 type ProfileParticipant = Participant & {
   primaryHouseName?: string;
@@ -14,6 +15,7 @@ type ProfileParticipant = Participant & {
   allergies?: string[];
   medications?: string[];
   behaviourSupportNotes?: string;
+  profilePhotoPath?: string;
 };
 
 type ProfileStats = {
@@ -30,7 +32,7 @@ export function ParticipantProfile({ participant, colourSchemeId, stats }: { par
   return (
     <Card className={cn("border-l-4", colour.border)}>
       <div className="flex items-start gap-4">
-        <div className={cn("grid h-12 w-12 place-items-center rounded-md font-bold", colour.avatar)}>{participant.initials}</div>
+        <PrivateClientPhoto path={participant.profilePhotoPath} alt={`${participant.name} profile`} fallback={participant.initials} className={colour.avatar} />
         <div>
           <h2 className="text-xl font-semibold text-ink">{participant.name}</h2>
           {participant.preferredName ? <p className="mt-1 text-sm font-medium text-slate-700">Preferred name: {participant.preferredName}</p> : null}

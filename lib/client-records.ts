@@ -23,6 +23,7 @@ export type ClientRecord = Participant & {
   primaryHouseId?: string;
   primaryHouseName?: string;
   serviceName?: string;
+  profilePhotoPath?: string;
   createdAt: string;
 };
 
@@ -68,6 +69,7 @@ type SupabaseClientRow = {
   primary_house_id: string | null;
   primary_house_name: string | null;
   service_name: string | null;
+  profile_photo_path: string | null;
   ndis_number: string | null;
   preferred_name: string | null;
   date_of_birth: string | null;
@@ -100,6 +102,7 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
     primaryHouseId: row.primary_house_id || undefined,
     primaryHouseName: row.primary_house_name || undefined,
     serviceName: row.service_name || undefined,
+    profilePhotoPath: row.profile_photo_path || undefined,
     ndisNumber: row.ndis_number || undefined,
     preferredName: row.preferred_name || undefined,
     dateOfBirth: row.date_of_birth || undefined,
@@ -125,7 +128,7 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
 export async function getTenantClients() {
   if (isPresentationModeEnabled()) return [];
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
-    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,created_at&order=created_at.desc"
+    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,profile_photo_path,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,created_at&order=created_at.desc"
   });
 
   if (!result.data || result.error) return [];
@@ -159,6 +162,7 @@ export async function saveTenantClient(client: ClientRecord) {
       primary_house_id: client.primaryHouseId || null,
       primary_house_name: client.primaryHouseName || null,
       service_name: client.serviceName || null,
+      profile_photo_path: client.profilePhotoPath || null,
       ndis_number: client.ndisNumber || null,
       preferred_name: client.preferredName || null,
       date_of_birth: client.dateOfBirth || null,

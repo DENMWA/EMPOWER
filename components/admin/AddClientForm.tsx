@@ -1,6 +1,7 @@
 "use client";
 
 import { FilePlus2, Palette, Save } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourOptions } from "@/lib/client-colours";
@@ -11,6 +12,8 @@ import { sampleGoals, users } from "@/lib/sample-data";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { cn } from "@/lib/utils";
+import { buildDocumentStoragePath, uploadTenantDocumentFile } from "@/lib/document-records";
+import { getCurrentOrganisationId } from "@/lib/supabase-rest";
 
 export function AddClientForm() {
   const colourOptions = getClientColourOptions();
@@ -43,6 +46,8 @@ export function AddClientForm() {
   const [primaryHouseId, setPrimaryHouseId] = useState("");
   const [serviceName, setServiceName] = useState("");
   const [colourSchemeId, setColourSchemeId] = useState(colourOptions[0]?.id ?? "sky");
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -104,7 +109,7 @@ export function AddClientForm() {
     const clientId = pendingClientId || createClientId(cleanName);
     if (!pendingClientId) setPendingClientId(clientId);
     const selectedHouse = houses.find((house) => house.id === primaryHouseId);
-    const result = await saveTenantClient({
+    const clientRecord = {
       primaryHouseId,
       primaryHouseName: selectedHouse?.name,
       serviceName: serviceName.trim(),
@@ -137,7 +142,8 @@ export function AddClientForm() {
       documents: [],
       colourSchemeId,
       createdAt: new Date().toISOString()
-    });
+    };
+    let result = await saveTenantClient(clientRecord);
 
     if (result.error && result.error.includes("allows")) {
       setSaved(false);
@@ -156,6 +162,26 @@ export function AddClientForm() {
     }
 
     const savedClientId = result.clientId || clientId;
+    if (profilePhoto) {
+      const organisationId = await getCurrentOrganisationId();
+      const profilePhotoPath = buildDocumentStoragePath({ organisationId, participantId: savedClientId, documentType: "profile-photo", fileName: profilePhoto.name });
+      const upload = await uploadTenantDocumentFile(profilePhoto, profilePhotoPath);
+      if (!upload.uploaded) {
+        setSaved(false);
+        setSaving(false);
+        setSaveFailed(true);
+        setMessage(`The client was saved, but the profile photo failed to upload. ${upload.error || "Try again."}`);
+        return;
+      }
+      result = await saveTenantClient({ ...clientRecord, id: savedClientId, profilePhotoPath });
+      if (!result.savedToCloud) {
+        setSaved(false);
+        setSaving(false);
+        setSaveFailed(true);
+        setMessage(`The photo uploaded, but it could not be linked to the client profile. ${result.error || "Try again."}`);
+        return;
+      }
+    }
     if (selectedHouse && !selectedHouse.clientIds.includes(savedClientId)) {
       const houseResult = await saveTenantHouse({
         ...selectedHouse,
@@ -198,6 +224,19 @@ export function AddClientForm() {
     setCommunication("");
     setRiskAlerts("");
     setServiceName("");
+    chooseProfilePhoto();
+  }
+
+  function chooseProfilePhoto(file?: File) {
+    if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
+    if (!file || !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+      setProfilePhoto(null);
+      setProfilePhotoPreview("");
+      if (file) setMessage("Choose a JPG, PNG or WebP profile photo no larger than 5 MB.");
+      return;
+    }
+    setProfilePhoto(file);
+    setProfilePhotoPreview(URL.createObjectURL(file));
   }
 
   return (
@@ -236,6 +275,19 @@ export function AddClientForm() {
           Participant NDIS number
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={ndisNumber} onChange={(event) => setNdisNumber(event.target.value)} inputMode="numeric" autoComplete="off" />
         </label>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-4 lg:col-span-2">
+          <p className="text-sm font-semibold text-slate-700">Client profile photo</p>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-md border border-slate-200 bg-white text-xs text-slate-500">
+              {profilePhotoPreview ? <Image src={profilePhotoPreview} alt="Client profile preview" width={96} height={96} unoptimized className="h-full w-full object-cover" /> : "No photo"}
+            </div>
+            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-400">
+              Choose profile photo
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => chooseProfilePhoto(event.target.files?.[0])} />
+            </label>
+            {profilePhoto ? <button type="button" onClick={() => chooseProfilePhoto()} className="min-h-11 px-3 text-sm font-semibold text-red-700">Remove</button> : null}
+          </div>
+        </div>
         <div className="rounded-md border border-teal-200 bg-teal-50/60 p-4 lg:col-span-2">
           <h3 className="font-semibold text-ink">House and service assignment</h3>
           <p className="mt-1 text-sm text-slate-600">Required so shift notes, incidents, rostering and reports use the correct service context.</p>

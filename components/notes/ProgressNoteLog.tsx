@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { ChevronDown, ChevronUp, ClipboardList, Search } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
+import { getTenantDocumentDownloadUrl } from "@/lib/document-records";
 
 export function ProgressNoteLog() {
   const [records, setRecords] = useState<RetainedRecord[]>([]);
@@ -61,6 +63,7 @@ export function ProgressNoteLog() {
           const supportDate = extractField(record.body, "Date") || new Date(record.savedAt).toLocaleDateString("en-AU");
           const supportTime = extractField(record.body, "Time");
           const isOpen = openRecordId === record.id;
+          const photoPaths = extractPhotoPaths(record.body);
 
           return (
             <Card key={record.id} className="border-l-4 border-l-teal-600">
@@ -84,7 +87,12 @@ export function ProgressNoteLog() {
                   {isOpen ? "Close note" : "Open note"}
                 </button>
               </div>
-              {isOpen ? <pre className="mt-4 whitespace-pre-wrap rounded-md bg-slate-50 p-4 font-sans text-sm leading-7 text-slate-800">{record.body}</pre> : null}
+              {isOpen ? (
+                <>
+                  <PrivateEvidencePhotos pathKey={photoPaths.join("|")} />
+                  <pre className="mt-4 whitespace-pre-wrap rounded-md bg-slate-50 p-4 font-sans text-sm leading-7 text-slate-800">{record.body.replace(/\n\nPhoto evidence:[\s\S]*$/, "")}</pre>
+                </>
+              ) : null}
             </Card>
           );
         })}
@@ -100,6 +108,26 @@ export function ProgressNoteLog() {
       {loading ? <p className="text-sm font-semibold text-slate-500">Loading saved progress notes...</p> : null}
     </div>
   );
+}
+
+function PrivateEvidencePhotos({ pathKey }: { pathKey: string }) {
+  const [urls, setUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all(pathKey.split("|").filter(Boolean).map((path) => getTenantDocumentDownloadUrl(path))).then((results) => {
+      if (active) setUrls(results.map((result) => result.url).filter(Boolean));
+    });
+    return () => { active = false; };
+  }, [pathKey]);
+
+  if (!urls.length) return null;
+  return <div className="mt-4 flex flex-wrap gap-3">{urls.map((url) => <Image key={url} src={url} alt="Shift note evidence" width={144} height={108} unoptimized className="h-24 w-32 rounded-md border border-slate-200 object-cover" />)}</div>;
+}
+
+function extractPhotoPaths(body: string) {
+  const section = body.split("Photo evidence:")[1] || "";
+  return section.split("\n").map((line) => line.replace(/^\s*-\s*/, "").trim()).filter(Boolean);
 }
 
 function extractField(body: string, field: string) {
