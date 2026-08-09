@@ -1,6 +1,7 @@
-import { Card, StatusBadge } from "@/components/ui";
+import { ArrowRight } from "lucide-react";
+import { ButtonLink, Card, StatusBadge } from "@/components/ui";
 
-export function UpgradePrompt({ title, message, tier = "Provider" }: { title: string; message: string; tier?: string }) {
+export function UpgradePrompt({ title, message, tier = "Provider", upgradeHref }: { title: string; message: string; tier?: string; upgradeHref?: string }) {
   return (
     <Card className="border-amber-200 bg-amber-50/70">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -11,6 +12,13 @@ export function UpgradePrompt({ title, message, tier = "Provider" }: { title: st
         </div>
         <StatusBadge label={tier} tone="amber" />
       </div>
+      {upgradeHref ? (
+        <div className="mt-4">
+          <ButtonLink href={upgradeHref}>
+            <span className="inline-flex items-center gap-2">View plans <ArrowRight size={16} aria-hidden="true" /></span>
+          </ButtonLink>
+        </div>
+      ) : null}
     </Card>
   );
 }

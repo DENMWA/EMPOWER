@@ -36,7 +36,7 @@ export function ProgressIntelligenceSettings() {
         ]} />
       </div>
 
-      <FeatureGate entitlement="customProgressScales">
+      <FeatureGate entitlement="customProgressScales" upgradeHref="/pricing">
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           <MiniBuilder title="Progress scale builder" detail="Provider and Enterprise can define organisation-specific labels and scoring levels." />
           <MiniBuilder title="Baseline templates" detail="Create reusable baseline structures for goals, daily living skills, risk, and support routines." />
