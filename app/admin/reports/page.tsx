@@ -15,6 +15,9 @@ import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
+import { HouseComparisonReport } from "@/components/admin/HouseComparisonReport";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
+import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 
 const periods: RosterReportPeriod[] = ["weekly", "fortnightly", "monthly"];
 
@@ -23,6 +26,8 @@ export default function AdminReportsPage() {
   const [savedIncidents, setSavedIncidents] = useState<StoredIncidentReport[]>([]);
   const [savedProgressNotes, setSavedProgressNotes] = useState<RetainedRecord[]>([]);
   const [savedRosterShifts, setSavedRosterShifts] = useState<RosterShift[]>([]);
+  const [savedHouses, setSavedHouses] = useState<HouseRecord[]>([]);
+  const [savedClients, setSavedClients] = useState<ClientRecord[]>([]);
   const today = new Date().toISOString().slice(0, 10);
   const unverifiedDocuments = savedDocuments.filter((doc) => !doc.status.toLowerCase().includes("verified"));
   const incidentsAwaitingReview = savedIncidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
@@ -33,6 +38,8 @@ export default function AdminReportsPage() {
       getSavedIncidentReports().then((items) => setSavedIncidents(items.map((item) => item.report))).catch(() => setSavedIncidents([]));
       getTenantRetainedRecords("progress-note").then(setSavedProgressNotes).catch(() => setSavedProgressNotes([]));
       loadTenantRosterShifts().then((result) => setSavedRosterShifts(result.shifts)).catch(() => setSavedRosterShifts([]));
+      getTenantHouses().then(setSavedHouses).catch(() => setSavedHouses([]));
+      getTenantClients().then(setSavedClients).catch(() => setSavedClients([]));
     }
 
     loadReports();
@@ -54,6 +61,7 @@ export default function AdminReportsPage() {
       />
       <Section className="space-y-6">
         <ReportingInsightsChart />
+        <HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} />
         <SavedRecordsSummary />
         <ClientReportColourCards />
         <ProgressNoteCollectionExport />
