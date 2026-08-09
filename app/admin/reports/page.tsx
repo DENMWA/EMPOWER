@@ -17,6 +17,7 @@ import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incide
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { HouseComparisonReport } from "@/components/admin/HouseComparisonReport";
 import { StaffIncidentReportingStats } from "@/components/admin/StaffIncidentReportingStats";
+import { ClientIncidentMetrics } from "@/components/admin/ClientIncidentMetrics";
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantStaffInvites, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
@@ -77,6 +78,7 @@ export default function AdminReportsPage() {
         <div className="sticky top-3 z-20 overflow-x-auto rounded-md border border-slate-200 bg-white/95 p-2 shadow-lift backdrop-blur">
           <nav className="flex min-w-max gap-2" aria-label="Report workspace sections">
             <ReportJump href="#service-trends" icon={BarChart3} label="Service trends" value={savedProgressNotes.length + savedIncidents.length} />
+            <ReportJump href="#client-incidents" icon={ShieldCheck} label="Client incidents" value={savedClients.length} />
             <ReportJump href="#staff-reporting" icon={Users} label="Staff reporting" value={new Set(savedIncidents.map((incident) => incident.reporter).filter(Boolean)).size} />
             <ReportJump href="#house-comparison" icon={Building2} label="Houses" value={savedHouses.length} />
             <ReportJump href="#records" icon={ClipboardCheck} label="Records" value={savedProgressNotes.length} />
@@ -84,6 +86,7 @@ export default function AdminReportsPage() {
           </nav>
         </div>
         <div id="service-trends" className="scroll-mt-24"><ReportingInsightsChart /></div>
+        <div id="client-incidents" className="scroll-mt-24"><ClientIncidentMetrics clients={savedClients} incidents={savedIncidents} /></div>
         <div id="staff-reporting" className="scroll-mt-24"><StaffIncidentReportingStats incidents={savedIncidents} staff={savedStaff} /></div>
         <div id="house-comparison" className="scroll-mt-24"><HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} /></div>
         <div id="records" className="scroll-mt-24"><SavedRecordsSummary /></div>
