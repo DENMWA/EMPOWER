@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, LockKeyhole } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, LockKeyhole, UserPlus } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
@@ -129,9 +130,14 @@ export function RosterPage() {
         title="Team scheduling and coverage calendar"
         description="Plan participant supports, assign workers, review coverage, open shift details, and monitor documentation completion from one calendar."
         actions={
-          <button type="button" onClick={() => setCreating(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
-            <CalendarPlus size={18} aria-hidden="true" />Create shift
-          </button>
+          <>
+            <Link href="/admin/staff/new" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
+              <UserPlus size={18} aria-hidden="true" />Add staff
+            </Link>
+            <button type="button" onClick={() => setCreating(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
+              <CalendarPlus size={18} aria-hidden="true" />Create shift
+            </button>
+          </>
         }
       />
 

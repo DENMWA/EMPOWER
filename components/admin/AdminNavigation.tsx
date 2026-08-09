@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, ClipboardList, LayoutDashboard, ReceiptText, Settings, Users } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, LayoutDashboard, ReceiptText, Settings, UserRoundPlus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminNavigation = [
   { label: "Today", href: "/admin", icon: LayoutDashboard },
-  { label: "People", href: "/admin/clients", icon: Users, matches: ["/admin/clients", "/admin/team", "/admin/staff"] },
+  { label: "Clients", href: "/admin/clients", icon: Users },
+  { label: "Staff", href: "/admin/team", icon: UserRoundPlus, matches: ["/admin/team", "/admin/staff"] },
   { label: "Scheduling", href: "/admin/scheduling", icon: CalendarDays },
   { label: "Records", href: "/admin/reviews", icon: ClipboardList, matches: ["/admin/reviews", "/admin/incidents", "/documents"] },
   { label: "Billing", href: "/admin/billing", icon: ReceiptText },
