@@ -189,3 +189,19 @@ test("organisation settings require admin role and password step-up verification
   assert.match(gate, /verificationWindowMs = 15 \* 60 \* 1000/);
   assert.match(gate, /window\.sessionStorage/);
 });
+
+test("staff and client lifecycle controls are full-admin only and preserve records", async () => {
+  const [staffRoute, clientRoute, migration] = await Promise.all([
+    source("app/api/team/staff/route.ts"),
+    source("app/api/admin/clients/status/route.ts"),
+    source("supabase/access-lifecycle-controls.sql")
+  ]);
+  assert.match(staffRoute, /fullAdminRoles\.has\(context\.role\)/);
+  assert.match(staffRoute, /ban_duration/);
+  assert.match(clientRoute, /fullAdminRoles\.has\(access\.role\)/);
+  assert.match(clientRoute, /participants_or_clients/);
+  assert.doesNotMatch(clientRoute, /method:\s*"DELETE"/);
+  assert.match(migration, /access_status/);
+  assert.match(migration, /participants_or_clients[\s\S]*status/);
+  assert.match(migration, /protect_access_lifecycle_fields/);
+});

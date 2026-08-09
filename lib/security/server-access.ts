@@ -11,6 +11,7 @@ type UserProfile = {
   role?: string;
   organisation_id?: string;
   admin_permissions?: unknown;
+  access_status?: string;
 };
 
 export type ServerAccessResult = {
@@ -52,7 +53,7 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
     const authUser = await authResponse.json() as AuthUser;
     if (!authUser.id) return denied(401, "The signed-in account could not be verified.");
     const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/users?select=role,organisation_id,admin_permissions&id=eq.${encodeURIComponent(authUser.id)}&limit=1`,
+      `${supabaseUrl}/rest/v1/users?select=role,organisation_id,admin_permissions,access_status&id=eq.${encodeURIComponent(authUser.id)}&limit=1`,
       {
         headers: { apikey: supabaseAnonKey, Authorization: authorization },
         cache: "no-store"
@@ -63,6 +64,7 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
     const profiles = await profileResponse.json() as UserProfile[];
     const profile = profiles[0];
     if (!profile?.role || !profile.organisation_id) return denied(403, "Your account is not connected to an organisation role.");
+    if (profile.access_status === "suspended") return denied(403, "Your organisation access has been suspended.");
 
     const adminPermissions = normalizeAdminPermissions(profile.admin_permissions);
     if (mode === "admin" && !canAccessAdmin(profile.role, adminPermissions, requiredPermission)) {

@@ -9,6 +9,8 @@ import { getTenantStaffInvites, staffUpdatedEvent, updateTenantStaffInviteStatus
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { accessChangedEvent, currentUserStorageKey, setCurrentAppUser } from "@/lib/user-access";
 import { Eye, MoreHorizontal, Power, RotateCcw } from "lucide-react";
+import { fullAdminRoles } from "@/lib/admin-permissions";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "blue" | "red" }> = {
   "provider-owner": { label: "Owner", tone: "green" },
@@ -25,6 +27,7 @@ export function TeamMembersTable() {
   const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [message, setMessage] = useState("");
+  const [canControlLifecycle, setCanControlLifecycle] = useState(false);
   const allUsers: TeamMember[] = useMemo(() => storedStaff.length ? storedStaff : realMode ? [] : users, [storedStaff, realMode]);
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
 
@@ -36,6 +39,13 @@ export function TeamMembersTable() {
     }
 
     loadRecords();
+    const token = getStoredAccessToken();
+    if (token) {
+      fetch("/api/auth/access?mode=admin&permission=team", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+        .then((response) => response.json())
+        .then((result: { allowed?: boolean; role?: string }) => setCanControlLifecycle(Boolean(result.allowed && result.role && fullAdminRoles.has(result.role))))
+        .catch(() => setCanControlLifecycle(false));
+    }
     window.addEventListener(clientsUpdatedEvent, loadRecords);
     window.addEventListener(housesUpdatedEvent, loadRecords);
     window.addEventListener(staffUpdatedEvent, loadRecords);
@@ -111,8 +121,8 @@ export function TeamMembersTable() {
               const status = storedStatus
                 ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : storedStatus === "Suspended" ? "red" as const : "amber" as const }
                 : inviteStatus[user.id] ?? { label: "Pending", tone: "amber" as const };
-              const canSuspend = Boolean(storedStatus && storedStatus !== "Suspended");
-              const canReactivate = storedStatus === "Suspended";
+              const canSuspend = Boolean(canControlLifecycle && user.role !== "owner" && storedStatus && storedStatus !== "Suspended");
+              const canReactivate = Boolean(canControlLifecycle && user.role !== "owner" && storedStatus === "Suspended");
               const canPreview = storedStatus !== "Suspended";
               return (
                 <tr key={user.id} className="border-b border-slate-100 align-top">

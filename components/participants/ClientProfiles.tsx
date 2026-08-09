@@ -1,25 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Card } from "@/components/ui";
+import { useCallback, useEffect, useState } from "react";
+import { Card, StatusBadge } from "@/components/ui";
 import { ParticipantProfile } from "@/components/participants/ParticipantProfile";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { accessChangedEvent, filterByParticipantAccess } from "@/lib/user-access";
+import { fullAdminRoles } from "@/lib/admin-permissions";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
+import { Power, RotateCcw } from "lucide-react";
 
 export function ClientProfiles({ admin = false }: { admin?: boolean }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [documents, setDocuments] = useState<StoredDocumentRecord[]>([]);
   const [incidents, setIncidents] = useState<StoredIncidentReport[]>([]);
   const [progressNotes, setProgressNotes] = useState<RetainedRecord[]>([]);
+  const [canControlLifecycle, setCanControlLifecycle] = useState(false);
+  const [message, setMessage] = useState("");
   const visibleClients = admin ? clients : filterByParticipantAccess(clients);
+
+  const refreshClientRecords = useCallback(async () => {
+    const [savedClients, savedDocuments, savedIncidents, savedProgressNotes] = await Promise.all([
+      getTenantClients(admin && canControlLifecycle).catch(() => []),
+      getTenantDocumentRecords().catch(() => []),
+      getSavedIncidentReports().then((items) => items.map((item) => item.report)).catch(() => []),
+      getTenantRetainedRecords("progress-note").catch(() => [])
+    ]);
+
+    setClients(savedClients);
+    setDocuments(savedDocuments);
+    setIncidents(savedIncidents);
+    setProgressNotes(savedProgressNotes);
+  }, [admin, canControlLifecycle]);
 
   useEffect(() => {
     refreshClientRecords();
-  }, []);
+    if (admin) verifyLifecycleAccess();
+  }, [admin, refreshClientRecords]);
+
+  async function verifyLifecycleAccess() {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    try {
+      const response = await fetch("/api/auth/access?mode=admin&permission=people", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      const result = await response.json() as { allowed?: boolean; role?: string };
+      setCanControlLifecycle(Boolean(result.allowed && result.role && fullAdminRoles.has(result.role)));
+    } catch {
+      setCanControlLifecycle(false);
+    }
+  }
+
+  async function changeClientStatus(client: ClientRecord, status: "active" | "inactive") {
+    const token = getStoredAccessToken();
+    if (!token) return setMessage("Sign in before changing client access.");
+    const response = await fetch("/api/admin/clients/status", {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: client.id, status })
+    });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) return setMessage(result.error || "The client status could not be updated.");
+    setMessage(`${client.name} is now ${status === "inactive" ? "inactive" : "active"}. Historical records have been retained.`);
+    await refreshClientRecords();
+  }
 
   useEffect(() => {
     function refreshClients() {
@@ -36,21 +82,7 @@ export function ClientProfiles({ admin = false }: { admin?: boolean }) {
       window.removeEventListener(documentsUpdatedEvent, refreshClients);
       window.removeEventListener("empowernotes:retained-records-updated", refreshClients);
     };
-  }, []);
-
-  async function refreshClientRecords() {
-    const [savedClients, savedDocuments, savedIncidents, savedProgressNotes] = await Promise.all([
-      getTenantClients().catch(() => []),
-      getTenantDocumentRecords().catch(() => []),
-      getSavedIncidentReports().then((items) => items.map((item) => item.report)).catch(() => []),
-      getTenantRetainedRecords("progress-note").catch(() => [])
-    ]);
-
-    setClients(savedClients);
-    setDocuments(savedDocuments);
-    setIncidents(savedIncidents);
-    setProgressNotes(savedProgressNotes);
-  }
+  }, [refreshClientRecords]);
 
   if (!visibleClients.length) {
     return (
@@ -71,14 +103,26 @@ export function ClientProfiles({ admin = false }: { admin?: boolean }) {
 
   return (
     <div className="space-y-5">
+      {message ? <p className="rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800" aria-live="polite">{message}</p> : null}
       <div className="grid gap-6 lg:grid-cols-2">
         {visibleClients.map((client) => (
-          <ParticipantProfile
-            key={client.id}
-            participant={client}
-            colourSchemeId={client.colourSchemeId}
-            stats={getClientProfileStats(client, { documents, incidents, progressNotes })}
-          />
+          <div key={client.id} className="space-y-2">
+            {admin ? (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                <StatusBadge label={client.status === "inactive" ? "Inactive client" : "Active client"} tone={client.status === "inactive" ? "red" : "green"} />
+                {canControlLifecycle ? client.status === "inactive" ? (
+                  <button type="button" onClick={() => changeClientStatus(client, "active")} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-emerald-200 px-3 text-sm font-semibold text-emerald-700"><RotateCcw size={16} aria-hidden="true" />Reactivate</button>
+                ) : (
+                  <button type="button" onClick={() => changeClientStatus(client, "inactive")} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-700"><Power size={16} aria-hidden="true" />Deactivate</button>
+                ) : null}
+              </div>
+            ) : null}
+            <ParticipantProfile
+              participant={client}
+              colourSchemeId={client.colourSchemeId}
+              stats={getClientProfileStats(client, { documents, incidents, progressNotes })}
+            />
+          </div>
         ))}
       </div>
     </div>

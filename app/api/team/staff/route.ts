@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyServerAccess } from "@/lib/security/server-access";
 import { normalizeAdminPermissions } from "@/lib/admin-permissions";
+import { fullAdminRoles } from "@/lib/admin-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,18 @@ export async function PATCH(request: Request) {
   if (!body.id || !body.inviteStatus || !inviteStatuses.has(body.inviteStatus)) {
     return NextResponse.json({ error: "Select a valid staff record and invitation status." }, { status: 400 });
   }
+  if (!fullAdminRoles.has(context.role)) {
+    return NextResponse.json({ error: "Only an owner or full administrator can suspend or reactivate staff." }, { status: 403 });
+  }
+
+  const targetResponse = await fetch(`${context.url}/rest/v1/staff_invites?select=id,email,role&id=eq.${encodeURIComponent(body.id)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}&limit=1`, {
+    headers: context.headers,
+    cache: "no-store"
+  });
+  const targets = targetResponse.ok ? await targetResponse.json() as Array<{ id: string; email: string; role: string }> : [];
+  const target = targets[0];
+  if (!target) return NextResponse.json({ error: "The staff record could not be found." }, { status: 404 });
+  if (target.role === "owner") return NextResponse.json({ error: "The organisation owner cannot be suspended here." }, { status: 403 });
 
   const response = await fetch(`${context.url}/rest/v1/staff_invites?id=eq.${encodeURIComponent(body.id)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}`, {
     method: "PATCH",
@@ -62,6 +75,28 @@ export async function PATCH(request: Request) {
     body: JSON.stringify({ invite_status: body.inviteStatus })
   });
   if (!response.ok) return databaseError(response, "Staff status could not be updated.");
+  const publicUserResponse = await fetch(`${context.url}/rest/v1/users?select=id,email&id=eq.${encodeURIComponent(target.email)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}&limit=1`, {
+    headers: context.headers,
+    cache: "no-store"
+  });
+  const publicUsers = publicUserResponse.ok ? await publicUserResponse.json() as Array<{ id: string; email: string }> : [];
+  const publicUser = publicUsers[0];
+  if (publicUser) {
+    const accessStatus = body.inviteStatus === "Suspended" ? "suspended" : "active";
+    const userUpdate = await fetch(`${context.url}/rest/v1/users?id=eq.${encodeURIComponent(publicUser.id)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}`, {
+      method: "PATCH",
+      headers: { ...context.headers, Prefer: "return=minimal" },
+      body: JSON.stringify({ access_status: accessStatus })
+    });
+    if (!userUpdate.ok) return databaseError(userUpdate, "Staff access status could not be updated.");
+
+    const authUpdate = await fetch(`${context.url}/auth/v1/admin/users/${encodeURIComponent(publicUser.id)}`, {
+      method: "PUT",
+      headers: context.headers,
+      body: JSON.stringify({ ban_duration: body.inviteStatus === "Suspended" ? "876000h" : "none" })
+    });
+    if (!authUpdate.ok) return databaseError(authUpdate, "Staff authentication access could not be updated.");
+  }
   return NextResponse.json(await response.json());
 }
 

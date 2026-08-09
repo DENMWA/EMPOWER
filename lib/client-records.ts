@@ -25,6 +25,7 @@ export type ClientRecord = Participant & {
   serviceName?: string;
   profilePhotoPath?: string;
   createdAt: string;
+  status?: "active" | "inactive";
 };
 
 const clientStorageKey = "empowernotes:clients";
@@ -85,6 +86,7 @@ type SupabaseClientRow = {
   emergency_contacts: Array<{ name?: string; relationship?: string; phone?: string }> | null;
   key_worker_id: string | null;
   created_at: string;
+  status?: "active" | "inactive" | null;
 };
 
 function toClientRecord(row: SupabaseClientRow): ClientRecord {
@@ -121,14 +123,15 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
       phone: contact.phone || ""
     })),
     keyWorkerId: row.key_worker_id || undefined,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    status: row.status === "inactive" ? "inactive" : "active"
   };
 }
 
-export async function getTenantClients() {
+export async function getTenantClients(includeInactive = false) {
   if (isPresentationModeEnabled()) return [];
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
-    query: "select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,profile_photo_path,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,created_at&order=created_at.desc"
+    query: `select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,profile_photo_path,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,status,created_at${includeInactive ? "" : "&status=eq.active"}&order=created_at.desc`
   });
 
   if (!result.data || result.error) return [];
@@ -176,7 +179,8 @@ export async function saveTenantClient(client: ClientRecord) {
       medications: client.medications || [],
       behaviour_support_notes: client.behaviourSupportNotes || null,
       emergency_contacts: client.emergencyContacts || [],
-      key_worker_id: client.keyWorkerId || null
+      key_worker_id: client.keyWorkerId || null,
+      status: client.status || "active"
     }
   });
 
