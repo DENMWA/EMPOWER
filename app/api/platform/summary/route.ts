@@ -7,10 +7,14 @@ export const dynamic = "force-dynamic";
 type OrganisationRow = {
   id: string;
   name: string;
+  created_at?: string | null;
+  provider_type?: string | null;
   subscription_tier?: string | null;
   subscription_status?: string | null;
   trial_ends_at?: string | null;
   subscription_current_period_end?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
 };
 
 export async function GET(request: Request) {
@@ -23,7 +27,7 @@ export async function GET(request: Request) {
 
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
   const organisationResponse = await fetch(
-    `${url}/rest/v1/organisations?select=id,name,subscription_tier,subscription_status,trial_ends_at,subscription_current_period_end&order=created_at.desc&limit=100`,
+    `${url}/rest/v1/organisations?select=id,name,created_at,provider_type,subscription_tier,subscription_status,trial_ends_at,subscription_current_period_end,stripe_customer_id,stripe_subscription_id&order=created_at.desc&limit=100`,
     { headers, cache: "no-store" }
   );
   if (!organisationResponse.ok) return NextResponse.json({ error: "Organisation analytics could not be loaded." }, { status: 502 });
@@ -35,12 +39,19 @@ export async function GET(request: Request) {
       countRows(url, headers, "participants_or_clients", organisation.id),
       countRows(url, headers, "incident_reports", organisation.id)
     ]);
+    const status = normaliseSubscriptionStatus(organisation.subscription_status);
     return {
       id: organisation.id,
       name: organisation.name,
+      signedUpAt: organisation.created_at || "",
+      providerType: organisation.provider_type || "organisation",
       tier: organisation.subscription_tier || "solo",
-      status: organisation.subscription_status || "trialing",
-      renewal: organisation.subscription_current_period_end || organisation.trial_ends_at || "",
+      status,
+      billingState: getBillingState(status, Boolean(organisation.stripe_subscription_id)),
+      trialEndsAt: organisation.trial_ends_at || "",
+      currentPeriodEnd: organisation.subscription_current_period_end || "",
+      hasStripeCustomer: Boolean(organisation.stripe_customer_id),
+      hasStripeSubscription: Boolean(organisation.stripe_subscription_id),
       users,
       clients,
       incidents
@@ -55,10 +66,23 @@ export async function GET(request: Request) {
       activeClients: organisations.reduce((total, item) => total + item.clients, 0),
       incidents: organisations.reduce((total, item) => total + item.incidents, 0),
       trialAccounts: organisations.filter((item) => item.status === "trialing").length,
+      payingAccounts: organisations.filter((item) => item.billingState === "Paying").length,
       paymentRisk: organisations.filter((item) => item.status === "past_due").length
     },
     organisations
   });
+}
+
+function normaliseSubscriptionStatus(status?: string | null) {
+  return (status || "trialing").trim().toLowerCase();
+}
+
+function getBillingState(status: string, hasStripeSubscription: boolean) {
+  if (status === "trialing") return "Free trial";
+  if (status === "past_due" || status === "unpaid") return "Payment issue";
+  if (status === "active" && hasStripeSubscription) return "Paying";
+  if (status === "active") return "Active (manual)";
+  return "Inactive";
 }
 
 async function countRows(url: string, headers: Record<string, string>, table: string, organisationId: string) {

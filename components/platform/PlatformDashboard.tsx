@@ -136,8 +136,23 @@ export function PlatformDashboard() {
 
 type LivePlatformSummary = {
   generatedAt: string;
-  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; paymentRisk: number };
-  organisations: Array<{ id: string; name: string; tier: string; status: string; renewal: string; users: number; clients: number; incidents: number }>;
+  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; payingAccounts: number; paymentRisk: number };
+  organisations: Array<{
+    id: string;
+    name: string;
+    signedUpAt: string;
+    providerType: string;
+    tier: string;
+    status: string;
+    billingState: string;
+    trialEndsAt: string;
+    currentPeriodEnd: string;
+    hasStripeCustomer: boolean;
+    hasStripeSubscription: boolean;
+    users: number;
+    clients: number;
+    incidents: number;
+  }>;
 };
 
 function LivePlatformDataPending() {
@@ -168,27 +183,50 @@ function LivePlatformDataPending() {
         {data ? <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} />
-            <PlatformMetric label="Active users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" />
-            <PlatformMetric label="Incidents" value={data.summary.incidents} detail="Across tenant workspaces" icon={AlertTriangle} tone="amber" />
-            <PlatformMetric label="Payment risk" value={data.summary.paymentRisk} detail="Past-due organisations" icon={CreditCard} tone="green" />
+            <PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Stripe subscriptions active" icon={CreditCard} tone="green" />
+            <PlatformMetric label="Free trials" value={data.summary.trialAccounts} detail="Organisations evaluating" icon={CalendarClock} tone="blue" />
+            <PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due organisations" icon={AlertTriangle} tone="amber" />
           </div>
           <SystemHealthPanel />
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-ink">Live organisations</h2>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-sea">Subscriptions</p>
+                <h2 className="mt-1 text-xl font-semibold text-ink">Organisation register</h2>
+              </div>
               <StatusBadge label={`Updated ${new Date(data.generatedAt).toLocaleString("en-AU")}`} tone="green" />
             </div>
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Organisation</th><th className="py-3 pr-4">Plan</th><th className="py-3 pr-4">Users</th><th className="py-3 pr-4">Clients</th><th className="py-3 pr-4">Incidents</th><th className="py-3 pr-4">Status</th><th className="py-3">Renewal</th></tr></thead>
-                <tbody>{data.organisations.map((organisation) => <tr key={organisation.id} className="border-b border-slate-100"><td className="py-3 pr-4 font-semibold text-ink">{organisation.name}</td><td className="py-3 pr-4 capitalize">{organisation.tier}</td><td className="py-3 pr-4">{organisation.users}</td><td className="py-3 pr-4">{organisation.clients}</td><td className="py-3 pr-4">{organisation.incidents}</td><td className="py-3 pr-4"><StatusBadge label={organisation.status} tone={organisation.status === "past_due" ? "amber" : organisation.status === "active" ? "green" : "blue"} /></td><td className="py-3">{organisation.renewal ? new Date(organisation.renewal).toLocaleDateString("en-AU") : "Not set"}</td></tr>)}</tbody>
+              <table className="w-full min-w-[1040px] text-left text-sm">
+                <thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Organisation</th><th className="py-3 pr-4">Signed up</th><th className="py-3 pr-4">Type</th><th className="py-3 pr-4">Tier</th><th className="py-3 pr-4">Subscription</th><th className="py-3 pr-4">Trial / renewal</th><th className="py-3 pr-4">Users</th><th className="py-3">Clients</th></tr></thead>
+                <tbody>{data.organisations.map((organisation) => {
+                  const relevantDate = organisation.billingState === "Free trial" ? organisation.trialEndsAt : organisation.currentPeriodEnd;
+                  const tone = organisation.billingState === "Paying" ? "green" : organisation.billingState === "Payment issue" ? "amber" : organisation.billingState === "Inactive" ? "red" : "blue";
+                  return <tr key={organisation.id} className="border-b border-slate-100 align-top">
+                    <td className="py-3 pr-4"><p className="font-semibold text-ink">{organisation.name}</p><p className="mt-1 text-xs text-slate-500">{organisation.hasStripeCustomer ? "Billing profile connected" : "No billing profile"}</p></td>
+                    <td className="py-3 pr-4">{formatPlatformDate(organisation.signedUpAt)}</td>
+                    <td className="py-3 pr-4 capitalize">{organisation.providerType.replaceAll("_", " ")}</td>
+                    <td className="py-3 pr-4 font-semibold capitalize text-ink">{organisation.tier}</td>
+                    <td className="py-3 pr-4"><StatusBadge label={organisation.billingState} tone={tone} /><p className="mt-1 text-xs capitalize text-slate-500">{organisation.status.replaceAll("_", " ")}</p></td>
+                    <td className="py-3 pr-4">{formatPlatformDate(relevantDate)}</td>
+                    <td className="py-3 pr-4">{organisation.users}</td>
+                    <td className="py-3">{organisation.clients}</td>
+                  </tr>;
+                })}</tbody>
               </table>
             </div>
+            {!data.organisations.length ? <p className="py-8 text-center text-sm text-slate-600">No organisations have signed up yet.</p> : null}
           </Card>
         </div> : null}
       </Section>
     </>
   );
+}
+
+function formatPlatformDate(value: string) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Not set" : date.toLocaleDateString("en-AU");
 }
 
 function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
