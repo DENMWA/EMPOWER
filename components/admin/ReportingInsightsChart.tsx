@@ -347,8 +347,6 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
   const plotHeight = height - top - bottom;
   const xAt = (index: number) => left + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
   const yAt = (value: number) => top + plotHeight - (value / maxValue) * plotHeight;
-  const visibleMetrics = metrics;
-
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3">
       <svg viewBox={`0 0 ${width} ${height}`} className="min-h-[280px] min-w-[560px] w-full" role="img" aria-label="Interactive line chart. Select a point to view its exact value.">
@@ -362,12 +360,12 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
           );
         })}
         {points.map((point, index) => <text key={point.label} x={xAt(index)} y={height - 10} textAnchor="middle" className="fill-slate-600 text-[11px] font-semibold">{point.label}</text>)}
-        {visibleMetrics.map((metric) => {
-          const coordinates = points.map((point, index) => `${xAt(index)},${yAt(point[metric.key])}`).join(" ");
-          const muted = selectedMetric !== "all" && selectedMetric !== metric.key;
+        {metrics.map((metric) => {
+          const coordinates = points.map((point, index) => ({ x: xAt(index), y: yAt(point[metric.key]) }));
+          const emphasised = selectedMetric === metric.key;
           return (
-            <g key={metric.key} opacity={muted ? 0.22 : 1}>
-              <polyline points={coordinates} fill="none" stroke={metric.lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+            <g key={metric.key}>
+              <path d={createSmoothPath(coordinates)} fill="none" stroke={metric.lineColor} strokeWidth={emphasised ? 5 : 3} strokeLinejoin="round" strokeLinecap="round" className="transition-all" />
               {points.map((point, index) => {
                 const selection = { period: point.label, metric: metric.label, value: point[metric.key] };
                 const selected = selectedPoint?.period === selection.period && selectedPoint.metric === selection.metric;
@@ -401,6 +399,20 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
       </svg>
     </div>
   );
+}
+
+function createSmoothPath(points: Array<{ x: number; y: number }>) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  return points.slice(0, -1).reduce((path, point, index) => {
+    const previous = points[index - 1] || point;
+    const next = points[index + 1];
+    const afterNext = points[index + 2] || next;
+    const controlOne = { x: point.x + (next.x - previous.x) / 6, y: point.y + (next.y - previous.y) / 6 };
+    const controlTwo = { x: next.x - (afterNext.x - point.x) / 6, y: next.y - (afterNext.y - point.y) / 6 };
+    return `${path} C ${controlOne.x} ${controlOne.y}, ${controlTwo.x} ${controlTwo.y}, ${next.x} ${next.y}`;
+  }, `M ${points[0].x} ${points[0].y}`);
 }
 
 function dedupeRecords(records: RetainedRecord[]) {
