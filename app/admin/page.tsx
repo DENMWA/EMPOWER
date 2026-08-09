@@ -1,10 +1,10 @@
 import { AdminGate } from "@/components/admin/AdminGate";
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
+import { AdminHome } from "@/components/admin/AdminHome";
 
 export default function AdminPage() {
   return (
     <AdminGate>
-      <AdminDashboard />
+      <AdminHome />
     </AdminGate>
   );
 }

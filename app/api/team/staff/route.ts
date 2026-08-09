@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyServerAccess } from "@/lib/security/server-access";
+import { normalizeAdminPermissions } from "@/lib/admin-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   const context = await getContext(request);
   if (context.response) return context.response;
 
-  const response = await fetch(`${context.url}/rest/v1/staff_invites?select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,created_at&organisation_id=eq.${encodeURIComponent(context.organisationId)}&order=created_at.desc`, {
+  const response = await fetch(`${context.url}/rest/v1/staff_invites?select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,admin_permissions,created_at&organisation_id=eq.${encodeURIComponent(context.organisationId)}&order=created_at.desc`, {
     headers: context.headers,
     cache: "no-store"
   });
@@ -39,7 +40,8 @@ export async function POST(request: Request) {
       invite_status: body.inviteStatus,
       assigned_participant_ids: body.assignedParticipantIds || [],
       house_access_mode: body.houseAccessMode === "all" ? "all" : "selected",
-      assigned_house_ids: body.assignedHouseIds || []
+      assigned_house_ids: body.assignedHouseIds || [],
+      admin_permissions: normalizeAdminPermissions(body.adminPermissions)
     })
   });
   if (!response.ok) return databaseError(response, "Staff permissions could not be saved.");
@@ -72,6 +74,7 @@ type StaffInput = {
   assignedParticipantIds?: string[];
   houseAccessMode?: string;
   assignedHouseIds?: string[];
+  adminPermissions?: unknown;
 };
 
 function validateStaff(body: StaffInput, currentRole: string) {
@@ -80,11 +83,14 @@ function validateStaff(body: StaffInput, currentRole: string) {
   if (!body.inviteStatus || !inviteStatuses.has(body.inviteStatus)) return "Select a valid invitation status.";
   if (body.role === "owner" && currentRole !== "owner") return "Only the organisation owner can grant owner access.";
   if (body.role === "admin" && !["owner", "admin"].includes(currentRole)) return "Only an owner or admin can grant administrator access.";
+  if (normalizeAdminPermissions(body.adminPermissions).length && !["owner", "admin", "sole_provider"].includes(currentRole)) {
+    return "Only an owner or administrator can assign manager functions.";
+  }
   return "";
 }
 
 async function getContext(request: Request) {
-  const access = await verifyServerAccess(request, "admin");
+  const access = await verifyServerAccess(request, "admin", "team");
   if (!access.allowed) return { response: NextResponse.json({ error: access.reason }, { status: access.status }), url: "", organisationId: "", role: "", headers: {} };
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

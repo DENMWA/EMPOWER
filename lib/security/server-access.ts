@@ -1,4 +1,4 @@
-const adminRoles = new Set(["owner", "admin", "service_manager", "sole_provider"]);
+import { canAccessAdmin, normalizeAdminPermissions, type AdminPermission } from "@/lib/admin-permissions";
 
 type AccessMode = "admin" | "platform";
 
@@ -10,6 +10,7 @@ type AuthUser = {
 type UserProfile = {
   role?: string;
   organisation_id?: string;
+  admin_permissions?: unknown;
 };
 
 export type ServerAccessResult = {
@@ -20,9 +21,10 @@ export type ServerAccessResult = {
   email: string;
   role: string;
   organisationId: string;
+  adminPermissions: AdminPermission[];
 };
 
-export async function verifyServerAccess(request: Request, mode: AccessMode): Promise<ServerAccessResult> {
+export async function verifyServerAccess(request: Request, mode: AccessMode, requiredPermission?: AdminPermission): Promise<ServerAccessResult> {
   const denied = (status: number, reason: string): ServerAccessResult => ({
     allowed: false,
     status,
@@ -30,7 +32,8 @@ export async function verifyServerAccess(request: Request, mode: AccessMode): Pr
     userId: "",
     email: "",
     role: "",
-    organisationId: ""
+    organisationId: "",
+    adminPermissions: []
   });
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -49,7 +52,7 @@ export async function verifyServerAccess(request: Request, mode: AccessMode): Pr
     const authUser = await authResponse.json() as AuthUser;
     if (!authUser.id) return denied(401, "The signed-in account could not be verified.");
     const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/users?select=role,organisation_id&id=eq.${encodeURIComponent(authUser.id)}&limit=1`,
+      `${supabaseUrl}/rest/v1/users?select=role,organisation_id,admin_permissions&id=eq.${encodeURIComponent(authUser.id)}&limit=1`,
       {
         headers: { apikey: supabaseAnonKey, Authorization: authorization },
         cache: "no-store"
@@ -61,7 +64,10 @@ export async function verifyServerAccess(request: Request, mode: AccessMode): Pr
     const profile = profiles[0];
     if (!profile?.role || !profile.organisation_id) return denied(403, "Your account is not connected to an organisation role.");
 
-    if (mode === "admin" && !adminRoles.has(profile.role)) return denied(403, "Administrator access is required.");
+    const adminPermissions = normalizeAdminPermissions(profile.admin_permissions);
+    if (mode === "admin" && !canAccessAdmin(profile.role, adminPermissions, requiredPermission)) {
+      return denied(403, requiredPermission ? "This admin function has not been assigned to your account." : "Administrator access is required.");
+    }
 
     if (mode === "platform") {
       const ownerEmails = new Set(
@@ -81,7 +87,8 @@ export async function verifyServerAccess(request: Request, mode: AccessMode): Pr
       userId: authUser.id,
       email: authUser.email || "",
       role: profile.role,
-      organisationId: profile.organisation_id
+      organisationId: profile.organisation_id,
+      adminPermissions
     };
   } catch {
     return denied(503, "Secure access verification is temporarily unavailable.");

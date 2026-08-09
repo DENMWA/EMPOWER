@@ -6,7 +6,7 @@ import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
 const tiers = new Set<SubscriptionTier>(["solo", "practice", "provider"]);
 
 export async function POST(request: Request) {
-  const access = await verifyServerAccess(request, "admin");
+  const access = await verifyServerAccess(request, "admin", "billing");
   if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: access.status });
 
   const input = await request.json().catch(() => ({})) as { tier?: SubscriptionTier };

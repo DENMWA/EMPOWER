@@ -10,7 +10,8 @@ test("privileged server access verifies the Supabase user and stored organisatio
   const access = await source("lib/security/server-access.ts");
   assert.match(access, /\/auth\/v1\/user/);
   assert.match(access, /users\?select=role,organisation_id/);
-  assert.match(access, /adminRoles\.has\(profile\.role\)/);
+  assert.match(access, /canAccessAdmin\(profile\.role, adminPermissions, requiredPermission\)/);
+  assert.match(access, /admin_permissions/);
   assert.match(access, /PLATFORM_OWNER_EMAILS/);
 });
 
@@ -101,7 +102,7 @@ test("staff writes use the verified server tenant rather than browser supplied o
     source("app/api/team/staff/route.ts"),
     source("lib/staff-records.ts")
   ]);
-  assert.match(route, /verifyServerAccess\(request, "admin"\)/);
+  assert.match(route, /verifyServerAccess\(request, "admin", "team"\)/);
   assert.match(route, /organisation_id: context\.organisationId/);
   assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(client, /fetch\("\/api\/team\/staff"/);
@@ -181,7 +182,7 @@ test("organisation settings require admin role and password step-up verification
     source("app/admin/settings/page.tsx"),
     source("components/admin/SettingsSecurityGate.tsx")
   ]);
-  assert.match(page, /<AdminGate>/);
+  assert.match(page, /<AdminGate permission="settings">/);
   assert.match(page, /<SettingsSecurityGate>/);
   assert.match(gate, /signInWithPassword/);
   assert.match(gate, /\/api\/auth\/access\?mode=admin/);

@@ -57,7 +57,7 @@ export default function AdminReviewsPage() {
   }, []);
 
   return (
-    <AdminGate>
+    <AdminGate permission="shift_verification">
       <ServerFeatureGate category="operations" feature="managerReview" title="Manager review requires Practice or above">
       <PageHeader
         eyebrow="Admin note review"

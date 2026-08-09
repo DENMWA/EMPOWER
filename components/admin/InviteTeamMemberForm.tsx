@@ -11,6 +11,7 @@ import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-records";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
+import { adminPermissionOptions, delegatedManagerRoles, type AdminPermission } from "@/lib/admin-permissions";
 
 export function InviteTeamMemberForm() {
   const [name, setName] = useState("");
@@ -28,6 +29,7 @@ export function InviteTeamMemberForm() {
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [pendingStaffId, setPendingStaffId] = useState("");
+  const [adminPermissions, setAdminPermissions] = useState<AdminPermission[]>([]);
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const accessibleHouseIds = useMemo(() => houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds, [assignedHouseIds, houseAccessMode, houses]);
   const houseScopedParticipants = useMemo(() => {
@@ -89,6 +91,10 @@ export function InviteTeamMemberForm() {
     setAssignedHouseIds((current) => current.includes(houseId) ? current.filter((item) => item !== houseId) : [...current, houseId]);
   }
 
+  function toggleAdminPermission(permission: AdminPermission) {
+    setAdminPermissions((current) => current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission]);
+  }
+
   async function saveInvite(action: "sent" | "saved") {
     const cleanName = name.trim();
     const cleanEmail = email.trim();
@@ -116,7 +122,8 @@ export function InviteTeamMemberForm() {
       houseAccessMode,
       assignedHouseIds: houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds,
       inviteStatus: inviteStatus === "active" ? "Active" as const : action === "sent" ? "Invite sent" as const : "Draft" as const,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : []
     };
 
     const result = await saveTenantStaffInvite(record);
@@ -142,7 +149,8 @@ export function InviteTeamMemberForm() {
         name: cleanName,
         email: cleanEmail,
         role,
-        roleLabel: roleLabelFor(role)
+        roleLabel: roleLabelFor(role),
+        adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : []
       });
       setSaved(emailResult.ok);
       setMessage(emailResult.ok
@@ -173,6 +181,23 @@ export function InviteTeamMemberForm() {
         </div>
         <StatusBadge label={saved ? "Staff saved" : "Admin save"} tone={saved ? "green" : "blue"} />
       </div>
+      {delegatedManagerRoles.has(role) ? (
+        <div className="mt-5 rounded-md border border-teal-200 bg-teal-50/50 p-4">
+          <p className="text-sm font-semibold text-ink">Manager function access</p>
+          <p className="mt-1 text-sm text-slate-600">Select only the admin functions this manager is responsible for.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {adminPermissionOptions.map((option) => (
+              <label key={option.key} className="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={adminPermissions.includes(option.key)} onChange={() => toggleAdminPermission(option.key)} />
+                <span>
+                  <span className="block font-semibold text-ink">{option.label}</span>
+                  <span className="block text-slate-600">{option.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <label className="block text-sm font-semibold text-slate-700">
           Full name
@@ -263,7 +288,7 @@ export function InviteTeamMemberForm() {
   );
 }
 
-async function sendInvitationEmail(input: { name: string; email: string; role: UserRole; roleLabel: string }) {
+async function sendInvitationEmail(input: { name: string; email: string; role: UserRole; roleLabel: string; adminPermissions: AdminPermission[] }) {
   const accessToken = getStoredAccessToken();
   if (!accessToken) return { ok: false, error: "Sign in before sending invitation emails." };
 

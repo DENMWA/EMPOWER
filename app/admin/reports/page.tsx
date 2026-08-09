@@ -45,7 +45,7 @@ export default function AdminReportsPage() {
   }, []);
 
   return (
-    <AdminGate>
+    <AdminGate permission="reports">
       <PageHeader
         eyebrow="Admin reports"
         title="Status reports for documentation, roster, incidents, and evidence"

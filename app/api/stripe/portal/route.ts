@@ -3,7 +3,7 @@ import { verifyServerAccess } from "@/lib/security/server-access";
 import { getOrganisationBilling, stripeRequest } from "@/lib/stripe/server";
 
 export async function POST(request: Request) {
-  const access = await verifyServerAccess(request, "admin");
+  const access = await verifyServerAccess(request, "admin", "billing");
   if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: access.status });
   const organisation = await getOrganisationBilling(access.organisationId);
   if (!organisation?.stripe_customer_id) return NextResponse.json({ error: "Complete checkout before opening the billing portal." }, { status: 409 });

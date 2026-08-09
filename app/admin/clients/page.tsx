@@ -5,7 +5,7 @@ import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function AdminClientsPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="people">
       <PageHeader
         eyebrow="Client management"
         title="Participant and client profiles"

@@ -8,10 +8,11 @@ import { LockKeyhole } from "lucide-react";
 import { Card, PageHeader, Section } from "@/components/ui";
 import { authSessionChangedEvent } from "@/lib/supabase-auth";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
+import type { AdminPermission } from "@/lib/admin-permissions";
 
 type AccessState = "checking" | "allowed" | "denied";
 
-export function AdminGate({ children }: { children: ReactNode }) {
+export function AdminGate({ children, permission }: { children: ReactNode; permission?: AdminPermission }) {
   const router = useRouter();
   const [state, setState] = useState<AccessState>("checking");
   const [message, setMessage] = useState("Checking your workspace role...");
@@ -26,7 +27,8 @@ export function AdminGate({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch("/api/auth/access?mode=admin", {
+        const query = permission ? `&permission=${encodeURIComponent(permission)}` : "";
+        const response = await fetch(`/api/auth/access?mode=admin${query}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
@@ -47,7 +49,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     void verifyAccess();
     window.addEventListener(authSessionChangedEvent, verifyAccess);
     return () => window.removeEventListener(authSessionChangedEvent, verifyAccess);
-  }, [router]);
+  }, [permission, router]);
 
   if (state === "allowed") return <>{children}</>;
   if (state === "checking") return <div className="min-h-[55vh] bg-mist" aria-label="Checking administrator access" />;

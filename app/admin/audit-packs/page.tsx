@@ -6,7 +6,7 @@ import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 
 export default function AdminAuditPacksPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="reports">
       <ServerFeatureGate category="operations" feature="auditPacks" title="Audit packs require Practice or above">
         <PageHeader
           eyebrow="Audit packs"

@@ -2,27 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, ClipboardList, LayoutDashboard, ReceiptText, Settings, UserRoundPlus, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, LayoutDashboard, ReceiptText, Settings, UserRoundPlus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canAccessAdmin, type AdminPermission } from "@/lib/admin-permissions";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const adminNavigation = [
   { label: "Today", href: "/admin", icon: LayoutDashboard },
-  { label: "Clients", href: "/admin/clients", icon: Users },
-  { label: "Staff", href: "/admin/team", icon: UserRoundPlus, matches: ["/admin/team", "/admin/staff"] },
-  { label: "Scheduling", href: "/admin/scheduling", icon: CalendarDays },
-  { label: "Records", href: "/admin/reviews", icon: ClipboardList, matches: ["/admin/reviews", "/admin/incidents", "/documents"] },
-  { label: "Billing", href: "/admin/billing", icon: ReceiptText },
-  { label: "Reports", href: "/admin/reports", icon: BarChart3, matches: ["/admin/reports", "/admin/progress", "/admin/audit-packs"] },
-  { label: "Settings", href: "/admin/settings", icon: Settings }
+  { label: "Clients", href: "/admin/clients", icon: Users, permission: "people" as AdminPermission },
+  { label: "Staff", href: "/admin/team", icon: UserRoundPlus, matches: ["/admin/team", "/admin/staff"], permission: "team" as AdminPermission },
+  { label: "Scheduling", href: "/admin/scheduling", icon: CalendarDays, permission: "scheduling" as AdminPermission },
+  { label: "Shift review", href: "/admin/reviews", icon: ClipboardList, permission: "shift_verification" as AdminPermission },
+  { label: "Incidents", href: "/admin/incidents", icon: AlertTriangle, permission: "incident_actioning" as AdminPermission },
+  { label: "Billing", href: "/admin/billing", icon: ReceiptText, permission: "billing" as AdminPermission },
+  { label: "Reports", href: "/admin/reports", icon: BarChart3, matches: ["/admin/reports", "/admin/progress", "/admin/audit-packs"], permission: "reports" as AdminPermission },
+  { label: "Settings", href: "/admin/settings", icon: Settings, permission: "settings" as AdminPermission }
 ];
 
 export function AdminNavigation() {
   const pathname = usePathname();
+  const [access, setAccess] = useState<{ role: string; permissions: AdminPermission[] } | null>(null);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    fetch("/api/auth/access?mode=admin", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+      .then((response) => response.json())
+      .then((result: { allowed?: boolean; role?: string; adminPermissions?: AdminPermission[] }) => {
+        if (result.allowed && result.role) setAccess({ role: result.role, permissions: result.adminPermissions || [] });
+      })
+      .catch(() => setAccess(null));
+  }, []);
+
+  const visibleItems = access
+    ? adminNavigation.filter((item) => !item.permission || canAccessAdmin(access.role, access.permissions, item.permission))
+    : adminNavigation.filter((item) => item.href === "/admin");
 
   return (
     <nav className="border-b border-slate-200 bg-slate-50/90" aria-label="Admin workspace navigation">
       <div className="premium-scrollbar mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-2 sm:px-6 lg:px-8">
-        {adminNavigation.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const active = item.href === "/admin"
             ? pathname === "/admin"

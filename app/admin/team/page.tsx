@@ -6,7 +6,7 @@ import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 
 export default function AdminTeamPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="team">
       <ServerFeatureGate category="operations" feature="teamManagement" title="Team management requires Practice or above">
         <PageHeader
           eyebrow="Admin workspace"

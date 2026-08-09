@@ -4,7 +4,7 @@ import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function AddClientPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="people">
       <PageHeader
         eyebrow="Add client"
         title="Create a client profile"

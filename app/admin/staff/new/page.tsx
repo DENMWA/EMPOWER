@@ -4,7 +4,7 @@ import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function AddStaffPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="team">
       <PageHeader
         eyebrow="Add staff"
         title="Invite a new staff member"

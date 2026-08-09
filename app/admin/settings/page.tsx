@@ -17,7 +17,7 @@ const settings = [
 
 export default function AdminSettingsPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="settings">
       <SettingsSecurityGate>
         <PageHeader
           eyebrow="Admin settings"

@@ -4,7 +4,7 @@ import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 
 export default function AdminSchedulingPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="scheduling">
       <ServerFeatureGate category="billing" feature="schedulingEnabled" title="Scheduling is not available on this plan">
         <RosterPage />
       </ServerFeatureGate>

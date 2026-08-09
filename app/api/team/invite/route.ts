@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlanCatalogueEntry } from "@/lib/subscriptions/catalog";
 import { resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
+import { adminPermissionOptions, normalizeAdminPermissions } from "@/lib/admin-permissions";
+import { verifyServerAccess } from "@/lib/security/server-access";
 
 const managerRoles = new Set(["team_leader", "case_manager", "service_manager", "admin", "owner", "sole_provider"]);
 const assignableRoles = new Set(["support_worker", "team_leader", "case_manager", "service_manager", "admin", "owner", "sole_provider"]);
 
 export async function POST(request: NextRequest) {
+  const access = await verifyServerAccess(request, "admin", "team");
+  if (!access.allowed) return NextResponse.json({ ok: false, error: access.reason }, { status: access.status });
   const subscription = await resolveServerSubscriptionContext(request);
   if (!subscription.authenticated || subscription.source !== "supabase") {
     return NextResponse.json({ ok: false, error: subscription.resolutionError || "Sign in before sending invitations." }, { status: 401 });
@@ -62,11 +66,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Manager access is required to send staff invitations." }, { status: 403 });
   }
 
-  const body = await request.json() as { name?: string; email?: string; role?: string; roleLabel?: string };
+  const body = await request.json() as { name?: string; email?: string; role?: string; roleLabel?: string; adminPermissions?: unknown };
   const name = body.name?.trim() || "";
   const email = body.email?.trim().toLowerCase() || "";
   const role = body.role?.trim() || "support_worker";
   const roleLabel = body.roleLabel?.trim() || "Team member";
+  const adminPermissions = normalizeAdminPermissions(body.adminPermissions);
 
   if (!name || !email || !email.includes("@")) {
     return NextResponse.json({ ok: false, error: "Add a valid staff name and email." }, { status: 400 });
@@ -78,6 +83,9 @@ export async function POST(request: NextRequest) {
 
   if ((role === "owner" && profile.role !== "owner") || (role === "admin" && !["owner", "admin"].includes(profile.role))) {
     return NextResponse.json({ ok: false, error: "Only an owner or admin can grant this role." }, { status: 403 });
+  }
+  if (adminPermissions.length && !["owner", "admin", "sole_provider"].includes(profile.role)) {
+    return NextResponse.json({ ok: false, error: "Only an owner or administrator can assign manager functions." }, { status: 403 });
   }
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
@@ -108,7 +116,8 @@ export async function POST(request: NextRequest) {
         data: {
           name,
           role,
-          organisation_id: profile.organisation_id
+          organisation_id: profile.organisation_id,
+          admin_permissions: adminPermissions
         }
       }
     })
@@ -138,7 +147,8 @@ export async function POST(request: NextRequest) {
       name,
       email,
       role,
-      provider_type: "organisation"
+      provider_type: "organisation",
+      admin_permissions: adminPermissions
     })
   });
 
@@ -165,7 +175,7 @@ export async function POST(request: NextRequest) {
       from: sender,
       to: [email],
       subject: "You have been invited to EmpowerNotes",
-      html: invitationEmailHtml({ name, roleLabel, invitationUrl })
+      html: invitationEmailHtml({ name, roleLabel, invitationUrl, adminPermissions })
     })
   });
 
@@ -179,10 +189,12 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, emailId: resendResult.id || null });
 }
 
-function invitationEmailHtml({ name, roleLabel, invitationUrl }: { name: string; roleLabel: string; invitationUrl: string }) {
+function invitationEmailHtml({ name, roleLabel, invitationUrl, adminPermissions }: { name: string; roleLabel: string; invitationUrl: string; adminPermissions: string[] }) {
   const safeName = escapeHtml(name);
   const safeRole = escapeHtml(roleLabel);
   const safeUrl = escapeHtml(invitationUrl);
+  const permissionLabels = adminPermissionOptions.filter((option) => adminPermissions.includes(option.key)).map((option) => option.label);
+  const permissionSummary = permissionLabels.length ? `<p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569"><strong>Assigned functions:</strong> ${escapeHtml(permissionLabels.join(", "))}</p>` : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -193,6 +205,7 @@ function invitationEmailHtml({ name, roleLabel, invitationUrl }: { name: string;
         <h1 style="margin:28px 0 12px;font-size:26px;line-height:1.25">You have been invited</h1>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.6">Hello ${safeName},</p>
         <p style="margin:0 0 24px;font-size:16px;line-height:1.6">Your organisation has invited you to join EmpowerNotes as ${safeRole}.</p>
+        ${permissionSummary}
         <a href="${safeUrl}" style="display:inline-block;background:#087f73;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:4px">Accept invitation</a>
         <p style="margin:26px 0 0;font-size:13px;line-height:1.6;color:#647181">If you were not expecting this invitation, you can ignore this email.</p>
       </div>

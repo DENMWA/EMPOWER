@@ -5,7 +5,7 @@ import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function AdminIncidentsPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="incident_actioning">
       <PageHeader
         eyebrow="Incident review"
         title="Manager incident responses"

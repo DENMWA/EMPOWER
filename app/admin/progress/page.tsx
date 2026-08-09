@@ -5,7 +5,7 @@ import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 
 export default function AdminProgressPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="reports">
       <ServerFeatureGate category="intelligence" feature="enabled" title="Progress intelligence is not available on this plan">
       <PageHeader
         eyebrow="Admin progress intelligence"

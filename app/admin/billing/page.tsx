@@ -14,7 +14,7 @@ const billingLines = [
 
 export default function AdminBillingPage() {
   return (
-    <AdminGate>
+    <AdminGate permission="billing">
       <PageHeader
         eyebrow="Admin billing"
         title="Billing, plan, and usage"

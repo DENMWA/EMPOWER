@@ -3,10 +3,12 @@ import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { checkUserLimit } from "@/lib/subscriptions/client-limits";
 import { tenantStorageKey } from "@/lib/tenant-storage";
+import type { AdminPermission } from "@/lib/admin-permissions";
 
 export type StaffRecord = StaffUser & {
   inviteStatus: "Invite sent" | "Draft" | "Active" | "Suspended";
   createdAt: string;
+  adminPermissions?: AdminPermission[];
 };
 
 const staffStorageKey = "empowernotes:staff";
@@ -71,7 +73,8 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
       inviteStatus: staff.inviteStatus,
       assignedParticipantIds: staff.assignedParticipants,
       houseAccessMode: staff.houseAccessMode || "selected",
-      assignedHouseIds: staff.assignedHouseIds || []
+      assignedHouseIds: staff.assignedHouseIds || [],
+      adminPermissions: staff.adminPermissions || []
   });
 
   const cloudId = result.data?.[0]?.id;
@@ -100,6 +103,7 @@ type SupabaseStaffInviteRow = {
   assigned_house_ids?: string[] | null;
   house_access_mode?: StaffRecord["houseAccessMode"] | null;
   created_at: string;
+  admin_permissions?: AdminPermission[] | null;
 };
 
 function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
@@ -115,7 +119,8 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
     houseAccessMode: row.house_access_mode || "selected",
     assignedHouseIds: row.assigned_house_ids || [],
     inviteStatus: row.invite_status,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    adminPermissions: row.admin_permissions || []
   };
 }
 
