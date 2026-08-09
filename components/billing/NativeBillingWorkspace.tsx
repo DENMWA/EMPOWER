@@ -16,6 +16,7 @@ import {
   createPricingVersionFromManualUpload,
   createServiceAgreement,
   getBudgetUsage,
+  getInvoiceEligibility,
   getNativeBillingRecords,
   linkCompletedRosterService,
   markInvoicePaymentStatus,
@@ -71,7 +72,7 @@ export function NativeBillingWorkspace() {
   useEffect(() => {
     async function loadRecords() {
       const [clientItems, staffItems, noteItems] = await Promise.all([
-        getTenantClients().catch(() => []),
+        getTenantClients(true).catch(() => []),
         getTenantStaffInvites().catch(() => []),
         getTenantRetainedRecords("progress-note").catch(() => [])
       ]);
@@ -134,6 +135,10 @@ export function NativeBillingWorkspace() {
   async function saveAgreement() {
     if (!selectedClient) {
       setMessage("Add and select a client first.");
+      return;
+    }
+    if (selectedClient.status === "inactive") {
+      setMessage("This client is inactive. New service agreements cannot be created; only eligible services already delivered may be invoiced.");
       return;
     }
 
@@ -217,7 +222,7 @@ export function NativeBillingWorkspace() {
 
     setCreatingInvoiceId(serviceId);
     setMessage("Creating invoice draft...");
-    const result = createInvoiceFromShift(shift.id, notes);
+    const result = createInvoiceFromShift(shift.id, notes, selectedClient);
     if (result.error || !result.invoice) {
       setCreatingInvoiceId("");
       setMessage(result.error || "The invoice could not be created.");
@@ -424,6 +429,9 @@ export function NativeBillingWorkspace() {
                 ? records.agreementItems.find((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
                 : undefined;
               const invoiced = Boolean(billingService && records.invoiceLines.some((line) => line.shiftId === billingService.id && line.approvalStatus !== "needs_correction"));
+              const invoiceEligibility = billingService && selectedAgreement
+                ? getInvoiceEligibility(shift.shiftDate, selectedAgreement, selectedClient, `${shift.shiftDate}T${shift.startTime}:00`)
+                : { allowed: true, reason: "" };
               return (
                 <div key={shift.id} className="rounded-md border border-slate-200 p-3">
                   <p className="font-semibold text-ink">{shift.shiftDate} - {shift.supportType}</p>
@@ -433,7 +441,7 @@ export function NativeBillingWorkspace() {
                       <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked to billing" : "Link rendered service"}
                     </button>
                     {billingService && agreementItem ? (
-                      <button type="button" disabled={invoiced || creatingInvoiceId === billingService.id} onClick={() => void generateInvoice(billingService.id)} className="inline-flex items-center gap-2 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+                      <button type="button" disabled={invoiced || creatingInvoiceId === billingService.id || !invoiceEligibility.allowed} onClick={() => void generateInvoice(billingService.id)} className="inline-flex items-center gap-2 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
                         <ReceiptText size={16} aria-hidden="true" />{invoiced ? "Invoice created" : creatingInvoiceId === billingService.id ? "Creating invoice..." : "Create invoice"}
                       </button>
                     ) : billingService ? (
@@ -443,6 +451,7 @@ export function NativeBillingWorkspace() {
                     ) : null}
                   </div>
                   {billingService && !agreementItem ? <p className="mt-3 text-sm font-semibold text-amber-800">Invoice creation needs an active support item and agreed rate for this service agreement.</p> : null}
+                  {billingService && agreementItem && !invoiceEligibility.allowed ? <p className="mt-3 text-sm font-semibold text-red-700">{invoiceEligibility.reason}</p> : null}
                 </div>
               );
             })}

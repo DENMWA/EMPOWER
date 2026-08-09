@@ -205,3 +205,18 @@ test("staff and client lifecycle controls are full-admin only and preserve recor
   assert.match(migration, /participants_or_clients[\s\S]*status/);
   assert.match(migration, /protect_access_lifecycle_fields/);
 });
+
+test("inactive client billing is limited to services inside the agreement and deactivation boundary", async () => {
+  const [billing, workspace, migration] = await Promise.all([
+    source("lib/native-billing.ts"),
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("supabase/deactivated-client-billing-boundary.sql")
+  ]);
+  assert.match(billing, /getInvoiceEligibility/);
+  assert.match(billing, /outside the agreed service period/);
+  assert.match(billing, /after this client was deactivated/);
+  assert.match(workspace, /getTenantClients\(true\)/);
+  assert.match(workspace, /!invoiceEligibility\.allowed/);
+  assert.match(migration, /before insert or update[\s\S]*on public\.native_invoice_lines/);
+  assert.match(migration, /service_started_at > client_deactivated_at/);
+});

@@ -26,6 +26,7 @@ export type ClientRecord = Participant & {
   profilePhotoPath?: string;
   createdAt: string;
   status?: "active" | "inactive";
+  deactivatedAt?: string;
 };
 
 const clientStorageKey = "empowernotes:clients";
@@ -87,6 +88,7 @@ type SupabaseClientRow = {
   key_worker_id: string | null;
   created_at: string;
   status?: "active" | "inactive" | null;
+  deactivated_at?: string | null;
 };
 
 function toClientRecord(row: SupabaseClientRow): ClientRecord {
@@ -124,14 +126,15 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
     })),
     keyWorkerId: row.key_worker_id || undefined,
     createdAt: row.created_at,
-    status: row.status === "inactive" ? "inactive" : "active"
+    status: row.status === "inactive" ? "inactive" : "active",
+    deactivatedAt: row.deactivated_at || undefined
   };
 }
 
 export async function getTenantClients(includeInactive = false) {
   if (isPresentationModeEnabled()) return [];
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
-    query: `select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,profile_photo_path,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,status,created_at${includeInactive ? "" : "&status=eq.active"}&order=created_at.desc`
+    query: `select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,profile_photo_path,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,status,deactivated_at,created_at${includeInactive ? "" : "&status=eq.active"}&order=created_at.desc`
   });
 
   if (!result.data || result.error) return [];

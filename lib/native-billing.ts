@@ -375,12 +375,15 @@ export function linkCompletedRosterService(input: {
   return { shift, error: "" };
 }
 
-export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[]) {
+export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[], client?: ClientRecord) {
   const records = getNativeBillingRecords();
   const shift = records.shifts.find((item) => item.id === shiftId);
   if (!shift) return { invoice: null, lines: [], error: "Shift not found." };
   const agreement = records.agreements.find((item) => item.id === shift.serviceAgreementId);
   if (!agreement) return { invoice: null, lines: [], error: "Service agreement not found." };
+  const serviceDate = formatDateOnly(new Date(shift.startTime));
+  const eligibility = getInvoiceEligibility(serviceDate, agreement, client, shift.startTime);
+  if (!eligibility.allowed) return { invoice: null, lines: [], error: eligibility.reason };
   const agreementItem = records.agreementItems.find((item) => item.serviceAgreementId === agreement.id && item.status === "active");
   if (!agreementItem) return { invoice: null, lines: [], error: "Add a service agreement item before invoicing." };
   const pricingVersion = records.pricingVersions.find((item) => item.id === agreementItem.pricingVersionId);
@@ -390,14 +393,11 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[])
   const evidenceStatus = getEvidenceStatus(shift, notes);
   const priceCheckStatus = getPriceCheckStatus(agreementItem.agreedRate, agreementItem.ndisPriceLimit);
   const duplicate = records.invoiceLines.some((line) => line.shiftId === shift.id && line.approvalStatus !== "needs_correction");
-  const serviceDate = formatDateOnly(new Date(shift.startTime));
-  const agreementWarning = isServiceDateInsideAgreement(serviceDate, agreement) ? "" : "Service date is outside service agreement dates";
   const exceptionReason = [
     duplicate && "Possible duplicate billing detected",
     evidenceStatus === "missing_note" && "Completed shift has no linked support note",
     priceCheckStatus === "over_limit" && "Agreed rate is above selected NDIS price limit",
-    priceCheckStatus === "manual_review_required" && "Pricing version or price limit requires review",
-    agreementWarning
+    priceCheckStatus === "manual_review_required" && "Pricing version or price limit requires review"
   ].filter(Boolean).join("; ");
 
   const invoice: NativeInvoice = {
@@ -452,6 +452,22 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[])
   });
 
   return { invoice, lines: [line], error: "" };
+}
+
+export function getInvoiceEligibility(serviceDate: string, agreement: ServiceAgreement, client?: ClientRecord, serviceTimestamp?: string) {
+  if (!isServiceDateInsideAgreement(serviceDate, agreement)) {
+    return { allowed: false, reason: "Billing is disabled because the service date is outside the agreed service period." };
+  }
+  if (client?.status === "inactive") {
+    const deactivatedAt = client.deactivatedAt || "";
+    const deliveredAfterDeactivation = serviceTimestamp && deactivatedAt
+      ? new Date(serviceTimestamp).getTime() > new Date(deactivatedAt).getTime()
+      : !deactivatedAt || serviceDate > deactivatedAt.slice(0, 10);
+    if (deliveredAfterDeactivation) {
+      return { allowed: false, reason: "Billing is disabled for services delivered after this client was deactivated." };
+    }
+  }
+  return { allowed: true, reason: "" };
 }
 
 export function markInvoicePaymentStatus(invoiceId: string, paymentStatus: PaymentStatus) {

@@ -29,7 +29,10 @@ export async function PATCH(request: Request) {
       "Content-Type": "application/json",
       Prefer: "return=representation"
     },
-    body: JSON.stringify({ status: body.status })
+    body: JSON.stringify({
+      status: body.status,
+      deactivated_at: body.status === "inactive" ? new Date().toISOString() : null
+    })
   });
 
   if (!response.ok) {
