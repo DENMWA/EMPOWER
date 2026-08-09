@@ -199,3 +199,23 @@ export async function getTenantDocumentDownloadUrl(filePath: string, bucket = "p
     error: ""
   };
 }
+
+export async function getTenantDocumentPreviewUrl(filePath: string, bucket = "participant-documents") {
+  const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
+  if (!supabaseUrl || !supabaseAnonKey) return { url: "", error: "Cloud workspace is not configured." };
+  if (!accessToken) return { url: "", error: "Sign in before viewing private files." };
+
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/authenticated/${bucket}/${encodeURI(filePath)}`, {
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    return { url: "", error: error || response.statusText };
+  }
+
+  return { url: URL.createObjectURL(await response.blob()), error: "" };
+}

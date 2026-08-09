@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ChevronDown, ChevronUp, ClipboardList, Search } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
-import { getTenantDocumentDownloadUrl } from "@/lib/document-records";
+import { getTenantDocumentPreviewUrl } from "@/lib/document-records";
 
 export function ProgressNoteLog() {
   const [records, setRecords] = useState<RetainedRecord[]>([]);
@@ -113,10 +113,20 @@ function PrivateEvidencePhotos({ pathKey }: { pathKey: string }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all(pathKey.split("|").filter(Boolean).map((path) => getTenantDocumentDownloadUrl(path))).then((results) => {
-      if (active) setUrls(results.map((result) => result.url).filter(Boolean));
+    let previewUrls: string[] = [];
+    setUrls([]);
+    Promise.all(pathKey.split("|").filter(Boolean).map((path) => getTenantDocumentPreviewUrl(path))).then((results) => {
+      previewUrls = results.map((result) => result.url).filter(Boolean);
+      if (active) {
+        setUrls(previewUrls);
+      } else {
+        previewUrls.forEach((url) => URL.revokeObjectURL(url));
+      }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
   }, [pathKey]);
 
   if (!urls.length) return null;
