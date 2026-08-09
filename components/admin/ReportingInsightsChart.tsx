@@ -186,7 +186,7 @@ export function ReportingInsightsChart() {
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-ink">{periodLabels[period]} comparison</h3>
-              <p className="mt-1 text-sm text-slate-600">Grouped bars compare saved service activity and risk signals across the selected period.</p>
+              <p className="mt-1 text-sm text-slate-600">Compare the same three support signals as interactive bars or colour-matched lines.</p>
             </div>
             <div className="grid grid-cols-2 rounded-md border border-slate-300 bg-white p-1" aria-label="Chart display type">
               <button type="button" onClick={() => setChartType("bar")} aria-pressed={chartType === "bar"} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition", chartType === "bar" ? "bg-sea text-white" : "text-slate-700 hover:bg-slate-50")}>
@@ -325,7 +325,7 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
   const plotHeight = height - top - bottom;
   const xAt = (index: number) => left + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
   const yAt = (value: number) => top + plotHeight - (value / maxValue) * plotHeight;
-  const visibleMetrics = selectedMetric === "all" ? metrics : metrics.filter((metric) => metric.key === selectedMetric);
+  const visibleMetrics = metrics;
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3">
@@ -342,8 +342,9 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
         {points.map((point, index) => <text key={point.label} x={xAt(index)} y={height - 10} textAnchor="middle" className="fill-slate-600 text-[11px] font-semibold">{point.label}</text>)}
         {visibleMetrics.map((metric) => {
           const coordinates = points.map((point, index) => `${xAt(index)},${yAt(point[metric.key])}`).join(" ");
+          const muted = selectedMetric !== "all" && selectedMetric !== metric.key;
           return (
-            <g key={metric.key}>
+            <g key={metric.key} opacity={muted ? 0.22 : 1}>
               <polyline points={coordinates} fill="none" stroke={metric.lineColor} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
               {points.map((point, index) => {
                 const selection = { period: point.label, metric: metric.label, value: point[metric.key] };

@@ -16,6 +16,7 @@ import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRec
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { HouseComparisonReport } from "@/components/admin/HouseComparisonReport";
+import { StaffIncidentReportingStats } from "@/components/admin/StaffIncidentReportingStats";
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 
@@ -69,6 +70,7 @@ export default function AdminReportsPage() {
       />
       <Section className="space-y-6">
         <ReportingInsightsChart />
+        <StaffIncidentReportingStats incidents={savedIncidents} />
         <HouseComparisonReport houses={savedHouses} clients={savedClients} incidents={savedIncidents} shifts={savedRosterShifts} documents={savedDocuments} />
         <SavedRecordsSummary />
         <ClientReportColourCards />
