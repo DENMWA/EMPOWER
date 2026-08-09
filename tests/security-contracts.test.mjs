@@ -42,6 +42,19 @@ test("the public Vercel hostname redirects to the EmpowerNotes domain", async ()
   assert.match(layout, /https:\/\/www\.empowernotes\.org/);
 });
 
+test("admin navigation relies on verified server access", async () => {
+  const [shell, gate] = await Promise.all([
+    source("components/AppShell.tsx"),
+    source("components/admin/AdminGate.tsx")
+  ]);
+
+  assert.match(shell, /item\.href !== "\/admin" \|\| verifiedAdmin/);
+  assert.doesNotMatch(shell, /canAccessAdmin\(currentUser\.role\)/);
+  assert.match(shell, /pathname\.startsWith\("\/admin"\).*verifiedAdmin/);
+  assert.match(gate, /router\.replace\("\/dashboard"\)/);
+  assert.match(gate, /\/api\/auth\/access\?mode=admin/);
+});
+
 test("platform analytics endpoint requires platform-owner verification", async () => {
   const route = await source("app/api/platform/summary/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);

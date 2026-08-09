@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { LockKeyhole } from "lucide-react";
@@ -11,6 +12,7 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 type AccessState = "checking" | "allowed" | "denied";
 
 export function AdminGate({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [state, setState] = useState<AccessState>("checking");
   const [message, setMessage] = useState("Checking your workspace role...");
 
@@ -29,7 +31,12 @@ export function AdminGate({ children }: { children: ReactNode }) {
           cache: "no-store"
         });
         const result = await response.json() as { allowed?: boolean; reason?: string };
-        setState(result.allowed ? "allowed" : "denied");
+        if (!result.allowed) {
+          setState("checking");
+          router.replace("/dashboard");
+          return;
+        }
+        setState("allowed");
         setMessage(result.reason || "Administrator access is required.");
       } catch {
         setState("denied");
@@ -40,7 +47,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     void verifyAccess();
     window.addEventListener(authSessionChangedEvent, verifyAccess);
     return () => window.removeEventListener(authSessionChangedEvent, verifyAccess);
-  }, []);
+  }, [router]);
 
   if (state === "allowed") return <>{children}</>;
   if (state === "checking") return <div className="min-h-[55vh] bg-mist" aria-label="Checking administrator access" />;

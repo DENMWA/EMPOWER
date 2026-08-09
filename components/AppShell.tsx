@@ -10,7 +10,6 @@ import { authSessionChangedEvent, getCurrentAuthStatus, signOutSupabaseSession }
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
-import { accessChangedEvent, canAccessAdmin, getCurrentAppUser, getDefaultAppUser } from "@/lib/user-access";
 import { complianceDisclaimer, cn } from "@/lib/utils";
 import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut } from "lucide-react";
 
@@ -38,7 +37,6 @@ const publicNavItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
-  const [currentUser, setCurrentUser] = useState(getDefaultAppUser);
   const [signedIn, setSignedIn] = useState(false);
   const [verifiedAdmin, setVerifiedAdmin] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -46,14 +44,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isPlatform = pathname.startsWith("/platform");
   const hasWorkspaceAccess = signedIn;
   const visibleNavItems = hasWorkspaceAccess
-    ? navItems.filter((item) => item.href !== "/signin" && item.href !== "/signup" && (item.href !== "/admin" || verifiedAdmin || canAccessAdmin(currentUser.role)))
+    ? navItems.filter((item) => item.href !== "/signin" && item.href !== "/signup" && (item.href !== "/admin" || verifiedAdmin))
     : publicNavItems;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
-    setCurrentUser(getCurrentAppUser());
     const authStatus = getCurrentAuthStatus();
     setSignedIn(authStatus.signedIn);
     setAuthChecked(true);
@@ -101,19 +98,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     void verifyAdminNavigation();
   }, [signedIn]);
-
-  useEffect(() => {
-    function syncAccess() {
-      setCurrentUser(getCurrentAppUser());
-    }
-
-    window.addEventListener(accessChangedEvent, syncAccess);
-    window.addEventListener("storage", syncAccess);
-    return () => {
-      window.removeEventListener(accessChangedEvent, syncAccess);
-      window.removeEventListener("storage", syncAccess);
-    };
-  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("empower-accessibility-mode", String(accessibilityMode));
@@ -213,7 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
         )}
-        {!isPlatform && pathname.startsWith("/admin") && hasWorkspaceAccess ? <AdminNavigation /> : null}
+        {!isPlatform && pathname.startsWith("/admin") && hasWorkspaceAccess && verifiedAdmin ? <AdminNavigation /> : null}
       </header>
       <main>
         <DemoAccessBoundary pathname={pathname} signedIn={hasWorkspaceAccess} authChecked={authChecked}>
