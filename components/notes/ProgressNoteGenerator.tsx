@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Camera, CheckCircle2 } from "lucide-react";
+import { Camera, CheckCircle2, Trash2 } from "lucide-react";
+import { BodyMap, type BodyMarker, type BodyView } from "@/components/incidents/IncidentReportForm";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
@@ -101,6 +102,7 @@ const showerPositionOptions = ["Standing", "Seated on shower chair", "Seated on 
 const personalCareEquipmentOptions = ["Shower chair", "Commode chair", "Hand-held shower", "Grab rails", "Non-slip mat", "Transfer belt", "Hoist", "Personal protective equipment"];
 const personalCareTaskOptions = ["Body wash", "Hair washed", "Intimate care", "Oral care", "Shaving/grooming", "Skin care applied", "Dressing support", "Continence aid changed"];
 const skinObservationOptions = ["No concerns observed", "Redness observed", "Bruising observed", "Rash observed", "Wound/dressing observed", "Pain or discomfort reported", "Concern escalated"];
+const personalCareInjuryTypes = ["Redness", "Bruise", "Rash", "Wound", "Skin tear", "Swelling", "Pain", "Other"];
 
 const bristolStoolOptions = [
   "Not applicable / no bowel movement observed",
@@ -280,6 +282,7 @@ export function ProgressNoteGenerator() {
   const [finishTime, setFinishTime] = useState("12:00");
   const [continenceRecord, setContinenceRecord] = useState<ContinenceCareRecord>(initialContinenceRecord);
   const [personalCareRecord, setPersonalCareRecord] = useState<PersonalCareRecord>(initialPersonalCareRecord);
+  const [personalCareMarkers, setPersonalCareMarkers] = useState<BodyMarker[]>([]);
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
   const accessibleHouses = houses;
@@ -381,6 +384,28 @@ export function ProgressNoteGenerator() {
     }));
   }
 
+  function addPersonalCareMarker(view: BodyView, x: number, y: number, area: string) {
+    const injury = personalCareRecord.skinObservation.includes("Redness") ? "Redness"
+      : personalCareRecord.skinObservation.includes("Bruis") ? "Bruise"
+        : personalCareRecord.skinObservation.includes("Rash") ? "Rash"
+          : personalCareRecord.skinObservation.includes("Wound") ? "Wound"
+            : personalCareRecord.skinObservation.includes("Pain") ? "Pain" : "Other";
+    setPersonalCareMarkers((current) => [...current, {
+      id: `personal-care-marker-${Date.now()}`,
+      view,
+      x,
+      y,
+      area,
+      injury,
+      severity: "Observed",
+      notes: ""
+    }]);
+  }
+
+  function updatePersonalCareMarker(id: string, injury: string) {
+    setPersonalCareMarkers((current) => current.map((marker) => marker.id === id ? { ...marker, injury } : marker));
+  }
+
   function addMealAndFluidEntry() {
     setMealAndFluidLog((current) => [
       ...current,
@@ -404,7 +429,8 @@ export function ProgressNoteGenerator() {
       `Position: ${personalCareRecord.showerPosition}.`,
       `Equipment used: ${personalCareRecord.equipmentUsed.length ? personalCareRecord.equipmentUsed.join(", ") : "None selected"}.`,
       `Care completed: ${personalCareRecord.careTasks.length ? personalCareRecord.careTasks.join(", ") : "None selected"}.`,
-      `Skin observation: ${personalCareRecord.skinObservation}.`
+      `Skin observation: ${personalCareRecord.skinObservation}.`,
+      `Body map locations: ${personalCareMarkers.length ? personalCareMarkers.map((marker) => `${marker.area} (${marker.injury})`).join(", ") : "No locations marked"}.`
     ].join("\n");
   }
 
@@ -656,10 +682,41 @@ export function ProgressNoteGenerator() {
             </fieldset>
             <label className="mt-4 block max-w-xl text-sm font-semibold text-slate-700">
               Skin observation
-              <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={personalCareRecord.skinObservation} onChange={(event) => setPersonalCareRecord((current) => ({ ...current, skinObservation: event.target.value }))}>
+              <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={personalCareRecord.skinObservation} onChange={(event) => {
+                const skinObservation = event.target.value;
+                setPersonalCareRecord((current) => ({ ...current, skinObservation }));
+                if (skinObservation === "No concerns observed") setPersonalCareMarkers([]);
+              }}>
                 {skinObservationOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
+            {personalCareRecord.skinObservation !== "No concerns observed" ? (
+              <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-slate-700">Click the body map to mark each area observed</p>
+                  <BodyMap markers={personalCareMarkers} onAdd={addPersonalCareMarker} onSelect={() => undefined} />
+                </div>
+                <div className="rounded-md border border-red-100 bg-white p-4">
+                  <h4 className="font-bold text-ink">Marked areas</h4>
+                  <div className="mt-3 grid gap-3">
+                    {personalCareMarkers.map((marker) => (
+                      <div key={marker.id} className="rounded-md border border-slate-200 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div><p className="font-semibold text-ink">{marker.area}</p><p className="text-xs capitalize text-slate-500">{marker.view} view</p></div>
+                          <button type="button" onClick={() => setPersonalCareMarkers((current) => current.filter((item) => item.id !== marker.id))} className="grid h-9 w-9 place-items-center rounded-md border border-red-200 text-red-700" aria-label={`Remove ${marker.area} marker`}><Trash2 size={16} aria-hidden="true" /></button>
+                        </div>
+                        <label className="mt-3 block text-xs font-semibold text-slate-600">Observation
+                          <select className="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm" value={marker.injury} onChange={(event) => updatePersonalCareMarker(marker.id, event.target.value)}>
+                            {personalCareInjuryTypes.map((option) => <option key={option}>{option}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                    ))}
+                    {!personalCareMarkers.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No body location marked yet.</p> : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
         {showMealsAndFluidLog ? (

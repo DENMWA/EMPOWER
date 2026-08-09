@@ -12,11 +12,11 @@ import { participants, type Participant } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { filterByParticipantAccess, filterHousesByAccess } from "@/lib/user-access";
 
-type BodyView = "front" | "left" | "right" | "back";
+export type BodyView = "front" | "left" | "right" | "back";
 type Status = "Draft" | "Submitted" | "Needs Review" | "Locked";
 type IncidentTemplateId = "personalInjury" | "propertyDamage" | "absconding" | "behaviour" | "medication" | "medical" | "nearMiss" | "safeguarding" | "other";
 
-type BodyMarker = {
+export type BodyMarker = {
   id: string;
   view: BodyView;
   x: number;
@@ -308,7 +308,7 @@ function getBodyAreaFromPoint(view: BodyView, x: number, y: number) {
   return `${side} foot`;
 }
 
-function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number, area: string) => void; onSelect: (id: string) => void }) {
+export function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyMarker[]; expanded?: boolean; onAdd: (view: BodyView, x: number, y: number, area: string) => void; onSelect: (id: string) => void }) {
   return (
     <button
       type="button"
