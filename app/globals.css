@@ -102,3 +102,24 @@ input::placeholder {
   background: #99f6e4;
   color: var(--ink);
 }
+
+.report-command-band {
+  animation: report-command-enter 420ms ease-out both;
+}
+
+@keyframes report-command-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-command-band {
+    animation: none;
+  }
+}
