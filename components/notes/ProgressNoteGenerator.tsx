@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { Camera, CheckCircle2 } from "lucide-react";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
 import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
@@ -482,17 +483,19 @@ export function ProgressNoteGenerator() {
           Shift note
           <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
         </label>
-        <div className="mt-4 rounded-md border border-slate-200 bg-white p-4">
+        <div className="mt-4 rounded-md border border-teal-200 bg-teal-50/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-ink">Photo evidence</p>
-              <p className="mt-1 text-xs text-slate-500">Up to 4 private images, maximum 5 MB each.</p>
+              <p className="flex items-center gap-2 text-sm font-bold text-ink"><Camera size={18} aria-hidden="true" />Attach photos to this note</p>
+              <p className="mt-1 text-xs text-slate-600">Photos remain private and appear with this note after it is saved. Up to 4 images, maximum 5 MB each.</p>
             </div>
-            <label className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-400">
-              Add photos
+            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-900">
+              <Camera size={17} aria-hidden="true" />
+              Attach photos
               <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => { addPhotoEvidence(event.target.files); event.target.value = ""; }} />
             </label>
           </div>
+          {photoEvidence.length ? <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-800"><CheckCircle2 size={16} aria-hidden="true" />{photoEvidence.length} {photoEvidence.length === 1 ? "photo" : "photos"} ready to save with this note</p> : null}
           {photoEvidence.length ? (
             <div className="mt-3 flex flex-wrap gap-3">
               {photoEvidence.map((photo) => (
