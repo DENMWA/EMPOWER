@@ -175,3 +175,16 @@ test("submitted incidents expose an actionable admin escalation workflow", async
   assert.match(dashboard, /Incident escalations/);
   assert.match(records, /IncidentEscalationPriority/);
 });
+
+test("organisation settings require admin role and password step-up verification", async () => {
+  const [page, gate] = await Promise.all([
+    source("app/admin/settings/page.tsx"),
+    source("components/admin/SettingsSecurityGate.tsx")
+  ]);
+  assert.match(page, /<AdminGate>/);
+  assert.match(page, /<SettingsSecurityGate>/);
+  assert.match(gate, /signInWithPassword/);
+  assert.match(gate, /\/api\/auth\/access\?mode=admin/);
+  assert.match(gate, /verificationWindowMs = 15 \* 60 \* 1000/);
+  assert.match(gate, /window\.sessionStorage/);
+});
