@@ -334,3 +334,18 @@ test("incident review decisions persist manager action and closure history", asy
   assert.match(migration, /incident_actioning/);
   assert.match(migration, /target\.status = 'Locked'/);
 });
+
+test("agreed billing rates save for explicitly authorised billing managers", async () => {
+  const [workspace, atomicSync, repair] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("supabase/atomic-billing-sync.sql"),
+    source("supabase/repair-billing-save-permissions.sql")
+  ]);
+  assert.match(workspace, /await waitForNativeBillingSave\(\)/);
+  assert.match(workspace, /setRecords\(getNativeBillingRecords\(\)\)/);
+  assert.match(workspace, /getBillingError\(error\)/);
+  assert.match(atomicSync, /current_user_can_manage_billing\(\)/);
+  assert.doesNotMatch(atomicSync, /not public\.current_user_is_manager\(\)/);
+  assert.match(repair, /'billing' = any\(coalesce\(u\.admin_permissions/);
+  assert.match(repair, /coalesce\(u\.access_status, 'active'\) = 'active'/);
+});

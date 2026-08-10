@@ -14,8 +14,8 @@ as $$
 declare
   tenant_id uuid := public.current_user_organisation_id();
 begin
-  if tenant_id is null or not public.current_user_is_manager() then
-    raise exception 'Manager access is required.' using errcode = '42501';
+  if tenant_id is null or not public.current_user_can_manage_billing() then
+    raise exception 'Billing access is required.' using errcode = '42501';
   end if;
 
   if exists (
@@ -104,8 +104,8 @@ as $$
 declare
   tenant_id uuid := public.current_user_organisation_id();
 begin
-  if tenant_id is null or not public.current_user_is_manager() then
-    raise exception 'Manager access is required.' using errcode = '42501';
+  if tenant_id is null or not public.current_user_can_manage_billing() then
+    raise exception 'Billing access is required.' using errcode = '42501';
   end if;
 
   if exists (

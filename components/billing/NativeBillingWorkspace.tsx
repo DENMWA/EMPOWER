@@ -159,8 +159,8 @@ export function NativeBillingWorkspace() {
     try {
       await waitForNativeBillingSave();
       setMessage(`${agreement.agreementName} saved for ${selectedClient.name}.`);
-    } catch {
-      setMessage("Agreement was not saved. Check your access and try again.");
+    } catch (error) {
+      setMessage(`Agreement was not saved. ${getBillingError(error)}`);
     } finally {
       setSavingAction("");
     }
@@ -193,9 +193,11 @@ export function NativeBillingWorkspace() {
     });
     try {
       await waitForNativeBillingSave();
+      setRecords(getNativeBillingRecords());
       setMessage(`${selectedSupportItem.supportItemName} saved at $${rate.toFixed(2)} per ${ratePeriod}.`);
-    } catch {
-      setMessage("The agreed rate was not saved. Check your access and try again.");
+      setBudgetAllocated("");
+    } catch (error) {
+      setMessage(`The agreed rate was not saved. ${getBillingError(error)}`);
     } finally {
       setSavingAction("");
     }
@@ -561,4 +563,10 @@ function downloadCsv(filename: string, csv: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function getBillingError(error: unknown) {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return "Check that your account has Billing access and try again.";
 }
