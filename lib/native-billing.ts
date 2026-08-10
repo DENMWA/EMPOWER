@@ -296,6 +296,42 @@ export function addServiceAgreementItem(input: {
   return item;
 }
 
+export function addManualServiceAgreementItem(input: {
+  agreement: ServiceAgreement;
+  supportItemNumber: string;
+  supportItemName: string;
+  agreedRate: number;
+  ratePeriod: "hour" | "week" | "month";
+  budgetAllocated: number;
+  allowTravel?: boolean;
+  allowKilometres?: boolean;
+  allowNonFaceToFace?: boolean;
+  allowCancellations: boolean;
+}) {
+  const item: ServiceAgreementItem = {
+    id: createId("agreement-item"),
+    serviceAgreementId: input.agreement.id,
+    participantId: input.agreement.participantId,
+    supportItemId: "",
+    pricingVersionId: "",
+    supportItemNumber: input.supportItemNumber.trim() || "AGREED-SUPPORT",
+    supportItemName: input.supportItemName.trim(),
+    agreedRate: input.agreedRate,
+    ndisPriceLimit: null,
+    unitType: input.ratePeriod,
+    budgetCategory: "Agreed supports",
+    budgetAllocated: input.budgetAllocated,
+    allowTravel: Boolean(input.allowTravel),
+    allowKilometres: Boolean(input.allowKilometres),
+    allowNonFaceToFace: Boolean(input.allowNonFaceToFace),
+    allowCancellations: input.allowCancellations,
+    status: "active"
+  };
+  const records = getNativeBillingRecords();
+  saveNativeBillingRecords({ ...records, agreementItems: [item, ...records.agreementItems] });
+  return item;
+}
+
 export function createSupportShift(input: {
   participant: ClientRecord;
   staff: StaffRecord | undefined;

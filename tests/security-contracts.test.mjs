@@ -336,14 +336,19 @@ test("incident review decisions persist manager action and closure history", asy
 });
 
 test("agreed billing rates save for explicitly authorised billing managers", async () => {
-  const [workspace, atomicSync, repair] = await Promise.all([
+  const [workspace, billing, atomicSync, repair] = await Promise.all([
     source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts"),
     source("supabase/atomic-billing-sync.sql"),
     source("supabase/repair-billing-save-permissions.sql")
   ]);
   assert.match(workspace, /await waitForNativeBillingSave\(\)/);
   assert.match(workspace, /setRecords\(getNativeBillingRecords\(\)\)/);
   assert.match(workspace, /getBillingError\(error\)/);
+  assert.match(workspace, /addManualServiceAgreementItem/);
+  assert.match(workspace, /Agreed support name/);
+  assert.match(billing, /export function addManualServiceAgreementItem/);
+  assert.match(billing, /pricingVersionId: ""/);
   assert.match(atomicSync, /current_user_can_manage_billing\(\)/);
   assert.doesNotMatch(atomicSync, /not public\.current_user_is_manager\(\)/);
   assert.match(repair, /'billing' = any\(coalesce\(u\.admin_permissions/);

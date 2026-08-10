@@ -10,6 +10,7 @@ import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-re
 import { getTenantStaffInvites } from "@/lib/staff-records";
 import {
   activatePricingVersion,
+  addManualServiceAgreementItem,
   addServiceAgreementItem,
   buildInvoiceCsv,
   createInvoiceFromShift,
@@ -44,6 +45,8 @@ export function NativeBillingWorkspace() {
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [selectedSupportItemId, setSelectedSupportItemId] = useState("");
+  const [manualSupportCode, setManualSupportCode] = useState("");
+  const [manualSupportName, setManualSupportName] = useState("");
   const [agreedRate, setAgreedRate] = useState("");
   const [ratePeriod, setRatePeriod] = useState<"hour" | "week" | "month">("hour");
   const [budgetAllocated, setBudgetAllocated] = useState("");
@@ -167,8 +170,12 @@ export function NativeBillingWorkspace() {
   }
 
   async function addAgreementItem() {
-    if (!selectedAgreement || !activePricingVersion || !selectedSupportItem) {
-      setMessage("Save an active agreement and activate a pricing version first.");
+    if (!selectedAgreement) {
+      setMessage("Save an active service agreement for this client first.");
+      return;
+    }
+    if (!selectedSupportItem && !manualSupportName.trim()) {
+      setMessage("Enter the agreed support name before saving its rate.");
       return;
     }
     const rate = Number(agreedRate);
@@ -179,23 +186,42 @@ export function NativeBillingWorkspace() {
     }
     setSavingAction("item");
     setMessage("Saving agreed rate...");
-    addServiceAgreementItem({
-      agreement: selectedAgreement,
-      supportItem: selectedSupportItem,
-      pricingVersion: activePricingVersion,
-      agreedRate: rate,
-      ratePeriod,
-      budgetAllocated: budget,
-      allowTravel,
-      allowKilometres,
-      allowNonFaceToFace,
-      allowCancellations
-    });
+    if (selectedSupportItem && activePricingVersion) {
+      addServiceAgreementItem({
+        agreement: selectedAgreement,
+        supportItem: selectedSupportItem,
+        pricingVersion: activePricingVersion,
+        agreedRate: rate,
+        ratePeriod,
+        budgetAllocated: budget,
+        allowTravel,
+        allowKilometres,
+        allowNonFaceToFace,
+        allowCancellations
+      });
+    } else {
+      addManualServiceAgreementItem({
+        agreement: selectedAgreement,
+        supportItemNumber: manualSupportCode,
+        supportItemName: manualSupportName,
+        agreedRate: rate,
+        ratePeriod,
+        budgetAllocated: budget,
+        allowTravel,
+        allowKilometres,
+        allowNonFaceToFace,
+        allowCancellations
+      });
+    }
     try {
       await waitForNativeBillingSave();
       setRecords(getNativeBillingRecords());
-      setMessage(`${selectedSupportItem.supportItemName} saved at $${rate.toFixed(2)} per ${ratePeriod}.`);
+      setMessage(`${selectedSupportItem?.supportItemName || manualSupportName} saved at $${rate.toFixed(2)} per ${ratePeriod}.`);
       setBudgetAllocated("");
+      if (!selectedSupportItem) {
+        setManualSupportCode("");
+        setManualSupportName("");
+      }
     } catch (error) {
       setMessage(`The agreed rate was not saved. ${getBillingError(error)}`);
     } finally {
@@ -370,13 +396,19 @@ export function NativeBillingWorkspace() {
               <StatusBadge label={selectedAgreement ? "Active agreement" : "Save agreement first"} tone={selectedAgreement ? "green" : "amber"} />
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              <label className="grid gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
-                Support item
-                <select value={selectedSupportItem?.id || ""} onChange={(event) => setSelectedSupportItemId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
-                  {!supportItems.length ? <option value="">Activate a pricing version first</option> : null}
-                  {supportItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName}</option>)}
-                </select>
-              </label>
+              {supportItems.length ? (
+                <label className="grid gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
+                  Support item
+                  <select value={selectedSupportItem?.id || ""} onChange={(event) => setSelectedSupportItemId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                    {supportItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName}</option>)}
+                  </select>
+                </label>
+              ) : (
+                <div className="grid gap-4 md:col-span-2 md:grid-cols-[0.7fr_1.3fr]">
+                  <BillingField label="Support code (optional)" value={manualSupportCode} onChange={setManualSupportCode} />
+                  <BillingField label="Agreed support name" value={manualSupportName} onChange={setManualSupportName} />
+                </div>
+              )}
               <BillingField label="Agreed rate" value={agreedRate} onChange={setAgreedRate} type="number" />
               <label className="grid gap-2 text-sm font-semibold text-slate-700">
                 Rate period
@@ -388,6 +420,7 @@ export function NativeBillingWorkspace() {
               </label>
               <BillingField label="Allocated budget" value={budgetAllocated} onChange={setBudgetAllocated} type="number" />
             </div>
+            {!supportItems.length ? <p className="mt-3 text-sm text-slate-600">This rate will be saved from the client service agreement. Add an NDIS pricing catalogue later when automatic price-limit checking is required.</p> : null}
             <div className="mt-4 flex flex-wrap gap-3">
               <BillingCheck label="Travel" checked={allowTravel} onChange={setAllowTravel} />
               <BillingCheck label="Kilometres" checked={allowKilometres} onChange={setAllowKilometres} />
