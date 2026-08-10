@@ -404,3 +404,19 @@ test("AI service agreement rates remain editable drafts until explicit approval"
   assert.match(workspace, /updateAgreementDraftItem/);
   assert.match(billing, /"hour" \| "day" \| "week" \| "month" \| "each" \| "km"/);
 });
+
+test("staff hours reports total completed work across payroll periods", async () => {
+  const [roster, reports] = await Promise.all([
+    source("lib/roster.ts"),
+    source("components/roster/RosterStatusReports.tsx")
+  ]);
+  assert.match(roster, /getStaffHoursSummary/);
+  assert.match(roster, /\["Completed", "Note Completed"\]/);
+  assert.match(roster, /getShiftAssignedWorkers\(shift\)/);
+  assert.match(roster, /if \(end < start\) end \+= 24 \* 60/);
+  assert.match(reports, /Staff hours for pay preparation/);
+  assert.match(reports, /weekly/);
+  assert.match(reports, /fortnightly/);
+  assert.match(reports, /monthly/);
+  assert.match(reports, /downloadStaffHoursCsv/);
+});

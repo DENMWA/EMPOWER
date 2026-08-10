@@ -33,6 +33,14 @@ export type RosterFilters = {
 
 export type RosterReportPeriod = "weekly" | "fortnightly" | "monthly";
 
+export type StaffHoursSummary = {
+  workerId: string;
+  workerName: string;
+  completedShifts: number;
+  totalHours: number;
+  participantNames: string[];
+};
+
 export type EmployeeColourScheme = {
   key: string;
   label: string;
@@ -289,6 +297,50 @@ export function createRosterShift(input: Omit<RosterShift, "id" | "participantNa
     participantName: input.participantName || participant?.name || "Participant",
     workerName: input.workerName || worker?.name || "Worker"
   };
+}
+
+export function getStaffHoursSummary(shifts: RosterShift[], period: RosterReportPeriod, selectedDate: string) {
+  const range = getRosterReportRange(period, selectedDate);
+  const completedStatuses: RosterStatus[] = ["Completed", "Note Completed"];
+  const staff = new Map<string, StaffHoursSummary>();
+
+  shifts.filter((shift) => {
+    const shiftDate = new Date(`${shift.shiftDate}T00:00:00`);
+    return shiftDate >= range.start && shiftDate <= range.end && completedStatuses.includes(shift.status);
+  }).forEach((shift) => {
+    const hours = getShiftDurationHours(shift.startTime, shift.endTime);
+    getShiftAssignedWorkers(shift).forEach((worker) => {
+      if (!worker.id || !worker.name || worker.name === "Unassigned") return;
+      const existing = staff.get(worker.id) || {
+        workerId: worker.id,
+        workerName: worker.name,
+        completedShifts: 0,
+        totalHours: 0,
+        participantNames: []
+      };
+      existing.completedShifts += 1;
+      existing.totalHours = Math.round((existing.totalHours + hours) * 100) / 100;
+      if (!existing.participantNames.includes(shift.participantName)) existing.participantNames.push(shift.participantName);
+      staff.set(worker.id, existing);
+    });
+  });
+
+  return {
+    period,
+    dateRange: `${dateKey(range.start)} to ${dateKey(range.end)}`,
+    totalHours: Math.round(Array.from(staff.values()).reduce((total, item) => total + item.totalHours, 0) * 100) / 100,
+    staff: Array.from(staff.values()).sort((a, b) => b.totalHours - a.totalHours || a.workerName.localeCompare(b.workerName))
+  };
+}
+
+export function getShiftDurationHours(startTime: string, endTime: string) {
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0;
+  const start = startHour * 60 + startMinute;
+  let end = endHour * 60 + endMinute;
+  if (end < start) end += 24 * 60;
+  return Math.round(Math.max(0, end - start) / 60 * 100) / 100;
 }
 
 export function getShiftAssignedWorkers(shift: RosterShift) {
