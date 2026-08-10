@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquareText } from "lucide-react";
+import { Building2, MessageSquareText, UserRound } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, houseHasClient, type HouseRecord } from "@/lib/house-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
-import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
+import { filterByParticipantAccess } from "@/lib/user-access";
 
 export function IncidentManagerResponses() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -16,13 +16,27 @@ export function IncidentManagerResponses() {
   const [selectedHouseId, setSelectedHouseId] = useState("all");
   const [reports, setReports] = useState<StoredIncidentReport[]>([]);
   const accessibleClients = useMemo(() => filterByParticipantAccess(clients), [clients]);
+  const selectedClient = accessibleClients.find((client) => client.id === selectedClientId);
+  const resolvedReports = useMemo(
+    () => reports
+      .map((report) => resolveReportContext(report, clients, houses))
+      .filter((item) => accessibleClients.some((client) => client.id === item.client?.id)),
+    [accessibleClients, clients, houses, reports]
+  );
   const filteredReports = useMemo(() => {
-    return reports.filter((report) => {
-      const clientMatch = selectedClientId === "all" || report.participantId === selectedClientId;
-      const houseMatch = selectedHouseId === "all" || report.houseId === selectedHouseId;
+    return resolvedReports.filter((item) => {
+      const clientMatch = selectedClientId === "all" || item.client?.id === selectedClientId;
+      const houseMatch = selectedHouseId === "all" || item.house?.id === selectedHouseId;
       return clientMatch && houseMatch;
     });
-  }, [reports, selectedClientId, selectedHouseId]);
+  }, [resolvedReports, selectedClientId, selectedHouseId]);
+  const availableHouses = useMemo(
+    () => houses.filter((house) =>
+      accessibleClients.some((client) => houseHasClient(house, client))
+      && (selectedClientId === "all" || (selectedClient ? houseHasClient(house, selectedClient) : false))
+    ),
+    [accessibleClients, houses, selectedClient, selectedClientId]
+  );
 
   useEffect(() => {
     getTenantClients().then(setClients).catch(() => setClients([]));
@@ -34,7 +48,7 @@ export function IncidentManagerResponses() {
 
   async function loadReports() {
     const saved = await getSavedIncidentReports().catch(() => []);
-    setReports(filterRecordsByParticipantAccess(saved.map((item) => item.report)).filter((report) => report.status !== "Draft"));
+    setReports(saved.map((item) => item.report).filter((report) => report.status !== "Draft"));
   }
 
   return (
@@ -55,7 +69,14 @@ export function IncidentManagerResponses() {
 
       <label className="mt-5 grid max-w-md gap-2 text-sm font-semibold text-slate-700">
         View responses for
-        <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)}>
+        <select
+          className="min-h-11 rounded-md border border-slate-300 bg-white px-3"
+          value={selectedClientId}
+          onChange={(event) => {
+            setSelectedClientId(event.target.value);
+            setSelectedHouseId("all");
+          }}
+        >
           <option value="all">All clients</option>
           {accessibleClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
         </select>
@@ -65,7 +86,7 @@ export function IncidentManagerResponses() {
         View house/service
         <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)}>
           <option value="all">All assigned houses/services</option>
-          {houses.filter((house) => accessibleClients.some((client) => houseHasClient(house, client))).map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
+          {availableHouses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
         </select>
       </label>
 
@@ -77,27 +98,45 @@ export function IncidentManagerResponses() {
           </div>
         ) : null}
 
-        {filteredReports.map((report) => {
-          const client = clients.find((item) => item.id === report.participantId);
-          const colour = getClientColourScheme(report.participantId, client?.colourSchemeId);
+        {filteredReports.map(({ report, client, house }) => {
+          const colour = getClientColourScheme(client?.id || report.participantId, client?.colourSchemeId);
           return (
-          <div key={`${report.participantId}-${report.houseId || "unassigned-house"}-${report.incidentId}`} className={`rounded-md border border-l-4 bg-slate-50 p-4 ${colour.border}`}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-bold text-ink">{report.incidentId} - {report.participant}</p>
-                <p className="mt-1 text-sm text-slate-600">{report.date} at {report.time} - {report.incidentTypes.join(", ") || "Incident"}</p>
-                <p className="mt-1 text-sm font-semibold text-slate-700">House/service: {report.houseName || "Unassigned house/service"}</p>
-                <span className={`mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${colour.badge}`}>{colour.label} client file</span>
+            <div key={`${client?.id || report.participantId}-${house?.id || report.houseId || "unassigned-house"}-${report.incidentId}`} className={`rounded-md border border-l-4 bg-slate-50 p-4 ${colour.border}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-ink">{report.incidentId}</p>
+                  <p className="mt-1 text-sm text-slate-600">{report.date} at {report.time} - {report.incidentTypes.join(", ") || "Incident"}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className={`inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold ${colour.badge}`}><UserRound size={15} aria-hidden="true" />{client?.name || report.participant || "Client not linked"}</span>
+                    <span className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"><Building2 size={15} aria-hidden="true" />{house ? `${house.name} - ${house.serviceType}` : report.houseName || "House/service not linked"}</span>
+                  </div>
+                </div>
+                <StatusBadge label={report.status} tone={report.status === "Locked" ? "green" : report.status === "Needs Review" ? "amber" : "blue"} />
               </div>
-              <StatusBadge label={report.status} tone={report.status === "Locked" ? "green" : report.status === "Needs Review" ? "amber" : "blue"} />
+              <div className="mt-3 rounded-md bg-white p-3">
+                <p className="text-sm font-semibold text-ink">Manager response</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{report.managerReview || "Awaiting manager response."}</p>
+              </div>
             </div>
-            <div className="mt-3 rounded-md bg-white p-3">
-              <p className="text-sm font-semibold text-ink">Manager response</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{report.managerReview || "Awaiting manager response."}</p>
-            </div>
-          </div>
-        );})}
+          );
+        })}
       </div>
     </Card>
   );
+}
+
+function resolveReportContext(report: StoredIncidentReport, clients: ClientRecord[], houses: HouseRecord[]) {
+  const client = clients.find((item) => item.id === report.participantId)
+    || clients.find((item) => normalise(item.name) === normalise(report.participant));
+  const assignedHouses = client ? houses.filter((item) => houseHasClient(item, client)) : [];
+  const house = houses.find((item) => item.id === report.houseId)
+    || houses.find((item) => normalise(item.name) === normalise(report.houseName))
+    || (client ? houses.find((item) => item.id === client.primaryHouseId) : undefined)
+    || (client ? houses.find((item) => normalise(item.name) === normalise(client.primaryHouseName)) : undefined)
+    || (assignedHouses.length === 1 ? assignedHouses[0] : undefined);
+  return { report, client, house };
+}
+
+function normalise(value: string | undefined) {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
