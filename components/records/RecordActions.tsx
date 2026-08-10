@@ -14,10 +14,11 @@ type RecordActionsProps = {
   filename: string;
   className?: string;
   allowDownload?: boolean;
+  actionLabel?: string;
   saveRelatedRecord?: () => Promise<{ savedToCloud: boolean; error: string; bodyAppend?: string }>;
 };
 
-export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true, saveRelatedRecord }: RecordActionsProps) {
+export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true, actionLabel = "Save record", saveRelatedRecord }: RecordActionsProps) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [message, setMessage] = useState("");
 
@@ -54,7 +55,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
     <div className={cn("flex flex-wrap gap-3", className)}>
       <button type="button" onClick={saveRecord} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
         <Save size={17} aria-hidden="true" />
-        {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : saveState === "failed" ? "Retry save" : "Save record"}
+        {saveState === "saving" ? (actionLabel === "Submit" ? "Submitting..." : "Saving...") : saveState === "saved" ? (actionLabel === "Submit" ? "Submitted" : "Saved") : saveState === "failed" ? (actionLabel === "Submit" ? "Retry submit" : "Retry save") : actionLabel}
       </button>
       {allowDownload ? (
         <button type="button" onClick={downloadRecord} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">

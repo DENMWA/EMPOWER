@@ -8,8 +8,8 @@ export type ProgressNoteRecordInput = {
   startTime: string;
   endTime: string;
   supportType: string;
-  roughNote: string;
-  finalNote: string;
+  note: string;
+  inputMethod?: "typed" | "standard_voice";
   missingDetails: string[];
   qualityScore: number;
   billingEvidenceScore: number;
@@ -48,10 +48,11 @@ export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
       start_time: input.startTime || null,
       end_time: input.endTime || null,
       support_type: input.supportType,
-      rough_note: input.roughNote,
-      final_note: input.finalNote,
-      input_method: "typed",
-      status: "Draft",
+      rough_note: "",
+      final_note: input.note,
+      voice_transcript: null,
+      input_method: input.inputMethod || "typed",
+      status: "Submitted",
       missing_details: input.missingDetails,
       risky_wording_flags: [],
       incident_flags: [],

@@ -238,3 +238,20 @@ test("client assignments link invited and authenticated staff identities", async
   assert.match(migration, /assigned_participant_ids/);
   assert.match(migration, /lower\(app_user\.email\) = lower\(invite\.email\)/);
 });
+
+test("voice progress notes submit only the worker-selected final version", async () => {
+  const [voice, generator, records, actions] = await Promise.all([
+    source("components/voice/GuidedVoiceDocumentation.tsx"),
+    source("components/notes/ProgressNoteGenerator.tsx"),
+    source("lib/progress-note-records.ts"),
+    source("components/records/RecordActions.tsx")
+  ]);
+  assert.doesNotMatch(voice, /saveTenantRetainedRecord|saveTranscriptDraft|saveFinalNote/);
+  assert.match(voice, /Use original note/);
+  assert.match(voice, /Use improved note/);
+  assert.match(generator, /actionLabel="Submit"/);
+  assert.match(records, /rough_note:\s*""/);
+  assert.match(records, /final_note:\s*input\.note/);
+  assert.match(records, /status:\s*"Submitted"/);
+  assert.match(actions, /actionLabel === "Submit"/);
+});

@@ -272,6 +272,7 @@ export function ProgressNoteGenerator() {
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [progressNoteId] = useState(() => globalThis.crypto?.randomUUID?.() || `progress-note-${Date.now()}`);
   const [roughNote, setRoughNote] = useState("");
+  const [inputMethod, setInputMethod] = useState<"typed" | "standard_voice">("typed");
   const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
   const [photoEvidence, setPhotoEvidence] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -484,6 +485,7 @@ export function ProgressNoteGenerator() {
 
   function applyVoiceTranscript(transcript: string) {
     setRoughNote(transcript);
+    setInputMethod("standard_voice");
     setRewriteOptions([]);
     setMissing(checkMissingDetails(transcript));
   }
@@ -788,6 +790,7 @@ export function ProgressNoteGenerator() {
             body={noteRecordBody}
             filename={`empower-notes-progress-note-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${selectedHouseSlug}-${supportDate}`}
             allowDownload={false}
+            actionLabel="Submit"
             saveRelatedRecord={() => saveTenantProgressNote({
               id: progressNoteId,
               participantId: selectedParticipantId,
@@ -795,8 +798,8 @@ export function ProgressNoteGenerator() {
               startTime,
               endTime: finishTime,
               supportType,
-              roughNote: recordNarrative,
-              finalNote: noteRecordBody,
+              note: noteRecordBody,
+              inputMethod,
               missingDetails: missing,
               qualityScore: quality.auditReadiness,
               billingEvidenceScore: quality.billingEvidenceScore,
