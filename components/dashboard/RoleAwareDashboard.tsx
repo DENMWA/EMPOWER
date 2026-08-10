@@ -1,0 +1,51 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ManagerApprovalPanel } from "@/components/approvals/ManagerApprovalPanel";
+import { DashboardOperationalLists, ManagerDashboardCards, WorkerDashboardCards } from "@/components/dashboard/DashboardCards";
+import { InvoiceReadinessPanel } from "@/components/invoicing/InvoiceReadinessPanel";
+import { StaffProfiles } from "@/components/staff/StaffProfiles";
+import { fullAdminRoles, type AdminPermission } from "@/lib/admin-permissions";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
+
+type WorkspaceAccess = {
+  role: string;
+  permissions: AdminPermission[];
+};
+
+export function RoleAwareDashboard() {
+  const [access, setAccess] = useState<WorkspaceAccess | null>(null);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+
+    fetch("/api/auth/access?mode=admin", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store"
+    })
+      .then(async (response) => ({ response, result: await response.json() as { allowed?: boolean; role?: string; adminPermissions?: AdminPermission[] } }))
+      .then(({ response, result }) => {
+        if (!response.ok || !result.allowed || !result.role) return;
+        setAccess({ role: result.role, permissions: result.adminPermissions || [] });
+      })
+      .catch(() => setAccess(null));
+  }, []);
+
+  const fullAccess = Boolean(access && fullAdminRoles.has(access.role));
+  const can = (permission: AdminPermission) => fullAccess || Boolean(access?.permissions.includes(permission));
+  return (
+    <>
+      <WorkerDashboardCards />
+      {access ? <ManagerDashboardCards fullAccess={fullAccess} permissions={access.permissions} /> : null}
+      {fullAccess ? <DashboardOperationalLists /> : null}
+      {can("team") ? <StaffProfiles /> : null}
+      {can("shift_verification") || can("billing") ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {can("shift_verification") ? <ManagerApprovalPanel /> : null}
+          {can("billing") ? <InvoiceReadinessPanel /> : null}
+        </div>
+      ) : null}
+    </>
+  );
+}

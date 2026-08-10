@@ -7,7 +7,7 @@ export default function ParticipantsPage() {
       <PageHeader
         eyebrow="My clients"
         title="Assigned client profiles"
-        description="Worker-safe client context for support needs, communication preferences, active goals, risk alerts, and known documents. Adding or editing clients remains an admin function."
+        description="Your assigned support profiles, communication preferences, active goals, risk alerts, and known documents. Profile changes are managed by authorised team leaders."
         actions={<StatusBadge label="View only" tone="blue" />}
       />
       <Section>

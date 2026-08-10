@@ -255,3 +255,19 @@ test("voice progress notes submit only the worker-selected final version", async
   assert.match(records, /status:\s*"Submitted"/);
   assert.match(actions, /actionLabel === "Submit"/);
 });
+
+test("staff dashboard hides management surfaces unless server access is verified", async () => {
+  const [dashboard, roleAware, shell] = await Promise.all([
+    source("app/dashboard/page.tsx"),
+    source("components/dashboard/RoleAwareDashboard.tsx"),
+    source("components/AppShell.tsx")
+  ]);
+  assert.match(dashboard, /<RoleAwareDashboard/);
+  assert.doesNotMatch(dashboard, /ManagerDashboardCards|DashboardOperationalLists|StaffProfiles/);
+  assert.match(roleAware, /\/api\/auth\/access\?mode=admin/);
+  assert.match(roleAware, /\{access \? <ManagerDashboardCards/);
+  assert.match(roleAware, /can\("team"\) \? <StaffProfiles/);
+  assert.match(roleAware, /can\("shift_verification"\)/);
+  assert.match(roleAware, /can\("billing"\)/);
+  assert.match(shell, /item\.href !== "\/admin" \|\| verifiedAdmin/);
+});

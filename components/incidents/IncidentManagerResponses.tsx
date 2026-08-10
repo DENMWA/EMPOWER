@@ -61,7 +61,7 @@ export function IncidentManagerResponses() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Manager responses</p>
             <h2 className="mt-1 text-xl font-bold text-ink">Submitted incident feedback</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">After admin reviews a submitted incident, the manager response appears here for staff visibility.</p>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">After an authorised manager reviews a submitted incident, their response appears here for staff visibility.</p>
           </div>
         </div>
         <StatusBadge label={`${filteredReports.length} submitted incidents`} tone="blue" />
@@ -94,7 +94,7 @@ export function IncidentManagerResponses() {
         {!filteredReports.length ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
             <p className="font-semibold text-ink">No submitted incidents yet</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Submit an incident report and it will appear here once saved for admin review.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Submit an incident report and it will appear here once saved for manager review.</p>
           </div>
         ) : null}
 

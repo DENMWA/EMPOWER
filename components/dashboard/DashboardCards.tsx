@@ -9,17 +9,19 @@ import { getRosterSummary, type RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { participants, progressNotes, users } from "@/lib/sample-data";
-import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
+import type { AdminPermission } from "@/lib/admin-permissions";
 
 const workerActions = [
+  { label: "My clients", detail: "View assigned support profiles", href: "/participants", icon: Users },
   { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
   { label: "Record voice note", detail: "Speak naturally on shift", href: "/notes/new#voice", icon: Mic },
   { label: "New incident report", detail: "Structured event capture", href: "/incidents/new", icon: ShieldCheck },
   { label: "Documents", detail: "Upload to a client file", href: "/documents", icon: FolderLock }
 ];
 
-export function ManagerDashboardCards() {
+export function ManagerDashboardCards({ fullAccess, permissions }: { fullAccess: boolean; permissions: AdminPermission[] }) {
   const [savedNotes, setSavedNotes] = useState<RetainedRecord[]>([]);
   const [incidents, setIncidents] = useState<StoredIncidentReport[]>([]);
   const [demoMode, setDemoMode] = useState(false);
@@ -50,19 +52,19 @@ export function ManagerDashboardCards() {
   const submittedIncidents = incidents.filter((incident) => incident.status === "Submitted" || incident.status === "Needs Review");
   const invoiceReadyCount = liveReviewSignals.filter((signals) => !signals.missingDetails.length && !signals.riskyWordingFlags.length).length;
   const invoiceScore = savedNotes.length ? Math.round((invoiceReadyCount / savedNotes.length) * 100) : demoMode ? 68 : 0;
-  const managerStats = savedNotes.length || incidents.length || !demoMode
+  const managerStats = (savedNotes.length || incidents.length || !demoMode
     ? [
-        { label: "Notes awaiting review", value: String(savedNotes.length), detail: `${weakNotes.length} need manager attention`, href: "/admin/reviews", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
-        { label: "Weak notes needing improvement", value: String(weakNotes.length), detail: savedNotes.length ? "Based on missing detail and risky wording signals" : "Save notes to build the queue", href: "/admin/reviews", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
-        { label: "Incident reports awaiting review", value: String(submittedIncidents.length), detail: `${incidents.length} incident records checked`, href: "/admin/incidents", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
-        { label: "Invoice-readiness summary", value: `${invoiceScore}%`, detail: `${invoiceReadyCount} notes ready, ${Math.max(savedNotes.length - invoiceReadyCount, 0)} need evidence`, href: "/admin/billing", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
+        { label: "Notes awaiting review", value: String(savedNotes.length), detail: `${weakNotes.length} need manager attention`, href: "/admin/reviews", icon: ClipboardList, tone: "bg-sky-50 text-sky-800", permission: "shift_verification" as AdminPermission },
+        { label: "Weak notes needing improvement", value: String(weakNotes.length), detail: savedNotes.length ? "Based on missing detail and risky wording signals" : "Save notes to build the queue", href: "/admin/reviews", icon: FileWarning, tone: "bg-amber-50 text-amber-800", permission: "shift_verification" as AdminPermission },
+        { label: "Incident reports awaiting review", value: String(submittedIncidents.length), detail: `${incidents.length} incident records checked`, href: "/admin/incidents", icon: AlertTriangle, tone: "bg-red-50 text-red-700", permission: "incident_actioning" as AdminPermission },
+        { label: "Invoice-readiness summary", value: `${invoiceScore}%`, detail: `${invoiceReadyCount} notes ready, ${Math.max(savedNotes.length - invoiceReadyCount, 0)} need evidence`, href: "/admin/billing", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700", permission: "billing" as AdminPermission }
       ]
     : [
-        { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", href: "/admin/reviews", icon: ClipboardList, tone: "bg-sky-50 text-sky-800" },
-        { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", href: "/admin/reviews", icon: FileWarning, tone: "bg-amber-50 text-amber-800" },
-        { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", href: "/admin/incidents", icon: AlertTriangle, tone: "bg-red-50 text-red-700" },
-        { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", href: "/admin/billing", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700" }
-      ];
+        { label: "Notes awaiting review", value: "12", detail: "4 include voice transcripts", href: "/admin/reviews", icon: ClipboardList, tone: "bg-sky-50 text-sky-800", permission: "shift_verification" as AdminPermission },
+        { label: "Weak notes needing improvement", value: "7", detail: "Average audit readiness 62%", href: "/admin/reviews", icon: FileWarning, tone: "bg-amber-50 text-amber-800", permission: "shift_verification" as AdminPermission },
+        { label: "Incident reports awaiting review", value: "3", detail: "1 possible escalation flag", href: "/admin/incidents", icon: AlertTriangle, tone: "bg-red-50 text-red-700", permission: "incident_actioning" as AdminPermission },
+        { label: "Invoice-readiness summary", value: "68%", detail: "18 notes ready, 9 need evidence", href: "/admin/billing", icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-700", permission: "billing" as AdminPermission }
+      ]).filter((stat) => fullAccess || permissions.includes(stat.permission));
 
   return (
     <div className="grid gap-4 lg:grid-cols-4">

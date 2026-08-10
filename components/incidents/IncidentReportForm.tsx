@@ -618,7 +618,7 @@ export function IncidentReportForm() {
   }
 
   async function submitReport() {
-    await persistReport({ ...report, status: "Submitted" }, "Incident submitted to admin for manager response.");
+    await persistReport({ ...report, status: "Submitted" }, "Incident submitted for manager response.");
   }
 
   return (
@@ -635,7 +635,7 @@ export function IncidentReportForm() {
         </div>
         {saveMessage ? <p aria-live="polite" className={`mt-4 rounded-md px-3 py-2 text-sm font-semibold ${saveState === "failed" ? "bg-red-50 text-red-700" : saveState === "saving" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>{saveMessage}</p> : null}
         <div className="mt-5 grid gap-2">
-          <button type="button" onClick={retryReport ? () => persistReport(retryReport, retryReport.status === "Submitted" ? "Incident submitted to admin for manager response." : "Incident draft saved to this organisation.") : saveDraft} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400"><Save size={17} />{saveState === "saving" ? "Saving..." : retryReport ? "Retry save" : "Save draft"}</button>
+          <button type="button" onClick={retryReport ? () => persistReport(retryReport, retryReport.status === "Submitted" ? "Incident submitted for manager response." : "Incident draft saved to this organisation.") : saveDraft} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400"><Save size={17} />{saveState === "saving" ? "Saving..." : retryReport ? "Retry save" : "Save draft"}</button>
           <button type="button" onClick={submitReport} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400"><Send size={17} />Submit</button>
         </div>
       </aside>
@@ -890,7 +890,7 @@ export function IncidentReportForm() {
           <TextArea label="Follow-up required" value={report.followUp} onChange={(value) => update("followUp", value)} />
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Manager response</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{report.managerReview || "No manager response has been added yet. Submit the incident for admin review."}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{report.managerReview || "No manager response has been added yet. Submit the incident for review."}</p>
           </div>
           <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">This may require manager review for possible escalation or reportable incident assessment.</p>
         </section>

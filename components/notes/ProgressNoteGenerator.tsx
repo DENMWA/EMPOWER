@@ -807,7 +807,7 @@ export function ProgressNoteGenerator() {
             })}
           />
         ) : (
-          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This client needs a house/service assignment before the shift note can be saved. Ask an administrator to update the client profile.</p>
+          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This client needs a house/service assignment before the shift note can be saved. Ask an authorised team leader to update the client profile.</p>
         )}
       </Card>
       {showMonthlyReport ? (
