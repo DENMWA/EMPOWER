@@ -417,77 +417,114 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[],
   if (!shift) return { invoice: null, lines: [], error: "Shift not found." };
   const agreement = records.agreements.find((item) => item.id === shift.serviceAgreementId);
   if (!agreement) return { invoice: null, lines: [], error: "Service agreement not found." };
-  const serviceDate = formatDateOnly(new Date(shift.startTime));
-  const eligibility = getInvoiceEligibility(serviceDate, agreement, client, shift.startTime);
-  if (!eligibility.allowed) return { invoice: null, lines: [], error: eligibility.reason };
   const agreementItem = records.agreementItems.find((item) => item.serviceAgreementId === agreement.id && item.status === "active");
   if (!agreementItem) return { invoice: null, lines: [], error: "Add a service agreement item before invoicing." };
-  const pricingVersion = records.pricingVersions.find((item) => item.id === agreementItem.pricingVersionId);
-  const quantity = agreementItem.unitType === "hour"
-    ? Math.max(0.25, getHoursBetween(shift.startTime, shift.endTime))
-    : 1;
-  const evidenceStatus = getEvidenceStatus(shift, notes);
-  const priceCheckStatus = getPriceCheckStatus(agreementItem.agreedRate, agreementItem.ndisPriceLimit);
-  const duplicate = records.invoiceLines.some((line) => line.shiftId === shift.id && line.approvalStatus !== "needs_correction");
-  const exceptionReason = [
-    duplicate && "Possible duplicate billing detected",
-    evidenceStatus === "missing_note" && "Completed shift has no linked support note",
-    priceCheckStatus === "over_limit" && "Agreed rate is above selected NDIS price limit",
-    priceCheckStatus === "manual_review_required" && "Pricing version or price limit requires review"
-  ].filter(Boolean).join("; ");
+  return createInvoiceFromServices([{ shiftId, agreementItemId: agreementItem.id }], notes, client);
+}
+
+export function createInvoiceFromServices(
+  selections: Array<{ shiftId: string; agreementItemId: string }>,
+  notes: RetainedRecord[],
+  client?: ClientRecord
+) {
+  const records = getNativeBillingRecords();
+  if (!selections.length) return { invoice: null, lines: [], error: "Select at least one completed service." };
+
+  const selected = selections.map((selection) => ({
+    shift: records.shifts.find((item) => item.id === selection.shiftId),
+    agreementItem: records.agreementItems.find((item) => item.id === selection.agreementItemId && item.status === "active")
+  }));
+  if (selected.some(({ shift }) => !shift)) return { invoice: null, lines: [], error: "One or more completed services could not be found." };
+  if (selected.some(({ agreementItem }) => !agreementItem)) return { invoice: null, lines: [], error: "Choose an agreed support component for every selected service." };
+
+  const shifts = selected.map(({ shift }) => shift as SupportShift);
+  const participantId = shifts[0].participantId;
+  if (shifts.some((shift) => shift.participantId !== participantId)) return { invoice: null, lines: [], error: "An invoice can only contain services for one participant." };
+  const agreement = records.agreements.find((item) => item.id === shifts[0].serviceAgreementId);
+  if (!agreement || shifts.some((shift) => shift.serviceAgreementId !== agreement.id)) return { invoice: null, lines: [], error: "Selected services must use the same active service agreement." };
+
+  for (const shift of shifts) {
+    const serviceDate = formatDateOnly(new Date(shift.startTime));
+    const eligibility = getInvoiceEligibility(serviceDate, agreement, client, shift.startTime);
+    if (!eligibility.allowed) return { invoice: null, lines: [], error: eligibility.reason };
+  }
+
+  const invoiceId = createId("invoice");
+  const lines = selected.map(({ shift: possibleShift, agreementItem: possibleItem }) => {
+    const shift = possibleShift as SupportShift;
+    const agreementItem = possibleItem as ServiceAgreementItem;
+    const serviceDate = formatDateOnly(new Date(shift.startTime));
+    const pricingVersion = records.pricingVersions.find((item) => item.id === agreementItem.pricingVersionId);
+    const quantity = agreementItem.unitType === "hour" ? Math.max(0.25, getHoursBetween(shift.startTime, shift.endTime)) : 1;
+    const evidenceStatus = getEvidenceStatus(shift, notes);
+    const priceCheckStatus = getPriceCheckStatus(agreementItem.agreedRate, agreementItem.ndisPriceLimit);
+    const duplicate = records.invoiceLines.some((line) => line.shiftId === shift.id && line.approvalStatus !== "needs_correction");
+    const missingNdisCode = !agreementItem.supportItemNumber || agreementItem.supportItemNumber === "AGREED-SUPPORT";
+    const exceptionReason = [
+      duplicate && "Possible duplicate billing detected",
+      evidenceStatus === "missing_note" && "Completed shift has no linked support note",
+      missingNdisCode && "NDIS support item number requires confirmation",
+      priceCheckStatus === "over_limit" && "Agreed rate is above selected NDIS price limit",
+      priceCheckStatus === "manual_review_required" && "Pricing version or price limit requires review"
+    ].filter(Boolean).join("; ");
+    const amount = roundCurrency(quantity * agreementItem.agreedRate);
+
+    return {
+      id: createId("invoice-line"),
+      invoiceId,
+      shiftId: shift.id,
+      serviceAgreementId: agreement.id,
+      serviceAgreementItemId: agreementItem.id,
+      participantId: shift.participantId,
+      serviceDate,
+      supportItemNumber: agreementItem.supportItemNumber,
+      supportItemName: agreementItem.supportItemName,
+      description: `${shift.supportType} at ${shift.location || "support location"}`,
+      quantity,
+      unitType: agreementItem.unitType,
+      rate: agreementItem.agreedRate,
+      amount,
+      gstCode: "GST-free",
+      pricingVersionId: agreementItem.pricingVersionId,
+      pricingVersionName: pricingVersion?.versionName || "Agreed service rate",
+      ndisPriceLimitUsed: agreementItem.ndisPriceLimit,
+      agreedRateUsed: agreementItem.agreedRate,
+      evidenceStatus,
+      priceCheckStatus,
+      approvalStatus: exceptionReason ? "needs_correction" as const : "draft" as const,
+      exceptionReason,
+      noteReference: shift.noteRecordId || "No support note linked"
+    };
+  });
+
+  const serviceDates = lines.map((line) => line.serviceDate).sort();
+  const hasExceptions = lines.some((line) => line.exceptionReason);
 
   const invoice: NativeInvoice = {
-    id: createId("invoice"),
+    id: invoiceId,
     invoiceNumber: `EN-${new Date().getFullYear()}-${String(records.invoices.length + 1).padStart(5, "0")}`,
-    participantId: shift.participantId,
-    participantName: shift.participantName,
-    participantNdisNumber: getStoredClients().find((client) => client.id === shift.participantId)?.ndisNumber || "",
+    participantId,
+    participantName: shifts[0].participantName,
+    participantNdisNumber: client?.ndisNumber || getStoredClients().find((item) => item.id === participantId)?.ndisNumber || "",
     recipientName: agreement.invoiceRecipientName,
     recipientEmail: agreement.invoiceRecipientEmail,
-    billingPeriodStart: serviceDate,
-    billingPeriodEnd: serviceDate,
+    billingPeriodStart: serviceDates[0],
+    billingPeriodEnd: serviceDates[serviceDates.length - 1],
     invoiceDate: new Date().toISOString().slice(0, 10),
     dueDate: addDays(new Date(), 14).toISOString().slice(0, 10),
-    status: exceptionReason ? "review_required" : "draft",
+    status: hasExceptions ? "review_required" : "draft",
     paymentStatus: "unpaid",
-    totalAmount: roundCurrency(quantity * agreementItem.agreedRate),
+    totalAmount: roundCurrency(lines.reduce((total, line) => total + line.amount, 0)),
     createdAt: new Date().toISOString()
-  };
-
-  const line: NativeInvoiceLine = {
-    id: createId("invoice-line"),
-    invoiceId: invoice.id,
-    shiftId: shift.id,
-    serviceAgreementId: agreement.id,
-    serviceAgreementItemId: agreementItem.id,
-    participantId: shift.participantId,
-    serviceDate,
-    supportItemNumber: agreementItem.supportItemNumber,
-    supportItemName: agreementItem.supportItemName,
-    description: `${shift.supportType} at ${shift.location || "support location"}`,
-    quantity,
-    unitType: agreementItem.unitType,
-    rate: agreementItem.agreedRate,
-    amount: invoice.totalAmount,
-    gstCode: "GST-free",
-    pricingVersionId: agreementItem.pricingVersionId,
-    pricingVersionName: pricingVersion?.versionName || "Missing pricing version",
-    ndisPriceLimitUsed: agreementItem.ndisPriceLimit,
-    agreedRateUsed: agreementItem.agreedRate,
-    evidenceStatus,
-    priceCheckStatus,
-    approvalStatus: exceptionReason ? "needs_correction" : "draft",
-    exceptionReason,
-    noteReference: shift.noteRecordId || "No support note linked"
   };
 
   saveNativeBillingRecords({
     ...records,
     invoices: [invoice, ...records.invoices],
-    invoiceLines: [line, ...records.invoiceLines]
+    invoiceLines: [...lines, ...records.invoiceLines]
   });
 
-  return { invoice, lines: [line], error: "" };
+  return { invoice, lines, error: "" };
 }
 
 export function getInvoiceEligibility(serviceDate: string, agreement: ServiceAgreement, client?: ClientRecord, serviceTimestamp?: string) {

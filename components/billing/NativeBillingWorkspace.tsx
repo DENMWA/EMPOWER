@@ -13,7 +13,7 @@ import {
   addManualServiceAgreementItem,
   addServiceAgreementItem,
   buildInvoiceCsv,
-  createInvoiceFromShift,
+  createInvoiceFromServices,
   createPricingVersionFromManualUpload,
   createServiceAgreement,
   getBudgetUsage,
@@ -57,6 +57,10 @@ export function NativeBillingWorkspace() {
   const [message, setMessage] = useState("");
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
+  const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
+  const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
+  const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
+  const [serviceRateSelections, setServiceRateSelections] = useState<Record<string, string>>({});
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -69,7 +73,10 @@ export function NativeBillingWorkspace() {
   const budgetRows = selectedClient ? getBudgetUsage(records, selectedClient.id) : [];
   const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason);
   const completedRosterServices = selectedClient ? rosterServices.filter((shift) =>
-    shift.participantId === selectedClient.id && (shift.status === "Completed" || shift.status === "Note Completed")
+    shift.participantId === selectedClient.id
+      && (shift.status === "Completed" || shift.status === "Note Completed")
+      && shift.shiftDate >= invoicePeriodStart
+      && shift.shiftDate <= invoicePeriodEnd
   ) : [];
 
   useEffect(() => {
@@ -241,16 +248,22 @@ export function NativeBillingWorkspace() {
       : "Completed service linked. The invoice will flag that supporting note evidence is missing."));
   }
 
-  async function generateInvoice(serviceId: string) {
-    const shift = records.shifts.find((item) => item.id === serviceId && item.participantId === selectedClient?.id && item.status === "completed");
-    if (!shift) {
-      setMessage("This rendered service is not available for invoicing.");
+  async function generateHolisticInvoice() {
+    const selections = Object.entries(selectedInvoiceServices)
+      .filter(([, selected]) => selected)
+      .map(([shiftId]) => ({ shiftId, agreementItemId: serviceRateSelections[shiftId] || "" }));
+    if (!selections.length) {
+      setMessage("Select at least one completed service for this invoice.");
+      return;
+    }
+    if (selections.some((selection) => !selection.agreementItemId)) {
+      setMessage("Choose the agreed support component for every selected service.");
       return;
     }
 
-    setCreatingInvoiceId(serviceId);
-    setMessage("Creating invoice draft...");
-    const result = createInvoiceFromShift(shift.id, notes, selectedClient);
+    setCreatingInvoiceId("batch");
+    setMessage("Creating participant invoice draft...");
+    const result = createInvoiceFromServices(selections, notes, selectedClient);
     if (result.error || !result.invoice) {
       setCreatingInvoiceId("");
       setMessage(result.error || "The invoice could not be created.");
@@ -260,7 +273,8 @@ export function NativeBillingWorkspace() {
     try {
       await waitForNativeBillingSave();
       setRecords(getNativeBillingRecords());
-      setMessage(`${result.invoice.invoiceNumber} created and saved as an EmpowerNotes invoice draft.`);
+      setSelectedInvoiceServices({});
+      setMessage(`${result.invoice.invoiceNumber} created with ${result.lines.length} service line${result.lines.length === 1 ? "" : "s"}.`);
     } catch {
       setRecords(getNativeBillingRecords());
       setMessage("The invoice draft was not saved. Check your billing access and try again.");
@@ -454,15 +468,22 @@ export function NativeBillingWorkspace() {
 
         <Card>
           <h2 className="text-xl font-semibold text-ink">3. Completed services</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Only support marked completed in the admin roster can be linked to billing. Each service remains tied to its client, service agreement, staff team, date, duration and evidence.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Choose the billing period, then map each completed service to the agreed support component that was delivered.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <BillingField label="Billing period from" value={invoicePeriodStart} onChange={setInvoicePeriodStart} type="date" />
+            <BillingField label="Billing period to" value={invoicePeriodEnd} onChange={setInvoicePeriodEnd} type="date" />
+          </div>
           <div className="mt-4 space-y-3">
             {!completedRosterServices.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No completed roster services are available for this client.</p> : null}
             {completedRosterServices.map((shift) => {
               const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
               const linked = Boolean(billingService);
               const agreementItem = billingService
-                ? records.agreementItems.find((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
+                ? records.agreementItems.find((item) => item.id === serviceRateSelections[billingService.id])
                 : undefined;
+              const availableAgreementItems = billingService
+                ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
+                : [];
               const invoiced = Boolean(billingService && records.invoiceLines.some((line) => line.shiftId === billingService.id && line.approvalStatus !== "needs_correction"));
               const invoiceEligibility = billingService && selectedAgreement
                 ? getInvoiceEligibility(shift.shiftDate, selectedAgreement, selectedClient, `${shift.shiftDate}T${shift.startTime}:00`)
@@ -475,22 +496,35 @@ export function NativeBillingWorkspace() {
                     <button type="button" disabled={linked} onClick={() => linkRenderedService(shift)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
                       <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked to billing" : "Link rendered service"}
                     </button>
-                    {billingService && agreementItem ? (
-                      <button type="button" disabled={invoiced || creatingInvoiceId === billingService.id || !invoiceEligibility.allowed} onClick={() => void generateInvoice(billingService.id)} className="inline-flex items-center gap-2 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
-                        <ReceiptText size={16} aria-hidden="true" />{invoiced ? "Invoice created" : creatingInvoiceId === billingService.id ? "Creating invoice..." : "Create invoice"}
-                      </button>
+                    {billingService && availableAgreementItems.length ? (
+                      <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">
+                        <input type="checkbox" disabled={invoiced || !invoiceEligibility.allowed} checked={Boolean(selectedInvoiceServices[billingService.id])} onChange={(event) => setSelectedInvoiceServices((current) => ({ ...current, [billingService.id]: event.target.checked }))} />
+                        {invoiced ? "Already invoiced" : "Include in invoice"}
+                      </label>
                     ) : billingService ? (
                       <a href="#agreed-support-items" className="inline-flex items-center gap-2 rounded-md bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-200">
                         <Plus size={16} aria-hidden="true" />Add agreed rate first
                       </a>
                     ) : null}
                   </div>
-                  {billingService && !agreementItem ? <p className="mt-3 text-sm font-semibold text-amber-800">Invoice creation needs an active support item and agreed rate for this service agreement.</p> : null}
+                  {billingService && availableAgreementItems.length ? (
+                    <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
+                      Agreed support component
+                      <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={serviceRateSelections[billingService.id] || ""} onChange={(event) => setServiceRateSelections((current) => ({ ...current, [billingService.id]: event.target.value }))}>
+                        <option value="">Select the support delivered</option>
+                        {availableAgreementItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - ${item.agreedRate.toFixed(2)} / {item.unitType}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
+                  {billingService && !availableAgreementItems.length ? <p className="mt-3 text-sm font-semibold text-amber-800">Add the client&apos;s agreed support components before invoicing this service.</p> : null}
                   {billingService && agreementItem && !invoiceEligibility.allowed ? <p className="mt-3 text-sm font-semibold text-red-700">{invoiceEligibility.reason}</p> : null}
                 </div>
               );
             })}
           </div>
+          <button type="button" disabled={creatingInvoiceId === "batch" || !Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => void generateHolisticInvoice()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+            <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Creating invoice..." : `Create participant invoice (${Object.values(selectedInvoiceServices).filter(Boolean).length})`}
+          </button>
         </Card>
 
         <Card>
@@ -505,7 +539,16 @@ export function NativeBillingWorkspace() {
                     <p className="font-semibold text-ink">{invoice.invoiceNumber} - ${invoice.totalAmount}</p>
                     <StatusBadge label={`${invoice.status} / ${invoice.paymentStatus}`} tone={invoice.status === "review_required" ? "amber" : invoice.paymentStatus === "paid" ? "green" : "blue"} />
                   </div>
-                  {lines.map((line) => <p key={line.id} className="mt-2 text-sm text-slate-600">{line.supportItemNumber} - {line.evidenceStatus} - {line.priceCheckStatus}{line.exceptionReason ? ` - ${line.exceptionReason}` : ""}</p>)}
+                  <p className="mt-2 text-sm text-slate-600">{invoice.participantName} · {invoice.billingPeriodStart} to {invoice.billingPeriodEnd} · {lines.length} line{lines.length === 1 ? "" : "s"}</p>
+                  <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Support</th><th className="px-3 py-2">Quantity</th><th className="px-3 py-2">Rate</th><th className="px-3 py-2">Amount</th></tr></thead>
+                      <tbody>
+                        {lines.map((line) => <tr key={line.id} className="border-t border-slate-200"><td className="px-3 py-2">{line.serviceDate}</td><td className="px-3 py-2"><span className="font-semibold text-ink">{line.supportItemNumber}</span><br />{line.supportItemName}</td><td className="px-3 py-2">{line.quantity} {line.unitType}</td><td className="px-3 py-2">${line.rate.toFixed(2)}</td><td className="px-3 py-2 font-semibold text-ink">${line.amount.toFixed(2)}</td></tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                  {lines.filter((line) => line.exceptionReason).map((line) => <p key={`${line.id}-warning`} className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{line.supportItemName}: {line.exceptionReason}</p>)}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" onClick={() => exportInvoice(invoice, lines)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> PDF + CSV</button>
                     <button type="button" onClick={() => markInvoicePaymentStatus(invoice.id, "paid")} className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700">Mark paid</button>

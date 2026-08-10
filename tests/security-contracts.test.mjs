@@ -354,3 +354,20 @@ test("agreed billing rates save for explicitly authorised billing managers", asy
   assert.match(repair, /'billing' = any\(coalesce\(u\.admin_permissions/);
   assert.match(repair, /coalesce\(u\.access_status, 'active'\) = 'active'/);
 });
+
+test("participant invoices combine selected services using their agreed support components", async () => {
+  const [workspace, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(workspace, /Billing period from/);
+  assert.match(workspace, /Agreed support component/);
+  assert.match(workspace, /Include in invoice/);
+  assert.match(workspace, /createInvoiceFromServices/);
+  assert.match(workspace, /Create participant invoice/);
+  assert.match(billing, /export function createInvoiceFromServices/);
+  assert.match(billing, /An invoice can only contain services for one participant/);
+  assert.match(billing, /agreementItemId/);
+  assert.match(billing, /NDIS support item number requires confirmation/);
+  assert.match(billing, /invoiceLines: \[\.\.\.lines/);
+});
