@@ -294,3 +294,24 @@ test("workers can access only assigned-client direct-care documents", async () =
   assert.match(migration, /visibility = 'worker-visible'/);
   assert.match(migration, /assigned_to_participant\(participant_id\)/);
 });
+
+test("shift review decisions persist status, comments and audit history", async () => {
+  const [page, review, panel, migration] = await Promise.all([
+    source("app/admin/reviews/page.tsx"),
+    source("lib/progress-note-review.ts"),
+    source("components/approvals/ManagerApprovalPanel.tsx"),
+    source("supabase/progress-note-review-actions.sql")
+  ]);
+  assert.match(page, />Approve</);
+  assert.match(page, />Request further details</);
+  assert.match(page, />Certify and lock</);
+  assert.match(page, /reviewTenantProgressNote/);
+  assert.match(review, /review_progress_note/);
+  assert.match(review, /latestReview/);
+  assert.match(panel, /href="\/admin\/reviews"/);
+  assert.doesNotMatch(panel, /setStatuses/);
+  assert.match(migration, /insert into public\.approvals/);
+  assert.match(migration, /insert into public\.audit_logs/);
+  assert.match(migration, /shift_verification/);
+  assert.match(migration, /target\.status = 'Locked'/);
+});

@@ -1,147 +1,122 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { FileCheck2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, FileCheck2, LockKeyhole, MessageSquareMore } from "lucide-react";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { ServerFeatureGate } from "@/components/subscription/ServerFeatureGate";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
-import { isDemoModeEnabled } from "@/lib/presentation-mode";
-import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
-import { participants, progressNotes, users } from "@/lib/sample-data";
+import {
+  getTenantProgressNotesForReview,
+  reviewTenantProgressNote,
+  type ProgressNoteReviewItem
+} from "@/lib/progress-note-review";
+
+const certifyingRoles = new Set(["owner", "admin", "sole_provider"]);
 
 export default function AdminReviewsPage() {
-  const [savedNotes, setSavedNotes] = useState<RetainedRecord[]>([]);
-  const [demoMode, setDemoMode] = useState(false);
-  const savedReviewQueue = useMemo(() => savedNotes.map(toSavedReviewItem), [savedNotes]);
-  const sampleReviewQueue = useMemo(() => {
-    return demoMode
-      ? progressNotes
-        .filter((note) => note.status !== "Approved" || note.missingDetails.length > 0 || note.riskyWordingFlags.length > 0)
-        .map((note) => {
-          const participant = participants.find((item) => item.id === note.participantId);
-          const worker = users.find((item) => item.id === note.staffId);
-          return {
-            id: note.id,
-            eyebrow: `${worker?.name ?? "Worker"} - ${note.supportDate}`,
-            title: `${participant?.name ?? "Client"} - ${note.supportType}`,
-            detail: `Audit score ${note.score}% - Billing evidence ${note.billingEvidenceScore}%`,
-            status: note.status,
-            missingDetails: note.missingDetails,
-            riskyWordingFlags: note.riskyWordingFlags,
-            body: note.finalNote
-          };
-        })
-      : [];
-  }, [demoMode]);
-  const reviewQueue = savedReviewQueue.length ? savedReviewQueue : sampleReviewQueue;
+  const [notes, setNotes] = useState<ProgressNoteReviewItem[]>([]);
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState("");
+  const [message, setMessage] = useState("");
+  const [canCertify, setCanCertify] = useState(false);
 
-  useEffect(() => {
-    function loadNotes() {
-      getTenantRetainedRecords("progress-note").then(setSavedNotes).catch(() => setSavedNotes([]));
-    }
-
-    loadNotes();
-    window.addEventListener("empowernotes:retained-records-updated", loadNotes);
-    return () => window.removeEventListener("empowernotes:retained-records-updated", loadNotes);
+  const loadNotes = useCallback(async () => {
+    const result = await getTenantProgressNotesForReview();
+    setNotes(result.records);
+    if (result.error) setMessage(`Review records could not be loaded. ${result.error}`);
   }, []);
 
   useEffect(() => {
-    function syncMode() {
-      setDemoMode(isDemoModeEnabled());
+    void loadNotes();
+    fetch("/api/auth/access?mode=admin&permission=shift_verification", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((access: { allowed?: boolean; role?: string }) => setCanCertify(Boolean(access.allowed && access.role && certifyingRoles.has(access.role))))
+      .catch(() => setCanCertify(false));
+  }, [loadNotes]);
+
+  async function handleReview(note: ProgressNoteReviewItem, action: "approve" | "request_details" | "certify") {
+    const reviewComments = comments[note.id] || "";
+    if (action === "request_details" && !reviewComments.trim()) {
+      setMessage("Add the details the staff member needs to provide before sending the note back.");
+      return;
     }
 
-    syncMode();
-    window.addEventListener("empowernotes:data-mode-updated", syncMode);
-    return () => window.removeEventListener("empowernotes:data-mode-updated", syncMode);
-  }, []);
+    setSavingId(note.id);
+    setMessage("");
+    const result = await reviewTenantProgressNote(note.id, action, reviewComments);
+    setSavingId("");
+    if (!result.savedToCloud) {
+      setMessage(`Review action was not saved. ${result.error}`);
+      return;
+    }
+
+    setMessage(`${note.clientName}'s progress note is now ${result.status}.`);
+    setComments((current) => ({ ...current, [note.id]: "" }));
+    await loadNotes();
+  }
+
+  const pendingCount = notes.filter((note) => note.status !== "Approved" && note.status !== "Locked").length;
 
   return (
     <AdminGate permission="shift_verification">
       <ServerFeatureGate category="operations" feature="managerReview" title="Manager review requires Practice or above">
-      <PageHeader
-        eyebrow="Admin note review"
-        title="Review note quality before it becomes evidence"
-        description="A locked admin queue for weak notes, missing details, risky wording, and approval follow-up."
-        actions={<StatusBadge label={`${reviewQueue.length} items`} tone="amber" />}
-      />
-      <Section className="space-y-4">
-        {reviewQueue.map((note) => {
-          return (
-            <Card key={note.id}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">{note.eyebrow}</p>
-                  <h2 className="mt-1 text-xl font-semibold text-ink">{note.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{note.detail}</p>
+        <PageHeader
+          eyebrow="Shift review"
+          title="Review, return or certify progress notes"
+          description="Approve complete records, request specific details, or certify a final note when you hold full administrator access."
+          actions={<StatusBadge label={`${pendingCount} awaiting action`} tone={pendingCount ? "amber" : "green"} />}
+        />
+        <Section className="space-y-4">
+          {message ? <p role="status" className="rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-900">{message}</p> : null}
+          {notes.map((note) => {
+            const locked = note.status === "Locked";
+            const saving = savingId === note.id;
+            return (
+              <Card key={note.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500">{note.staffName} · {new Date(note.supportDate).toLocaleDateString("en-AU")}</p>
+                    <h2 className="mt-1 text-xl font-semibold text-ink">{note.clientName} · {note.supportType}</h2>
+                    <p className="mt-2 text-sm text-slate-600">Quality {note.qualityScore}% · Billing evidence {note.billingEvidenceScore}%</p>
+                  </div>
+                  <StatusBadge label={note.status} tone={note.status === "Approved" || locked ? "green" : "amber"} />
                 </div>
-                <StatusBadge label={note.status} tone={note.status === "Approved" ? "green" : "amber"} />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {note.missingDetails.map((item) => <StatusBadge key={item} label={`Missing: ${item}`} tone="amber" />)}
-                {note.riskyWordingFlags.map((item) => <StatusBadge key={item} label={`Risky wording: ${item}`} tone="red" />)}
-              </div>
-              <p className="mt-4 max-h-32 overflow-auto rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">{note.body}</p>
-            </Card>
-          );
-        })}
-        {!reviewQueue.length ? (
-          <Card>
-            <p className="font-semibold text-ink">No progress notes waiting for review</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Saved progress notes will appear here for admin quality review. In demo mode, sample review notes are shown.</p>
-          </Card>
-        ) : null}
-        <Link href="/notes/new" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
-          <FileCheck2 size={18} aria-hidden="true" />Open note workspace
-        </Link>
-      </Section>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {note.missingDetails.map((item) => <StatusBadge key={item} label={`Missing: ${item}`} tone="amber" />)}
+                  {note.riskyWordingFlags.map((item) => <StatusBadge key={item} label={`Review wording: ${item}`} tone="red" />)}
+                </div>
+                <p className="mt-4 max-h-48 overflow-auto rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-700">{note.body}</p>
+                {note.latestReview ? (
+                  <div className="mt-4 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                    <span className="font-semibold text-ink">Latest review:</span> {note.latestReview.action.replace("_", " ")} by {note.latestReview.reviewerName} on {new Date(note.latestReview.createdAt).toLocaleString("en-AU")}
+                    {note.latestReview.comments ? <p className="mt-1">{note.latestReview.comments}</p> : null}
+                  </div>
+                ) : null}
+                {!locked ? (
+                  <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                    <label className="block text-sm font-semibold text-ink" htmlFor={`review-${note.id}`}>Review comments or further details required</label>
+                    <textarea
+                      id={`review-${note.id}`}
+                      value={comments[note.id] || ""}
+                      onChange={(event) => setComments((current) => ({ ...current, [note.id]: event.target.value }))}
+                      className="min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 text-sm text-ink outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      placeholder="Add a concise review comment. This is required when requesting more detail."
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={saving} onClick={() => void handleReview(note, "approve")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle2 size={18} />Approve</button>
+                      <button type="button" disabled={saving} onClick={() => void handleReview(note, "request_details")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-900 disabled:opacity-50"><MessageSquareMore size={18} />Request further details</button>
+                      {canCertify ? <button type="button" disabled={saving} onClick={() => void handleReview(note, "certify")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:opacity-50"><LockKeyhole size={18} />Certify and lock</button> : null}
+                    </div>
+                  </div>
+                ) : null}
+              </Card>
+            );
+          })}
+          {!notes.length ? <Card><p className="font-semibold text-ink">No progress notes are available for review.</p><p className="mt-2 text-sm text-slate-600">Submitted shift notes will appear here with their client, staff member and quality signals.</p></Card> : null}
+          <Link href="/notes/new" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800"><FileCheck2 size={18} />Open note workspace</Link>
+        </Section>
       </ServerFeatureGate>
     </AdminGate>
   );
-}
-
-function toSavedReviewItem(record: RetainedRecord) {
-  const missingDetails = getMissingDetails(record.body);
-  const riskyWordingFlags = getRiskyWording(record.body);
-  const score = Math.max(45, 92 - missingDetails.length * 8 - riskyWordingFlags.length * 10);
-  const client = extractField(record.body, "Client") || "Client";
-  const supportType = extractField(record.body, "Support type") || "Progress note";
-  const date = extractField(record.body, "Date") || new Date(record.savedAt).toLocaleDateString("en-AU");
-
-  return {
-    id: record.id,
-    eyebrow: `Saved ${new Date(record.savedAt).toLocaleString("en-AU")} - ${date}`,
-    title: `${client} - ${supportType}`,
-    detail: `Estimated audit score ${score}% - ${missingDetails.length + riskyWordingFlags.length} review signal${missingDetails.length + riskyWordingFlags.length === 1 ? "" : "s"}`,
-    status: missingDetails.length || riskyWordingFlags.length ? "Needs Review" : "Submitted",
-    missingDetails,
-    riskyWordingFlags,
-    body: record.body
-  };
-}
-
-function extractField(body: string, field: string) {
-  const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = body.match(new RegExp(`^${escaped}:\\s*(.+)$`, "im"));
-  return match?.[1]?.trim() || "";
-}
-
-function getMissingDetails(body: string) {
-  const fields = [
-    ["Client", extractField(body, "Client")],
-    ["House/service", extractField(body, "House/service")],
-    ["Support type", extractField(body, "Support type")],
-    ["Date", extractField(body, "Date")],
-    ["Time", extractField(body, "Time")],
-    ["Goal link", body.toLowerCase().includes("goal") ? "present" : ""],
-    ["Follow-up action", body.toLowerCase().includes("follow-up") ? "present" : ""]
-  ];
-
-  return fields.filter(([, value]) => !value || value.toLowerCase().includes("not selected")).map(([label]) => label);
-}
-
-function getRiskyWording(body: string) {
-  const riskyTerms = ["aggressive", "non-compliant", "refused to listen", "attention-seeking", "bad behaviour", "lazy", "naughty"];
-  const lower = body.toLowerCase();
-  return riskyTerms.filter((term) => lower.includes(term));
 }
