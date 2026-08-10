@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardCheck, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
+import { Check, ClipboardCheck, FileDown, FileSearch, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -31,8 +31,24 @@ import {
 import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
 import type { RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 type TravelDraft = { odometerStart: string; odometerEnd: string; rate: string; supportItemNumber: string; notes: string };
+type AgreementDraftItem = {
+  id: string;
+  supportItemNumber: string;
+  supportItemName: string;
+  agreedRate: string;
+  unitType: "hour" | "day" | "week" | "month" | "each" | "km";
+  budgetAllocated: string;
+  allowTravel: boolean;
+  allowKilometres: boolean;
+  allowNonFaceToFace: boolean;
+  allowCancellations: boolean;
+  confidence: number;
+  sourceText: string;
+  approved: boolean;
+};
 
 export function NativeBillingWorkspace() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -51,7 +67,7 @@ export function NativeBillingWorkspace() {
   const [manualSupportCode, setManualSupportCode] = useState("");
   const [manualSupportName, setManualSupportName] = useState("");
   const [agreedRate, setAgreedRate] = useState("");
-  const [ratePeriod, setRatePeriod] = useState<"hour" | "week" | "month">("hour");
+  const [ratePeriod, setRatePeriod] = useState<"hour" | "day" | "week" | "month" | "each" | "km">("hour");
   const [budgetAllocated, setBudgetAllocated] = useState("");
   const [allowTravel, setAllowTravel] = useState(false);
   const [allowKilometres, setAllowKilometres] = useState(false);
@@ -66,6 +82,10 @@ export function NativeBillingWorkspace() {
   const [serviceRateSelections, setServiceRateSelections] = useState<Record<string, string>>({});
   const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
   const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
+  const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [agreementDraftItems, setAgreementDraftItems] = useState<AgreementDraftItem[]>([]);
+  const [agreementSourceFile, setAgreementSourceFile] = useState("");
+  const [parsingAgreement, setParsingAgreement] = useState(false);
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -176,6 +196,105 @@ export function NativeBillingWorkspace() {
       setMessage(`${agreement.agreementName} saved for ${selectedClient.name}.`);
     } catch (error) {
       setMessage(`Agreement was not saved. ${getBillingError(error)}`);
+    } finally {
+      setSavingAction("");
+    }
+  }
+
+  async function parseServiceAgreement() {
+    if (!agreementFile || !selectedClient) {
+      setMessage("Choose a client and service agreement document first.");
+      return;
+    }
+    const token = getStoredAccessToken();
+    if (!token) {
+      setMessage("Sign in before using agreement extraction.");
+      return;
+    }
+    setParsingAgreement(true);
+    setMessage("Reading service agreement for review...");
+    const form = new FormData();
+    form.append("file", agreementFile);
+    try {
+      const response = await fetch("/api/billing/parse-service-agreement", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+      const result = await response.json() as Record<string, unknown> & { error?: string; items?: Array<Record<string, unknown>> };
+      if (!response.ok) throw new Error(result.error || "Agreement extraction failed.");
+      const allowedUnits = new Set(["hour", "day", "week", "month", "each", "km"]);
+      const items = (result.items || []).map((item, index): AgreementDraftItem => ({
+        id: `agreement-draft-${Date.now()}-${index}`,
+        supportItemNumber: typeof item.supportItemNumber === "string" ? item.supportItemNumber : "",
+        supportItemName: typeof item.supportItemName === "string" ? item.supportItemName : "",
+        agreedRate: typeof item.agreedRate === "number" ? String(item.agreedRate) : "",
+        unitType: allowedUnits.has(String(item.unitType)) ? String(item.unitType) as AgreementDraftItem["unitType"] : "hour",
+        budgetAllocated: typeof item.budgetAllocated === "number" ? String(item.budgetAllocated) : "0",
+        allowTravel: item.allowTravel === true,
+        allowKilometres: item.allowKilometres === true,
+        allowNonFaceToFace: item.allowNonFaceToFace === true,
+        allowCancellations: item.allowCancellations === true,
+        confidence: typeof item.confidence === "number" ? Math.max(0, Math.min(1, item.confidence)) : 0,
+        sourceText: typeof item.sourceText === "string" ? item.sourceText : "",
+        approved: false
+      }));
+      setAgreementDraftItems(items);
+      setAgreementSourceFile(typeof result.sourceFileName === "string" ? result.sourceFileName : agreementFile.name);
+      if (typeof result.agreementName === "string" && result.agreementName) setAgreementName(result.agreementName);
+      if (typeof result.startDate === "string" && result.startDate) setAgreementStartDate(result.startDate);
+      if (typeof result.endDate === "string") setAgreementEndDate(result.endDate);
+      if (typeof result.recipientName === "string") setRecipientName(result.recipientName);
+      if (typeof result.recipientEmail === "string") setRecipientEmail(result.recipientEmail);
+      setMessage(`${items.length} agreement rate${items.length === 1 ? "" : "s"} extracted. Review and edit before approval.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Agreement extraction failed.");
+    } finally {
+      setParsingAgreement(false);
+    }
+  }
+
+  function updateAgreementDraftItem(id: string, patch: Partial<AgreementDraftItem>) {
+    setAgreementDraftItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+
+  async function approveExtractedRates() {
+    if (!selectedClient) return;
+    const approvedItems = agreementDraftItems.filter((item) => item.approved);
+    if (!approvedItems.length) {
+      setMessage("Select at least one reviewed rate to approve.");
+      return;
+    }
+    if (approvedItems.some((item) => !item.supportItemName.trim() || !Number.isFinite(Number(item.agreedRate)) || Number(item.agreedRate) <= 0)) {
+      setMessage("Every approved entry needs a support name and valid rate.");
+      return;
+    }
+    setSavingAction("item");
+    const agreement = selectedAgreement || createServiceAgreement({
+      participant: selectedClient,
+      agreementName,
+      startDate: agreementStartDate,
+      endDate: agreementEndDate,
+      billingFrequency,
+      recipientType,
+      recipientName,
+      recipientEmail
+    });
+    approvedItems.forEach((item) => addManualServiceAgreementItem({
+      agreement,
+      supportItemNumber: item.supportItemNumber,
+      supportItemName: item.supportItemName,
+      agreedRate: Number(item.agreedRate),
+      ratePeriod: item.unitType,
+      budgetAllocated: Number(item.budgetAllocated) || 0,
+      allowTravel: item.allowTravel,
+      allowKilometres: item.allowKilometres,
+      allowNonFaceToFace: item.allowNonFaceToFace,
+      allowCancellations: item.allowCancellations
+    }));
+    try {
+      await waitForNativeBillingSave();
+      setRecords(getNativeBillingRecords());
+      setAgreementDraftItems([]);
+      setMessage(`${approvedItems.length} reviewed rate${approvedItems.length === 1 ? "" : "s"} approved and transferred to billing.`);
+    } catch (error) {
+      setMessage(`Approved rates were not saved. ${getBillingError(error)}`);
     } finally {
       setSavingAction("");
     }
@@ -418,6 +537,61 @@ export function NativeBillingWorkspace() {
           <h2 className="text-xl font-semibold text-ink">2. Service agreement</h2>
           <p className="mt-1 text-sm text-slate-600">Set the agreement, then add its funded rates.</p>
 
+          <div className="mt-5 rounded-md border border-sky-200 bg-sky-50/60 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-ink">Import agreement with AI</p>
+                <p className="mt-1 text-sm text-slate-600">Extracted terms remain editable and cannot reach billing until an admin approves them.</p>
+              </div>
+              <StatusBadge label={agreementDraftItems.length ? "Review required" : "No active draft"} tone={agreementDraftItems.length ? "amber" : "blue"} />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <input type="file" accept=".pdf,.docx,.txt" onChange={(event) => setAgreementFile(event.target.files?.[0] || null)} className="min-h-11 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" />
+              <button type="button" disabled={parsingAgreement || !agreementFile} onClick={() => void parseServiceAgreement()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
+                <FileSearch size={17} aria-hidden="true" />{parsingAgreement ? "Reading agreement..." : "Extract rates for review"}
+              </button>
+            </div>
+            {agreementDraftItems.length ? (
+              <div className="mt-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-700">Source: {agreementSourceFile}</p>
+                {agreementDraftItems.map((item) => (
+                  <div key={item.id} className="rounded-md border border-slate-200 bg-white p-3">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      <BillingField label="Support code" value={item.supportItemNumber} onChange={(value) => updateAgreementDraftItem(item.id, { supportItemNumber: value })} />
+                      <div className="xl:col-span-2"><BillingField label="Support name" value={item.supportItemName} onChange={(value) => updateAgreementDraftItem(item.id, { supportItemName: value })} /></div>
+                      <BillingField label="Agreed rate" type="number" value={item.agreedRate} onChange={(value) => updateAgreementDraftItem(item.id, { agreedRate: value })} />
+                      <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                        Unit
+                        <select value={item.unitType} onChange={(event) => updateAgreementDraftItem(item.id, { unitType: event.target.value as AgreementDraftItem["unitType"] })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                          <option value="hour">Hourly</option><option value="day">Daily</option><option value="week">Weekly</option><option value="month">Monthly</option><option value="each">Each</option><option value="km">Kilometre</option>
+                        </select>
+                      </label>
+                      <BillingField label="Allocated budget" type="number" value={item.budgetAllocated} onChange={(value) => updateAgreementDraftItem(item.id, { budgetAllocated: value })} />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <BillingCheck label="Travel" checked={item.allowTravel} onChange={(value) => updateAgreementDraftItem(item.id, { allowTravel: value })} />
+                      <BillingCheck label="Kilometres" checked={item.allowKilometres} onChange={(value) => updateAgreementDraftItem(item.id, { allowKilometres: value })} />
+                      <BillingCheck label="Non-face-to-face" checked={item.allowNonFaceToFace} onChange={(value) => updateAgreementDraftItem(item.id, { allowNonFaceToFace: value })} />
+                      <BillingCheck label="Cancellations" checked={item.allowCancellations} onChange={(value) => updateAgreementDraftItem(item.id, { allowCancellations: value })} />
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md bg-slate-50 p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase text-slate-500">Agreement evidence · {Math.round(item.confidence * 100)}% extraction confidence</p>
+                        <p className="mt-1 text-sm text-slate-700">{item.sourceText || "No supporting source excerpt was returned. Confirm against the document before approval."}</p>
+                      </div>
+                      <label className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-200 bg-white px-3 text-sm font-semibold text-emerald-800">
+                        <input type="checkbox" checked={item.approved} onChange={(event) => updateAgreementDraftItem(item.id, { approved: event.target.checked })} /> Reviewed and approved
+                      </label>
+                    </div>
+                  </div>
+                ))}
+                <button type="button" disabled={Boolean(savingAction) || !agreementDraftItems.some((item) => item.approved)} onClick={() => void approveExtractedRates()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
+                  <Check size={17} aria-hidden="true" />Approve selected rates and transfer to billing
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <BillingField label="Agreement name" value={agreementName} onChange={setAgreementName} />
             <BillingField label="Start date" value={agreementStartDate} onChange={setAgreementStartDate} type="date" />
@@ -475,8 +649,11 @@ export function NativeBillingWorkspace() {
                 Rate period
                 <select value={ratePeriod} onChange={(event) => setRatePeriod(event.target.value as typeof ratePeriod)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
                   <option value="hour">Hourly</option>
+                  <option value="day">Daily</option>
                   <option value="week">Weekly</option>
                   <option value="month">Monthly</option>
+                  <option value="each">Each</option>
+                  <option value="km">Kilometre</option>
                 </select>
               </label>
               <BillingField label="Allocated budget" value={budgetAllocated} onChange={setBudgetAllocated} type="number" />

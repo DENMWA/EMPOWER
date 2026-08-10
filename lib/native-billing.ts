@@ -271,7 +271,7 @@ export function addServiceAgreementItem(input: {
   supportItem: NdisSupportItem;
   pricingVersion: NdisPricingVersion;
   agreedRate: number;
-  ratePeriod?: "hour" | "week" | "month";
+  ratePeriod?: "hour" | "day" | "week" | "month" | "each" | "km";
   budgetAllocated: number;
   allowTravel?: boolean;
   allowKilometres?: boolean;
@@ -307,7 +307,7 @@ export function addManualServiceAgreementItem(input: {
   supportItemNumber: string;
   supportItemName: string;
   agreedRate: number;
-  ratePeriod: "hour" | "week" | "month";
+  ratePeriod: "hour" | "day" | "week" | "month" | "each" | "km";
   budgetAllocated: number;
   allowTravel?: boolean;
   allowKilometres?: boolean;

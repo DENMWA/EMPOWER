@@ -388,3 +388,19 @@ test("provider travel uses odometer evidence and a separately reviewed invoice l
   assert.match(migration, /calculate_shift_travel_kilometres/);
   assert.match(migration, /odometer end reading cannot be lower/i);
 });
+
+test("AI service agreement rates remain editable drafts until explicit approval", async () => {
+  const [workspace, route, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("app/api/billing/parse-service-agreement/route.ts"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(route, /Never infer a rate/);
+  assert.match(route, /reviewStatus: "pending"/);
+  assert.match(workspace, /Extract rates for review/);
+  assert.match(workspace, /Reviewed and approved/);
+  assert.match(workspace, /Approve selected rates and transfer to billing/);
+  assert.match(workspace, /agreementDraftItems\.filter\(\(item\) => item\.approved\)/);
+  assert.match(workspace, /updateAgreementDraftItem/);
+  assert.match(billing, /"hour" \| "day" \| "week" \| "month" \| "each" \| "km"/);
+});
