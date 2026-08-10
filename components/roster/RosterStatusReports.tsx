@@ -78,17 +78,25 @@ export function RosterStatusReports({ shifts, selectedDate }: { shifts: RosterSh
         </div>
         <div className="mt-4 overflow-x-auto rounded-md border border-slate-200 bg-white">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-2">Staff member</th><th className="px-3 py-2">Completed shifts</th><th className="px-3 py-2">Clients supported</th><th className="px-3 py-2 text-right">Hours worked</th></tr></thead>
+            <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-2">Staff member</th><th className="px-3 py-2">Completed shifts</th><th className="px-3 py-2">Days worked</th><th className="px-3 py-2">Clients supported</th><th className="px-3 py-2 text-right">Hours worked</th></tr></thead>
             <tbody>
               {hours.staff.map((worker) => (
-                <tr key={worker.workerId} className="border-t border-slate-200">
+                <tr key={worker.workerId} className="border-t border-slate-200 align-top">
                   <td className="px-3 py-3 font-semibold text-ink">{worker.workerName}</td>
                   <td className="px-3 py-3">{worker.completedShifts}</td>
+                  <td className="px-3 py-3">
+                    <details>
+                      <summary className="cursor-pointer font-semibold text-teal-800">{worker.days.length} day{worker.days.length === 1 ? "" : "s"}</summary>
+                      <div className="mt-2 min-w-48 space-y-1">
+                        {worker.days.map((day) => <p key={day.date} className="flex justify-between gap-4 text-xs text-slate-600"><span>{formatWorkDate(day.date)} · {day.shifts} shift{day.shifts === 1 ? "" : "s"}</span><strong className="text-ink">{formatHours(day.hours)}</strong></p>)}
+                      </div>
+                    </details>
+                  </td>
                   <td className="px-3 py-3 text-slate-600">{worker.participantNames.join(", ")}</td>
                   <td className="px-3 py-3 text-right font-bold text-teal-900">{formatHours(worker.totalHours)}</td>
                 </tr>
               ))}
-              {!hours.staff.length ? <tr><td colSpan={4} className="px-3 py-5 text-center text-slate-600">No completed staff hours in this period.</td></tr> : null}
+              {!hours.staff.length ? <tr><td colSpan={5} className="px-3 py-5 text-center text-slate-600">No completed staff hours in this period.</td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -101,14 +109,18 @@ function formatHours(value: number) {
   return `${value.toFixed(2)} hrs`;
 }
 
+function formatWorkDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+}
+
 function downloadStaffHoursCsv(hours: ReturnType<typeof getStaffHoursSummary>) {
   const rows = [
     ["Period", hours.dateRange],
     [],
-    ["Staff member", "Completed shifts", "Clients supported", "Hours worked"],
-    ...hours.staff.map((worker) => [worker.workerName, String(worker.completedShifts), worker.participantNames.join("; "), worker.totalHours.toFixed(2)]),
+    ["Staff member", "Completed shifts", "Days worked", "Daily breakdown", "Clients supported", "Hours worked"],
+    ...hours.staff.map((worker) => [worker.workerName, String(worker.completedShifts), String(worker.days.length), worker.days.map((day) => `${day.date}: ${day.hours.toFixed(2)} hours (${day.shifts} shifts)`).join("; "), worker.participantNames.join("; "), worker.totalHours.toFixed(2)]),
     [],
-    ["Total staff hours", "", "", hours.totalHours.toFixed(2)]
+    ["Total staff hours", "", "", "", "", hours.totalHours.toFixed(2)]
   ];
   const csv = rows.map((row) => row.map((value) => `"${String(value || "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));

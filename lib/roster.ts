@@ -39,6 +39,7 @@ export type StaffHoursSummary = {
   completedShifts: number;
   totalHours: number;
   participantNames: string[];
+  days: Array<{ date: string; shifts: number; hours: number }>;
 };
 
 export type EmployeeColourScheme = {
@@ -316,11 +317,20 @@ export function getStaffHoursSummary(shifts: RosterShift[], period: RosterReport
         workerName: worker.name,
         completedShifts: 0,
         totalHours: 0,
-        participantNames: []
+        participantNames: [],
+        days: []
       };
       existing.completedShifts += 1;
       existing.totalHours = Math.round((existing.totalHours + hours) * 100) / 100;
       if (!existing.participantNames.includes(shift.participantName)) existing.participantNames.push(shift.participantName);
+      const day = existing.days.find((item) => item.date === shift.shiftDate);
+      if (day) {
+        day.shifts += 1;
+        day.hours = Math.round((day.hours + hours) * 100) / 100;
+      } else {
+        existing.days.push({ date: shift.shiftDate, shifts: 1, hours });
+      }
+      existing.days.sort((a, b) => a.date.localeCompare(b.date));
       staff.set(worker.id, existing);
     });
   });

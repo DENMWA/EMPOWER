@@ -419,4 +419,7 @@ test("staff hours reports total completed work across payroll periods", async ()
   assert.match(reports, /fortnightly/);
   assert.match(reports, /monthly/);
   assert.match(reports, /downloadStaffHoursCsv/);
+  assert.match(reports, /Daily breakdown/);
+  assert.match(reports, /worker\.days\.map/);
+  assert.match(roster, /existing\.days\.find/);
 });
