@@ -315,3 +315,22 @@ test("shift review decisions persist status, comments and audit history", async 
   assert.match(migration, /shift_verification/);
   assert.match(migration, /target\.status = 'Locked'/);
 });
+
+test("incident review decisions persist manager action and closure history", async () => {
+  const [queue, records, migration] = await Promise.all([
+    source("components/admin/IncidentReviewQueue.tsx"),
+    source("lib/incident-records.ts"),
+    source("supabase/incident-review-actions.sql")
+  ]);
+  assert.match(queue, />Approve and action</);
+  assert.match(queue, />Request further details</);
+  assert.match(queue, />Certify and close</);
+  assert.match(queue, /reviewIncidentReport/);
+  assert.doesNotMatch(queue, /Review status/);
+  assert.match(records, /review_incident_report/);
+  assert.match(records, /structuredReports, \.\.\.retainedOnlyReports/);
+  assert.match(migration, /create table if not exists public\.incident_reviews/);
+  assert.match(migration, /insert into public\.audit_logs/);
+  assert.match(migration, /incident_actioning/);
+  assert.match(migration, /target\.status = 'Locked'/);
+});

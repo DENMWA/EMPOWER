@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Save, ShieldCheck } from "lucide-react";
+import { CheckCircle2, LockKeyhole, MessageSquareMore, ShieldCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
-import { getSavedIncidentReports, saveIncidentReport, type IncidentEscalationPriority, type IncidentStatus, type StoredIncidentReport } from "@/lib/incident-records";
+import { getSavedIncidentReports, reviewIncidentReport, type IncidentEscalationPriority, type StoredIncidentReport } from "@/lib/incident-records";
 
-const reviewStatuses: IncidentStatus[] = ["Submitted", "Needs Review", "Locked"];
 const escalationPriorities: IncidentEscalationPriority[] = ["Routine", "Urgent", "Critical"];
 const escalationActionOptions = [
   "Client wellbeing follow-up",
@@ -157,6 +156,8 @@ export function IncidentReviewQueue() {
   const [selectedHouseId, setSelectedHouseId] = useState("all");
   const [reports, setReports] = useState<StoredIncidentReport[]>([]);
   const [message, setMessage] = useState("");
+  const [savingId, setSavingId] = useState("");
+  const [canCertify, setCanCertify] = useState(false);
   const filteredReports = useMemo(() => {
     return reports.filter((report) => {
       const clientMatch = selectedClientId === "all" || report.participantId === selectedClientId;
@@ -175,6 +176,10 @@ export function IncidentReviewQueue() {
     getTenantClients().then(setClients).catch(() => setClients([]));
     getTenantHouses().then(setHouses).catch(() => setHouses([]));
     loadReports();
+    fetch("/api/auth/access?mode=admin&permission=incident_actioning", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((access: { allowed?: boolean; role?: string }) => setCanCertify(Boolean(access.allowed && access.role && ["owner", "admin", "sole_provider"].includes(access.role))))
+      .catch(() => setCanCertify(false));
     window.addEventListener("empowernotes:retained-records-updated", loadReports);
     return () => window.removeEventListener("empowernotes:retained-records-updated", loadReports);
   }, []);
@@ -199,15 +204,17 @@ export function IncidentReviewQueue() {
     });
   }
 
-  async function saveManagerResponse(report: StoredIncidentReport) {
-    const nextReport = {
-      ...report,
-      escalationPriority: report.escalationPriority || getSuggestedPriority(report),
-      status: report.status === "Submitted" ? "Needs Review" as const : report.status
-    };
-    const result = await saveIncidentReport(nextReport);
-    const fullySaved = result.savedToCloud && result.savedToStructuredCloud;
-    setMessage(fullySaved ? `${report.incidentId} escalation action saved.` : `${report.incidentId} escalation action was not fully saved. ${result.structuredError || result.error || "Sign in and try again."}`);
+  async function submitReview(report: StoredIncidentReport, action: "approve" | "request_details" | "certify") {
+    if (!report.managerReview.trim()) {
+      setMessage("Add a manager response before recording an incident decision.");
+      return;
+    }
+
+    setSavingId(report.incidentId);
+    setMessage("");
+    const result = await reviewIncidentReport({ ...report, escalationPriority: report.escalationPriority || getSuggestedPriority(report) }, action, report.managerReview);
+    setSavingId("");
+    setMessage(result.savedToCloud ? `${report.incidentId} is now ${result.status}.` : `${report.incidentId} was not updated. ${result.error || "Sign in and try again."}`);
     await loadReports();
   }
 
@@ -301,12 +308,6 @@ export function IncidentReviewQueue() {
                   </div>
                 </fieldset>
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
-                  Review status
-                  <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={report.status} onChange={(event) => updateReport(reportKey, { status: event.target.value as IncidentStatus })}>
-                    {reviewStatuses.map((status) => <option key={status}>{status}</option>)}
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-semibold text-slate-700">
                   Manager response
                   <textarea
                     className="min-h-36 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-ink"
@@ -315,10 +316,11 @@ export function IncidentReviewQueue() {
                     placeholder="Add manager review, escalation decision, notifications required, risk controls, and closure instructions."
                   />
                 </label>
-                <button type="button" onClick={() => saveManagerResponse(report)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift">
-                  <Save size={17} aria-hidden="true" />
-                  Save manager response
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" disabled={savingId === report.incidentId} onClick={() => void submitReview(report, "approve")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle2 size={17} aria-hidden="true" />Approve and action</button>
+                  <button type="button" disabled={savingId === report.incidentId} onClick={() => void submitReview(report, "request_details")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-900 disabled:opacity-50"><MessageSquareMore size={17} aria-hidden="true" />Request further details</button>
+                  {canCertify ? <button type="button" disabled={savingId === report.incidentId} onClick={() => void submitReview(report, "certify")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:opacity-50"><LockKeyhole size={17} aria-hidden="true" />Certify and close</button> : null}
+                </div>
               </div>
             </div>
           </div>

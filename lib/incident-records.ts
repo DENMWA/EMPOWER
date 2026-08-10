@@ -1,8 +1,8 @@
 import { getTenantRetainedRecords, saveTenantRetainedRecord, type RetainedRecord } from "@/lib/retained-records";
-import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
+import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest, supabaseRpc } from "@/lib/supabase-rest";
 import { tenantStorageKey } from "@/lib/tenant-storage";
 
-export type IncidentStatus = "Draft" | "Submitted" | "Needs Review" | "Locked";
+export type IncidentStatus = "Draft" | "Submitted" | "Needs Review" | "Approved" | "Locked";
 export type IncidentEscalationPriority = "Routine" | "Urgent" | "Critical";
 
 export type StoredIncidentReport = {
@@ -114,11 +114,31 @@ export async function getSavedIncidentReports() {
     .filter((item): item is { record: RetainedRecord; report: StoredIncidentReport } => Boolean(item));
 
   const structuredReports = await getStructuredIncidentReports();
-  const retainedKeys = new Set(retainedReports.map((item) => getIncidentReportKey(item.report)));
-  const structuredOnlyReports = structuredReports
-    .filter((item) => !retainedKeys.has(getIncidentReportKey(item.report)));
+  const structuredKeys = new Set(structuredReports.map((item) => getIncidentReportKey(item.report)));
+  const retainedOnlyReports = retainedReports
+    .filter((item) => !structuredKeys.has(getIncidentReportKey(item.report)));
 
-  return [...retainedReports, ...structuredOnlyReports];
+  return [...structuredReports, ...retainedOnlyReports];
+}
+
+export async function reviewIncidentReport(
+  report: StoredIncidentReport,
+  action: "approve" | "request_details" | "certify",
+  comments: string
+) {
+  const result = await supabaseRpc<string>("review_incident_report", {
+    selected_app_incident_id: report.incidentId,
+    selected_action: action,
+    reviewer_comments: comments.trim() || null,
+    review_payload: {
+      escalationPriority: report.escalationPriority,
+      escalationActions: report.escalationActions || [],
+      escalationAssignedTo: report.escalationAssignedTo || "",
+      escalationDueDate: report.escalationDueDate || ""
+    }
+  });
+
+  return { savedToCloud: Boolean(result.data && !result.error), status: result.data || "", error: result.error };
 }
 
 export async function saveIncidentReport(report: StoredIncidentReport) {
