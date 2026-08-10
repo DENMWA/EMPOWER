@@ -11,6 +11,8 @@ import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants } from "@/lib/sample-data";
 import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
 import { cn } from "@/lib/utils";
+import { isWorkerCareDocumentType } from "@/lib/document-access";
+import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const dayMs = 24 * 60 * 60 * 1000;
 
@@ -19,15 +21,16 @@ export function DocumentVault() {
   const [storedDocuments, setStoredDocuments] = useState<StoredDocumentRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
-  const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
-  const allDocuments = useMemo(() => filterRecordsByParticipantAccess(storedDocuments.length ? storedDocuments : realMode ? [] : documents.map((document) => {
+  const [canManageProtectedDocuments, setCanManageProtectedDocuments] = useState(false);
+  const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : filterByParticipantAccess(participants), [storedClients, realMode]);
+  const allDocuments = useMemo(() => (storedDocuments.length ? storedDocuments : realMode ? [] : filterRecordsByParticipantAccess(documents.map((document) => {
     const participant = participants.find((item) => item.id === document.participantId);
     return {
       ...document,
       clientName: participant?.name ?? "Unassigned client",
       savedAt: new Date(`${document.startDate}T00:00:00`).toISOString()
     };
-  })), [storedDocuments, realMode]);
+  }))).filter((document) => canManageProtectedDocuments || (document.visibility === "worker-visible" && isWorkerCareDocumentType(document.type))), [canManageProtectedDocuments, storedDocuments, realMode]);
   const expirySummary = useMemo(() => {
     return allDocuments.reduce(
       (summary, document) => {
@@ -56,6 +59,18 @@ export function DocumentVault() {
   }, []);
 
   useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    fetch("/api/auth/access?mode=admin&permission=people", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store"
+    })
+      .then((response) => response.json())
+      .then((result: { allowed?: boolean }) => setCanManageProtectedDocuments(Boolean(result.allowed)))
+      .catch(() => setCanManageProtectedDocuments(false));
+  }, []);
+
+  useEffect(() => {
     function syncDataMode() {
       setRealMode(isRealModeEnabled());
     }
@@ -70,7 +85,7 @@ export function DocumentVault() {
       <div>
         <p className="text-sm font-semibold uppercase tracking-wide text-sea">Client organised files</p>
         <h2 className="mt-1 text-xl font-semibold text-ink">Document Vault</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Documents are shown with their assigned client so support evidence does not become mixed across profiles.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Direct-care documents are shown with their assigned client so current support guidance remains easy to find.</p>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3">

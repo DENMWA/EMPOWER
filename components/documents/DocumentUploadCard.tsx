@@ -9,39 +9,18 @@ import { buildDocumentStoragePath, createDocumentId, documentsUpdatedEvent, save
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants } from "@/lib/sample-data";
 import { markTrialStepComplete } from "@/lib/trial-run";
-import { getCurrentOrganisationId } from "@/lib/supabase-rest";
+import { getCurrentOrganisationId, getStoredAccessToken } from "@/lib/supabase-rest";
 import { filterByParticipantAccess } from "@/lib/user-access";
 import { cn } from "@/lib/utils";
-
-const coreDocumentTypes = [
-  "NDIS Plan",
-  "Behaviour support plan",
-  "Risk assessment",
-  "Communication profile",
-  "Medical documents",
-  "CHAP",
-  "Service agreement"
-];
-
-const alliedHealthReportTypes = [
-  "Allied Health Report",
-  "Occupational Therapy Report",
-  "Physiotherapy Report",
-  "Speech Pathology Report",
-  "Psychology Report",
-  "Behaviour Support Practitioner Report",
-  "Dietitian Report",
-  "Exercise Physiology Report",
-  "Podiatry Report",
-  "Nursing Assessment Report"
-];
+import { protectedDocumentTypes, workerCareDocumentTypes } from "@/lib/document-access";
 
 export function DocumentUploadCard() {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [clientId, setClientId] = useState("");
-  const [documentType, setDocumentType] = useState("NDIS Plan");
+  const [documentType, setDocumentType] = useState<string>(workerCareDocumentTypes[0]);
   const [visibility, setVisibility] = useState<"worker-visible" | "manager-only">("worker-visible");
+  const [canManageProtectedDocuments, setCanManageProtectedDocuments] = useState(false);
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState("");
   const [fileName, setFileName] = useState("");
@@ -51,7 +30,10 @@ export function DocumentUploadCard() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [pendingDocumentId, setPendingDocumentId] = useState("");
   const [pendingFilePath, setPendingFilePath] = useState("");
-  const allParticipants = useMemo(() => filterByParticipantAccess(storedClients.length ? storedClients : realMode ? [] : participants), [storedClients, realMode]);
+  const allParticipants = useMemo(
+    () => storedClients.length ? storedClients : realMode ? [] : filterByParticipantAccess(participants),
+    [storedClients, realMode]
+  );
   const selectedClient = allParticipants.find((participant) => participant.id === clientId) ?? allParticipants[0];
 
   useEffect(() => {
@@ -63,6 +45,27 @@ export function DocumentUploadCard() {
     window.addEventListener(clientsUpdatedEvent, loadClients);
     return () => window.removeEventListener(clientsUpdatedEvent, loadClients);
   }, []);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    fetch("/api/auth/access?mode=admin&permission=people", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store"
+    })
+      .then((response) => response.json())
+      .then((result: { allowed?: boolean }) => setCanManageProtectedDocuments(Boolean(result.allowed)))
+      .catch(() => setCanManageProtectedDocuments(false));
+  }, []);
+
+  useEffect(() => {
+    if (!canManageProtectedDocuments) {
+      setVisibility("worker-visible");
+      if (!workerCareDocumentTypes.includes(documentType as typeof workerCareDocumentTypes[number])) {
+        setDocumentType(workerCareDocumentTypes[0]);
+      }
+    }
+  }, [canManageProtectedDocuments, documentType]);
 
   useEffect(() => {
     function syncDataMode() {
@@ -179,7 +182,7 @@ export function DocumentUploadCard() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Client document upload</p>
           <h2 className="mt-1 text-xl font-semibold text-ink">Upload to a specific client</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Every document must be linked to a client before it enters the vault, keeping support plans, risk assessments, and evidence easy to find.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Upload direct-care documents to the relevant client so authorised workers can implement current health and support guidance.</p>
         </div>
         <StatusBadge label="Client required" tone="blue" />
       </div>
@@ -195,22 +198,30 @@ export function DocumentUploadCard() {
         <label className="text-sm font-semibold text-slate-700">
           Document type
           <select className="mt-2 w-full rounded-md border border-slate-300 p-3" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
-            <optgroup label="Core documents">
-              {coreDocumentTypes.map((type) => <option key={type}>{type}</option>)}
+            <optgroup label="Direct care and health">
+              {workerCareDocumentTypes.map((type) => <option key={type}>{type}</option>)}
             </optgroup>
-            <optgroup label="Allied health reports">
-              {alliedHealthReportTypes.map((type) => <option key={type}>{type}</option>)}
-            </optgroup>
-            <option>Other</option>
+            {canManageProtectedDocuments ? (
+              <optgroup label="Protected organisation records">
+                {protectedDocumentTypes.map((type) => <option key={type}>{type}</option>)}
+              </optgroup>
+            ) : null}
           </select>
         </label>
-        <label className="text-sm font-semibold text-slate-700">
-          Visibility
-          <select className="mt-2 w-full rounded-md border border-slate-300 p-3" value={visibility} onChange={(event) => setVisibility(event.target.value as "worker-visible" | "manager-only")}>
-            <option value="worker-visible">worker-visible</option>
-            <option value="manager-only">manager-only</option>
-          </select>
-        </label>
+        {canManageProtectedDocuments ? (
+          <label className="text-sm font-semibold text-slate-700">
+            Visibility
+            <select className="mt-2 w-full rounded-md border border-slate-300 p-3" value={visibility} onChange={(event) => setVisibility(event.target.value as "worker-visible" | "manager-only")}>
+              <option value="worker-visible">Direct-care team</option>
+              <option value="manager-only">Managers only</option>
+            </select>
+          </label>
+        ) : (
+          <div className="rounded-md border border-teal-100 bg-teal-50 p-3 text-sm">
+            <p className="font-semibold text-teal-900">Direct-care team</p>
+            <p className="mt-1 text-teal-800">Only approved care documents can be uploaded here.</p>
+          </div>
+        )}
         <label className="text-sm font-semibold text-slate-700">
           Start date
           <input className="mt-2 w-full rounded-md border border-slate-300 p-3" type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} />

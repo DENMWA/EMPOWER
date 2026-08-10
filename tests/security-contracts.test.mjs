@@ -271,3 +271,26 @@ test("staff dashboard hides management surfaces unless server access is verified
   assert.match(roleAware, /can\("billing"\)/);
   assert.match(shell, /item\.href !== "\/admin" \|\| verifiedAdmin/);
 });
+
+test("workers can access only assigned-client direct-care documents", async () => {
+  const [access, upload, vault, migration] = await Promise.all([
+    source("lib/document-access.ts"),
+    source("components/documents/DocumentUploadCard.tsx"),
+    source("components/documents/DocumentVault.tsx"),
+    source("supabase/protect-client-funding-documents.sql")
+  ]);
+  assert.match(access, /CHAP/);
+  assert.match(access, /Medical Report/);
+  assert.match(access, /Occupational Therapy Report/);
+  assert.match(access, /Physiotherapy Report/);
+  assert.match(access, /Service Agreement/);
+  assert.match(access, /Funding Schedule/);
+  assert.match(upload, /canManageProtectedDocuments \? \(/);
+  assert.match(upload, /Only approved care documents can be uploaded here/);
+  assert.match(vault, /isWorkerCareDocumentType\(document\.type\)/);
+  assert.match(migration, /enforce_worker_document_scope/);
+  assert.match(migration, /is_worker_care_document_type/);
+  assert.match(migration, /worker_can_access_participant_file/);
+  assert.match(migration, /visibility = 'worker-visible'/);
+  assert.match(migration, /assigned_to_participant\(participant_id\)/);
+});
