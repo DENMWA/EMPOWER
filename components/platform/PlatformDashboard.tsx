@@ -136,7 +136,7 @@ export function PlatformDashboard() {
 
 type LivePlatformSummary = {
   generatedAt: string;
-  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; payingAccounts: number; paymentRisk: number };
+  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; payingAccounts: number; paymentRisk: number; lifetimeRevenueCents: number; currentMonthRevenueCents: number };
   organisations: Array<{
     id: string;
     name: string;
@@ -153,6 +153,13 @@ type LivePlatformSummary = {
     clients: number;
     incidents: number;
   }>;
+  payments: {
+    lifetimePaidCents: number;
+    currentMonthPaidCents: number;
+    providers: Array<{ organisationId: string; organisationName: string; lifetimePaidCents: number; missedPayments: number; outstandingCents: number; oldestUnpaidAt: string; overdueDays: number; risk: boolean; lastPaidAt: string }>;
+    monthly: Array<{ month: string; totalPaidCents: number; providers: Array<{ organisationId: string; organisationName: string; paidCents: number }> }>;
+    ledger: Array<{ invoiceId: string; organisationId: string; organisationName: string; status: string; amountDueCents: number; amountPaidCents: number; attemptCount: number; date: string; hostedInvoiceUrl: string }>;
+  };
 };
 
 function LivePlatformDataPending() {
@@ -188,6 +195,7 @@ function LivePlatformDataPending() {
             <PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due organisations" icon={AlertTriangle} tone="amber" />
           </div>
           <SystemHealthPanel />
+          <SubscriptionPaymentLedger payments={data.payments} />
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -221,6 +229,73 @@ function LivePlatformDataPending() {
       </Section>
     </>
   );
+}
+
+function SubscriptionPaymentLedger({ payments }: { payments: LivePlatformSummary["payments"] }) {
+  const maxMonthly = Math.max(1, ...payments.monthly.map((item) => item.totalPaidCents));
+  const providerColours = ["bg-teal-600", "bg-sky-500", "bg-emerald-500", "bg-indigo-500", "bg-amber-500", "bg-rose-500"];
+  const providerIds = Array.from(new Set(payments.monthly.flatMap((month) => month.providers.map((provider) => provider.organisationId))));
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <PlatformMetric label="Lifetime subscription payments" value={formatAud(payments.lifetimePaidCents)} detail="Successful Stripe invoices recorded" icon={ReceiptText} tone="green" />
+        <PlatformMetric label="Paid this month" value={formatAud(payments.currentMonthPaidCents)} detail="Current calendar month" icon={BarChart3} tone="blue" />
+        <PlatformMetric label="Missed payments" value={payments.providers.reduce((total, item) => total + item.missedPayments, 0)} detail="Unresolved provider invoices" icon={CreditCard} tone="amber" />
+        <PlatformMetric label="Two-month risk" value={payments.providers.filter((item) => item.risk).length} detail="Overdue for 60 days or more" icon={AlertTriangle} tone="amber" />
+      </div>
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Revenue intelligence</p><h2 className="mt-1 text-xl font-semibold text-ink">Monthly provider payment comparison</h2><p className="mt-1 text-sm text-slate-600">Successful EmpowerNotes subscription payments only.</p></div>
+          <StatusBadge label="Stripe ledger" tone="green" />
+        </div>
+        <div className="mt-5 space-y-4">
+          {payments.monthly.map((month) => (
+            <div key={month.month} className="grid gap-2 sm:grid-cols-[6rem_1fr_7rem] sm:items-center">
+              <p className="text-sm font-semibold text-slate-700">{formatMonth(month.month)}</p>
+              <div className="flex h-8 overflow-hidden rounded-md bg-slate-100" style={{ width: `${Math.max(4, month.totalPaidCents / maxMonthly * 100)}%` }}>
+                {month.providers.map((provider) => {
+                  const colour = providerColours[Math.max(0, providerIds.indexOf(provider.organisationId)) % providerColours.length];
+                  return <div key={provider.organisationId} className={cn("h-full transition-opacity hover:opacity-80", colour)} style={{ width: `${provider.paidCents / Math.max(1, month.totalPaidCents) * 100}%` }} title={`${provider.organisationName}: ${formatAud(provider.paidCents)}`} />;
+                })}
+              </div>
+              <p className="text-right text-sm font-bold text-ink">{formatAud(month.totalPaidCents)}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          {providerIds.map((providerId, index) => {
+            const provider = payments.providers.find((item) => item.organisationId === providerId);
+            return <span key={providerId} className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600"><span className={cn("h-3 w-3 rounded-sm", providerColours[index % providerColours.length])} />{provider?.organisationName || "Provider"}</span>;
+          })}
+        </div>
+      </Card>
+
+      <Card>
+        <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Provider account risk</p><h2 className="mt-1 text-xl font-semibold text-ink">Payments by provider</h2></div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Provider</th><th className="py-3 pr-4">Lifetime paid</th><th className="py-3 pr-4">Last payment</th><th className="py-3 pr-4">Missed</th><th className="py-3 pr-4">Outstanding</th><th className="py-3">Risk</th></tr></thead>
+            <tbody>{payments.providers.map((provider) => <tr key={provider.organisationId} className={cn("border-b border-slate-100", provider.risk && "bg-red-50/60")}><td className="py-3 pr-4 font-semibold text-ink">{provider.organisationName}</td><td className="py-3 pr-4 font-semibold">{formatAud(provider.lifetimePaidCents)}</td><td className="py-3 pr-4">{formatPlatformDate(provider.lastPaidAt)}</td><td className="py-3 pr-4">{provider.missedPayments}</td><td className="py-3 pr-4">{formatAud(provider.outstandingCents)}</td><td className="py-3"><StatusBadge label={provider.risk ? `${provider.overdueDays} days overdue` : provider.missedPayments ? "Payment attention" : "Current"} tone={provider.risk ? "red" : provider.missedPayments ? "amber" : "green"} /></td></tr>)}</tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Subscription payment ledger</p><h2 className="mt-1 text-xl font-semibold text-ink">Recent Stripe invoices</h2></div>
+        <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Date</th><th className="py-3 pr-4">Provider</th><th className="py-3 pr-4">Invoice</th><th className="py-3 pr-4">Due</th><th className="py-3 pr-4">Paid</th><th className="py-3">Status</th></tr></thead><tbody>{payments.ledger.map((entry) => <tr key={entry.invoiceId} className="border-b border-slate-100"><td className="py-3 pr-4">{formatPlatformDate(entry.date)}</td><td className="py-3 pr-4 font-semibold text-ink">{entry.organisationName}</td><td className="py-3 pr-4">{entry.hostedInvoiceUrl ? <a href={entry.hostedInvoiceUrl} target="_blank" rel="noreferrer" className="font-semibold text-teal-700 hover:underline">{entry.invoiceId}</a> : entry.invoiceId}</td><td className="py-3 pr-4">{formatAud(entry.amountDueCents)}</td><td className="py-3 pr-4">{formatAud(entry.amountPaidCents)}</td><td className="py-3"><StatusBadge label={entry.status} tone={entry.status === "paid" ? "green" : entry.status === "failed" || entry.status === "uncollectible" ? "red" : "amber"} /></td></tr>)}</tbody></table></div>
+        {!payments.ledger.length ? <p className="py-6 text-center text-sm text-slate-600">No Stripe payment events have been recorded yet.</p> : null}
+      </Card>
+    </div>
+  );
+}
+
+function formatAud(cents: number) {
+  return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format((Number(cents) || 0) / 100);
+}
+
+function formatMonth(value: string) {
+  return new Date(`${value}-01T00:00:00`).toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
 }
 
 function formatPlatformDate(value: string) {

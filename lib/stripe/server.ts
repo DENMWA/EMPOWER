@@ -13,6 +13,23 @@ export type StripeSubscription = {
   items?: { data?: Array<{ current_period_end?: number; price?: { id?: string } }> };
 };
 
+export type StripeInvoice = Record<string, unknown> & {
+  id?: string;
+  customer?: string | { id?: string };
+  subscription?: string | { id?: string };
+  status?: string;
+  currency?: string;
+  amount_due?: number;
+  amount_paid?: number;
+  attempt_count?: number;
+  created?: number;
+  period_start?: number;
+  period_end?: number;
+  status_transitions?: { paid_at?: number | null };
+  hosted_invoice_url?: string | null;
+  invoice_pdf?: string | null;
+};
+
 export function getStripePriceId(tier: SubscriptionTier) {
   return {
     solo: process.env.STRIPE_PRICE_SOLO,
@@ -127,7 +144,47 @@ export async function syncOrganisationSubscription(organisationId: string, subsc
   });
 }
 
-export async function supabaseServiceRequest<T = unknown>(path: string, method = "GET", body?: unknown) {
+export async function recordSubscriptionInvoice(organisationId: string, invoice: StripeInvoice, eventId: string, eventType: string) {
+  if (!invoice.id) return { data: null, error: "Stripe invoice identifier is missing." };
+  const failed = eventType === "invoice.payment_failed";
+  const paid = eventType === "invoice.payment_succeeded" || invoice.status === "paid";
+  const status = paid ? "paid" : failed ? "failed" : normaliseInvoiceStatus(invoice.status);
+  return supabaseServiceRequest("platform_subscription_payments?on_conflict=stripe_invoice_id", "POST", {
+    stripe_invoice_id: invoice.id,
+    stripe_event_id: eventId || null,
+    organisation_id: organisationId,
+    stripe_customer_id: stringObjectId(invoice.customer) || null,
+    stripe_subscription_id: stringObjectId(invoice.subscription) || null,
+    status,
+    currency: (invoice.currency || "aud").toLowerCase(),
+    amount_due_cents: Math.max(0, Number(invoice.amount_due) || 0),
+    amount_paid_cents: Math.max(0, Number(invoice.amount_paid) || 0),
+    attempt_count: Math.max(0, Number(invoice.attempt_count) || 0),
+    invoice_created_at: unixTimestamp(invoice.created),
+    period_start: unixTimestamp(invoice.period_start),
+    period_end: unixTimestamp(invoice.period_end),
+    paid_at: unixTimestamp(invoice.status_transitions?.paid_at),
+    failed_at: failed ? new Date().toISOString() : null,
+    hosted_invoice_url: invoice.hosted_invoice_url || null,
+    invoice_pdf_url: invoice.invoice_pdf || null,
+    updated_at: new Date().toISOString()
+  }, "resolution=merge-duplicates,return=representation");
+}
+
+function stringObjectId(value: unknown) {
+  if (typeof value === "string") return value;
+  return value && typeof value === "object" && "id" in value && typeof value.id === "string" ? value.id : "";
+}
+
+function unixTimestamp(value?: number | null) {
+  return value && Number.isFinite(value) ? new Date(value * 1000).toISOString() : null;
+}
+
+function normaliseInvoiceStatus(status?: string) {
+  return status === "void" || status === "uncollectible" || status === "open" ? status : "open";
+}
+
+export async function supabaseServiceRequest<T = unknown>(path: string, method = "GET", body?: unknown, prefer = "return=representation") {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return { data: null as T | null, error: "Supabase billing access is not configured." };
@@ -138,7 +195,7 @@ export async function supabaseServiceRequest<T = unknown>(path: string, method =
         apikey: key,
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        Prefer: "return=representation"
+        Prefer: prefer
       },
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store"

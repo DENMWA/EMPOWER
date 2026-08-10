@@ -423,3 +423,23 @@ test("staff hours reports total completed work across payroll periods", async ()
   assert.match(reports, /worker\.days\.map/);
   assert.match(roster, /existing\.days\.find/);
 });
+
+test("platform subscription payments are owner-only, idempotent and risk-aged", async () => {
+  const [webhook, stripe, summary, dashboard, migration] = await Promise.all([
+    source("app/api/stripe/webhook/route.ts"),
+    source("lib/stripe/server.ts"),
+    source("app/api/platform/summary/route.ts"),
+    source("components/platform/PlatformDashboard.tsx"),
+    source("supabase/platform-subscription-payment-ledger.sql")
+  ]);
+  assert.match(webhook, /recordSubscriptionInvoice/);
+  assert.match(stripe, /on_conflict=stripe_invoice_id/);
+  assert.match(stripe, /resolution=merge-duplicates/);
+  assert.match(summary, /verifyServerAccess\(request, "platform"\)/);
+  assert.match(summary, /60 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(summary, /lifetimePaidCents/);
+  assert.match(dashboard, /Subscription payment ledger/);
+  assert.match(dashboard, /Monthly provider payment comparison/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /revoke all .* from anon, authenticated/);
+});

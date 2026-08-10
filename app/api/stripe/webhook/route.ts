@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   findOrganisationForSubscription,
+  recordSubscriptionInvoice,
   stripeRequest,
   syncOrganisationSubscription,
   verifyStripeWebhook,
+  type StripeInvoice,
   type StripeSubscription
 } from "@/lib/stripe/server";
 
@@ -42,9 +44,13 @@ export async function POST(request: Request) {
         if (organisationId) await ensureSynced(organisationId, subscription);
       }
     } else if (event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
-      const invoice = event.data?.object || {};
+      const invoice = (event.data?.object || {}) as StripeInvoice;
       const subscriptionId = invoiceSubscriptionId(invoice);
-      if (subscriptionId) await retrieveAndSync(subscriptionId);
+      const organisationId = subscriptionId ? await retrieveAndSync(subscriptionId) : "";
+      if (organisationId) {
+        const ledger = await recordSubscriptionInvoice(organisationId, invoice, event.id || "", event.type);
+        if (ledger.error) throw new Error(ledger.error);
+      }
     }
   } catch {
     return NextResponse.json({ error: "Subscription synchronization failed." }, { status: 500 });
@@ -59,6 +65,7 @@ async function retrieveAndSync(subscriptionId: string, knownOrganisationId = "")
   const organisationId = knownOrganisationId || await findOrganisationForSubscription(result.data);
   if (!organisationId) throw new Error("Subscription organisation could not be resolved.");
   await ensureSynced(organisationId, result.data);
+  return organisationId;
 }
 
 async function ensureSynced(organisationId: string, subscription: StripeSubscription) {
