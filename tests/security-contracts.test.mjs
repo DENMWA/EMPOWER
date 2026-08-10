@@ -220,3 +220,21 @@ test("inactive client billing is limited to services inside the agreement and de
   assert.match(migration, /before insert or update[\s\S]*on public\.native_invoice_lines/);
   assert.match(migration, /service_started_at > client_deactivated_at/);
 });
+
+test("client assignments link invited and authenticated staff identities", async () => {
+  const [staffRecords, staffProfiles, teamTable, clientProfiles, migration] = await Promise.all([
+    source("lib/staff-records.ts"),
+    source("components/staff/StaffProfiles.tsx"),
+    source("components/admin/TeamMembersTable.tsx"),
+    source("components/participants/ClientProfiles.tsx"),
+    source("supabase/link-client-staff-assignments.sql")
+  ]);
+  assert.match(staffRecords, /isStaffAssignedToClient/);
+  assert.match(staffRecords, /staff\.authUserId/);
+  assert.match(staffProfiles, /isStaffAssignedToClient\(user, client\)/);
+  assert.match(teamTable, /isStaffAssignedToClient\(user, participant\)/);
+  assert.doesNotMatch(clientProfiles, /filterByParticipantAccess\(clients\)/);
+  assert.match(migration, /assigned_worker_ids/);
+  assert.match(migration, /assigned_participant_ids/);
+  assert.match(migration, /lower\(app_user\.email\) = lower\(invite\.email\)/);
+});

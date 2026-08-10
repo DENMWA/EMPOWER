@@ -5,7 +5,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
-import { getTenantStaffInvites, staffUpdatedEvent, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
+import { getTenantStaffInvites, isStaffAssignedToClient, staffUpdatedEvent, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { accessChangedEvent, currentUserStorageKey, setCurrentAppUser } from "@/lib/user-access";
 import { Eye, MoreHorizontal, Power, RotateCcw } from "lucide-react";
@@ -115,7 +115,7 @@ export function TeamMembersTable() {
               </tr>
             ) : null}
             {allUsers.map((user) => {
-              const assigned = allParticipants.filter((participant) => user.assignedParticipants.includes(participant.id));
+              const assigned = allParticipants.filter((participant) => isStaffAssignedToClient(user, participant));
               const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;
               const storedStatus = user.inviteStatus;
               const status = storedStatus

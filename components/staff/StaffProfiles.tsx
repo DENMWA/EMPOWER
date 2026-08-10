@@ -6,7 +6,7 @@ import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
-import { getTenantStaffInvites, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
+import { getTenantStaffInvites, isStaffAssignedToClient, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
 
 type StaffProfileRecord = StaffUser | StaffRecord;
 type StaffProfileStatus = StaffRecord["inviteStatus"] | "Active";
@@ -69,7 +69,7 @@ export function StaffProfiles() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {staffProfiles.map((user) => {
-          const assignedClients = clientProfiles.filter((client) => user.assignedParticipants.includes(client.id));
+          const assignedClients = clientProfiles.filter((client) => isStaffAssignedToClient(user, client));
           const assignedHouses = getAssignedHouses(user, houses);
           const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;
           const inviteStatus = getInviteStatus(user);

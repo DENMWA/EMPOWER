@@ -8,7 +8,7 @@ import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/
 import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
-import { accessChangedEvent, filterByParticipantAccess } from "@/lib/user-access";
+import { accessChangedEvent } from "@/lib/user-access";
 import { fullAdminRoles } from "@/lib/admin-permissions";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { Power, RotateCcw } from "lucide-react";
@@ -20,7 +20,8 @@ export function ClientProfiles({ admin = false }: { admin?: boolean }) {
   const [progressNotes, setProgressNotes] = useState<RetainedRecord[]>([]);
   const [canControlLifecycle, setCanControlLifecycle] = useState(false);
   const [message, setMessage] = useState("");
-  const visibleClients = admin ? clients : filterByParticipantAccess(clients);
+  // Supabase RLS has already reduced this list to the signed-in worker's assignments.
+  const visibleClients = clients;
 
   const refreshClientRecords = useCallback(async () => {
     const [savedClients, savedDocuments, savedIncidents, savedProgressNotes] = await Promise.all([

@@ -33,6 +33,15 @@ export function roleLabelFor(role: UserRole) {
   return labels[role];
 }
 
+export function isStaffAssignedToClient(
+  staff: Pick<StaffRecord, "id" | "authUserId" | "assignedParticipants">,
+  client: { id: string; assignedWorkers?: string[]; keyWorkerId?: string }
+) {
+  const staffIds = [staff.id, staff.authUserId].filter((id): id is string => Boolean(id));
+  return staff.assignedParticipants.includes(client.id)
+    || staffIds.some((id) => client.assignedWorkers?.includes(id) || client.keyWorkerId === id);
+}
+
 export function getStoredStaff() {
   if (typeof window === "undefined") return [];
   if (isPresentationModeEnabled()) return [];
