@@ -22,6 +22,7 @@ import {
   linkCompletedRosterService,
   markInvoicePaymentStatus,
   nativeBillingUpdatedEvent,
+  updateSupportShiftTravel,
   waitForNativeBillingSave,
   type NativeBillingRecords,
   type NativeInvoice,
@@ -30,6 +31,8 @@ import {
 import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
 import type { RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
+
+type TravelDraft = { odometerStart: string; odometerEnd: string; rate: string; supportItemNumber: string; notes: string };
 
 export function NativeBillingWorkspace() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -61,6 +64,8 @@ export function NativeBillingWorkspace() {
   const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
   const [serviceRateSelections, setServiceRateSelections] = useState<Record<string, string>>({});
+  const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
+  const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -248,10 +253,52 @@ export function NativeBillingWorkspace() {
       : "Completed service linked. The invoice will flag that supporting note evidence is missing."));
   }
 
+  function getTravelDraft(shiftId: string): TravelDraft {
+    const shift = records.shifts.find((item) => item.id === shiftId);
+    return travelDrafts[shiftId] || {
+      odometerStart: shift?.odometerStart?.toString() || "",
+      odometerEnd: shift?.odometerEnd?.toString() || "",
+      rate: shift?.travelRatePerKilometre?.toString() || "",
+      supportItemNumber: shift?.travelSupportItemNumber || "",
+      notes: shift?.travelNotes || ""
+    };
+  }
+
+  function updateTravelDraft(shiftId: string, field: keyof TravelDraft, value: string) {
+    setTravelDrafts((current) => ({ ...current, [shiftId]: { ...getTravelDraft(shiftId), [field]: value } }));
+  }
+
+  async function saveTravelEvidence(shiftId: string) {
+    const draft = getTravelDraft(shiftId);
+    const result = updateSupportShiftTravel(shiftId, {
+      odometerStart: Number(draft.odometerStart),
+      odometerEnd: Number(draft.odometerEnd),
+      ratePerKilometre: Number(draft.rate),
+      supportItemNumber: draft.supportItemNumber,
+      notes: draft.notes
+    });
+    if (result.error) {
+      setMessage(result.error);
+      return;
+    }
+    setSavingAction("item");
+    setMessage("Saving travel evidence...");
+    try {
+      await waitForNativeBillingSave();
+      setRecords(getNativeBillingRecords());
+      setIncludedTravel((current) => ({ ...current, [shiftId]: true }));
+      setMessage(`${result.shift?.travelKilometres || 0} km saved from the odometer readings.`);
+    } catch (error) {
+      setMessage(`Travel evidence was not saved. ${getBillingError(error)}`);
+    } finally {
+      setSavingAction("");
+    }
+  }
+
   async function generateHolisticInvoice() {
     const selections = Object.entries(selectedInvoiceServices)
       .filter(([, selected]) => selected)
-      .map(([shiftId]) => ({ shiftId, agreementItemId: serviceRateSelections[shiftId] || "" }));
+      .map(([shiftId]) => ({ shiftId, agreementItemId: serviceRateSelections[shiftId] || "", includeTravel: Boolean(includedTravel[shiftId]) }));
     if (!selections.length) {
       setMessage("Select at least one completed service for this invoice.");
       return;
@@ -516,6 +563,36 @@ export function NativeBillingWorkspace() {
                       </select>
                     </label>
                   ) : null}
+                  {billingService && agreementItem?.allowTravel && agreementItem.allowKilometres ? (() => {
+                    const travel = getTravelDraft(billingService.id);
+                    const distance = Math.max(0, Number(travel.odometerEnd || 0) - Number(travel.odometerStart || 0));
+                    return (
+                      <div className="mt-3 rounded-md border border-teal-200 bg-teal-50/60 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">Travel and kilometres</p>
+                            <p className="mt-1 text-xs text-slate-600">Record vehicle evidence and use the rate agreed for this participant.</p>
+                          </div>
+                          <label className="inline-flex items-center gap-2 text-sm font-semibold text-teal-900">
+                            <input type="checkbox" checked={Boolean(includedTravel[billingService.id])} onChange={(event) => setIncludedTravel((current) => ({ ...current, [billingService.id]: event.target.checked }))} />
+                            Include on invoice
+                          </label>
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <BillingField label="Odometer start" type="number" value={travel.odometerStart} onChange={(value) => updateTravelDraft(billingService.id, "odometerStart", value)} />
+                          <BillingField label="Odometer end" type="number" value={travel.odometerEnd} onChange={(value) => updateTravelDraft(billingService.id, "odometerEnd", value)} />
+                          <BillingField label="Agreed rate per km" type="number" value={travel.rate} onChange={(value) => updateTravelDraft(billingService.id, "rate", value)} />
+                          <BillingField label="Travel support item" value={travel.supportItemNumber} onChange={(value) => updateTravelDraft(billingService.id, "supportItemNumber", value)} />
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                          <BillingField label="Travel notes" value={travel.notes} onChange={(value) => updateTravelDraft(billingService.id, "notes", value)} />
+                          <button type="button" onClick={() => void saveTravelEvidence(billingService.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-semibold text-white hover:bg-teal-900">
+                            <Save size={16} aria-hidden="true" /> Save {distance.toFixed(1)} km
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })() : null}
                   {billingService && !availableAgreementItems.length ? <p className="mt-3 text-sm font-semibold text-amber-800">Add the client&apos;s agreed support components before invoicing this service.</p> : null}
                   {billingService && agreementItem && !invoiceEligibility.allowed ? <p className="mt-3 text-sm font-semibold text-red-700">{invoiceEligibility.reason}</p> : null}
                 </div>

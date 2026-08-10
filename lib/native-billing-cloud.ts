@@ -191,6 +191,12 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     timezone: "Australia/Sydney",
     status: shift.status,
     recurrence_rule: shift.recurrenceRule || null,
+    odometer_start: shift.odometerStart ?? null,
+    odometer_end: shift.odometerEnd ?? null,
+    travel_kilometres: shift.travelKilometres ?? null,
+    travel_rate_per_kilometre: shift.travelRatePerKilometre ?? null,
+    travel_support_item_number: shift.travelSupportItemNumber || null,
+    travel_notes: shift.travelNotes || null,
     created_by: userId,
     updated_by: userId,
     created_at: shift.createdAt,
@@ -303,6 +309,12 @@ function toShift(row: CloudRow, clientNames: Map<string, string>, staffNames: Ma
     recurrenceRule: asString(row.recurrence_rule),
     noteRecordId: shiftNotes.get(id) || "",
     rosterShiftId: asString(row.source_roster_shift_id) || undefined,
+    odometerStart: asNullableNumber(row.odometer_start) ?? undefined,
+    odometerEnd: asNullableNumber(row.odometer_end) ?? undefined,
+    travelKilometres: asNullableNumber(row.travel_kilometres) ?? undefined,
+    travelRatePerKilometre: asNullableNumber(row.travel_rate_per_kilometre) ?? undefined,
+    travelSupportItemNumber: asString(row.travel_support_item_number) || undefined,
+    travelNotes: asString(row.travel_notes) || undefined,
     createdAt: asString(row.created_at)
   };
 }

@@ -30,6 +30,12 @@ export type SupportShift = {
   billableCancellation?: boolean;
   noteRecordId?: string;
   rosterShiftId?: string;
+  odometerStart?: number;
+  odometerEnd?: number;
+  travelKilometres?: number;
+  travelRatePerKilometre?: number;
+  travelSupportItemNumber?: string;
+  travelNotes?: string;
   createdAt: string;
 };
 
@@ -411,6 +417,40 @@ export function linkCompletedRosterService(input: {
   return { shift, error: "" };
 }
 
+export function updateSupportShiftTravel(shiftId: string, input: {
+  odometerStart: number;
+  odometerEnd: number;
+  ratePerKilometre: number;
+  supportItemNumber: string;
+  notes?: string;
+}) {
+  const records = getNativeBillingRecords();
+  const shift = records.shifts.find((item) => item.id === shiftId);
+  if (!shift) return { shift: null, error: "Completed service not found." };
+  if (!Number.isFinite(input.odometerStart) || !Number.isFinite(input.odometerEnd) || input.odometerEnd < input.odometerStart) {
+    return { shift: null, error: "Enter valid odometer readings. The end reading cannot be lower than the start reading." };
+  }
+  if (!Number.isFinite(input.ratePerKilometre) || input.ratePerKilometre <= 0) {
+    return { shift: null, error: "Enter the participant-agreed kilometre rate." };
+  }
+  if (!input.supportItemNumber.trim()) return { shift: null, error: "Enter the applicable NDIS travel support item number." };
+
+  const updatedShift: SupportShift = {
+    ...shift,
+    odometerStart: input.odometerStart,
+    odometerEnd: input.odometerEnd,
+    travelKilometres: Math.round((input.odometerEnd - input.odometerStart) * 10) / 10,
+    travelRatePerKilometre: input.ratePerKilometre,
+    travelSupportItemNumber: input.supportItemNumber.trim(),
+    travelNotes: input.notes?.trim() || ""
+  };
+  saveNativeBillingRecords({
+    ...records,
+    shifts: records.shifts.map((item) => item.id === shiftId ? updatedShift : item)
+  });
+  return { shift: updatedShift, error: "" };
+}
+
 export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[], client?: ClientRecord) {
   const records = getNativeBillingRecords();
   const shift = records.shifts.find((item) => item.id === shiftId);
@@ -423,7 +463,7 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[],
 }
 
 export function createInvoiceFromServices(
-  selections: Array<{ shiftId: string; agreementItemId: string }>,
+  selections: Array<{ shiftId: string; agreementItemId: string; includeTravel?: boolean }>,
   notes: RetainedRecord[],
   client?: ClientRecord
 ) {
@@ -431,6 +471,7 @@ export function createInvoiceFromServices(
   if (!selections.length) return { invoice: null, lines: [], error: "Select at least one completed service." };
 
   const selected = selections.map((selection) => ({
+    includeTravel: Boolean(selection.includeTravel),
     shift: records.shifts.find((item) => item.id === selection.shiftId),
     agreementItem: records.agreementItems.find((item) => item.id === selection.agreementItemId && item.status === "active")
   }));
@@ -442,6 +483,18 @@ export function createInvoiceFromServices(
   if (shifts.some((shift) => shift.participantId !== participantId)) return { invoice: null, lines: [], error: "An invoice can only contain services for one participant." };
   const agreement = records.agreements.find((item) => item.id === shifts[0].serviceAgreementId);
   if (!agreement || shifts.some((shift) => shift.serviceAgreementId !== agreement.id)) return { invoice: null, lines: [], error: "Selected services must use the same active service agreement." };
+
+  for (const { shift: possibleShift, agreementItem: possibleItem, includeTravel } of selected) {
+    if (!includeTravel) continue;
+    const shift = possibleShift as SupportShift;
+    const agreementItem = possibleItem as ServiceAgreementItem;
+    if (!agreementItem.allowTravel || !agreementItem.allowKilometres) {
+      return { invoice: null, lines: [], error: "Travel and kilometres are not enabled for the selected agreed support component." };
+    }
+    if (!shift.travelKilometres || !shift.travelRatePerKilometre || !shift.travelSupportItemNumber) {
+      return { invoice: null, lines: [], error: "Save the odometer readings, agreed kilometre rate and travel support item before including travel." };
+    }
+  }
 
   for (const shift of shifts) {
     const serviceDate = formatDateOnly(new Date(shift.startTime));
@@ -495,6 +548,41 @@ export function createInvoiceFromServices(
       exceptionReason,
       noteReference: shift.noteRecordId || "No support note linked"
     };
+  });
+
+  selected.filter(({ includeTravel }) => includeTravel).forEach(({ shift: possibleShift, agreementItem: possibleItem }) => {
+    const shift = possibleShift as SupportShift;
+    const agreementItem = possibleItem as ServiceAgreementItem;
+    if (!agreementItem.allowTravel || !agreementItem.allowKilometres) return;
+    const kilometres = shift.travelKilometres || 0;
+    const rate = shift.travelRatePerKilometre || 0;
+    if (kilometres <= 0 || rate <= 0 || !shift.travelSupportItemNumber) return;
+    lines.push({
+      id: createId("invoice-line"),
+      invoiceId,
+      shiftId: shift.id,
+      serviceAgreementId: agreement.id,
+      serviceAgreementItemId: agreementItem.id,
+      participantId: shift.participantId,
+      serviceDate: formatDateOnly(new Date(shift.startTime)),
+      supportItemNumber: shift.travelSupportItemNumber,
+      supportItemName: "Provider travel - non-labour costs",
+      description: `Travel evidence: odometer ${shift.odometerStart} to ${shift.odometerEnd} (${kilometres} km)${shift.travelNotes ? ` - ${shift.travelNotes}` : ""}`,
+      quantity: kilometres,
+      unitType: "km",
+      rate,
+      amount: roundCurrency(kilometres * rate),
+      gstCode: "GST-free",
+      pricingVersionId: agreementItem.pricingVersionId,
+      pricingVersionName: "Participant-agreed travel rate",
+      ndisPriceLimitUsed: null,
+      agreedRateUsed: rate,
+      evidenceStatus: getEvidenceStatus(shift, notes),
+      priceCheckStatus: "manual_review_required",
+      approvalStatus: "needs_correction",
+      exceptionReason: "Confirm the category-specific NDIS travel support item and participant-agreed rate before issuing",
+      noteReference: shift.noteRecordId || "No support note linked"
+    });
   });
 
   const serviceDates = lines.map((line) => line.serviceDate).sort();

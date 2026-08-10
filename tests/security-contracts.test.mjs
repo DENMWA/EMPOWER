@@ -371,3 +371,20 @@ test("participant invoices combine selected services using their agreed support 
   assert.match(billing, /NDIS support item number requires confirmation/);
   assert.match(billing, /invoiceLines: \[\.\.\.lines/);
 });
+
+test("provider travel uses odometer evidence and a separately reviewed invoice line", async () => {
+  const [billing, workspace, migration] = await Promise.all([
+    source("lib/native-billing.ts"),
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("supabase/shift-travel-billing.sql")
+  ]);
+  assert.match(billing, /updateSupportShiftTravel/);
+  assert.match(billing, /odometerEnd - input\.odometerStart/);
+  assert.match(billing, /Provider travel - non-labour costs/);
+  assert.match(billing, /participant-agreed rate before issuing/i);
+  assert.match(workspace, /Odometer start/);
+  assert.match(workspace, /Agreed rate per km/);
+  assert.match(workspace, /Include on invoice/);
+  assert.match(migration, /calculate_shift_travel_kilometres/);
+  assert.match(migration, /odometer end reading cannot be lower/i);
+});
