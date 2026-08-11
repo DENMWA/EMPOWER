@@ -161,7 +161,7 @@ on conflict do nothing;
 
 create or replace function public.role_default_permissions(selected_role public.user_role)
 returns text[] language sql immutable as $$
-  select case selected_role
+  select case selected_role::text
     when 'support_worker' then array['participants.view_basic','participants.view_support','notes.create','notes.view','incidents.create','meals.create','meals.view','handover.view','handover.create','rostering.view','documents.view']
     when 'team_leader' then array['participants.view_basic','participants.view_support','notes.create','notes.view','notes.review','incidents.create','incidents.view','meals.create','meals.view','handover.view','handover.create','rostering.view','documents.view','house.dashboard.view']
     when 'house_manager' then array['participants.view_basic','participants.view_support','participants.view_sensitive','notes.create','notes.view','notes.review','notes.approve','incidents.create','incidents.view','incidents.review','incidents.manage_followup','handover.view','handover.create','rostering.view','rostering.manage','rostering.assign_staff','staff.view','documents.view','reports.view','house.dashboard.view']
