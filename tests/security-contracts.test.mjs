@@ -100,12 +100,14 @@ test("staff invitations remain manager and organisation scoped", async () => {
 });
 
 test("organisation invitations deliver before activating tenant membership", async () => {
-  const [inviteRoute, acceptRoute, form, acceptance, migration, emailDocs] = await Promise.all([
+  const [inviteRoute, acceptRoute, form, acceptance, migration, emailLock, accessContext, emailDocs] = await Promise.all([
     source("app/api/team/invite/route.ts"),
     source("app/api/team/invite/accept/route.ts"),
     source("components/admin/InviteTeamMemberForm.tsx"),
     source("components/auth/InviteAcceptanceForm.tsx"),
     source("supabase/organisation-invitations.sql"),
+    source("supabase/lock-invited-membership-email.sql"),
+    source("lib/security/user-access-context.ts"),
     source("docs/AUTH_EMAIL_DELIVERY.md")
   ]);
   assert.match(inviteRoute, /verifyServerAccess\(request, "admin", "team", "staff\.invite"\)/);
@@ -121,12 +123,19 @@ test("organisation invitations deliver before activating tenant membership", asy
   assert.match(form, /sendInvitationEmail\(\{[\s\S]*staffId/);
   assert.match(form, /Access will activate after acceptance/);
   assert.match(acceptRoute, /invite\.email\.trim\(\)\.toLowerCase\(\) !== authUser\.email/);
+  assert.ok(acceptRoute.indexOf("invite.email.trim().toLowerCase()") < acceptRoute.indexOf('invite.status === "accepted"'));
+  assert.match(acceptRoute, /invited_email: invite\.email\.trim\(\)\.toLowerCase\(\)/);
   assert.match(acceptRoute, /invite\.status === "revoked"/);
   assert.match(acceptRoute, /new Date\(invite\.expires_at\)\.getTime\(\) <= Date\.now\(\)/);
   assert.match(acceptRoute, /organisation_memberships\?on_conflict=organisation_id,user_id/);
   assert.match(acceptance, /Sign in to accept/);
   assert.match(migration, /status in \('pending','sent','accepted','expired','revoked','failed'\)/);
   assert.match(migration, /revoke all on public\.organisation_invites from anon, authenticated/);
+  assert.match(emailLock, /add column if not exists invited_email text/);
+  assert.match(emailLock, /auth\.jwt\(\) ->> 'email'/);
+  assert.match(emailLock, /invited_email is null or lower\(trim\(invited_email\)\) = actor_email/);
+  assert.match(accessContext, /invited_email_mismatch/);
+  assert.match(accessContext, /Sign in with the email address invited to this workspace/);
   assert.match(emailDocs, /https:\/\/www\.empowernotes\.org\/auth\/accept-invite/);
 });
 

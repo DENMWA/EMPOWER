@@ -29,6 +29,7 @@ type MembershipRow = {
   admin_permissions?: AdminPermission[];
   access_status?: string;
 };
+type AcceptedInviteRow = { organisation_id: string; email: string };
 
 export async function resolveUserAccessContext(request: Request, requested: RequestedScope = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -45,9 +46,10 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
     if (!authUser.id) return denied(401, "Your session is no longer valid.", correlationId);
 
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
-    const [profiles, memberships] = await Promise.all([
+    const [profiles, memberships, acceptedInvites] = await Promise.all([
       rows<{ organisation_id?: string }>(url, headers, `users?select=organisation_id&id=eq.${authUser.id}&limit=1`),
-      rows<MembershipRow>(url, headers, `organisation_memberships?select=id,organisation_id,role,employment_type,feature_permissions,admin_permissions,access_status&user_id=eq.${authUser.id}`)
+      rows<MembershipRow>(url, headers, `organisation_memberships?select=id,organisation_id,role,employment_type,feature_permissions,admin_permissions,access_status&user_id=eq.${authUser.id}`),
+      rows<AcceptedInviteRow>(url, headers, `organisation_invites?select=organisation_id,email&auth_user_id=eq.${authUser.id}&status=eq.accepted`)
     ]);
 
     const pointer = profiles[0]?.organisation_id || "";
@@ -64,6 +66,12 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
     if (!membership || membership.access_status !== "active") {
       securityEvent("membership_denied", { actorUserId: authUser.id, endpoint: new URL(request.url).pathname, correlationId });
       return denied(403, "Active organisation membership is required.", correlationId);
+    }
+    const authenticatedEmail = authUser.email?.trim().toLowerCase() || "";
+    const acceptedInvite = acceptedInvites.find((invite) => invite.organisation_id === membership.organisation_id);
+    if (acceptedInvite && acceptedInvite.email.trim().toLowerCase() !== authenticatedEmail) {
+      securityEvent("invited_email_mismatch", { actorUserId: authUser.id, endpoint: new URL(request.url).pathname, correlationId });
+      return denied(403, "Sign in with the email address invited to this workspace.", correlationId);
     }
 
     const organisationId = membership.organisation_id;

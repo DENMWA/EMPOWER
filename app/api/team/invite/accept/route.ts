@@ -27,6 +27,10 @@ export async function POST(request: Request) {
   }> : [];
   const invite = invites[0];
   if (!invite) return response("not_found", "This invitation could not be found.", 404);
+  if (invite.email.trim().toLowerCase() !== authUser.email.trim().toLowerCase()) {
+    return response("email_mismatch", "Sign in with the email address that received this invitation.", 403);
+  }
+  if (invite.auth_user_id && invite.auth_user_id !== authUser.id) return response("identity_mismatch", "This invitation belongs to another account.", 403);
   if (invite.status === "revoked") return response("revoked", "This invitation has been revoked.", 410);
   if (invite.status === "accepted") return NextResponse.json({ ok: true, status: "accepted", organisationId: invite.organisation_id });
   if (invite.status !== "sent") return response("not_active", "This invitation is not ready for acceptance. Ask the administrator to resend it.", 409);
@@ -34,15 +38,17 @@ export async function POST(request: Request) {
     await patch(url, headers, `organisation_invites?id=eq.${invite.id}`, { status: "expired", updated_at: new Date().toISOString() });
     return response("expired", "This invitation has expired. Ask the administrator to resend it.", 410);
   }
-  if (invite.email.trim().toLowerCase() !== authUser.email.trim().toLowerCase()) {
-    return response("email_mismatch", "Sign in with the email address that received this invitation.", 403);
-  }
-  if (invite.auth_user_id && invite.auth_user_id !== authUser.id) return response("identity_mismatch", "This invitation belongs to another account.", 403);
-
-  const membershipResponse = await fetch(`${url}/rest/v1/organisation_memberships?on_conflict=organisation_id,user_id`, {
+  const membershipPayload = { organisation_id: invite.organisation_id, user_id: authUser.id, invited_email: invite.email.trim().toLowerCase(), role: invite.role, admin_permissions: invite.admin_permissions || [], employment_type: invite.employment_type || "other", feature_permissions: invite.feature_permissions || [], permission_template_key: invite.permission_template_key || `${invite.role}_default`, access_status: "active", updated_at: new Date().toISOString() };
+  let membershipResponse = await fetch(`${url}/rest/v1/organisation_memberships?on_conflict=organisation_id,user_id`, {
     method: "POST", headers: { ...headers, Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({ organisation_id: invite.organisation_id, user_id: authUser.id, role: invite.role, admin_permissions: invite.admin_permissions || [], employment_type: invite.employment_type || "other", feature_permissions: invite.feature_permissions || [], permission_template_key: invite.permission_template_key || `${invite.role}_default`, access_status: "active", updated_at: new Date().toISOString() })
+    body: JSON.stringify(membershipPayload)
   });
+  if (!membershipResponse.ok && (await membershipResponse.clone().text()).includes("invited_email")) {
+    const { invited_email: _pendingMigration, ...compatiblePayload } = membershipPayload;
+    membershipResponse = await fetch(`${url}/rest/v1/organisation_memberships?on_conflict=organisation_id,user_id`, {
+      method: "POST", headers: { ...headers, Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(compatiblePayload)
+    });
+  }
   if (!membershipResponse.ok) return response("membership", "Organisation access could not be activated.", 502);
 
   const profilesResponse = await fetch(`${url}/rest/v1/users?select=id&id=eq.${authUser.id}&limit=1`, { headers, cache: "no-store" });
