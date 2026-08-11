@@ -581,15 +581,11 @@ export function ProgressNoteGenerator() {
       <Card className="border-teal-100">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">{isFocusedCareLog ? "Care record" : "Progress note studio"}</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : isPersonalCare ? "Record shower and personal care" : showMealsAndFluidLog ? "Record meals and fluid intake" : "Improve shift notes without changing the facts"}</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">{isFocusedCareLog ? "Care record" : "Note details"}</p>
+            <h2 className="mt-1 text-2xl font-bold text-ink">{isBowelCare ? "Record bowel care clearly" : isPersonalCare ? "Record shower and personal care" : showMealsAndFluidLog ? "Record meals and fluid intake" : "Support record"}</h2>
           </div>
-          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">{isFocusedCareLog ? "Focused entry" : "Worker-controlled wording"}</span>
+          <span className="rounded-md bg-mint px-3 py-2 text-sm font-semibold text-teal-900">{isFocusedCareLog ? "Focused entry" : "Draft"}</span>
         </div>
-        {!isFocusedCareLog ? <div className="mb-5 rounded-md border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
-          <p className="font-semibold">Fidelity-first improvement</p>
-          <p className="mt-1">EmpowerNotes keeps the worker&apos;s original shift note first, then expands only within the documented facts. Missing details are flagged for confirmation instead of being invented.</p>
-        </div> : null}
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="text-sm font-semibold text-slate-700">
             Participant/client
