@@ -119,11 +119,9 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
     <Card className="border-teal-100">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Secure sign in</p>
-          <h2 className="mt-1 text-2xl font-bold text-ink">Secure cloud saving</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Sign in before creating or saving records so clients, staff, documents, notes, reports, and billing records save to your secure workspace instead of browser-only storage.
-          </p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Account access</p>
+          <h2 className="mt-1 text-2xl font-bold text-ink">Sign in</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Secure access to your assigned workspace.</p>
         </div>
         <StatusBadge label={!configured ? "Cloud saving not configured" : authStatus.signedIn ? "Signed in" : "Sign in required"} tone={!configured ? "red" : authStatus.signedIn ? "blue" : "amber"} />
       </div>

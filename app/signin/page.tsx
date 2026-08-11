@@ -14,9 +14,8 @@ export default function SignInPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Secure sign in"
-        title="Sign in to your EmpowerNotes workspace"
-        description="Use your assigned email and password. EmpowerNotes opens administrator or staff tools according to the role connected to those credentials."
+        title="Welcome back"
+        description="Your workspace. Your role. Securely connected."
       />
       <Section>
         <SupabaseSecurityPanel redirectAfterSignIn />
