@@ -557,10 +557,10 @@ test("participant invoices require an approved NDIS, agreement or manual rate", 
     source("lib/native-billing.ts")
   ]);
   assert.match(workspace, /Billing period from/);
-  assert.match(workspace, /NDIS rate/);
-  assert.match(workspace, /Agreement/);
-  assert.match(workspace, /Manual/);
-  assert.match(workspace, /Approve code, staffing ratio and calculated rate/);
+    assert.match(workspace, /NDIS advised rate/);
+    assert.match(workspace, /Service agreement rate/);
+    assert.match(workspace, /Manual override/);
+    assert.match(workspace, /Approve selected code, staffing ratio and calculated rate/);
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
   assert.match(workspace, /Create participant invoice/);
@@ -630,7 +630,11 @@ test("AI service agreement rates remain editable drafts until explicit approval"
   assert.match(route, /reviewStatus: "pending"/);
   assert.match(workspace, /Extract rates for review/);
   assert.match(workspace, /Reviewed and approved/);
-  assert.match(workspace, /Approve selected rates/);
+    assert.match(workspace, /Approve selected rates/);
+    assert.match(workspace, /NDIS catalogue comparison/);
+    assert.match(workspace, /findAgreementNdisMatch/);
+    assert.match(workspace, /addServiceAgreementItem/);
+    assert.match(workspace, /getSuggestedRateDraft/);
   assert.match(workspace, /agreementDraftItems\.filter\(\(item\) => item\.approved\)/);
   assert.match(workspace, /updateAgreementDraftItem/);
   assert.match(billing, /"hour" \| "day" \| "week" \| "month" \| "each" \| "km"/);

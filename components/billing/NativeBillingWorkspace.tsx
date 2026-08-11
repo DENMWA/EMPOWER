@@ -50,6 +50,7 @@ type AgreementDraftItem = {
   allowCancellations: boolean;
   confidence: number;
   sourceText: string;
+  ndisSupportItemId: string;
   approved: boolean;
 };
 
@@ -223,10 +224,14 @@ export function NativeBillingWorkspace() {
       const result = await response.json() as Record<string, unknown> & { error?: string; items?: Array<Record<string, unknown>> };
       if (!response.ok) throw new Error(result.error || "Agreement extraction failed.");
       const allowedUnits = new Set(["hour", "day", "week", "month", "each", "km"]);
-      const items = (result.items || []).map((item, index): AgreementDraftItem => ({
+      const items = (result.items || []).map((item, index): AgreementDraftItem => {
+        const supportItemNumber = typeof item.supportItemNumber === "string" ? item.supportItemNumber : "";
+        const supportItemName = typeof item.supportItemName === "string" ? item.supportItemName : "";
+        const ndisMatch = findAgreementNdisMatch(supportItemNumber, supportItemName, records);
+        return {
         id: `agreement-draft-${Date.now()}-${index}`,
-        supportItemNumber: typeof item.supportItemNumber === "string" ? item.supportItemNumber : "",
-        supportItemName: typeof item.supportItemName === "string" ? item.supportItemName : "",
+        supportItemNumber,
+        supportItemName,
         agreedRate: typeof item.agreedRate === "number" ? String(item.agreedRate) : "",
         unitType: allowedUnits.has(String(item.unitType)) ? String(item.unitType) as AgreementDraftItem["unitType"] : "hour",
         budgetAllocated: typeof item.budgetAllocated === "number" ? String(item.budgetAllocated) : "0",
@@ -236,8 +241,9 @@ export function NativeBillingWorkspace() {
         allowCancellations: item.allowCancellations === true,
         confidence: typeof item.confidence === "number" ? Math.max(0, Math.min(1, item.confidence)) : 0,
         sourceText: typeof item.sourceText === "string" ? item.sourceText : "",
+        ndisSupportItemId: ndisMatch?.id || "",
         approved: false
-      }));
+      }});
       setAgreementDraftItems(items);
       setAgreementSourceFile(typeof result.sourceFileName === "string" ? result.sourceFileName : agreementFile.name);
       if (typeof result.agreementName === "string" && result.agreementName) setAgreementName(result.agreementName);
@@ -279,18 +285,22 @@ export function NativeBillingWorkspace() {
       recipientName,
       recipientEmail
     });
-    approvedItems.forEach((item) => addManualServiceAgreementItem({
-      agreement,
-      supportItemNumber: item.supportItemNumber,
-      supportItemName: item.supportItemName,
-      agreedRate: Number(item.agreedRate),
-      ratePeriod: item.unitType,
-      budgetAllocated: Number(item.budgetAllocated) || 0,
-      allowTravel: item.allowTravel,
-      allowKilometres: item.allowKilometres,
-      allowNonFaceToFace: item.allowNonFaceToFace,
-      allowCancellations: item.allowCancellations
-    }));
+    approvedItems.forEach((item) => {
+      const supportItem = records.supportItems.find((candidate) => candidate.id === item.ndisSupportItemId);
+      const pricingVersion = supportItem ? records.pricingVersions.find((version) => version.id === supportItem.pricingVersionId) : undefined;
+      const common = {
+        agreement,
+        agreedRate: Number(item.agreedRate),
+        ratePeriod: item.unitType,
+        budgetAllocated: Number(item.budgetAllocated) || 0,
+        allowTravel: item.allowTravel,
+        allowKilometres: item.allowKilometres,
+        allowNonFaceToFace: item.allowNonFaceToFace,
+        allowCancellations: item.allowCancellations
+      };
+      if (supportItem && pricingVersion) addServiceAgreementItem({ ...common, supportItem, pricingVersion });
+      else addManualServiceAgreementItem({ ...common, supportItemNumber: item.supportItemNumber, supportItemName: item.supportItemName });
+    });
     try {
       await waitForNativeBillingSave();
       setRecords(getNativeBillingRecords());
@@ -421,7 +431,8 @@ export function NativeBillingWorkspace() {
     const selections = Object.entries(selectedInvoiceServices)
       .filter(([, selected]) => selected)
       .map(([shiftId]) => {
-        const draft = serviceRateDrafts[shiftId] || getDefaultRateDraft();
+        const service = records.shifts.find((item) => item.id === shiftId);
+        const draft = serviceRateDrafts[shiftId] || (service ? getSuggestedRateDraft(service, records) : getDefaultRateDraft());
         return {
           shiftId,
           rateSource: draft.source,
@@ -539,7 +550,9 @@ export function NativeBillingWorkspace() {
             {agreementDraftItems.length ? (
               <div className="mt-4 space-y-3">
                 <p className="text-sm font-semibold text-slate-700">Source: {agreementSourceFile}</p>
-                {agreementDraftItems.map((item) => (
+                {agreementDraftItems.map((item) => {
+                  const ndisItem = records.supportItems.find((candidate) => candidate.id === item.ndisSupportItemId);
+                  return (
                   <div key={item.id} className="rounded-md border border-slate-200 bg-white p-3">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <BillingField label="Support code" value={item.supportItemNumber} onChange={(value) => updateAgreementDraftItem(item.id, { supportItemNumber: value })} />
@@ -553,6 +566,14 @@ export function NativeBillingWorkspace() {
                       </label>
                       <BillingField label="Allocated budget" type="number" value={item.budgetAllocated} onChange={(value) => updateAgreementDraftItem(item.id, { budgetAllocated: value })} />
                     </div>
+                    <label className="mt-3 grid gap-2 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-ink">
+                      NDIS catalogue comparison
+                      <select value={item.ndisSupportItemId} onChange={(event) => updateAgreementDraftItem(item.id, { ndisSupportItemId: event.target.value, approved: false })} className="min-h-11 rounded-md border border-slate-300 bg-white px-3">
+                        <option value="">No matching NDIS item selected</option>
+                        {records.supportItems.filter((candidate) => candidate.priceLimit !== null).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.supportItemNumber} - ${candidate.priceLimit?.toFixed(2)} / {candidate.unitType}</option>)}
+                      </select>
+                      {ndisItem ? <span className="font-normal text-teal-900">NDIS code {ndisItem.supportItemNumber} · advised limit ${ndisItem.priceLimit?.toFixed(2)} / {ndisItem.unitType}. Agreement rate: ${Number(item.agreedRate || 0).toFixed(2)} / {item.unitType}.</span> : <span className="font-normal text-amber-800">Confirm the agreement manually when no matching NDIS code is available.</span>}
+                    </label>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <BillingCheck label="Travel" checked={item.allowTravel} onChange={(value) => updateAgreementDraftItem(item.id, { allowTravel: value })} />
                       <BillingCheck label="Kilometres" checked={item.allowKilometres} onChange={(value) => updateAgreementDraftItem(item.id, { allowKilometres: value })} />
@@ -569,7 +590,7 @@ export function NativeBillingWorkspace() {
                       </label>
                     </div>
                   </div>
-                ))}
+                )})}
                 <button type="button" disabled={Boolean(savingAction) || !agreementDraftItems.some((item) => item.approved)} onClick={() => void approveExtractedRates()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
                   <Check size={17} aria-hidden="true" />Approve selected rates
                 </button>
@@ -686,12 +707,13 @@ export function NativeBillingWorkspace() {
             {completedRosterServices.map((shift) => {
               const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
               const linked = Boolean(billingService);
-              const rateDraft = billingService ? serviceRateDrafts[billingService.id] || getDefaultRateDraft() : getDefaultRateDraft();
-              const agreementItem = rateDraft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === rateDraft.itemId) : undefined;
               const availableAgreementItems = billingService
                 ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
                 : [];
               const ndisMatches = billingService ? matchNdisSupportItems(billingService, records.supportItems, records.pricingVersions) : [];
+              const rateDraft = billingService ? serviceRateDrafts[billingService.id] || getSuggestedRateDraft(billingService, records) : getDefaultRateDraft();
+              const agreementItem = rateDraft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === rateDraft.itemId) : undefined;
+              const selectedNdisItem = rateDraft.source === "ndis_catalogue" ? records.supportItems.find((item) => item.id === rateDraft.itemId) : ndisMatches[0]?.item;
               const assignedStaffCount = billingService ? Math.max(1, billingService.assignedStaffCount || 1) : 1;
               const expectedStaffCount = billingService ? getRatioStaffCount(billingService.staffingRatio) : 0;
               const ratioMismatch = Boolean(expectedStaffCount && expectedStaffCount !== assignedStaffCount);
@@ -721,9 +743,19 @@ export function NativeBillingWorkspace() {
                   {billingService ? (
                     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
-                        {([['ndis_catalogue', 'NDIS rate'], ['service_agreement', 'Agreement'], ['manual', 'Manual']] as const).map(([source, label]) => (
+                        {([['ndis_catalogue', 'NDIS advised rate'], ['service_agreement', 'Service agreement rate'], ['manual', 'Manual override']] as const).map(([source, label]) => (
                           <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
                         ))}
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <div className="rounded-md border border-teal-200 bg-white p-3 text-sm">
+                          <p className="font-semibold text-ink">NDIS advised rate</p>
+                          <p className="mt-1 text-slate-700">{selectedNdisItem ? `${selectedNdisItem.supportItemNumber} · $${selectedNdisItem.priceLimit?.toFixed(2)} / ${selectedNdisItem.unitType}` : "No catalogue match available"}</p>
+                        </div>
+                        <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
+                          <p className="font-semibold text-ink">Service agreement rate</p>
+                          <p className="mt-1 text-slate-700">{availableAgreementItems[0] ? `${availableAgreementItems[0].supportItemNumber} · $${availableAgreementItems[0].agreedRate.toFixed(2)} / ${availableAgreementItems[0].unitType}` : "No approved agreement rate available"}</p>
+                        </div>
                       </div>
                       {rateDraft.source === "ndis_catalogue" ? (
                         <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
@@ -756,7 +788,7 @@ export function NativeBillingWorkspace() {
                         <p className="mt-1">{selectedUnit?.toLowerCase().includes("hour") && billableQuantity ? `${formatServiceHours(billingService.startTime, billingService.endTime)} service hours × ${assignedStaffCount} staff = ${billableQuantity} billable hours` : "Quantity is confirmed from the selected billing unit."}</p>
                         {ratioMismatch ? <p className="mt-1 font-semibold">The roster ratio and assigned staff do not match. Correct the roster before invoicing.</p> : null}
                       </div>
-                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />Approve code, staffing ratio and calculated rate</label>
+                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />Approve selected code, staffing ratio and calculated rate</label>
                     </div>
                   ) : null}
                   {billingService && agreementItem?.allowTravel && agreementItem.allowKilometres ? (() => {
@@ -937,6 +969,33 @@ function getBillingError(error: unknown) {
 
 function getDefaultRateDraft(): ServiceRateDraft {
   return { source: "ndis_catalogue", itemId: "", manualCode: "", manualRate: "", manualUnit: "hour", approved: false };
+}
+
+function getSuggestedRateDraft(service: NativeBillingRecords["shifts"][number], records: NativeBillingRecords): ServiceRateDraft {
+  const agreementItems = records.agreementItems.filter((item) => item.serviceAgreementId === service.serviceAgreementId && item.status === "active");
+  const ndisMatch = matchNdisSupportItems(service, records.supportItems, records.pricingVersions)[0]?.item;
+  const agreementMatch = agreementItems.find((item) => item.supportItemId && item.supportItemId === ndisMatch?.id)
+    || agreementItems.find((item) => textMatchScore(`${service.supportType} ${service.title}`, `${item.supportItemNumber} ${item.supportItemName}`) > 0)
+    || agreementItems[0];
+  if (agreementMatch) return { ...getDefaultRateDraft(), source: "service_agreement", itemId: agreementMatch.id };
+  if (ndisMatch) return { ...getDefaultRateDraft(), itemId: ndisMatch.id };
+  return getDefaultRateDraft();
+}
+
+function findAgreementNdisMatch(code: string, name: string, records: NativeBillingRecords) {
+  const activeItems = records.supportItems.filter((item) => item.priceLimit !== null);
+  const exact = activeItems.find((item) => code.trim() && item.supportItemNumber.toLowerCase() === code.trim().toLowerCase());
+  if (exact) return exact;
+  const ranked = activeItems
+    .map((item) => ({ item, score: textMatchScore(`${code} ${name}`, `${item.supportItemNumber} ${item.supportItemName}`) }))
+    .sort((left, right) => right.score - left.score);
+  return ranked[0]?.score > 0 ? ranked[0].item : undefined;
+}
+
+function textMatchScore(left: string, right: string) {
+  const words = (value: string) => new Set(value.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2));
+  const leftWords = words(left);
+  return [...words(right)].filter((word) => leftWords.has(word)).length;
 }
 
 function getRatioStaffCount(ratio?: string) {
