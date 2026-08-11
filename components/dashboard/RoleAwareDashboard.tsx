@@ -6,6 +6,7 @@ import { DashboardOperationalLists, ManagerDashboardCards, WorkerDashboardCards 
 import { InvoiceReadinessPanel } from "@/components/invoicing/InvoiceReadinessPanel";
 import { StaffProfiles } from "@/components/staff/StaffProfiles";
 import { fullAdminRoles, type AdminPermission } from "@/lib/admin-permissions";
+import { HouseScopeSelector } from "@/components/dashboard/HouseScopeSelector";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 type WorkspaceAccess = {
@@ -36,6 +37,7 @@ export function RoleAwareDashboard() {
   const can = (permission: AdminPermission) => fullAccess || Boolean(access?.permissions.includes(permission));
   return (
     <>
+      <div className="mb-4 flex justify-end"><HouseScopeSelector /></div>
       <WorkerDashboardCards />
       {access ? <ManagerDashboardCards fullAccess={fullAccess} permissions={access.permissions} /> : null}
       {fullAccess ? <DashboardOperationalLists /> : null}

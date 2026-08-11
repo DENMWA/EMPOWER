@@ -7,7 +7,7 @@ import { tenantStorageKey } from "@/lib/tenant-storage";
 export const currentUserStorageKey = "empowernotes:current-user";
 export const accessChangedEvent = "empowernotes:access-updated";
 
-export const adminRoles: UserRole[] = ["owner", "admin", "service_manager", "sole_provider"];
+export const adminRoles: UserRole[] = ["owner", "admin", "sole_provider"];
 
 function isSuspendedUser(user: StaffUser) {
   return (user as StaffUser & { inviteStatus?: string }).inviteStatus === "Suspended";

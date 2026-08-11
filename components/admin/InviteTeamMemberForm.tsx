@@ -12,6 +12,7 @@ import { createStaffId, roleLabelFor, saveTenantStaffInvite } from "@/lib/staff-
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { adminPermissionOptions, delegatedManagerRoles, type AdminPermission } from "@/lib/admin-permissions";
+import { featurePermissionOptions, rolePermissionTemplates, type EmploymentType, type FeaturePermission } from "@/lib/feature-permissions";
 
 export function InviteTeamMemberForm() {
   const [name, setName] = useState("");
@@ -30,6 +31,10 @@ export function InviteTeamMemberForm() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [pendingStaffId, setPendingStaffId] = useState("");
   const [adminPermissions, setAdminPermissions] = useState<AdminPermission[]>([]);
+  const [employmentType, setEmploymentType] = useState<EmploymentType>("permanent");
+  const [assignmentStartDate, setAssignmentStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [assignmentEndDate, setAssignmentEndDate] = useState("");
+  const [featurePermissions, setFeaturePermissions] = useState<FeaturePermission[]>([]);
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const accessibleHouseIds = useMemo(() => houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds, [assignedHouseIds, houseAccessMode, houses]);
   const houseScopedParticipants = useMemo(() => {
@@ -68,13 +73,8 @@ export function InviteTeamMemberForm() {
     const scopedParticipantIds = new Set(houseScopedParticipants.map((participant) => participant.id));
     const scopedAssignedParticipants = assignedParticipants.filter((participantId) => scopedParticipantIds.has(participantId));
 
-    if (houseScopedParticipants.length && scopedAssignedParticipants.length !== assignedParticipants.length) {
-      setAssignedParticipants(scopedAssignedParticipants.length ? scopedAssignedParticipants : houseScopedParticipants.map((participant) => participant.id));
-      return;
-    }
-
-    if (houseScopedParticipants.length && !assignedParticipants.length) {
-      setAssignedParticipants(houseScopedParticipants.map((participant) => participant.id));
+    if (scopedAssignedParticipants.length !== assignedParticipants.length) {
+      setAssignedParticipants(scopedAssignedParticipants);
       return;
     }
 
@@ -93,6 +93,11 @@ export function InviteTeamMemberForm() {
 
   function toggleAdminPermission(permission: AdminPermission) {
     setAdminPermissions((current) => current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission]);
+  }
+
+  function toggleFeaturePermission(permission: FeaturePermission) {
+    const defaults = featurePermissions.length ? featurePermissions : rolePermissionTemplates[role];
+    setFeaturePermissions(defaults.includes(permission) ? defaults.filter((item) => item !== permission) : [...defaults, permission]);
   }
 
   async function saveInvite(action: "sent" | "saved") {
@@ -123,7 +128,11 @@ export function InviteTeamMemberForm() {
       assignedHouseIds: houseAccessMode === "all" ? houses.map((house) => house.id) : assignedHouseIds,
       inviteStatus: inviteStatus === "active" ? "Active" as const : action === "sent" ? "Invite sent" as const : "Draft" as const,
       createdAt: new Date().toISOString(),
-      adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : []
+      adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : [],
+      employmentType,
+      featurePermissions,
+      assignmentStartDate,
+      assignmentEndDate: assignmentEndDate || undefined
     };
 
     const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
@@ -138,7 +147,12 @@ export function InviteTeamMemberForm() {
         assignedParticipantIds: assignedParticipants,
         houseAccessMode,
         assignedHouseIds: record.assignedHouseIds,
-        resend: saveFailed
+        resend: saveFailed,
+        employmentType,
+        featurePermissions,
+        permissionTemplateKey: `${role}_default`,
+        assignmentStartDate,
+        assignmentEndDate: assignmentEndDate || undefined
       });
       setSaved(emailResult.ok);
       setMessage(emailResult.ok
@@ -203,7 +217,15 @@ export function InviteTeamMemberForm() {
           Email
           <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" type="email" placeholder="worker.b@demo.empowernotes.com" value={email} onChange={(event) => setEmail(event.target.value)} />
         </label>
-        <RoleSelector value={role} onChange={setRole} />
+        <RoleSelector value={role} onChange={(nextRole) => { setRole(nextRole); setFeaturePermissions([]); setAdminPermissions([]); }} />
+        <label className="block text-sm font-semibold text-slate-700">
+          Employment type
+          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={employmentType} onChange={(event) => setEmploymentType(event.target.value as EmploymentType)}>
+            <option value="casual">Casual</option><option value="permanent">Permanent</option><option value="part_time">Part-time</option><option value="contractor">Contractor</option><option value="other">Other</option>
+          </select>
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">Assignment starts<input type="date" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={assignmentStartDate} onChange={(event) => setAssignmentStartDate(event.target.value)} /></label>
+        <label className="block text-sm font-semibold text-slate-700">Assignment ends <span className="font-normal text-slate-500">(optional)</span><input type="date" min={assignmentStartDate} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={assignmentEndDate} onChange={(event) => setAssignmentEndDate(event.target.value)} /></label>
         <label className="block text-sm font-semibold text-slate-700">
           Invite status
           <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={inviteStatus} onChange={(event) => setInviteStatus(event.target.value)}>
@@ -213,6 +235,16 @@ export function InviteTeamMemberForm() {
           </select>
         </label>
       </div>
+      <details className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-ink">Permission template and optional overrides</summary>
+        <p className="mt-2 text-sm text-slate-600">The {roleLabelFor(role)} default is applied unless you change a permission below. Employment type never changes access.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {featurePermissionOptions.map((permission) => {
+            const selected = (featurePermissions.length ? featurePermissions : rolePermissionTemplates[role]).includes(permission);
+            return <label key={permission} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={selected} onChange={() => toggleFeaturePermission(permission)} className="h-4 w-4 accent-teal-700" />{permission.replaceAll("_", " ")}</label>;
+          })}
+        </div>
+      </details>
       <div className="mt-5">
         <p className="text-sm font-semibold text-slate-700">Assign house/service access</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -251,7 +283,8 @@ export function InviteTeamMemberForm() {
         ) : null}
       </div>
       <div className="mt-5">
-        <p className="text-sm font-semibold text-slate-700">Assign participants/clients</p>
+        <p className="text-sm font-semibold text-slate-700">Optional participant-specific access</p>
+        <p className="mt-1 text-sm text-slate-600">Participants in assigned houses are available automatically. Select individuals only as an additional access exception.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {!houseScopedParticipants.length ? (
             <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600 sm:col-span-2">
@@ -295,6 +328,11 @@ async function sendInvitationEmail(input: {
   houseAccessMode: "all" | "selected";
   assignedHouseIds: string[];
   resend: boolean;
+  employmentType: EmploymentType;
+  featurePermissions: FeaturePermission[];
+  permissionTemplateKey: string;
+  assignmentStartDate: string;
+  assignmentEndDate?: string;
 }) {
   const accessToken = getStoredAccessToken();
   if (!accessToken) return { ok: false, error: "Sign in before sending invitation emails." };

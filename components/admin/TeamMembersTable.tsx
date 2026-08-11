@@ -99,6 +99,7 @@ export function TeamMembersTable() {
             <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
               <th className="py-3 pr-4">Staff member</th>
               <th className="py-3 pr-4">Role</th>
+              <th className="py-3 pr-4">Employment</th>
               <th className="py-3 pr-4">House access</th>
               <th className="py-3 pr-4">Participant access</th>
               <th className="py-3 pr-4">Quality trend</th>
@@ -109,7 +110,7 @@ export function TeamMembersTable() {
           <tbody>
             {!allUsers.length ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-sm text-slate-600">
+                <td colSpan={8} className="py-8 text-center text-sm text-slate-600">
                   No staff records yet. Add a staff member to start the real team directory.
                 </td>
               </tr>
@@ -132,6 +133,10 @@ export function TeamMembersTable() {
                   </td>
                   <td className="py-4 pr-4">
                     <StatusBadge label={user.roleLabel} tone={user.role === "owner" || user.role === "service_manager" ? "green" : "blue"} />
+                  </td>
+                  <td className="py-4 pr-4">
+                    <p className="font-semibold capitalize text-slate-700">{(user.employmentType || "other").replace("_", "-")}</p>
+                    {user.assignmentEndDate ? <p className="mt-1 text-xs text-slate-500">Until {user.assignmentEndDate}</p> : null}
                   </td>
                   <td className="py-4 pr-4">
                     <div className="flex max-w-md flex-wrap gap-2">

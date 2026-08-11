@@ -2,18 +2,19 @@ import { NextResponse } from "next/server";
 import { verifyServerAccess } from "@/lib/security/server-access";
 import { normalizeAdminPermissions } from "@/lib/admin-permissions";
 import { fullAdminRoles } from "@/lib/admin-permissions";
+import { normalizeFeaturePermissions } from "@/lib/feature-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const assignableRoles = new Set(["support_worker", "team_leader", "case_manager", "service_manager", "admin", "owner", "sole_provider"]);
+const assignableRoles = new Set(["support_worker", "team_leader", "house_manager", "case_manager", "service_manager", "operations_manager", "finance_officer", "admin", "owner", "sole_provider"]);
 const inviteStatuses = new Set(["Invite sent", "Draft", "Active", "Suspended"]);
 
 export async function GET(request: Request) {
   const context = await getContext(request);
   if (context.response) return context.response;
 
-  const response = await fetch(`${context.url}/rest/v1/staff_invites?select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,admin_permissions,created_at&organisation_id=eq.${encodeURIComponent(context.organisationId)}&order=created_at.desc`, {
+  const response = await fetch(`${context.url}/rest/v1/staff_invites?select=id,name,email,role,invite_status,assigned_participant_ids,house_access_mode,assigned_house_ids,admin_permissions,employment_type,feature_permissions,permission_template_key,assignment_start_date,assignment_end_date,created_at&organisation_id=eq.${encodeURIComponent(context.organisationId)}&order=created_at.desc`, {
     headers: context.headers,
     cache: "no-store"
   });
@@ -53,7 +54,12 @@ export async function POST(request: Request) {
       assigned_participant_ids: body.assignedParticipantIds || [],
       house_access_mode: body.houseAccessMode === "all" ? "all" : "selected",
       assigned_house_ids: body.assignedHouseIds || [],
-      admin_permissions: normalizeAdminPermissions(body.adminPermissions)
+      admin_permissions: normalizeAdminPermissions(body.adminPermissions),
+      employment_type: body.employmentType || "other",
+      feature_permissions: normalizeFeaturePermissions(body.featurePermissions),
+      permission_template_key: body.permissionTemplateKey || `${body.role}_default`,
+      assignment_start_date: body.assignmentStartDate || null,
+      assignment_end_date: body.assignmentEndDate || null
     })
   });
   if (!response.ok) return databaseError(response, "Staff permissions could not be saved.");
@@ -121,6 +127,11 @@ type StaffInput = {
   houseAccessMode?: string;
   assignedHouseIds?: string[];
   adminPermissions?: unknown;
+  employmentType?: string;
+  featurePermissions?: unknown;
+  permissionTemplateKey?: string;
+  assignmentStartDate?: string | null;
+  assignmentEndDate?: string | null;
 };
 
 function validateStaff(body: StaffInput, currentRole: string) {

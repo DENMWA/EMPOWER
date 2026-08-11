@@ -1,4 +1,4 @@
-export type UserRole = "support_worker" | "team_leader" | "case_manager" | "service_manager" | "admin" | "owner" | "sole_provider";
+export type UserRole = "support_worker" | "team_leader" | "house_manager" | "case_manager" | "service_manager" | "operations_manager" | "finance_officer" | "admin" | "owner" | "sole_provider";
 export type ProviderType = "organisation" | "sole_provider";
 export type NoteStatus = "Draft" | "Submitted" | "Needs Review" | "Approved" | "Escalated" | "Self-Certified" | "Invoice Ready" | "Locked" | "Not Ready" | "Needs Evidence" | "Sent";
 
@@ -25,6 +25,10 @@ export type StaffUser = {
   assignedParticipants: string[];
   houseAccessMode?: "all" | "selected";
   assignedHouseIds?: string[];
+  employmentType?: "casual" | "permanent" | "part_time" | "contractor" | "other";
+  featurePermissions?: string[];
+  assignmentStartDate?: string;
+  assignmentEndDate?: string;
 };
 
 export type ProgressNote = {

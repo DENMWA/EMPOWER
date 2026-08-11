@@ -3,11 +3,13 @@ import { getPlanCatalogueEntry } from "@/lib/subscriptions/catalog";
 import { resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
 import { adminPermissionOptions, normalizeAdminPermissions } from "@/lib/admin-permissions";
 import { verifyServerAccess } from "@/lib/security/server-access";
+import { normalizeFeaturePermissions } from "@/lib/feature-permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const assignableRoles = new Set(["support_worker", "team_leader", "case_manager", "service_manager", "admin"]);
+const assignableRoles = new Set(["support_worker", "team_leader", "house_manager", "case_manager", "service_manager", "operations_manager", "finance_officer", "admin"]);
+const employmentTypes = new Set(["casual", "permanent", "part_time", "contractor", "other"]);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type InviteInput = {
@@ -21,6 +23,11 @@ type InviteInput = {
   houseAccessMode?: string;
   assignedHouseIds?: string[];
   resend?: boolean;
+  employmentType?: string;
+  featurePermissions?: unknown;
+  permissionTemplateKey?: string;
+  assignmentStartDate?: string;
+  assignmentEndDate?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -52,8 +59,13 @@ export async function POST(request: NextRequest) {
   const role = body.role?.trim() || "support_worker";
   const roleLabel = body.roleLabel?.trim() || "Team member";
   const permissions = normalizeAdminPermissions(body.adminPermissions);
+  const featurePermissions = normalizeFeaturePermissions(body.featurePermissions);
+  const employmentType = employmentTypes.has(body.employmentType || "") ? body.employmentType : "other";
+  const assignmentStartDate = body.assignmentStartDate || new Date().toISOString().slice(0, 10);
+  const assignmentEndDate = body.assignmentEndDate || null;
   if (!body.staffId || !name || !emailPattern.test(email)) return invitationError("validation", "Add a valid staff name and email.", 400);
   if (!assignableRoles.has(role)) return invitationError("validation", "Select a valid organisation role.", 400);
+  if (assignmentEndDate && assignmentEndDate < assignmentStartDate) return invitationError("validation", "The house assignment end date must be on or after its start date.", 400);
   if (role === "admin" && !["owner", "admin", "sole_provider"].includes(access.role)) {
     return invitationError("role_escalation", "Only an owner or administrator can grant administrator access.", 403);
   }
@@ -73,7 +85,12 @@ export async function POST(request: NextRequest) {
     house_access_mode: body.houseAccessMode === "all" ? "all" : "selected",
     assigned_house_ids: body.assignedHouseIds || [],
     admin_permissions: permissions,
-    created_by: access.userId
+    created_by: access.userId,
+    employment_type: employmentType,
+    feature_permissions: featurePermissions,
+    permission_template_key: body.permissionTemplateKey || `${role}_default`,
+    assignment_start_date: assignmentStartDate,
+    assignment_end_date: assignmentEndDate
   }, "resolution=merge-duplicates,return=representation");
   if (!draftStaff[0]?.id) return invitationError("database", "The pending staff invitation could not be saved.", 502);
 
@@ -108,7 +125,12 @@ export async function POST(request: NextRequest) {
     status: "pending",
     expires_at: expiresAt,
     error_category: null,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    employment_type: employmentType,
+    feature_permissions: featurePermissions,
+    permission_template_key: body.permissionTemplateKey || `${role}_default`,
+    assignment_start_date: assignmentStartDate,
+    assignment_end_date: assignmentEndDate
   };
   const invitation = existingInvite
     ? await patchRows<{ id: string }>(url, headers, `organisation_invites?id=eq.${existingInvite.id}&organisation_id=eq.${access.organisationId}`, invitePayload)
@@ -178,7 +200,12 @@ export async function POST(request: NextRequest) {
     house_access_mode: body.houseAccessMode === "all" ? "all" : "selected",
     assigned_house_ids: body.assignedHouseIds || [],
     admin_permissions: permissions,
-    created_by: access.userId
+    created_by: access.userId,
+    employment_type: employmentType,
+    feature_permissions: featurePermissions,
+    permission_template_key: body.permissionTemplateKey || `${role}_default`,
+    assignment_start_date: assignmentStartDate,
+    assignment_end_date: assignmentEndDate
   }, "resolution=merge-duplicates,return=representation");
   if (!staffRows[0]?.id) {
     await markFailed(url, headers, invitationId, "database");

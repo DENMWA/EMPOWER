@@ -22,6 +22,8 @@ export async function POST(request: Request) {
   const invites = inviteResponse.ok ? await inviteResponse.json() as Array<{
     id: string; organisation_id: string; staff_invite_id?: string; email: string; name: string; role: string;
     admin_permissions?: string[]; status: string; expires_at: string; auth_user_id?: string;
+    employment_type?: string; feature_permissions?: string[]; permission_template_key?: string; invited_by: string;
+    assigned_house_ids?: string[]; assignment_start_date?: string; assignment_end_date?: string;
   }> : [];
   const invite = invites[0];
   if (!invite) return response("not_found", "This invitation could not be found.", 404);
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
 
   const membershipResponse = await fetch(`${url}/rest/v1/organisation_memberships?on_conflict=organisation_id,user_id`, {
     method: "POST", headers: { ...headers, Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({ organisation_id: invite.organisation_id, user_id: authUser.id, role: invite.role, admin_permissions: invite.admin_permissions || [], access_status: "active", updated_at: new Date().toISOString() })
+    body: JSON.stringify({ organisation_id: invite.organisation_id, user_id: authUser.id, role: invite.role, admin_permissions: invite.admin_permissions || [], employment_type: invite.employment_type || "other", feature_permissions: invite.feature_permissions || [], permission_template_key: invite.permission_template_key || `${invite.role}_default`, access_status: "active", updated_at: new Date().toISOString() })
   });
   if (!membershipResponse.ok) return response("membership", "Organisation access could not be activated.", 502);
 
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
   if (!profiles[0]) {
     const profileResponse = await fetch(`${url}/rest/v1/users`, {
       method: "POST", headers: { ...headers, Prefer: "return=minimal" },
-      body: JSON.stringify({ id: authUser.id, organisation_id: invite.organisation_id, name: invite.name, email: authUser.email.toLowerCase(), role: invite.role, provider_type: "organisation", admin_permissions: invite.admin_permissions || [] })
+      body: JSON.stringify({ id: authUser.id, organisation_id: invite.organisation_id, name: invite.name, email: authUser.email.toLowerCase(), role: invite.role, provider_type: "organisation", admin_permissions: invite.admin_permissions || [], employment_type: invite.employment_type || "other", feature_permissions: invite.feature_permissions || [], permission_template_key: invite.permission_template_key || `${invite.role}_default` })
     });
     if (!profileResponse.ok) return response("profile", "The account was verified, but its workspace profile could not be completed.", 502);
   }
@@ -56,10 +58,30 @@ export async function POST(request: Request) {
   if (invite.staff_invite_id) {
     await patch(url, headers, `staff_invites?id=eq.${invite.staff_invite_id}&organisation_id=eq.${invite.organisation_id}`, { invite_status: "Active" });
   }
+  for (const houseId of invite.assigned_house_ids || []) {
+    const assignmentResponse = await fetch(`${url}/rest/v1/staff_house_assignments`, {
+      method: "POST", headers: { ...headers, Prefer: "return=minimal" },
+      body: JSON.stringify({
+        organisation_id: invite.organisation_id,
+        user_id: authUser.id,
+        house_id: houseId,
+        start_date: invite.assignment_start_date || new Date().toISOString().slice(0, 10),
+        end_date: invite.assignment_end_date || null,
+        status: invite.assignment_start_date && invite.assignment_start_date > new Date().toISOString().slice(0, 10) ? "scheduled" : "active",
+        assigned_by: invite.invited_by,
+        assignment_reason: "Created from accepted organisation invitation"
+      })
+    });
+    if (!assignmentResponse.ok && assignmentResponse.status !== 409) return response("house_assignment", "The account was accepted, but its house access could not be activated.", 502);
+  }
   await patch(url, headers, `organisation_invites?id=eq.${invite.id}`, { status: "accepted", auth_user_id: authUser.id, accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   await fetch(`${url}/rest/v1/audit_logs`, {
     method: "POST", headers: { ...headers, Prefer: "return=minimal" },
     body: JSON.stringify({ organisation_id: invite.organisation_id, actor_id: authUser.id, action: "staff_invite_accepted", entity_type: "organisation_invite", entity_id: invite.id, metadata: { role: invite.role } })
+  });
+  await fetch(`${url}/rest/v1/audit_logs`, {
+    method: "POST", headers: { ...headers, Prefer: "return=minimal" },
+    body: JSON.stringify({ organisation_id: invite.organisation_id, actor_id: authUser.id, action: "staff_house_assigned", entity_type: "organisation_invite", entity_id: invite.id, metadata: { house_ids: invite.assigned_house_ids || [], start_date: invite.assignment_start_date, end_date: invite.assignment_end_date } })
   });
   return NextResponse.json({ ok: true, status: "accepted", organisationId: invite.organisation_id });
 }

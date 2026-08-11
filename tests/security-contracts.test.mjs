@@ -128,6 +128,55 @@ test("organisation invitations deliver before activating tenant membership", asy
   assert.match(emailDocs, /https:\/\/www\.empowernotes\.org\/auth\/accept-invite/);
 });
 
+test("roles determine features while dated house assignments determine participant scope", async () => {
+  const [migration, context, invite, accept, form, permissions, houses, clients, roster, selector] = await Promise.all([
+    source("supabase/house-scoped-access.sql"),
+    source("lib/security/user-access-context.ts"),
+    source("app/api/team/invite/route.ts"),
+    source("app/api/team/invite/accept/route.ts"),
+    source("components/admin/InviteTeamMemberForm.tsx"),
+    source("lib/feature-permissions.ts"),
+    source("lib/house-records.ts"),
+    source("lib/client-records.ts"),
+    source("lib/roster-cloud.ts"),
+    source("components/dashboard/HouseScopeSelector.tsx")
+  ]);
+  assert.match(migration, /create table if not exists public\.staff_house_assignments/);
+  assert.match(migration, /create table if not exists public\.participant_house_assignments/);
+  assert.match(migration, /foreign key \(organisation_id, house_id\)/);
+  assert.match(migration, /end_date is null or end_date >= start_date/);
+  assert.match(migration, /staff_house_one_open_assignment/);
+  assert.match(migration, /prevent_staff_house_assignment_overlap/);
+  assert.match(migration, /daterange\(a\.start_date/);
+  assert.match(migration, /temporary_house_access_created/);
+  assert.match(migration, /participant_house_assignment_ended/);
+  assert.match(migration, /Backfilled from existing staff house access/);
+  assert.match(migration, /not exists \(select 1 from public\.service_locations h where h\.organisation_id = p\.organisation_id/);
+  assert.match(migration, /private\.current_user_can_access_participant/);
+  assert.match(migration, /revoke all on schema private from public, anon/);
+  assert.match(migration, /validate_shift_staff_house_eligibility/);
+  assert.match(migration, /The selected worker is not assigned to this house on the shift date/);
+  assert.match(migration, /switch_active_organisation/);
+  assert.match(context, /requested\.organisationId[\s\S]*available\.find/);
+  assert.match(context, /requested\.houseId && !activeHouseIds\.includes/);
+  assert.match(context, /requested\.participantId && !accessibleParticipantIds\.includes/);
+  assert.match(context, /employmentType/);
+  assert.match(invite, /employment_type: employmentType/);
+  assert.match(invite, /assignment_start_date: assignmentStartDate/);
+  assert.match(accept, /staff_house_assignments/);
+  assert.match(accept, /invite\.assignment_end_date/);
+  assert.match(form, /Employment type/);
+  assert.match(form, /Optional participant-specific access/);
+  assert.match(form, /rolePermissionTemplates\[role\]/);
+  assert.match(permissions, /finance_officer:[\s\S]*billing\.view/);
+  assert.doesNotMatch(permissions, /finance_officer:[^\n]*notes\.view/);
+  assert.match(houses, /service_locations/);
+  assert.match(clients, /participant_house_assignments/);
+  assert.match(roster, /save_roster_shift_with_staff/);
+  assert.match(selector, /All my houses/);
+  assert.match(selector, /sessionStorage\.removeItem/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),

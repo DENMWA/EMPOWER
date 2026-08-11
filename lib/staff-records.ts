@@ -4,12 +4,17 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { checkUserLimit } from "@/lib/subscriptions/client-limits";
 import { tenantStorageKey } from "@/lib/tenant-storage";
 import type { AdminPermission } from "@/lib/admin-permissions";
+import type { EmploymentType, FeaturePermission } from "@/lib/feature-permissions";
 
 export type StaffRecord = StaffUser & {
   inviteStatus: "Invite sent" | "Draft" | "Active" | "Suspended";
   createdAt: string;
   adminPermissions?: AdminPermission[];
   authUserId?: string;
+  employmentType?: EmploymentType;
+  featurePermissions?: FeaturePermission[];
+  assignmentStartDate?: string;
+  assignmentEndDate?: string;
 };
 
 const staffStorageKey = "empowernotes:staff";
@@ -23,8 +28,11 @@ export function roleLabelFor(role: UserRole) {
   const labels: Record<UserRole, string> = {
     support_worker: "Support Worker",
     team_leader: "Team Leader",
+    house_manager: "House Manager",
     case_manager: "Case Manager",
     service_manager: "Service Manager",
+    operations_manager: "Operations Manager",
+    finance_officer: "Finance Officer",
     admin: "Admin",
     owner: "Provider Owner",
     sole_provider: "Sole Provider"
@@ -84,7 +92,11 @@ export async function saveTenantStaffInvite(staff: StaffRecord) {
       assignedParticipantIds: staff.assignedParticipants,
       houseAccessMode: staff.houseAccessMode || "selected",
       assignedHouseIds: staff.assignedHouseIds || [],
-      adminPermissions: staff.adminPermissions || []
+      adminPermissions: staff.adminPermissions || [],
+      employmentType: staff.employmentType || "other",
+      featurePermissions: staff.featurePermissions || [],
+      assignmentStartDate: staff.assignmentStartDate || null,
+      assignmentEndDate: staff.assignmentEndDate || null
   });
 
   const cloudId = result.data?.[0]?.id;
@@ -115,6 +127,10 @@ type SupabaseStaffInviteRow = {
   created_at: string;
   admin_permissions?: AdminPermission[] | null;
   auth_user_id?: string | null;
+  employment_type?: EmploymentType | null;
+  feature_permissions?: FeaturePermission[] | null;
+  assignment_start_date?: string | null;
+  assignment_end_date?: string | null;
 };
 
 function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
@@ -132,7 +148,11 @@ function toStaffRecord(row: SupabaseStaffInviteRow): StaffRecord {
     inviteStatus: row.invite_status,
     createdAt: row.created_at,
     adminPermissions: row.admin_permissions || [],
-    authUserId: row.auth_user_id || undefined
+    authUserId: row.auth_user_id || undefined,
+    employmentType: row.employment_type || "other",
+    featurePermissions: row.feature_permissions || [],
+    assignmentStartDate: row.assignment_start_date || undefined,
+    assignmentEndDate: row.assignment_end_date || undefined
   };
 }
 

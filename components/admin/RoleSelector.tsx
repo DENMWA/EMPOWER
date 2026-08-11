@@ -3,8 +3,11 @@ import type { UserRole } from "@/lib/sample-data";
 const roleOptions: Array<{ value: UserRole; label: string; description: string }> = [
   { value: "support_worker", label: "Support Worker", description: "Create notes for assigned participants." },
   { value: "team_leader", label: "Team Leader", description: "Review team documentation and support workers." },
+  { value: "house_manager", label: "House Manager", description: "Manage assigned locations without organisation-wide access." },
   { value: "case_manager", label: "Case Manager", description: "Oversee participant records, goals, and incidents." },
   { value: "service_manager", label: "Service Manager", description: "Manage quality, approvals, and service oversight." },
+  { value: "operations_manager", label: "Operations Manager", description: "Coordinate services across assigned locations." },
+  { value: "finance_officer", label: "Finance Officer", description: "Manage billing without sensitive care-note access." },
   { value: "admin", label: "Admin", description: "Manage team access, billing visibility, and settings." }
 ];
 

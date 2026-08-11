@@ -12,7 +12,7 @@ export const adminPermissionOptions = [
 export type AdminPermission = typeof adminPermissionOptions[number]["key"];
 
 export const fullAdminRoles = new Set(["owner", "admin", "sole_provider"]);
-export const delegatedManagerRoles = new Set(["team_leader", "case_manager", "service_manager"]);
+export const delegatedManagerRoles = new Set(["team_leader", "house_manager", "case_manager", "service_manager", "operations_manager", "finance_officer"]);
 const validPermissions = new Set<string>(adminPermissionOptions.map((option) => option.key));
 
 export function isAdminPermission(value: string): value is AdminPermission {

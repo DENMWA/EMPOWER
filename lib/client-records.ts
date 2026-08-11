@@ -188,6 +188,18 @@ export async function saveTenantClient(client: ClientRecord) {
   });
 
   const savedClient = result.data?.[0];
+  if (savedClient?.id && client.primaryHouseId) {
+    const currentAssignment = await supabaseRequest<Array<{ id: string }>>("participant_house_assignments", {
+      query: `select=id&organisation_id=eq.${encodeURIComponent(organisationId)}&participant_id=eq.${encodeURIComponent(savedClient.id)}&house_id=eq.${encodeURIComponent(client.primaryHouseId)}&status=in.(active,scheduled)&limit=1`
+    });
+    if (!currentAssignment.data?.[0]) {
+      const assignment = await supabaseRequest<Array<{ id: string }>>("participant_house_assignments", {
+        method: "POST",
+        body: { organisation_id: organisationId, participant_id: savedClient.id, house_id: client.primaryHouseId, assignment_type: "primary", start_date: new Date().toISOString().slice(0, 10), status: "active" }
+      });
+      if (!assignment.data?.[0]?.id) return { savedToCloud: false, error: assignment.error || "The client was saved, but the house assignment could not be secured.", clientId: savedClient.id };
+    }
+  }
   if (savedClient?.id) {
     addStoredClient(toClientRecord(savedClient));
   }
