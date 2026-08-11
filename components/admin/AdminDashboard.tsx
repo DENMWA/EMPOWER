@@ -50,11 +50,11 @@ const workspaces = [
     links: [["Review incidents", "/admin/incidents"], ["Documents", "/documents"]]
   },
   {
-    title: "Billing",
-    detail: "Agreements, rendered services and invoices.",
+    title: "Invoicing",
+    detail: "Agreements, services and invoices.",
     href: "/admin/billing",
     icon: ReceiptText,
-    links: [["Open billing", "/admin/billing"]]
+    links: [["Open invoicing", "/admin/billing"]]
   },
   {
     title: "Reports",
@@ -108,7 +108,7 @@ export function AdminDashboard() {
     { label: "Notes needing review", count: notesNeedingReview, href: "/admin/reviews", action: "Review notes" },
     { label: "Incident escalations", count: incidentsAwaitingAction, href: "/admin/incidents", action: "Action incidents", urgent: true },
     { label: "Rendered services ready", count: servicesReady, href: "/admin/billing", action: "Prepare invoices" },
-    { label: "Invoices needing attention", count: invoicesNeedingReview, href: "/admin/billing", action: "Review billing", urgent: true }
+    { label: "Invoices needing attention", count: invoicesNeedingReview, href: "/admin/billing", action: "Review invoices", urgent: true }
   ].filter((item) => item.count > 0);
 
   return (
@@ -116,7 +116,7 @@ export function AdminDashboard() {
       <PageHeader
         eyebrow="Admin today"
         title="What needs your attention"
-        description="Your operational priorities, followed by the shortest path to complete them."
+        description="Priority work, in order."
         actions={<StatusBadge label={attentionItems.length ? `${attentionItems.length} action areas` : "All clear"} tone={attentionItems.length ? "amber" : "green"} />}
       />
 
@@ -133,7 +133,6 @@ export function AdminDashboard() {
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
               <div>
                 <h2 className="text-lg font-semibold text-ink">Needs attention</h2>
-                <p className="mt-1 text-sm text-slate-600">Work from the top down.</p>
               </div>
               {attentionItems.length ? <AlertTriangle size={20} className="text-amber-700" aria-hidden="true" /> : <CheckCircle2 size={20} className="text-emerald-700" aria-hidden="true" />}
             </div>
@@ -164,14 +163,13 @@ export function AdminDashboard() {
               <QuickAction href="/admin/scheduling" icon={CalendarDays} label="Open scheduling" />
               <QuickAction href="/admin/clients/new" icon={UserPlus} label="Add client" />
               <QuickAction href="/admin/staff/new" icon={UserPlus} label="Add staff" />
-              <QuickAction href="/admin/billing" icon={ReceiptText} label="Open billing" />
+              <QuickAction href="/admin/billing" icon={ReceiptText} label="Open invoicing" />
             </div>
           </Card>
         </div>
 
         <div>
           <h2 className="text-lg font-semibold text-ink">Workspaces</h2>
-          <p className="mt-1 text-sm text-slate-600">Everything else, grouped by the job being done.</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {workspaces.map((workspace) => {
               const Icon = workspace.icon;

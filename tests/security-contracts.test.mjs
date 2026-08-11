@@ -256,6 +256,27 @@ test("voice progress notes submit only the worker-selected final version", async
   assert.match(actions, /actionLabel === "Submit"/);
 });
 
+test("note quality stays compact, advisory and detailed for manager review", async () => {
+  const [score, generator, records, review, migration] = await Promise.all([
+    source("components/notes/NoteQualityScore.tsx"),
+    source("components/notes/ProgressNoteGenerator.tsx"),
+    source("lib/progress-note-records.ts"),
+    source("lib/progress-note-review.ts"),
+    source("supabase/progress-note-quality-breakdown.sql")
+  ]);
+  assert.match(score, /Advisory only\. Draft saving is always available/);
+  assert.match(score, /quality\.improvements\.slice\(0, 3\)/);
+  assert.match(score, /<details/);
+  assert.match(score, /View details/);
+  assert.match(score, /aria-label={`Quality score/);
+  assert.doesNotMatch(score, /grid gap-3 sm:grid-cols-2/);
+  assert.doesNotMatch(generator, /MissingDetailChecker/);
+  assert.match(records, /quality_breakdown: input\.qualityBreakdown/);
+  assert.match(records, /Keep advisory scoring from blocking a note/);
+  assert.match(review, /qualityBreakdown/);
+  assert.match(migration, /add column if not exists quality_breakdown jsonb/);
+});
+
 test("staff dashboard hides management surfaces unless server access is verified", async () => {
   const [dashboard, roleAware, shell] = await Promise.all([
     source("app/dashboard/page.tsx"),
@@ -355,21 +376,56 @@ test("agreed billing rates save for explicitly authorised billing managers", asy
   assert.match(repair, /coalesce\(u\.access_status, 'active'\) = 'active'/);
 });
 
-test("participant invoices combine selected services using their agreed support components", async () => {
+test("participant invoices require an approved NDIS, agreement or manual rate", async () => {
   const [workspace, billing] = await Promise.all([
     source("components/billing/NativeBillingWorkspace.tsx"),
     source("lib/native-billing.ts")
   ]);
   assert.match(workspace, /Billing period from/);
-  assert.match(workspace, /Agreed support component/);
+  assert.match(workspace, /NDIS rate/);
+  assert.match(workspace, /Agreement/);
+  assert.match(workspace, /Manual/);
+  assert.match(workspace, /Approve code, staffing ratio and calculated rate/);
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
   assert.match(workspace, /Create participant invoice/);
   assert.match(billing, /export function createInvoiceFromServices/);
   assert.match(billing, /An invoice can only contain services for one participant/);
   assert.match(billing, /agreementItemId/);
+  assert.match(billing, /export type InvoiceRateSource = "ndis_catalogue" \| "service_agreement" \| "manual"/);
+  assert.match(billing, /Approve the rate and support code for every selected service/);
+  assert.match(billing, /export function matchNdisSupportItems/);
+  assert.match(billing, /getHoursBetween\(shift\.startTime, shift\.endTime\)/);
   assert.match(billing, /NDIS support item number requires confirmation/);
   assert.match(billing, /invoiceLines: \[\.\.\.lines/);
+});
+
+test("two-to-one supports invoice worker-hours once on the participant invoice", async () => {
+  const [workspace, billing, cloud] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts"),
+    source("lib/native-billing-cloud.ts")
+  ]);
+  assert.match(billing, /export function getBillableQuantity/);
+  assert.match(billing, /duration \* Math\.max\(1, shift\.assignedStaffCount \|\| 1\)/);
+  assert.match(billing, /roster ratio does not match the/);
+  assert.match(workspace, /service hours ×/);
+  assert.match(workspace, /Correct the roster before invoicing/);
+  assert.match(cloud, /new Map<string, string\[\]>/);
+  assert.match(cloud, /assignedStaffCount: staffIds\.length/);
+  assert.match(cloud, /staffing_ratio: shift\.staffingRatio/);
+});
+
+test("customer invoices expose support codes without staff identities or clinical notes", async () => {
+  const [workspace, pdf, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/invoice-pdf.ts"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.doesNotMatch(pdf, /supportItemName|description|staffName|noteReference/);
+  assert.doesNotMatch(workspace.slice(workspace.indexOf('<h2 className="text-xl font-semibold text-ink">4. Invoices'), workspace.indexOf("function StatusPanel")), /line\.description|line\.supportItemName/);
+  const csvSection = billing.slice(billing.indexOf("export function buildInvoiceCsv"), billing.indexOf("export function getEmptyBillingRecords"));
+  assert.doesNotMatch(csvSection, /staffName|noteReference|line\.description|line\.supportItemName/);
 });
 
 test("provider travel uses odometer evidence and a separately reviewed invoice line", async () => {
@@ -399,10 +455,25 @@ test("AI service agreement rates remain editable drafts until explicit approval"
   assert.match(route, /reviewStatus: "pending"/);
   assert.match(workspace, /Extract rates for review/);
   assert.match(workspace, /Reviewed and approved/);
-  assert.match(workspace, /Approve selected rates and transfer to billing/);
+  assert.match(workspace, /Approve selected rates/);
   assert.match(workspace, /agreementDraftItems\.filter\(\(item\) => item\.approved\)/);
   assert.match(workspace, /updateAgreementDraftItem/);
   assert.match(billing, /"hour" \| "day" \| "week" \| "month" \| "each" \| "km"/);
+});
+
+test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
+  const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
+    source("app/admin/billing/page.tsx"),
+    source("app/admin/plan-billing/page.tsx"),
+    source("components/admin/AdminNavigation.tsx"),
+    source("components/billing/SubscriptionWorkspace.tsx")
+  ]);
+  assert.match(invoicePage, /title="Invoicing"/);
+  assert.doesNotMatch(invoicePage, /PlanManagementCard|UsageSummary/);
+  assert.match(planPage, /title="Plan & billing"/);
+  assert.match(navigation, /label: "Invoicing"/);
+  assert.match(navigation, /label: "Plan & billing"[\s\S]*fullAdminOnly: true/);
+  assert.match(subscriptionWorkspace, /fullAdminRoles\.has/);
 });
 
 test("staff hours reports total completed work across payroll periods", async () => {

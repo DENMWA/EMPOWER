@@ -1,5 +1,6 @@
 import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
 import { buildDocumentStoragePath, uploadTenantDocumentFile } from "@/lib/document-records";
+import type { NoteQuality } from "@/lib/ai-mock";
 
 export type ProgressNoteRecordInput = {
   id: string;
@@ -13,6 +14,7 @@ export type ProgressNoteRecordInput = {
   missingDetails: string[];
   qualityScore: number;
   billingEvidenceScore: number;
+  qualityBreakdown: NoteQuality;
   photoFiles?: File[];
 };
 
@@ -35,11 +37,7 @@ export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
     photoEvidence.push({ path, name: file.name, type: file.type || "image" });
   }
 
-  const result = await supabaseRequest<Array<{ id: string }>>("progress_notes", {
-    method: "POST",
-    query: "on_conflict=id",
-    prefer: "resolution=merge-duplicates,return=representation",
-    body: {
+  const noteBody = {
       id: input.id,
       organisation_id: organisationId,
       participant_id: input.participantId,
@@ -59,12 +57,29 @@ export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
       unresolved_incident_flags: [],
       ai_quality_score: Math.max(0, Math.min(100, Math.round(input.qualityScore))),
       billing_evidence_score: Math.max(0, Math.min(100, Math.round(input.billingEvidenceScore))),
+      quality_breakdown: input.qualityBreakdown,
       photo_evidence: photoEvidence,
       invoice_ready: false,
       owner_approved: false,
       updated_at: new Date().toISOString()
-    }
+  };
+  let result = await supabaseRequest<Array<{ id: string }>>("progress_notes", {
+    method: "POST",
+    query: "on_conflict=id",
+    prefer: "resolution=merge-duplicates,return=representation",
+    body: noteBody
   });
+
+  // Keep advisory scoring from blocking a note during a staged database rollout.
+  if (result.error.includes("quality_breakdown")) {
+    const { quality_breakdown: _qualityBreakdown, ...compatibleBody } = noteBody;
+    result = await supabaseRequest<Array<{ id: string }>>("progress_notes", {
+      method: "POST",
+      query: "on_conflict=id",
+      prefer: "resolution=merge-duplicates,return=representation",
+      body: compatibleBody
+    });
+  }
 
   return {
     savedToCloud: Boolean(result.data?.length && !result.error),

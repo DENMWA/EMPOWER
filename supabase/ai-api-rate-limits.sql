@@ -50,6 +50,9 @@ begin
     when 'parse_plan' then
       user_request_limit := 5;
       organisation_request_limit := 50;
+    when 'transcribe_note' then
+      user_request_limit := 15;
+      organisation_request_limit := 150;
     else
       raise exception 'Unknown AI action.' using errcode = '22023';
   end case;

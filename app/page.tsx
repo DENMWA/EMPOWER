@@ -88,13 +88,13 @@ export default function HomePage() {
           <div>
             <p className="mb-4 inline-flex items-center gap-2 rounded-md bg-mint px-3 py-1 text-sm font-semibold text-teal-900">
               <ShieldCheck size={16} aria-hidden="true" />
-              Built for Australian support providers
+              Australian disability support software
             </p>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight text-ink sm:text-6xl">
               Support records, made clear.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-              Progress notes, incidents, rostering and billing in one calm workspace.
+              Notes, incidents, rosters and invoices. One workspace.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <ButtonLink href="/signup">Start free trial</ButtonLink>
@@ -130,7 +130,7 @@ export default function HomePage() {
                 <h2 className="mt-5 text-lg font-bold text-ink">{item.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{item.detail}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-teal-800">
-                  Explore <ArrowRight size={15} className="transition group-hover:translate-x-1" aria-hidden="true" />
+                  Open <ArrowRight size={15} className="transition group-hover:translate-x-1" aria-hidden="true" />
                 </span>
               </Link>
             );
@@ -144,9 +144,6 @@ export default function HomePage() {
             <div className="border-b border-slate-200 p-6 lg:border-b-0 lg:border-r lg:p-8">
               <p className="text-sm font-semibold uppercase tracking-wide text-sea">One connected view</p>
               <h2 className="mt-2 text-3xl font-bold text-ink">The day stays organised.</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                Clients, shifts, records and billing move through one simple workflow.
-              </p>
               <ButtonLink href="/features" variant="secondary">
                 <span className="inline-flex items-center gap-2">See the platform <ArrowRight size={16} aria-hidden="true" /></span>
               </ButtonLink>
@@ -195,8 +192,7 @@ export default function HomePage() {
       <Section>
         <div className="grid gap-5 rounded-md border border-teal-200 bg-teal-50 p-6 shadow-soft lg:grid-cols-[1fr_auto] lg:items-center lg:p-8">
           <div>
-            <h2 className="text-3xl font-bold text-ink">Ready to simplify your support records?</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-700">Set up your workspace and begin with one client.</p>
+            <h2 className="text-3xl font-bold text-ink">Ready when you are.</h2>
           </div>
           <ButtonLink href="/signup">Start free trial</ButtonLink>
         </div>

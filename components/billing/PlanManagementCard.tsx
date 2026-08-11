@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, CreditCard } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CreditCard } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
-import { selfServicePlans } from "@/lib/pricing-data";
+import { getPricingPlan, selfServicePlans } from "@/lib/pricing-data";
 
 export function PlanManagementCard() {
   const [tier, setTier] = useState<SubscriptionTier>("practice");
@@ -61,36 +61,36 @@ export function PlanManagementCard() {
   }
 
   return (
-    <Card>
-      <p className="text-sm font-semibold uppercase tracking-wide text-sea">Admin plan control</p>
+    <Card className="overflow-hidden border-slate-200 p-0">
+      <div className="border-b border-slate-200 bg-ink px-5 py-5 text-white">
+      <p className="text-xs font-semibold uppercase text-teal-200">Current plan</p>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-ink">{planConfirmed ? `Current plan: ${subscriptionTiers[tier].name}` : "Current plan unavailable"}</h2>
+        <h2 className="text-2xl font-semibold">{planConfirmed ? subscriptionTiers[tier].name : "Unavailable"}</h2>
         <StatusBadge label={statusLabel(status)} tone={statusTone(status)} />
       </div>
-      <p className="mt-2 text-sm leading-6 text-slate-700">
-        Subscription controls are available only to organisation administrators. Staff do not see plan or pricing controls.
-      </p>
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <PlanFact label="Plan status" value={planConfirmed ? "Confirmed" : "Awaiting secure workspace"} />
-        <PlanFact label="Limit mode" value={planConfirmed ? enforcementMode === "monitor" ? "Monitoring only" : "Active" : "Not available"} />
-        <PlanFact label="Trial or renewal" value={planConfirmed ? formatDate(renewalDate) : "Not available"} />
-        <PlanFact label="Billing" value="Secure Stripe checkout" />
+      <p className="mt-3 text-3xl font-bold">{planConfirmed ? getPricingPlan(tier).price : "--"}</p>
       </div>
 
-      <label className="mt-5 block max-w-sm text-sm font-semibold text-slate-700">
-        Plan for checkout
-        <select value={selectedTier} onChange={(event) => setSelectedTier(event.target.value as SubscriptionTier)} className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-ink shadow-sm">
-          {selfServicePlans.map((plan) => (
-            <option key={plan.tier} value={plan.tier}>{plan.name} - {plan.price}</option>
-          ))}
-        </select>
-      </label>
+      <div className="grid grid-cols-2 gap-px bg-slate-200">
+        <PlanFact label="Status" value={planConfirmed ? statusLabel(status) : "Unavailable"} />
+        <PlanFact label="Renews" value={planConfirmed ? formatDate(renewalDate) : "--"} />
+        <PlanFact label="Limits" value={planConfirmed ? enforcementMode === "monitor" ? "Monitored" : "Active" : "--"} />
+        <PlanFact label="Payments" value="Stripe" />
+      </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="p-5">
+        <p className="text-sm font-semibold text-ink">Change plan</p>
+        <div className="mt-3 grid gap-2">
+          {selfServicePlans.map((plan) => <button key={plan.tier} type="button" onClick={() => setSelectedTier(plan.tier)} aria-pressed={selectedTier === plan.tier} className={`flex min-h-12 items-center justify-between gap-4 rounded-md border px-3 text-left transition ${selectedTier === plan.tier ? "border-teal-500 bg-teal-50 ring-1 ring-teal-200" : "border-slate-200 hover:border-slate-400"}`}>
+            <span><span className="block text-sm font-semibold text-ink">{plan.shortName}</span><span className="block text-xs text-slate-500">{plan.price}</span></span>
+            {selectedTier === plan.tier ? <Check size={17} className="text-teal-700" /> : <ArrowRight size={16} className="text-slate-400" />}
+          </button>)}
+        </div>
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
         <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("checkout")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
           <CreditCard size={16} aria-hidden="true" />
-          {busyAction === "checkout" ? "Opening..." : "Subscribe securely"}
+          {busyAction === "checkout" ? "Opening..." : selectedTier === tier ? "Renew plan" : "Switch plan"}
         </button>
         <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("portal")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
           <ArrowUpRight size={16} aria-hidden="true" />
@@ -99,14 +99,14 @@ export function PlanManagementCard() {
       </div>
 
       {billingMessage ? <p aria-live="polite" className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">{billingMessage}</p> : null}
-      <p className="mt-4 text-xs leading-5 text-slate-500">Plan access changes only after Stripe confirms payment through the secure webhook.</p>
+      </div>
     </Card>
   );
 }
 
 function PlanFact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+    <div className="bg-white p-4">
       <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>

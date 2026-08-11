@@ -95,20 +95,15 @@ export function UsageSummary() {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="border-slate-200">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Live usage</p>
-            <h2 className="mt-1 text-xl font-semibold text-ink">Usage summary</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              {source === "supabase"
-                ? "Current organisation usage calculated securely from workspace records."
-                : "Temporary local estimate shown while secure workspace usage is unavailable."}
-            </p>
+            <p className="text-xs font-semibold uppercase text-sea">This month</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">Usage</h2>
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge label={loading ? "Refreshing" : subscriptionTiers[tier].name} tone="blue" />
-            <StatusBadge label={source === "supabase" ? "Workspace data" : "Local estimate"} tone={source === "supabase" ? "green" : "amber"} />
+            <StatusBadge label={source === "supabase" ? "Live" : "Estimate"} tone={source === "supabase" ? "green" : "amber"} />
           </div>
         </div>
       </Card>

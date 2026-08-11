@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Card, StatusBadge } from "@/components/ui";
 import { ParticipantProfile } from "@/components/participants/ParticipantProfile";
+import { ClientProfilePhotoManager } from "@/components/participants/ClientProfilePhotoManager";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { documentsUpdatedEvent, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 import { getSavedIncidentReports, type StoredIncidentReport } from "@/lib/incident-records";
@@ -118,6 +119,7 @@ export function ClientProfiles({ admin = false }: { admin?: boolean }) {
                 ) : null}
               </div>
             ) : null}
+            {admin && canControlLifecycle ? <ClientProfilePhotoManager client={client} onSaved={refreshClientRecords} /> : null}
             <ParticipantProfile
               participant={client}
               colourSchemeId={client.colourSchemeId}

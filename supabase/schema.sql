@@ -126,6 +126,7 @@ create table progress_notes (
   unresolved_incident_flags text[] not null default '{}',
   ai_quality_score integer not null default 0 check (ai_quality_score between 0 and 100),
   billing_evidence_score integer not null default 0 check (billing_evidence_score between 0 and 100),
+  quality_breakdown jsonb,
   invoice_ready boolean not null default false,
   owner_approved boolean not null default false,
   self_certified_at timestamptz,

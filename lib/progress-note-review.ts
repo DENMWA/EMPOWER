@@ -1,5 +1,6 @@
 import { getTenantClients } from "@/lib/client-records";
 import { supabaseRequest, supabaseRpc } from "@/lib/supabase-rest";
+import type { NoteQuality } from "@/lib/ai-mock";
 
 export type ProgressNoteReviewItem = {
   id: string;
@@ -15,6 +16,7 @@ export type ProgressNoteReviewItem = {
   riskyWordingFlags: string[];
   qualityScore: number;
   billingEvidenceScore: number;
+  qualityBreakdown: NoteQuality | null;
   updatedAt: string;
   latestReview: {
     action: string;
@@ -45,13 +47,14 @@ type ProgressNoteRow = {
   risky_wording_flags: string[] | null;
   ai_quality_score: number;
   billing_evidence_score: number;
+  quality_breakdown: NoteQuality | null;
   updated_at: string;
 };
 
 export async function getTenantProgressNotesForReview() {
-  const [notesResult, clients, usersResult, approvalsResult] = await Promise.all([
+  let [notesResult, clients, usersResult, approvalsResult] = await Promise.all([
     supabaseRequest<ProgressNoteRow[]>("progress_notes", {
-      query: "select=id,participant_id,staff_id,support_date,support_type,status,final_note,rough_note,missing_details,risky_wording_flags,ai_quality_score,billing_evidence_score,updated_at&order=updated_at.desc"
+      query: "select=id,participant_id,staff_id,support_date,support_type,status,final_note,rough_note,missing_details,risky_wording_flags,ai_quality_score,billing_evidence_score,quality_breakdown,updated_at&order=updated_at.desc"
     }),
     getTenantClients(true).catch(() => []),
     supabaseRequest<Array<{ id: string; name: string | null; email: string }>>("users", {
@@ -61,6 +64,12 @@ export async function getTenantProgressNotesForReview() {
       query: "select=progress_note_id,reviewer_id,action,comments,created_at&order=created_at.desc"
     })
   ]);
+
+  if (notesResult.error.includes("quality_breakdown")) {
+    notesResult = await supabaseRequest<ProgressNoteRow[]>("progress_notes", {
+      query: "select=id,participant_id,staff_id,support_date,support_type,status,final_note,rough_note,missing_details,risky_wording_flags,ai_quality_score,billing_evidence_score,updated_at&order=updated_at.desc"
+    });
+  }
 
   if (!notesResult.data || notesResult.error) return { records: [] as ProgressNoteReviewItem[], error: notesResult.error };
   const clientNames = new Map(clients.map((client) => [client.id, client.name]));
@@ -86,6 +95,7 @@ export async function getTenantProgressNotesForReview() {
       riskyWordingFlags: note.risky_wording_flags || [],
       qualityScore: note.ai_quality_score || 0,
       billingEvidenceScore: note.billing_evidence_score || 0,
+      qualityBreakdown: note.quality_breakdown || null,
       updatedAt: note.updated_at,
       latestReview: latestReview ? {
         action: latestReview.action,

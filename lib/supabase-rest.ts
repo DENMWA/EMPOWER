@@ -38,6 +38,26 @@ export function getCurrentUserId() {
   }
 }
 
+export const activeOrganisationUpdatedEvent = "empowernotes:active-organisation-updated";
+
+export function getCachedOrganisationId() {
+  if (typeof window === "undefined") return "";
+  const userId = getCurrentUserId();
+  if (!userId) return "";
+  return window.sessionStorage.getItem(`empowernotes:active-organisation:${userId}`) || "";
+}
+
+function cacheActiveOrganisationId(organisationId: string) {
+  if (typeof window === "undefined") return;
+  const userId = getCurrentUserId();
+  if (!userId) return;
+  const key = `empowernotes:active-organisation:${userId}`;
+  const previous = window.sessionStorage.getItem(key) || "";
+  if (!organisationId) window.sessionStorage.removeItem(key);
+  else window.sessionStorage.setItem(key, organisationId);
+  if (previous !== organisationId) window.dispatchEvent(new CustomEvent(activeOrganisationUpdatedEvent, { detail: { previous, current: organisationId } }));
+}
+
 export function decodeJwtPayload<T>(token: string): T {
   const payload = token.split(".")[1];
   if (!payload) throw new Error("Invalid access token.");
@@ -128,7 +148,9 @@ export async function getCurrentOrganisationId() {
     query: `select=organisation_id&id=eq.${encodeURIComponent(userId)}`
   });
 
-  return result.data?.[0]?.organisation_id || "";
+  const organisationId = result.data?.[0]?.organisation_id || "";
+  cacheActiveOrganisationId(organisationId);
+  return organisationId;
 }
 
 export async function createCurrentUserOrganisation(input: {

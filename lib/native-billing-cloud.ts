@@ -62,10 +62,13 @@ export async function loadTenantNativeBillingRecords(clients: ClientRecord[], st
   const [shiftRows, staffRows, noteRows, pricingRows, supportItemRows, agreementRows, agreementItemRows, invoiceRows, invoiceLineRows] = results.map((result) => result.data || []);
   const clientNames = new Map(clients.map((client) => [client.id, client.name]));
   const staffNames = new Map(staff.map((worker) => [worker.id, worker.name]));
-  const shiftStaff = new Map(staffRows.map((row) => [
-    asString(row.shift_id),
-    asString(row.staff_invite_id) || asString(row.staff_user_id)
-  ]));
+  const shiftStaff = new Map<string, string[]>();
+  staffRows.forEach((row) => {
+    const shiftId = asString(row.shift_id);
+    const staffId = asString(row.staff_invite_id) || asString(row.staff_user_id);
+    if (!shiftId || !staffId) return;
+    shiftStaff.set(shiftId, [...(shiftStaff.get(shiftId) || []), staffId]);
+  });
   const shiftNotes = new Map(noteRows.map((row) => [asString(row.shift_id), asString(row.note_id)]));
 
   const records: NativeBillingRecords = {
@@ -191,6 +194,7 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     timezone: "Australia/Sydney",
     status: shift.status,
     recurrence_rule: shift.recurrenceRule || null,
+    staffing_ratio: shift.staffingRatio || "1:1",
     odometer_start: shift.odometerStart ?? null,
     odometer_end: shift.odometerEnd ?? null,
     travel_kilometres: shift.travelKilometres ?? null,
@@ -289,16 +293,19 @@ async function flushOperations(operations: Array<Promise<{ data: unknown; error:
   if (failed) throw new Error(failed.error);
 }
 
-function toShift(row: CloudRow, clientNames: Map<string, string>, staffNames: Map<string, string>, shiftStaff: Map<string, string>, shiftNotes: Map<string, string>): SupportShift {
+function toShift(row: CloudRow, clientNames: Map<string, string>, staffNames: Map<string, string>, shiftStaff: Map<string, string[]>, shiftNotes: Map<string, string>): SupportShift {
   const id = asString(row.id);
   const participantId = asString(row.participant_id);
-  const staffId = shiftStaff.get(id) || "";
+  const staffIds = shiftStaff.get(id) || [];
+  const staffId = staffIds[0] || "";
   return {
     id,
     participantId,
     participantName: clientNames.get(participantId) || "Client",
     staffId,
-    staffName: staffNames.get(staffId) || "Unassigned staff",
+    staffName: staffIds.map((assignedId) => staffNames.get(assignedId) || "Assigned staff").join(", ") || "Unassigned staff",
+    assignedStaffCount: staffIds.length,
+    staffingRatio: asString(row.staffing_ratio) || undefined,
     serviceAgreementId: asString(row.service_agreement_id),
     title: asString(row.title),
     supportType: asString(row.support_type),

@@ -4,10 +4,18 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { ClientRecord } from "@/lib/client-records";
 import { getTenantDocumentPreviewUrl } from "@/lib/document-records";
+import { activeOrganisationUpdatedEvent } from "@/lib/supabase-rest";
 import { cn } from "@/lib/utils";
 
 export function PrivateClientPhoto({ path, alt, fallback, className }: { path?: string; alt: string; fallback: string; className?: string }) {
   const [url, setUrl] = useState("");
+  const [organisationVersion, setOrganisationVersion] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setOrganisationVersion((value) => value + 1);
+    window.addEventListener(activeOrganisationUpdatedEvent, refresh);
+    return () => window.removeEventListener(activeOrganisationUpdatedEvent, refresh);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -26,7 +34,7 @@ export function PrivateClientPhoto({ path, alt, fallback, className }: { path?: 
       active = false;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-  }, [path]);
+  }, [path, organisationVersion]);
 
   return (
     <div className={cn("grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-md bg-slate-100 font-bold", className)}>

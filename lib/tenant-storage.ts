@@ -1,7 +1,7 @@
-import { getCurrentUserId } from "@/lib/supabase-rest";
+import { getCachedOrganisationId, getCurrentUserId } from "@/lib/supabase-rest";
 
 export function tenantStorageKey(baseKey: string) {
   const userId = getCurrentUserId();
-  return `${baseKey}:${userId || "public-demo"}`;
+  if (!userId) return `${baseKey}:public-demo`;
+  return `${baseKey}:${userId}:${getCachedOrganisationId() || "organisation-unresolved"}`;
 }
-

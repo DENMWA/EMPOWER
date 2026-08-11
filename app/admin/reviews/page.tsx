@@ -79,6 +79,19 @@ export default function AdminReviewsPage() {
                     <p className="text-sm font-semibold text-slate-500">{note.staffName} · {new Date(note.supportDate).toLocaleDateString("en-AU")}</p>
                     <h2 className="mt-1 text-xl font-semibold text-ink">{note.clientName} · {note.supportType}</h2>
                     <p className="mt-2 text-sm text-slate-600">Quality {note.qualityScore}% · Billing evidence {note.billingEvidenceScore}%</p>
+                    {note.qualityBreakdown ? (
+                      <details className="mt-2 text-sm">
+                        <summary className="cursor-pointer font-semibold text-sea">Quality breakdown</summary>
+                        <dl className="mt-2 grid gap-x-4 gap-y-1 text-slate-600 sm:grid-cols-2">
+                          <div className="flex justify-between gap-3"><dt>Person-centred</dt><dd className="font-semibold text-ink">{note.qualityBreakdown.personCentredLanguage}/10</dd></div>
+                          <div className="flex justify-between gap-3"><dt>Objective wording</dt><dd className="font-semibold text-ink">{note.qualityBreakdown.objectiveWording}/10</dd></div>
+                          <div className="flex justify-between gap-3"><dt>Detail</dt><dd className="font-semibold text-ink">{note.qualityBreakdown.detailLevel}/10</dd></div>
+                          <div className="flex justify-between gap-3"><dt>Risk clarity</dt><dd className="font-semibold text-ink">{note.qualityBreakdown.riskClarity}/10</dd></div>
+                          <div className="flex justify-between gap-3"><dt>Goal</dt><dd className="font-semibold text-ink">{note.qualityBreakdown.goalConnection}</dd></div>
+                          <div className="flex justify-between gap-3"><dt>Follow-up</dt><dd className="font-semibold text-ink">{note.qualityBreakdown.followUpAction}</dd></div>
+                        </dl>
+                      </details>
+                    ) : null}
                   </div>
                   <StatusBadge label={note.status} tone={note.status === "Approved" || locked ? "green" : "amber"} />
                 </div>

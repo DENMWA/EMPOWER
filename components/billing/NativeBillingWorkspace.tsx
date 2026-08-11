@@ -5,7 +5,6 @@ import { Check, ClipboardCheck, FileDown, FileSearch, Plus, ReceiptText, Save, S
 import { Card, StatusBadge } from "@/components/ui";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { downloadOrganisationReportHtml, getOrganisationProfile } from "@/lib/organisation-profile";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { getTenantStaffInvites } from "@/lib/staff-records";
 import {
@@ -18,6 +17,8 @@ import {
   createServiceAgreement,
   getBudgetUsage,
   getInvoiceEligibility,
+  getBillableQuantity,
+  matchNdisSupportItems,
   getNativeBillingRecords,
   linkCompletedRosterService,
   markInvoicePaymentStatus,
@@ -26,7 +27,8 @@ import {
   waitForNativeBillingSave,
   type NativeBillingRecords,
   type NativeInvoice,
-  type NativeInvoiceLine
+  type NativeInvoiceLine,
+  type InvoiceRateSource
 } from "@/lib/native-billing";
 import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
 import type { RosterShift } from "@/lib/roster";
@@ -34,6 +36,7 @@ import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 type TravelDraft = { odometerStart: string; odometerEnd: string; rate: string; supportItemNumber: string; notes: string };
+type ServiceRateDraft = { source: InvoiceRateSource; itemId: string; manualCode: string; manualRate: string; manualUnit: string; approved: boolean };
 type AgreementDraftItem = {
   id: string;
   supportItemNumber: string;
@@ -79,7 +82,7 @@ export function NativeBillingWorkspace() {
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
   const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
-  const [serviceRateSelections, setServiceRateSelections] = useState<Record<string, string>>({});
+  const [serviceRateDrafts, setServiceRateDrafts] = useState<Record<string, ServiceRateDraft>>({});
   const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
   const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
@@ -417,13 +420,26 @@ export function NativeBillingWorkspace() {
   async function generateHolisticInvoice() {
     const selections = Object.entries(selectedInvoiceServices)
       .filter(([, selected]) => selected)
-      .map(([shiftId]) => ({ shiftId, agreementItemId: serviceRateSelections[shiftId] || "", includeTravel: Boolean(includedTravel[shiftId]) }));
+      .map(([shiftId]) => {
+        const draft = serviceRateDrafts[shiftId] || getDefaultRateDraft();
+        return {
+          shiftId,
+          rateSource: draft.source,
+          approved: draft.approved,
+          agreementItemId: draft.source === "service_agreement" ? draft.itemId : undefined,
+          supportItemId: draft.source === "ndis_catalogue" ? draft.itemId : undefined,
+          manualSupportItemNumber: draft.source === "manual" ? draft.manualCode : undefined,
+          manualRate: draft.source === "manual" ? Number(draft.manualRate) : undefined,
+          manualUnitType: draft.source === "manual" ? draft.manualUnit : undefined,
+          includeTravel: Boolean(includedTravel[shiftId])
+        };
+      });
     if (!selections.length) {
       setMessage("Select at least one completed service for this invoice.");
       return;
     }
-    if (selections.some((selection) => !selection.agreementItemId)) {
-      setMessage("Choose the agreed support component for every selected service.");
+    if (selections.some((selection) => !selection.approved)) {
+      setMessage("Approve the rate and support code for every selected service.");
       return;
     }
 
@@ -449,59 +465,29 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  function exportInvoice(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
-    const organisation = getOrganisationProfile();
-    const gstTotal = lines.reduce((total, line) => total + (line.gstCode.toLowerCase().includes("free") ? 0 : line.amount / 11), 0);
-    const body = [
-      `Invoice: ${invoice.invoiceNumber}`,
-      `Invoice date: ${invoice.invoiceDate}`,
-      `Due date: ${invoice.dueDate}`,
-      `Participant: ${invoice.participantName}`,
-      `Participant NDIS number: ${invoice.participantNdisNumber || "Not recorded"}`,
-      `Recipient: ${invoice.recipientName}`,
-      `Recipient email: ${invoice.recipientEmail || "Not recorded"}`,
-      `Billing period: ${invoice.billingPeriodStart} to ${invoice.billingPeriodEnd}`,
-      "",
-      "This invoice uses the selected NDIS Pricing Arrangements and Price Limits version. Confirm the support item, claim type and billing rules before issuing.",
-      "",
-      ...lines.map((line) => [
-        `Service date: ${line.serviceDate}`,
-        `Support item: ${line.supportItemNumber} - ${line.supportItemName}`,
-        `Description: ${line.description}`,
-        `Quantity: ${line.quantity} ${line.unitType}`,
-        `Rate: $${line.rate}`,
-        `Amount: $${line.amount}`,
-        `GST treatment: ${line.gstCode}`,
-        `Pricing version: ${line.pricingVersionName}`,
-        `Evidence linked: ${line.evidenceStatus === "evidence_linked" || line.evidenceStatus === "approved" ? "Yes" : "No"}`,
-        `Support note reference: ${line.noteReference}`,
-        `Service record reference: ${line.shiftId}`,
-        `Price check: ${line.priceCheckStatus}`
-      ].join("\n")),
-      "",
-      `Subtotal: $${invoice.totalAmount.toFixed(2)}`,
-      `GST: $${gstTotal.toFixed(2)}`,
-      `Total: $${invoice.totalAmount}`,
-      `Payment status: ${invoice.paymentStatus}`,
-      `Payment terms: ${organisation.paymentTerms || "Payment due within 14 days."}`,
-      `Payment instructions: ${organisation.paymentInstructions || "Contact the provider for payment instructions."}`
-    ].join("\n\n");
-    downloadOrganisationReportHtml(`${invoice.invoiceNumber}.html`, "EmpowerNotes Native Invoice", body);
+  async function exportInvoice(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
+    setMessage(`Preparing ${invoice.invoiceNumber}...`);
+    const response = await fetch("/api/billing/invoice-pdf", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getStoredAccessToken()}` }, body: JSON.stringify({ invoiceId: invoice.id }) });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({})) as { message?: string };
+      setMessage(result.message || "The PDF could not be generated.");
+      return;
+    }
+    downloadBlob(`${invoice.invoiceNumber}.pdf`, await response.blob());
     downloadCsv(`${invoice.invoiceNumber}.csv`, buildInvoiceCsv(invoice, lines));
+    setMessage(`${invoice.invoiceNumber} downloaded as a secure A4 PDF and CSV.`);
   }
 
   return (
     <div className="space-y-6">
-      <Card className="border-teal-100">
+      <Card className="border-teal-100 bg-gradient-to-r from-white to-teal-50/40">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Service delivery and native invoicing</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">Evidence-backed NDIS billing workflow</h2>
-            <p className="mt-2 text-sm text-slate-600">Agreement, delivered service, evidence, invoice.</p>
+            <p className="text-xs font-semibold uppercase text-sea">Invoice workspace</p>
+            <h2 className="mt-1 text-2xl font-bold text-ink">From service to invoice</h2>
           </div>
-          <StatusBadge label="No Xero dependency" tone="green" />
+          <StatusBadge label="NDIS aligned" tone="green" />
         </div>
-        <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This invoice uses the selected NDIS Pricing Arrangements and Price Limits version. Confirm the support item, claim type and billing rules before issuing.</p>
       </Card>
 
       {message ? <div role="status" aria-live="polite" className="sticky top-3 z-20 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-900 shadow-sm">{message}</div> : null}
@@ -522,8 +508,7 @@ export function NativeBillingWorkspace() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <h2 className="text-xl font-semibold text-ink">1. NDIS pricing version</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Manual pricing upload creates a draft version. Admin must activate it before invoice generation uses it.</p>
+          <h2 className="text-xl font-semibold text-ink">1. Pricing</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             <button type="button" onClick={importPricingVersion} className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Import manual pricing draft</button>
             {draftPricingVersions.map((version) => <button key={version.id} type="button" onClick={() => activateDraft(version.id)} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Activate {version.versionName}</button>)}
@@ -541,7 +526,7 @@ export function NativeBillingWorkspace() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-semibold text-ink">Import agreement with AI</p>
-                <p className="mt-1 text-sm text-slate-600">Extracted terms remain editable and cannot reach billing until an admin approves them.</p>
+                <p className="mt-1 text-sm text-slate-600">Extract, review, approve.</p>
               </div>
               <StatusBadge label={agreementDraftItems.length ? "Review required" : "No active draft"} tone={agreementDraftItems.length ? "amber" : "blue"} />
             </div>
@@ -586,7 +571,7 @@ export function NativeBillingWorkspace() {
                   </div>
                 ))}
                 <button type="button" disabled={Boolean(savingAction) || !agreementDraftItems.some((item) => item.approved)} onClick={() => void approveExtractedRates()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
-                  <Check size={17} aria-hidden="true" />Approve selected rates and transfer to billing
+                  <Check size={17} aria-hidden="true" />Approve selected rates
                 </button>
               </div>
             ) : null}
@@ -658,7 +643,6 @@ export function NativeBillingWorkspace() {
               </label>
               <BillingField label="Allocated budget" value={budgetAllocated} onChange={setBudgetAllocated} type="number" />
             </div>
-            {!supportItems.length ? <p className="mt-3 text-sm text-slate-600">This rate will be saved from the client service agreement. Add an NDIS pricing catalogue later when automatic price-limit checking is required.</p> : null}
             <div className="mt-4 flex flex-wrap gap-3">
               <BillingCheck label="Travel" checked={allowTravel} onChange={setAllowTravel} />
               <BillingCheck label="Kilometres" checked={allowKilometres} onChange={setAllowKilometres} />
@@ -692,7 +676,7 @@ export function NativeBillingWorkspace() {
 
         <Card>
           <h2 className="text-xl font-semibold text-ink">3. Completed services</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Choose the billing period, then map each completed service to the agreed support component that was delivered.</p>
+          <p className="mt-1 text-sm text-slate-600">Select completed supports for this invoice.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <BillingField label="Billing period from" value={invoicePeriodStart} onChange={setInvoicePeriodStart} type="date" />
             <BillingField label="Billing period to" value={invoicePeriodEnd} onChange={setInvoicePeriodEnd} type="date" />
@@ -702,12 +686,19 @@ export function NativeBillingWorkspace() {
             {completedRosterServices.map((shift) => {
               const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
               const linked = Boolean(billingService);
-              const agreementItem = billingService
-                ? records.agreementItems.find((item) => item.id === serviceRateSelections[billingService.id])
-                : undefined;
+              const rateDraft = billingService ? serviceRateDrafts[billingService.id] || getDefaultRateDraft() : getDefaultRateDraft();
+              const agreementItem = rateDraft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === rateDraft.itemId) : undefined;
               const availableAgreementItems = billingService
                 ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
                 : [];
+              const ndisMatches = billingService ? matchNdisSupportItems(billingService, records.supportItems, records.pricingVersions) : [];
+              const assignedStaffCount = billingService ? Math.max(1, billingService.assignedStaffCount || 1) : 1;
+              const expectedStaffCount = billingService ? getRatioStaffCount(billingService.staffingRatio) : 0;
+              const ratioMismatch = Boolean(expectedStaffCount && expectedStaffCount !== assignedStaffCount);
+              const selectedUnit = rateDraft.source === "ndis_catalogue"
+                ? records.supportItems.find((item) => item.id === rateDraft.itemId)?.unitType
+                : rateDraft.source === "service_agreement" ? agreementItem?.unitType : rateDraft.manualUnit;
+              const billableQuantity = billingService && selectedUnit ? getBillableQuantity(billingService, selectedUnit) : 0;
               const invoiced = Boolean(billingService && records.invoiceLines.some((line) => line.shiftId === billingService.id && line.approvalStatus !== "needs_correction"));
               const invoiceEligibility = billingService && selectedAgreement
                 ? getInvoiceEligibility(shift.shiftDate, selectedAgreement, selectedClient, `${shift.shiftDate}T${shift.startTime}:00`)
@@ -718,27 +709,55 @@ export function NativeBillingWorkspace() {
                   <p className="mt-1 text-sm text-slate-600">{shift.startTime}-{shift.endTime} - {shift.location} - {shift.assignedWorkers?.map((worker) => worker.name).join(", ") || shift.workerName}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" disabled={linked} onClick={() => linkRenderedService(shift)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
-                      <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked to billing" : "Link rendered service"}
+                      <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked" : "Link service"}
                     </button>
-                    {billingService && availableAgreementItems.length ? (
+                    {billingService ? (
                       <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">
                         <input type="checkbox" disabled={invoiced || !invoiceEligibility.allowed} checked={Boolean(selectedInvoiceServices[billingService.id])} onChange={(event) => setSelectedInvoiceServices((current) => ({ ...current, [billingService.id]: event.target.checked }))} />
                         {invoiced ? "Already invoiced" : "Include in invoice"}
                       </label>
-                    ) : billingService ? (
-                      <a href="#agreed-support-items" className="inline-flex items-center gap-2 rounded-md bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-200">
-                        <Plus size={16} aria-hidden="true" />Add agreed rate first
-                      </a>
                     ) : null}
                   </div>
-                  {billingService && availableAgreementItems.length ? (
-                    <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
-                      Agreed support component
-                      <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={serviceRateSelections[billingService.id] || ""} onChange={(event) => setServiceRateSelections((current) => ({ ...current, [billingService.id]: event.target.value }))}>
-                        <option value="">Select the support delivered</option>
-                        {availableAgreementItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - ${item.agreedRate.toFixed(2)} / {item.unitType}</option>)}
-                      </select>
-                    </label>
+                  {billingService ? (
+                    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
+                        {([['ndis_catalogue', 'NDIS rate'], ['service_agreement', 'Agreement'], ['manual', 'Manual']] as const).map(([source, label]) => (
+                          <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
+                        ))}
+                      </div>
+                      {rateDraft.source === "ndis_catalogue" ? (
+                        <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
+                          Suggested NDIS support code
+                          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.itemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, itemId: event.target.value, approved: false } }))}>
+                            <option value="">Review and select a match</option>
+                            {ndisMatches.map(({ item, confidence }) => <option key={item.id} value={item.id}>{item.supportItemNumber} - ${item.priceLimit?.toFixed(2)} / {item.unitType} - {confidence}% match</option>)}
+                          </select>
+                          {!ndisMatches.length ? <span className="font-normal text-amber-800">No priced item is available in the active NDIS catalogue.</span> : null}
+                        </label>
+                      ) : null}
+                      {rateDraft.source === "service_agreement" ? (
+                        <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
+                          Agreed support code and rate
+                          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.itemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, itemId: event.target.value, approved: false } }))}>
+                            <option value="">Select an agreed support</option>
+                            {availableAgreementItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - ${item.agreedRate.toFixed(2)} / {item.unitType}</option>)}
+                          </select>
+                        </label>
+                      ) : null}
+                      {rateDraft.source === "manual" ? (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                          <BillingField label="Support code" value={rateDraft.manualCode} onChange={(value) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, manualCode: value, approved: false } }))} />
+                          <BillingField label="Rate" type="number" value={rateDraft.manualRate} onChange={(value) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, manualRate: value, approved: false } }))} />
+                          <label className="grid gap-2 text-sm font-semibold text-slate-700">Unit<select value={rateDraft.manualUnit} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, manualUnit: event.target.value, approved: false } }))} className="min-h-11 rounded-md border border-slate-300 bg-white px-3"><option value="hour">Hour</option><option value="day">Day</option><option value="each">Each</option><option value="km">Kilometre</option></select></label>
+                        </div>
+                      ) : null}
+                      <div className={`mt-3 rounded-md border px-3 py-2 text-sm ${ratioMismatch ? "border-red-200 bg-red-50 text-red-800" : "border-teal-200 bg-teal-50 text-teal-900"}`}>
+                        <p className="font-semibold">{billingService.staffingRatio || `${assignedStaffCount}:1`} support · {assignedStaffCount} assigned staff</p>
+                        <p className="mt-1">{selectedUnit?.toLowerCase().includes("hour") && billableQuantity ? `${formatServiceHours(billingService.startTime, billingService.endTime)} service hours × ${assignedStaffCount} staff = ${billableQuantity} billable hours` : "Quantity is confirmed from the selected billing unit."}</p>
+                        {ratioMismatch ? <p className="mt-1 font-semibold">The roster ratio and assigned staff do not match. Correct the roster before invoicing.</p> : null}
+                      </div>
+                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />Approve code, staffing ratio and calculated rate</label>
+                    </div>
                   ) : null}
                   {billingService && agreementItem?.allowTravel && agreementItem.allowKilometres ? (() => {
                     const travel = getTravelDraft(billingService.id);
@@ -770,8 +789,7 @@ export function NativeBillingWorkspace() {
                       </div>
                     );
                   })() : null}
-                  {billingService && !availableAgreementItems.length ? <p className="mt-3 text-sm font-semibold text-amber-800">Add the client&apos;s agreed support components before invoicing this service.</p> : null}
-                  {billingService && agreementItem && !invoiceEligibility.allowed ? <p className="mt-3 text-sm font-semibold text-red-700">{invoiceEligibility.reason}</p> : null}
+                  {billingService && !invoiceEligibility.allowed ? <p className="mt-3 text-sm font-semibold text-red-700">{invoiceEligibility.reason}</p> : null}
                 </div>
               );
             })}
@@ -782,8 +800,7 @@ export function NativeBillingWorkspace() {
         </Card>
 
         <Card>
-          <h2 className="text-xl font-semibold text-ink">4. Native invoice draft</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Invoice lines are generated only from linked services rendered and store the agreement item, pricing limit, agreed rate, evidence and payment status.</p>
+          <h2 className="text-xl font-semibold text-ink">4. Invoices</h2>
           <div className="mt-4 space-y-3">
             {records.invoices.map((invoice) => {
               const lines = records.invoiceLines.filter((line) => line.invoiceId === invoice.id);
@@ -794,17 +811,23 @@ export function NativeBillingWorkspace() {
                     <StatusBadge label={`${invoice.status} / ${invoice.paymentStatus}`} tone={invoice.status === "review_required" ? "amber" : invoice.paymentStatus === "paid" ? "green" : "blue"} />
                   </div>
                   <p className="mt-2 text-sm text-slate-600">{invoice.participantName} · {invoice.billingPeriodStart} to {invoice.billingPeriodEnd} · {lines.length} line{lines.length === 1 ? "" : "s"}</p>
-                  <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                  <div className="mt-3 hidden overflow-x-auto rounded-md border border-slate-200 md:block">
                     <table className="min-w-full text-left text-sm">
                       <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Support</th><th className="px-3 py-2">Quantity</th><th className="px-3 py-2">Rate</th><th className="px-3 py-2">Amount</th></tr></thead>
                       <tbody>
-                        {lines.map((line) => <tr key={line.id} className="border-t border-slate-200"><td className="px-3 py-2">{line.serviceDate}</td><td className="px-3 py-2"><span className="font-semibold text-ink">{line.supportItemNumber}</span><br />{line.supportItemName}</td><td className="px-3 py-2">{line.quantity} {line.unitType}</td><td className="px-3 py-2">${line.rate.toFixed(2)}</td><td className="px-3 py-2 font-semibold text-ink">${line.amount.toFixed(2)}</td></tr>)}
+                        {lines.map((line) => <tr key={line.id} className="border-t border-slate-200"><td className="px-3 py-2">{line.serviceDate}</td><td className="px-3 py-2 font-semibold text-ink">{line.supportItemNumber}</td><td className="px-3 py-2">{line.quantity} {line.unitType}</td><td className="px-3 py-2">${line.rate.toFixed(2)}</td><td className="px-3 py-2 font-semibold text-ink">${line.amount.toFixed(2)}</td></tr>)}
                       </tbody>
                     </table>
                   </div>
-                  {lines.filter((line) => line.exceptionReason).map((line) => <p key={`${line.id}-warning`} className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{line.supportItemName}: {line.exceptionReason}</p>)}
+                  <div className="mt-3 grid gap-2 md:hidden">
+                    {lines.map((line) => <div key={`${line.id}-mobile`} className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3"><p className="min-w-0 break-words font-semibold text-ink">{line.supportItemNumber || "Support"}</p><p className="shrink-0 font-bold text-ink">${line.amount.toFixed(2)}</p></div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600"><span>{line.serviceDate}</span><span>{line.quantity} {line.unitType} x ${line.rate.toFixed(2)}</span><span>GST: {line.gstCode || "Not specified"}</span></div>
+                    </div>)}
+                  </div>
+                  {lines.filter((line) => line.exceptionReason).map((line) => <p key={`${line.id}-warning`} className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{line.supportItemNumber}: {line.exceptionReason}</p>)}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => exportInvoice(invoice, lines)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> PDF + CSV</button>
+                    <button type="button" onClick={() => void exportInvoice(invoice, lines)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> Download PDF + CSV</button>
                     <button type="button" onClick={() => markInvoicePaymentStatus(invoice.id, "paid")} className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700">Mark paid</button>
                   </div>
                 </div>
@@ -895,8 +918,32 @@ function downloadCsv(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function getBillingError(error: unknown) {
   if (error instanceof Error && error.message.trim()) return error.message;
   if (typeof error === "string" && error.trim()) return error;
   return "Check that your account has Billing access and try again.";
+}
+
+function getDefaultRateDraft(): ServiceRateDraft {
+  return { source: "ndis_catalogue", itemId: "", manualCode: "", manualRate: "", manualUnit: "hour", approved: false };
+}
+
+function getRatioStaffCount(ratio?: string) {
+  const match = ratio?.trim().match(/^(\d+)\s*:\s*1$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function formatServiceHours(start: string, end: string) {
+  return Math.max(0, Math.round(((new Date(end).getTime() - new Date(start).getTime()) / 3_600_000) * 100) / 100);
 }

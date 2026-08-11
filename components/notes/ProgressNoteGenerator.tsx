@@ -5,7 +5,6 @@ import Image from "next/image";
 import { Camera, CheckCircle2, Trash2 } from "lucide-react";
 import { BodyMap, type BodyMarker, type BodyView } from "@/components/incidents/IncidentReportForm";
 import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
-import { MissingDetailChecker } from "@/components/notes/MissingDetailChecker";
 import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { RecordActions } from "@/components/records/RecordActions";
@@ -803,6 +802,7 @@ export function ProgressNoteGenerator() {
               missingDetails: missing,
               qualityScore: quality.auditReadiness,
               billingEvidenceScore: quality.billingEvidenceScore,
+              qualityBreakdown: quality,
               photoFiles: isFocusedCareLog ? [] : photoEvidence.map((photo) => photo.file)
             })}
           />
@@ -867,10 +867,7 @@ export function ProgressNoteGenerator() {
           </div>
         </Card>
       ) : null}
-      {!isFocusedCareLog ? <div className="grid gap-6 lg:grid-cols-2">
-        <NoteQualityScore quality={quality} />
-        <MissingDetailChecker missing={missing.length ? missing : ["Location", "Exact start and finish time", "Goal link", "Specific follow-up owner"]} />
-      </div> : null}
+      {!isFocusedCareLog ? <div className="max-w-2xl"><NoteQualityScore quality={quality} /></div> : null}
       {!isFocusedCareLog ? <Card>
         <h2 className="text-xl font-semibold text-ink">Goal-linking Assistant</h2>
         <div className="mt-4 flex flex-wrap gap-2">

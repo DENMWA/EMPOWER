@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, LayoutDashboard, ReceiptText, Settings, UserRoundPlus, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, CreditCard, LayoutDashboard, ReceiptText, Settings, UserRoundPlus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { canAccessAdmin, type AdminPermission } from "@/lib/admin-permissions";
+import { canAccessAdmin, fullAdminRoles, type AdminPermission } from "@/lib/admin-permissions";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const adminNavigation = [
@@ -15,7 +15,8 @@ const adminNavigation = [
   { label: "Scheduling", href: "/admin/scheduling", icon: CalendarDays, permission: "scheduling" as AdminPermission },
   { label: "Shift review", href: "/admin/reviews", icon: ClipboardList, permission: "shift_verification" as AdminPermission },
   { label: "Incidents", href: "/admin/incidents", icon: AlertTriangle, permission: "incident_actioning" as AdminPermission },
-  { label: "Billing", href: "/admin/billing", icon: ReceiptText, permission: "billing" as AdminPermission },
+  { label: "Invoicing", href: "/admin/billing", icon: ReceiptText, permission: "billing" as AdminPermission },
+  { label: "Plan & billing", href: "/admin/plan-billing", icon: CreditCard, permission: "settings" as AdminPermission, fullAdminOnly: true },
   { label: "Reports", href: "/admin/reports", icon: BarChart3, matches: ["/admin/reports", "/admin/progress", "/admin/audit-packs"], permission: "reports" as AdminPermission },
   { label: "Settings", href: "/admin/settings", icon: Settings, permission: "settings" as AdminPermission }
 ];
@@ -36,7 +37,7 @@ export function AdminNavigation() {
   }, []);
 
   const visibleItems = access
-    ? adminNavigation.filter((item) => !item.permission || canAccessAdmin(access.role, access.permissions, item.permission))
+    ? adminNavigation.filter((item) => (!item.permission || canAccessAdmin(access.role, access.permissions, item.permission)) && (!("fullAdminOnly" in item) || !item.fullAdminOnly || fullAdminRoles.has(access.role)))
     : adminNavigation.filter((item) => item.href === "/admin");
 
   return (

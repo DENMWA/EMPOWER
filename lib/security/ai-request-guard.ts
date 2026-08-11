@@ -8,7 +8,7 @@ type RateLimitResult = {
 
 export async function guardAiRequest(request: Request, options: {
   entitlement: PlanToProgressEntitlementKey;
-  action: "improve_note" | "parse_plan";
+  action: "improve_note" | "parse_plan" | "transcribe_note";
 }) {
   const gate = await checkRequestEntitlement(request, options.entitlement);
 

@@ -4,7 +4,7 @@ export const adminPermissionOptions = [
   { key: "scheduling", label: "Scheduling", description: "Create and manage rosters and staff assignments." },
   { key: "people", label: "Clients and houses", description: "Manage client profiles, houses, and service assignments." },
   { key: "team", label: "Staff access", description: "Invite staff and manage their access." },
-  { key: "billing", label: "Billing", description: "Manage agreements, evidence, invoices, and exports." },
+  { key: "billing", label: "Invoicing", description: "Manage agreements, evidence and invoices." },
   { key: "reports", label: "Reports", description: "View reports, progress intelligence, and audit packs." },
   { key: "settings", label: "Settings", description: "Manage organisation profile and protected settings." }
 ] as const;

@@ -11,6 +11,19 @@ export type InvoiceStatus = "draft" | "review_required" | "approved" | "sent" | 
 export type PaymentStatus = "unpaid" | "part_paid" | "paid" | "overdue";
 export type PriceCheckStatus = "within_limit" | "over_limit" | "not_applicable" | "manual_review_required";
 export type EvidenceStatus = "evidence_linked" | "missing_note" | "review_required" | "approved";
+export type InvoiceRateSource = "ndis_catalogue" | "service_agreement" | "manual";
+
+export type InvoiceServiceSelection = {
+  shiftId: string;
+  rateSource: InvoiceRateSource;
+  approved: boolean;
+  agreementItemId?: string;
+  supportItemId?: string;
+  manualSupportItemNumber?: string;
+  manualRate?: number;
+  manualUnitType?: string;
+  includeTravel?: boolean;
+};
 
 export type SupportShift = {
   id: string;
@@ -18,6 +31,8 @@ export type SupportShift = {
   participantName: string;
   staffId: string;
   staffName: string;
+  assignedStaffCount: number;
+  staffingRatio?: string;
   serviceAgreementId: string;
   title: string;
   supportType: string;
@@ -354,6 +369,7 @@ export function createSupportShift(input: {
     participantName: input.participant.name,
     staffId: input.staff?.id || "",
     staffName: input.staff?.name || "Unassigned staff",
+    assignedStaffCount: input.staff ? 1 : 0,
     serviceAgreementId: input.agreement.id,
     title: input.title || input.supportType,
     supportType: input.supportType,
@@ -396,6 +412,8 @@ export function linkCompletedRosterService(input: {
     participantName: input.rosterShift.participantName,
     staffId: assignedStaff[0]?.id || "",
     staffName: assignedStaff.map((worker) => worker.name).join(", "),
+    assignedStaffCount: assignedStaff.filter((worker) => worker.id).length,
+    staffingRatio: input.rosterShift.staffingRatio,
     serviceAgreementId: input.agreement.id,
     title: input.rosterShift.supportType,
     supportType: input.rosterShift.supportType,
@@ -459,36 +477,53 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[],
   if (!agreement) return { invoice: null, lines: [], error: "Service agreement not found." };
   const agreementItem = records.agreementItems.find((item) => item.serviceAgreementId === agreement.id && item.status === "active");
   if (!agreementItem) return { invoice: null, lines: [], error: "Add a service agreement item before invoicing." };
-  return createInvoiceFromServices([{ shiftId, agreementItemId: agreementItem.id }], notes, client);
+  return createInvoiceFromServices([{ shiftId, rateSource: "service_agreement", agreementItemId: agreementItem.id, approved: true }], notes, client);
 }
 
 export function createInvoiceFromServices(
-  selections: Array<{ shiftId: string; agreementItemId: string; includeTravel?: boolean }>,
+  selections: InvoiceServiceSelection[],
   notes: RetainedRecord[],
   client?: ClientRecord
 ) {
   const records = getNativeBillingRecords();
   if (!selections.length) return { invoice: null, lines: [], error: "Select at least one completed service." };
 
+  if (selections.some((selection) => !selection.approved)) return { invoice: null, lines: [], error: "Approve the rate and support code for every selected service." };
+
   const selected = selections.map((selection) => ({
+    selection,
     includeTravel: Boolean(selection.includeTravel),
     shift: records.shifts.find((item) => item.id === selection.shiftId),
-    agreementItem: records.agreementItems.find((item) => item.id === selection.agreementItemId && item.status === "active")
+    agreementItem: selection.rateSource === "service_agreement"
+      ? records.agreementItems.find((item) => item.id === selection.agreementItemId && item.status === "active")
+      : undefined,
+    supportItem: selection.rateSource === "ndis_catalogue"
+      ? records.supportItems.find((item) => item.id === selection.supportItemId)
+      : undefined
   }));
   if (selected.some(({ shift }) => !shift)) return { invoice: null, lines: [], error: "One or more completed services could not be found." };
-  if (selected.some(({ agreementItem }) => !agreementItem)) return { invoice: null, lines: [], error: "Choose an agreed support component for every selected service." };
+  if (selected.some(({ selection, agreementItem }) => selection.rateSource === "service_agreement" && !agreementItem)) return { invoice: null, lines: [], error: "Choose an active service agreement rate for every agreement-priced service." };
+  if (selected.some(({ selection, supportItem }) => selection.rateSource === "ndis_catalogue" && (!supportItem || supportItem.priceLimit === null))) return { invoice: null, lines: [], error: "Choose a priced item from the active NDIS catalogue for every NDIS-priced service." };
+  if (selected.some(({ selection }) => selection.rateSource === "manual" && (!selection.manualSupportItemNumber?.trim() || !selection.manualRate || selection.manualRate <= 0))) return { invoice: null, lines: [], error: "Enter a support code and valid rate for every manually priced service." };
 
   const shifts = selected.map(({ shift }) => shift as SupportShift);
   const participantId = shifts[0].participantId;
   if (shifts.some((shift) => shift.participantId !== participantId)) return { invoice: null, lines: [], error: "An invoice can only contain services for one participant." };
   const agreement = records.agreements.find((item) => item.id === shifts[0].serviceAgreementId);
   if (!agreement || shifts.some((shift) => shift.serviceAgreementId !== agreement.id)) return { invoice: null, lines: [], error: "Selected services must use the same active service agreement." };
+  for (const shift of shifts) {
+    const expectedStaff = getExpectedStaffCount(shift.staffingRatio);
+    const assignedStaff = Math.max(1, shift.assignedStaffCount || 1);
+    if (expectedStaff && expectedStaff !== assignedStaff) {
+      return { invoice: null, lines: [], error: `${shift.participantName}'s ${shift.staffingRatio} roster ratio does not match the ${assignedStaff} assigned staff. Correct the roster before invoicing.` };
+    }
+  }
 
-  for (const { shift: possibleShift, agreementItem: possibleItem, includeTravel } of selected) {
+  for (const { shift: possibleShift, agreementItem: possibleItem, includeTravel, selection } of selected) {
     if (!includeTravel) continue;
     const shift = possibleShift as SupportShift;
-    const agreementItem = possibleItem as ServiceAgreementItem;
-    if (!agreementItem.allowTravel || !agreementItem.allowKilometres) {
+    const agreementItem = possibleItem as ServiceAgreementItem | undefined;
+    if (selection.rateSource !== "service_agreement" || !agreementItem?.allowTravel || !agreementItem.allowKilometres) {
       return { invoice: null, lines: [], error: "Travel and kilometres are not enabled for the selected agreed support component." };
     }
     if (!shift.travelKilometres || !shift.travelRatePerKilometre || !shift.travelSupportItemNumber) {
@@ -503,16 +538,21 @@ export function createInvoiceFromServices(
   }
 
   const invoiceId = createId("invoice");
-  const lines = selected.map(({ shift: possibleShift, agreementItem: possibleItem }) => {
+  const lines = selected.map(({ shift: possibleShift, agreementItem, supportItem, selection }) => {
     const shift = possibleShift as SupportShift;
-    const agreementItem = possibleItem as ServiceAgreementItem;
     const serviceDate = formatDateOnly(new Date(shift.startTime));
-    const pricingVersion = records.pricingVersions.find((item) => item.id === agreementItem.pricingVersionId);
-    const quantity = agreementItem.unitType === "hour" ? Math.max(0.25, getHoursBetween(shift.startTime, shift.endTime)) : 1;
+    const supportItemNumber = selection.rateSource === "ndis_catalogue" ? supportItem!.supportItemNumber : selection.rateSource === "service_agreement" ? agreementItem!.supportItemNumber : selection.manualSupportItemNumber!.trim();
+    const supportItemName = selection.rateSource === "ndis_catalogue" ? supportItem!.supportItemName : selection.rateSource === "service_agreement" ? agreementItem!.supportItemName : supportItemNumber;
+    const unitType = selection.rateSource === "ndis_catalogue" ? supportItem!.unitType : selection.rateSource === "service_agreement" ? agreementItem!.unitType : selection.manualUnitType || "hour";
+    const rate = selection.rateSource === "ndis_catalogue" ? supportItem!.priceLimit! : selection.rateSource === "service_agreement" ? agreementItem!.agreedRate : selection.manualRate!;
+    const pricingVersionId = selection.rateSource === "ndis_catalogue" ? supportItem!.pricingVersionId : agreementItem?.pricingVersionId || "";
+    const priceLimit = selection.rateSource === "ndis_catalogue" ? supportItem!.priceLimit : agreementItem?.ndisPriceLimit ?? null;
+    const pricingVersion = records.pricingVersions.find((item) => item.id === pricingVersionId);
+    const quantity = getBillableQuantity(shift, unitType);
     const evidenceStatus = getEvidenceStatus(shift, notes);
-    const priceCheckStatus = getPriceCheckStatus(agreementItem.agreedRate, agreementItem.ndisPriceLimit);
+    const priceCheckStatus = selection.rateSource === "manual" ? "manual_review_required" : getPriceCheckStatus(rate, priceLimit);
     const duplicate = records.invoiceLines.some((line) => line.shiftId === shift.id && line.approvalStatus !== "needs_correction");
-    const missingNdisCode = !agreementItem.supportItemNumber || agreementItem.supportItemNumber === "AGREED-SUPPORT";
+    const missingNdisCode = !supportItemNumber || supportItemNumber === "AGREED-SUPPORT";
     const exceptionReason = [
       duplicate && "Possible duplicate billing detected",
       evidenceStatus === "missing_note" && "Completed shift has no linked support note",
@@ -520,28 +560,28 @@ export function createInvoiceFromServices(
       priceCheckStatus === "over_limit" && "Agreed rate is above selected NDIS price limit",
       priceCheckStatus === "manual_review_required" && "Pricing version or price limit requires review"
     ].filter(Boolean).join("; ");
-    const amount = roundCurrency(quantity * agreementItem.agreedRate);
+    const amount = roundCurrency(quantity * rate);
 
     return {
       id: createId("invoice-line"),
       invoiceId,
       shiftId: shift.id,
       serviceAgreementId: agreement.id,
-      serviceAgreementItemId: agreementItem.id,
+      serviceAgreementItemId: agreementItem?.id || "",
       participantId: shift.participantId,
       serviceDate,
-      supportItemNumber: agreementItem.supportItemNumber,
-      supportItemName: agreementItem.supportItemName,
-      description: `${shift.supportType} at ${shift.location || "support location"}`,
+      supportItemNumber,
+      supportItemName,
+      description: supportItemNumber,
       quantity,
-      unitType: agreementItem.unitType,
-      rate: agreementItem.agreedRate,
+      unitType,
+      rate,
       amount,
       gstCode: "GST-free",
-      pricingVersionId: agreementItem.pricingVersionId,
-      pricingVersionName: pricingVersion?.versionName || "Agreed service rate",
-      ndisPriceLimitUsed: agreementItem.ndisPriceLimit,
-      agreedRateUsed: agreementItem.agreedRate,
+      pricingVersionId,
+      pricingVersionName: pricingVersion?.versionName || (selection.rateSource === "service_agreement" ? "Service agreement" : "Manual entry"),
+      ndisPriceLimitUsed: priceLimit,
+      agreedRateUsed: rate,
       evidenceStatus,
       priceCheckStatus,
       approvalStatus: exceptionReason ? "needs_correction" as const : "draft" as const,
@@ -659,7 +699,7 @@ export function getBudgetUsage(records: NativeBillingRecords, participantId: str
 }
 
 export function buildInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
-  const headers = ["invoice_number", "invoice_date", "due_date", "participant_name", "participant_ndis_number", "recipient_name", "recipient_email", "service_date", "support_item_number", "support_item_name", "description", "quantity", "unit_type", "rate", "amount", "gst_code", "pricing_version", "evidence_status", "approval_status", "payment_status"];
+  const headers = ["invoice_number", "invoice_date", "due_date", "participant_name", "participant_ndis_number", "recipient_name", "recipient_email", "service_date", "support_item_number", "quantity", "unit_type", "rate", "amount", "gst_code", "payment_status"];
   const rows = lines.map((line) => [
     invoice.invoiceNumber,
     invoice.invoiceDate,
@@ -670,19 +710,36 @@ export function buildInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine
     invoice.recipientEmail,
     line.serviceDate,
     line.supportItemNumber,
-    line.supportItemName,
-    line.description,
     String(line.quantity),
     line.unitType,
     String(line.rate),
     String(line.amount),
     line.gstCode,
-    line.pricingVersionName,
-    line.evidenceStatus,
-    line.approvalStatus,
     invoice.paymentStatus
   ]);
   return [headers, ...rows].map((row) => row.map((cell) => `"${cell.replace(/"/g, "\"\"")}"`).join(",")).join("\n");
+}
+
+export function matchNdisSupportItems(shift: Pick<SupportShift, "supportType" | "title" | "startTime">, items: NdisSupportItem[], versions: NdisPricingVersion[]) {
+  const serviceDate = shift.startTime.slice(0, 10);
+  const activeVersionIds = new Set(versions.filter((version) => version.status === "active" && (!version.effectiveFrom || version.effectiveFrom <= serviceDate) && (!version.effectiveTo || version.effectiveTo >= serviceDate)).map((version) => version.id));
+  const serviceTokens = tokenise(`${shift.supportType} ${shift.title}`);
+  return items
+    .filter((item) => activeVersionIds.has(item.pricingVersionId) && item.priceLimit !== null && (!item.effectiveFrom || item.effectiveFrom <= serviceDate) && (!item.effectiveTo || item.effectiveTo >= serviceDate))
+    .map((item) => {
+      const itemTokens = tokenise(`${item.supportItemName} ${item.supportCategory} ${item.registrationGroup}`);
+      const overlap = serviceTokens.filter((token) => itemTokens.includes(token)).length;
+      const score = serviceTokens.length ? overlap / serviceTokens.length : 0;
+      return { item, confidence: Math.round(Math.min(0.99, 0.35 + score * 0.6) * 100) };
+    })
+    .sort((a, b) => b.confidence - a.confidence || a.item.supportItemNumber.localeCompare(b.item.supportItemNumber))
+    .slice(0, 5);
+}
+
+export function getBillableQuantity(shift: Pick<SupportShift, "startTime" | "endTime" | "assignedStaffCount">, unitType: string) {
+  if (!unitType.toLowerCase().includes("hour")) return 1;
+  const duration = Math.max(0.25, getHoursBetween(shift.startTime, shift.endTime));
+  return Math.round(duration * Math.max(1, shift.assignedStaffCount || 1) * 100) / 100;
 }
 
 export function getEmptyBillingRecords(): NativeBillingRecords {
@@ -763,6 +820,16 @@ function formatDateOnly(date: Date) {
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function tokenise(value: string) {
+  const ignored = new Set(["and", "the", "support", "service", "shift", "with", "for", "client"]);
+  return Array.from(new Set(value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((token) => token.length > 2 && !ignored.has(token))));
+}
+
+function getExpectedStaffCount(ratio?: string) {
+  const match = ratio?.trim().match(/^(\d+)\s*:\s*1$/);
+  return match ? Number(match[1]) : 0;
 }
 
 function createId(prefix: string) {

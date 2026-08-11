@@ -140,7 +140,8 @@ export function getSafeFileName(fileName: string | undefined, safeType: string) 
   return (fileName || `${safeType}.pdf`).replace(/[^\w.\- ]+/g, "").trim() || `${safeType}.pdf`;
 }
 
-export function buildDocumentStoragePath(input: { organisationId?: string; participantId: string; documentType: string; fileName?: string }) {
+export function buildDocumentStoragePath(input: { organisationId: string; participantId: string; documentType: string; fileName?: string }) {
+  if (!input.organisationId || !input.participantId) throw new Error("An organisation and participant are required for private files.");
   const safeType = getSafeDocumentType(input.documentType);
   const safeFileName = getSafeFileName(input.fileName, safeType);
   return [input.organisationId, input.participantId, safeType, `${Date.now()}-${safeFileName}`].filter(Boolean).join("/");
@@ -150,6 +151,8 @@ export async function uploadTenantDocumentFile(file: File, filePath: string, buc
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { uploaded: false, error: "Cloud workspace is not configured." };
   if (!accessToken) return { uploaded: false, error: "Sign in before uploading files to your workspace." };
+  const pathError = await validateTenantStoragePath(filePath);
+  if (pathError) return { uploaded: false, error: pathError };
 
   const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(filePath)}`, {
     method: "POST",
@@ -174,6 +177,8 @@ export async function getTenantDocumentDownloadUrl(filePath: string, bucket = "p
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { url: "", error: "Cloud workspace is not configured." };
   if (!accessToken) return { url: "", error: "Sign in before downloading private files." };
+  const pathError = await validateTenantStoragePath(filePath);
+  if (pathError) return { url: "", error: pathError };
 
   const response = await fetch(`${supabaseUrl}/storage/v1/object/sign/${bucket}/${encodeURI(filePath)}`, {
     method: "POST",
@@ -204,6 +209,8 @@ export async function getTenantDocumentPreviewUrl(filePath: string, bucket = "pa
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { url: "", error: "Cloud workspace is not configured." };
   if (!accessToken) return { url: "", error: "Sign in before viewing private files." };
+  const pathError = await validateTenantStoragePath(filePath);
+  if (pathError) return { url: "", error: pathError };
 
   const response = await fetch(`${supabaseUrl}/storage/v1/object/authenticated/${bucket}/${encodeURI(filePath)}`, {
     headers: {
@@ -218,4 +225,21 @@ export async function getTenantDocumentPreviewUrl(filePath: string, bucket = "pa
   }
 
   return { url: URL.createObjectURL(await response.blob()), error: "" };
+}
+
+export async function deleteTenantDocumentFile(filePath: string, bucket = "participant-documents") {
+  const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
+  if (!supabaseUrl || !supabaseAnonKey || !accessToken) return { deleted: false, error: "Sign in before deleting private files." };
+  const pathError = await validateTenantStoragePath(filePath);
+  if (pathError) return { deleted: false, error: pathError };
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(filePath)}`, { method: "DELETE", headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${accessToken}` } });
+  return response.ok ? { deleted: true, error: "" } : { deleted: false, error: await response.text() || response.statusText };
+}
+
+async function validateTenantStoragePath(filePath: string) {
+  const organisationId = await getCurrentOrganisationId();
+  const pathOrganisationId = filePath.split("/")[0] || "";
+  if (!organisationId) return "Your active organisation could not be verified.";
+  if (pathOrganisationId !== organisationId) return "This file does not belong to the active organisation.";
+  return "";
 }
