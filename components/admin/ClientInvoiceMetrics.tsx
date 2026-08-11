@@ -31,7 +31,7 @@ export function ClientInvoiceMetrics({ clients, invoices }: { clients: ClientRec
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-slate-950 p-5 text-white">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-teal-900 bg-navy p-5 text-white">
         <div><p className="text-sm font-semibold uppercase tracking-wide text-teal-200">Client invoice intelligence</p><h2 className="mt-2 text-2xl font-bold">Completed and pending invoices</h2><p className="mt-2 max-w-3xl text-sm text-slate-300">Track invoice completion, outstanding payment, and value for each client without combining financial records.</p></div>
         <StatusBadge label={`${invoices.filter((invoice) => invoice.status !== "void").length} active invoices`} tone="blue" />
       </div>

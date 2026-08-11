@@ -36,7 +36,7 @@ export function ClientIncidentMetrics({ clients, incidents }: { clients: ClientR
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-slate-950 p-5 text-white">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-teal-900 bg-navy p-5 text-white">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-200">Client incident intelligence</p>
           <h2 className="mt-2 text-2xl font-bold">Decision signals for every client</h2>

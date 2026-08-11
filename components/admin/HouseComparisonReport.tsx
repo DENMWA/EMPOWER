@@ -95,7 +95,7 @@ export function HouseComparisonReport({ houses, clients, incidents, shifts, docu
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-slate-950 p-5 text-white">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-teal-900 bg-navy p-5 text-white">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-200">House comparison</p>
           <h2 className="mt-2 text-2xl font-bold">Incidents and admin workload by service</h2>

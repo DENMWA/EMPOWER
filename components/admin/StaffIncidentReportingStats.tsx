@@ -61,7 +61,7 @@ export function StaffIncidentReportingStats({ incidents, staff }: { incidents: S
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-slate-950 p-5 text-white">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-teal-900 bg-navy p-5 text-white">
         <div>
           <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-teal-200"><Users size={17} aria-hidden="true" />Staff reporting</p>
           <h2 className="mt-2 text-2xl font-bold">Incident reporting by staff</h2>

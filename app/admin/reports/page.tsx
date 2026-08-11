@@ -111,7 +111,7 @@ export default function AdminReportsPage() {
         actions={<StatusBadge label="Admin / owner only" tone="blue" />}
       />
       <Section className="space-y-6">
-        <div className="report-command-band overflow-hidden rounded-md border border-slate-800 bg-slate-950 text-white shadow-lift">
+        <div className="report-command-band overflow-hidden rounded-md border border-teal-900 bg-navy text-white shadow-lift">
           <div className="grid gap-6 p-5 lg:grid-cols-[1.35fr_1fr] lg:items-center">
             <div>
               <div className="flex flex-wrap items-center gap-3">
@@ -120,7 +120,7 @@ export default function AdminReportsPage() {
               </div>
               <h2 className="mt-4 text-3xl font-bold">Operational command view</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{priorityCount ? `${priorityCount} items currently require attention across incidents, evidence, and shift documentation.` : "No urgent reporting gaps detected across the current organisation records."}</p>
-              <a href={priorityHref} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-teal-300 px-4 text-sm font-bold text-slate-950 shadow-sm hover:bg-teal-200 focus:outline focus:outline-2 focus:outline-teal-100">{priorityCount ? "Open priority intelligence" : "Review service performance"}<ArrowRight size={17} aria-hidden="true" /></a>
+              <a href={priorityHref} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-mint px-4 text-sm font-bold text-navy shadow-sm hover:bg-teal-100 focus:outline focus:outline-2 focus:outline-teal-100">{priorityCount ? "Open priority intelligence" : "Review service performance"}<ArrowRight size={17} aria-hidden="true" /></a>
             </div>
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 sm:grid-cols-3">
               <CommandMetric icon={ShieldCheck} label="Open incidents" value={incidentsAwaitingReview.length} tone="red" />
@@ -271,7 +271,7 @@ function ReportJump({ href, icon: Icon, label, value, active }: { href: string; 
 
 function CommandMetric({ icon: Icon, label, value, tone }: { icon: LucideIcon; label: string; value: string | number; tone: "red" | "amber" | "sky" | "teal" }) {
   const tones = { red: "text-red-300", amber: "text-amber-300", sky: "text-sky-300", teal: "text-teal-300" };
-  return <div className="bg-slate-950/85 p-4 transition hover:bg-slate-900"><Icon size={18} className={tones[tone]} aria-hidden="true" /><p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-2xl font-bold text-white">{value}</p></div>;
+  return <div className="bg-navy/90 p-4 transition hover:bg-sea"><Icon size={18} className={tones[tone]} aria-hidden="true" /><p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-300">{label}</p><p className="mt-1 text-2xl font-bold text-white">{value}</p></div>;
 }
 
 function ReportCard({ icon: Icon, title, value, detail, tone }: { icon: LucideIcon; title: string; value: number; detail: string; tone: "amber" | "red" | "blue" }) {

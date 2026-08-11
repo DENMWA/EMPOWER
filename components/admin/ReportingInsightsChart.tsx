@@ -155,7 +155,7 @@ export function ReportingInsightsChart() {
 
   return (
     <Card className="overflow-hidden border-slate-200 p-0">
-      <div className="grid gap-6 border-b border-slate-200 bg-slate-950 p-5 text-white lg:grid-cols-[1fr_auto] lg:items-start">
+      <div className="grid gap-6 border-b border-teal-900 bg-navy p-5 text-white lg:grid-cols-[1fr_auto] lg:items-start">
         <div>
           <p className="inline-flex rounded-md bg-white/10 px-3 py-1 text-sm font-semibold text-teal-100">Live reporting intelligence</p>
           <h2 className="mt-4 text-2xl font-bold">Comparative support trends</h2>
@@ -193,7 +193,7 @@ export function ReportingInsightsChart() {
               onClick={() => setPeriod(item)}
               className={cn(
                 "min-h-10 rounded-md border px-3 text-sm font-semibold transition focus:outline focus:outline-2 focus:outline-teal-300",
-                period === item ? "border-teal-300 bg-teal-300 text-slate-950" : "border-white/15 bg-white/5 text-white hover:bg-white/10"
+                period === item ? "border-mint bg-mint text-navy" : "border-white/15 bg-white/5 text-white hover:bg-white/10"
               )}
             >
               {periodLabels[item]}
@@ -233,7 +233,7 @@ export function ReportingInsightsChart() {
               <span>{Math.round(maxValue * 0.33)}</span>
               <span>0</span>
             </div>
-            <div className="relative flex items-end gap-4 overflow-x-auto rounded-md border border-slate-200 bg-gradient-to-b from-slate-50 to-white px-4 pb-8 pt-4">
+            <div className="relative flex items-end gap-4 overflow-x-auto rounded-md border border-teal-100 bg-mist px-4 pb-8 pt-4">
               <div className="pointer-events-none absolute inset-x-4 top-4 h-px bg-slate-200" />
               <div className="pointer-events-none absolute inset-x-4 top-1/3 h-px bg-slate-200" />
               <div className="pointer-events-none absolute inset-x-4 top-2/3 h-px bg-slate-200" />
@@ -348,7 +348,7 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
   const xAt = (index: number) => left + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
   const yAt = (value: number) => top + plotHeight - (value / maxValue) * plotHeight;
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3">
+    <div className="overflow-x-auto rounded-md border border-teal-100 bg-mist p-3">
       <svg viewBox={`0 0 ${width} ${height}`} className="min-h-[280px] min-w-[560px] w-full" role="img" aria-label="Interactive line chart. Select a point to view its exact value.">
         {[0, 0.33, 0.66, 1].map((ratio) => {
           const y = top + plotHeight - ratio * plotHeight;
@@ -378,7 +378,7 @@ function InteractiveLineChart({ points, maxValue, selectedMetric, selectedPoint,
                     fill="white"
                     stroke={metric.lineColor}
                     strokeWidth={selected ? 4 : 3}
-                    className="cursor-pointer outline-none transition hover:brightness-90 focus:stroke-slate-950"
+                    className="cursor-pointer outline-none transition hover:brightness-90 focus:stroke-navy"
                     tabIndex={0}
                     role="button"
                     aria-label={`${point.label}, ${metric.label}: ${point[metric.key]}`}
