@@ -3,7 +3,8 @@ import { getPlanCatalogueEntry } from "@/lib/subscriptions/catalog";
 import { resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
 import { adminPermissionOptions, normalizeAdminPermissions } from "@/lib/admin-permissions";
 import { verifyServerAccess } from "@/lib/security/server-access";
-import { normalizeFeaturePermissions } from "@/lib/feature-permissions";
+import { normalizeFeaturePermissions, resolveMembershipPermissions } from "@/lib/feature-permissions";
+import type { UserRole } from "@/lib/sample-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,12 +60,13 @@ export async function POST(request: NextRequest) {
   const role = body.role?.trim() || "support_worker";
   const roleLabel = body.roleLabel?.trim() || "Team member";
   const permissions = normalizeAdminPermissions(body.adminPermissions);
-  const featurePermissions = normalizeFeaturePermissions(body.featurePermissions);
+  const featureOverrides = normalizeFeaturePermissions(body.featurePermissions);
   const employmentType = employmentTypes.has(body.employmentType || "") ? body.employmentType : "other";
   const assignmentStartDate = body.assignmentStartDate || new Date().toISOString().slice(0, 10);
   const assignmentEndDate = body.assignmentEndDate || null;
   if (!body.staffId || !name || !emailPattern.test(email)) return invitationError("validation", "Add a valid staff name and email.", 400);
   if (!assignableRoles.has(role)) return invitationError("validation", "Select a valid organisation role.", 400);
+  const featurePermissions = resolveMembershipPermissions(role as UserRole, featureOverrides, permissions);
   if (assignmentEndDate && assignmentEndDate < assignmentStartDate) return invitationError("validation", "The house assignment end date must be on or after its start date.", 400);
   if (role === "admin" && !["owner", "admin", "sole_provider"].includes(access.role)) {
     return invitationError("role_escalation", "Only an owner or administrator can grant administrator access.", 403);

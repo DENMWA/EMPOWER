@@ -16,6 +16,7 @@ const permissionRoutes: Record<AdminPermission, string> = {
   team: "/admin/team",
   billing: "/admin/billing",
   reports: "/admin/reports",
+  documents: "/admin/documents",
   settings: "/admin/settings"
 };
 

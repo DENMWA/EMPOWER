@@ -6,6 +6,7 @@ export const adminPermissionOptions = [
   { key: "team", label: "Staff access", description: "Invite staff and manage their access." },
   { key: "billing", label: "Invoicing", description: "Manage agreements, evidence and invoices." },
   { key: "reports", label: "Reports", description: "View reports, progress intelligence, and audit packs." },
+  { key: "documents", label: "Document Vault", description: "Review staff uploads, verify documents, and manage document access." },
   { key: "settings", label: "Settings", description: "Manage organisation profile and protected settings." }
 ] as const;
 

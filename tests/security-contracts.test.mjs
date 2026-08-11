@@ -470,6 +470,27 @@ test("workers can access only assigned-client direct-care documents", async () =
   assert.match(migration, /assigned_to_participant\(participant_id\)/);
 });
 
+test("admin document review is duty controlled and preserves worker visibility boundaries", async () => {
+  const [navigation, route, vault, records, permissions, migration] = await Promise.all([
+    source("components/admin/AdminNavigation.tsx"),
+    source("app/admin/documents/page.tsx"),
+    source("components/documents/DocumentVault.tsx"),
+    source("lib/document-records.ts"),
+    source("lib/feature-permissions.ts"),
+    source("supabase/admin-document-vault.sql")
+  ]);
+  assert.match(navigation, /permission: "documents"/);
+  assert.match(route, /AdminGate permission="documents"/);
+  assert.match(route, /DocumentVault reviewMode/);
+  assert.match(vault, /reviewTenantDocumentRecord/);
+  assert.match(records, /method: "PATCH"/);
+  assert.match(records, /manager_verified: true/);
+  assert.match(permissions, /documents: \["documents\.view", "documents\.manage"\]/);
+  assert.match(permissions, /adminPermissionFeatureMap/);
+  assert.match(migration, /private\.current_user_has_permission\('documents\.manage'\)/);
+  assert.match(migration, /organisation_id = public\.current_user_organisation_id\(\)/);
+});
+
 test("shift review decisions persist status, comments and audit history", async () => {
   const [page, review, panel, migration] = await Promise.all([
     source("app/admin/reviews/page.tsx"),

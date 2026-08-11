@@ -6,7 +6,7 @@ import { RecordActions } from "@/components/records/RecordActions";
 import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
 import { getClientColourScheme } from "@/lib/client-colours";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
-import { documentsUpdatedEvent, getTenantDocumentDownloadUrl, getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { documentsUpdatedEvent, getTenantDocumentDownloadUrl, getTenantDocumentRecords, reviewTenantDocumentRecord, type StoredDocumentRecord } from "@/lib/document-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { documents, participants } from "@/lib/sample-data";
 import { filterByParticipantAccess, filterRecordsByParticipantAccess } from "@/lib/user-access";
@@ -16,12 +16,13 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const dayMs = 24 * 60 * 60 * 1000;
 
-export function DocumentVault() {
+export function DocumentVault({ reviewMode = false }: { reviewMode?: boolean }) {
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [storedDocuments, setStoredDocuments] = useState<StoredDocumentRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
   const [canManageProtectedDocuments, setCanManageProtectedDocuments] = useState(false);
+  const [reviewingId, setReviewingId] = useState("");
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : filterByParticipantAccess(participants), [storedClients, realMode]);
   const allDocuments = useMemo(() => (storedDocuments.length ? storedDocuments : realMode ? [] : filterRecordsByParticipantAccess(documents.map((document) => {
     const participant = participants.find((item) => item.id === document.participantId);
@@ -61,14 +62,14 @@ export function DocumentVault() {
   useEffect(() => {
     const token = getStoredAccessToken();
     if (!token) return;
-    fetch("/api/auth/access?mode=admin&permission=people", {
+    fetch(`/api/auth/access?mode=admin&permission=${reviewMode ? "documents" : "people"}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store"
     })
       .then((response) => response.json())
       .then((result: { allowed?: boolean }) => setCanManageProtectedDocuments(Boolean(result.allowed)))
       .catch(() => setCanManageProtectedDocuments(false));
-  }, []);
+  }, [reviewMode]);
 
   useEffect(() => {
     function syncDataMode() {
@@ -148,6 +149,16 @@ export function DocumentVault() {
                       Open private file
                     </button>
                   ) : null}
+                  {reviewMode && canManageProtectedDocuments ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" disabled={reviewingId === doc.id} onClick={() => reviewDocument(doc.id, "verify")} className="inline-flex min-h-10 items-center rounded-md bg-sea px-3 text-sm font-semibold text-white hover:bg-teal-800 disabled:bg-slate-400">
+                        Verify document
+                      </button>
+                      <button type="button" disabled={reviewingId === doc.id} onClick={() => reviewDocument(doc.id, "return")} className="inline-flex min-h-10 items-center rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:text-slate-400">
+                        Request changes
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -173,6 +184,13 @@ export function DocumentVault() {
     }
     setDownloadMessage("");
     window.open(result.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function reviewDocument(documentId: string, decision: "verify" | "return") {
+    setReviewingId(documentId);
+    const result = await reviewTenantDocumentRecord(documentId, decision);
+    setDownloadMessage(result.saved ? (decision === "verify" ? "Document verified." : "Document returned for changes.") : result.error || "The review decision could not be saved.");
+    setReviewingId("");
   }
 }
 

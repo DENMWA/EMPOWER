@@ -15,7 +15,7 @@ begin
     alter table public.users add constraint users_admin_permissions_valid
       check (admin_permissions <@ array[
         'incident_actioning', 'shift_verification', 'scheduling', 'people',
-        'team', 'billing', 'reports', 'settings'
+        'team', 'billing', 'reports', 'documents', 'settings'
       ]::text[]);
   end if;
 
@@ -25,7 +25,7 @@ begin
     alter table public.staff_invites add constraint staff_invites_admin_permissions_valid
       check (admin_permissions <@ array[
         'incident_actioning', 'shift_verification', 'scheduling', 'people',
-        'team', 'billing', 'reports', 'settings'
+        'team', 'billing', 'reports', 'documents', 'settings'
       ]::text[]);
   end if;
 end

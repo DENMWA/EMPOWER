@@ -45,7 +45,7 @@ export function resolveFeaturePermissions(role: UserRole, overrides: unknown) {
   return normalized.length ? normalized : rolePermissionTemplates[role];
 }
 
-const legacyAdminFeatureMap: Record<AdminPermission, FeaturePermission[]> = {
+export const adminPermissionFeatureMap: Record<AdminPermission, FeaturePermission[]> = {
   incident_actioning: ["incidents.view", "incidents.review"],
   shift_verification: ["notes.view", "notes.review", "notes.approve"],
   scheduling: ["rostering.view", "rostering.manage", "rostering.assign_staff"],
@@ -53,12 +53,13 @@ const legacyAdminFeatureMap: Record<AdminPermission, FeaturePermission[]> = {
   team: ["staff.view", "staff.invite", "staff.manage", "staff.assign_houses"],
   billing: ["billing.view", "billing.manage"],
   reports: ["reports.view", "reports.export"],
+  documents: ["documents.view", "documents.manage"],
   settings: ["settings.view", "settings.manage", "organisation.settings.manage"]
 };
 
 export function resolveMembershipPermissions(role: UserRole, featureOverrides: unknown, adminPermissions: unknown) {
   if (["owner", "admin", "sole_provider"].includes(role)) return [...featurePermissionOptions];
   const resolved = resolveFeaturePermissions(role, featureOverrides);
-  const legacy = normalizeAdminPermissions(adminPermissions).flatMap((permission) => legacyAdminFeatureMap[permission]);
+  const legacy = normalizeAdminPermissions(adminPermissions).flatMap((permission) => adminPermissionFeatureMap[permission]);
   return [...new Set([...resolved, ...legacy])];
 }

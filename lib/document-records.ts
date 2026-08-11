@@ -132,6 +132,20 @@ export async function saveTenantDocumentRecord(record: StoredDocumentRecord) {
   return { savedToCloud, error: result.error, documentId: result.data?.[0]?.id || record.id };
 }
 
+export async function reviewTenantDocumentRecord(documentId: string, decision: "verify" | "return") {
+  const result = await supabaseRequest<Array<{ id: string }>>("documents", {
+    method: "PATCH",
+    query: `id=eq.${encodeURIComponent(documentId)}&select=id`,
+    prefer: "return=representation",
+    body: decision === "verify"
+      ? { status: "Manager verified", manager_verified: true }
+      : { status: "Changes requested", manager_verified: false }
+  });
+
+  if (result.data && !result.error) window.dispatchEvent(new Event(documentsUpdatedEvent));
+  return { saved: Boolean(result.data?.length && !result.error), error: result.error || "" };
+}
+
 export function getSafeDocumentType(type: string) {
   return type.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "document";
 }
