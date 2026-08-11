@@ -7,7 +7,7 @@ create extension if not exists "pgcrypto";
 create type user_role as enum ('support_worker','team_leader','case_manager','service_manager','admin','owner','sole_provider');
 create type provider_type as enum ('organisation','sole_provider');
 create type note_status as enum ('Draft','Submitted','Needs Review','Approved','Escalated','Self-Certified','Invoice Ready','Locked','Not Ready','Needs Evidence','Sent');
-create type input_method as enum ('typed','standard_voice','guided_voice');
+create type input_method as enum ('typed','standard_voice','guided_voice','voice','mixed');
 create type invoice_status as enum ('Not Ready','Needs Evidence','Ready','Sent');
 create type document_visibility as enum ('worker-visible','manager-only');
 
@@ -117,6 +117,10 @@ create table progress_notes (
   rough_note text not null,
   final_note text,
   voice_transcript text,
+  original_input text,
+  working_draft text,
+  ai_improved_version text,
+  final_approved_version text,
   input_method input_method not null default 'typed',
   status note_status not null default 'Draft',
   goal_id uuid references goals(id) on delete set null,

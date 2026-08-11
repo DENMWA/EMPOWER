@@ -13,6 +13,10 @@ test("mobile voice records audio and transcribes server-side with explicit failu
   assert.match(recorder, /audio\/mp4/);
   assert.match(recorder, /NotAllowedError/);
   assert.match(recorder, /NotFoundError/);
+  assert.match(recorder, /audio\/mp4/);
+  assert.match(recorder, /cancelRecording/);
+  assert.match(recorder, /formatElapsed/);
+  assert.match(recorder, /Record progress note/);
   assert.match(recorder, /tracks\(\)\.forEach|Tracks\(\)\.forEach|getTracks\(\)\.forEach/);
   assert.match(route, /audio\/transcriptions/);
   assert.match(route, /25 \* 1024 \* 1024/);

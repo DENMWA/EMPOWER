@@ -10,7 +10,13 @@ export type ProgressNoteRecordInput = {
   endTime: string;
   supportType: string;
   note: string;
-  inputMethod?: "typed" | "standard_voice";
+  inputMethod?: "typed" | "voice" | "mixed";
+  status?: "Draft" | "Submitted";
+  originalInput: string;
+  voiceTranscript: string;
+  workingDraft: string;
+  aiImprovedVersion: string | null;
+  finalApprovedVersion: string | null;
   missingDetails: string[];
   qualityScore: number;
   billingEvidenceScore: number;
@@ -46,11 +52,15 @@ export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
       start_time: input.startTime || null,
       end_time: input.endTime || null,
       support_type: input.supportType,
-      rough_note: "",
+      rough_note: input.originalInput,
       final_note: input.note,
-      voice_transcript: null,
+      voice_transcript: input.voiceTranscript || null,
       input_method: input.inputMethod || "typed",
-      status: "Submitted",
+      status: input.status || "Submitted",
+      original_input: input.originalInput,
+      working_draft: input.workingDraft,
+      ai_improved_version: input.aiImprovedVersion,
+      final_approved_version: input.finalApprovedVersion,
       missing_details: input.missingDetails,
       risky_wording_flags: [],
       incident_flags: [],
@@ -71,13 +81,13 @@ export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
   });
 
   // Keep advisory scoring from blocking a note during a staged database rollout.
-  if (result.error.includes("quality_breakdown")) {
-    const { quality_breakdown: _qualityBreakdown, ...compatibleBody } = noteBody;
+  if (/quality_breakdown|original_input|working_draft|ai_improved_version|final_approved_version|input_method/i.test(result.error)) {
+    const { quality_breakdown: _qualityBreakdown, original_input: _originalInput, working_draft: _workingDraft, ai_improved_version: _aiVersion, final_approved_version: _finalVersion, ...compatibleBody } = noteBody;
     result = await supabaseRequest<Array<{ id: string }>>("progress_notes", {
       method: "POST",
       query: "on_conflict=id",
       prefer: "resolution=merge-duplicates,return=representation",
-      body: compatibleBody
+      body: { ...compatibleBody, input_method: input.inputMethod === "typed" ? "typed" : "standard_voice" }
     });
   }
 

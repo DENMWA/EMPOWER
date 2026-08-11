@@ -16,16 +16,18 @@ type RecordActionsProps = {
   allowDownload?: boolean;
   actionLabel?: string;
   saveRelatedRecord?: () => Promise<{ savedToCloud: boolean; error: string; bodyAppend?: string }>;
+  saveDraftRelatedRecord?: () => Promise<{ savedToCloud: boolean; error: string; bodyAppend?: string }>;
 };
 
-export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true, actionLabel = "Save record", saveRelatedRecord }: RecordActionsProps) {
+export function RecordActions({ recordId, recordType, title, body, filename, className, allowDownload = true, actionLabel = "Save record", saveRelatedRecord, saveDraftRelatedRecord }: RecordActionsProps) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [message, setMessage] = useState("");
 
-  async function saveRecord() {
+  async function saveRecord(mode: "draft" | "final" = "final") {
     setSaveState("saving");
-    setMessage("Saving to this organisation...");
-    const relatedResult = saveRelatedRecord ? await saveRelatedRecord() : { savedToCloud: true, error: "", bodyAppend: "" };
+    setMessage(mode === "draft" ? "Saving draft..." : "Saving to this organisation...");
+    const relatedAction = mode === "draft" ? saveDraftRelatedRecord : saveRelatedRecord;
+    const relatedResult = relatedAction ? await relatedAction() : { savedToCloud: true, error: "", bodyAppend: "" };
     if (!relatedResult.savedToCloud) {
       setSaveState("failed");
       setMessage(`Cloud save failed. A recovery draft remains on this device. ${relatedResult.error || "Try again."}`);
@@ -34,7 +36,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
     const record = {
       id: recordId,
       type: recordType,
-      title,
+      title: mode === "draft" ? `${title} - Draft` : title,
       body: `${body}${relatedResult.bodyAppend || ""}`,
       savedAt: new Date().toISOString()
     };
@@ -42,7 +44,7 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
     const savedToCloud = result.savedToCloud;
     setSaveState(savedToCloud ? "saved" : "failed");
     setMessage(savedToCloud
-      ? "Saved to this organisation."
+      ? mode === "draft" ? "Draft saved to this organisation." : "Saved to this organisation."
       : `Cloud save failed. A recovery draft remains on this device. ${relatedResult.error || result.error || "Try again."}`);
     if (savedToCloud) window.dispatchEvent(new Event("empowernotes:retained-records-updated"));
   }
@@ -53,7 +55,8 @@ export function RecordActions({ recordId, recordType, title, body, filename, cla
 
   return (
     <div className={cn("flex flex-wrap gap-3", className)}>
-      <button type="button" onClick={saveRecord} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
+      {saveDraftRelatedRecord ? <button type="button" onClick={() => void saveRecord("draft")} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:text-slate-400"><Save size={17} aria-hidden="true" />Save draft</button> : null}
+      <button type="button" onClick={() => void saveRecord("final")} disabled={saveState === "saving"} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
         <Save size={17} aria-hidden="true" />
         {saveState === "saving" ? (actionLabel === "Submit" ? "Submitting..." : "Saving...") : saveState === "saved" ? (actionLabel === "Submit" ? "Submitted" : "Saved") : saveState === "failed" ? (actionLabel === "Submit" ? "Retry submit" : "Retry save") : actionLabel}
       </button>

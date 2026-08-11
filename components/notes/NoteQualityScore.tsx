@@ -10,6 +10,7 @@ export function NoteQualityScore({ quality }: { quality: NoteQuality }) {
     ["Objective wording", `${quality.objectiveWording}/10`],
     ["Detail level", `${quality.detailLevel}/10`],
     ["Goal connection", quality.goalConnection],
+    ["Participant response", quality.detailLevel >= 6 ? "Present" : "Review"],
     ["Follow-up action", quality.followUpAction],
     ["Risk clarity", `${quality.riskClarity}/10`],
     ["Billing evidence", `${quality.billingEvidenceScore}%`]
@@ -51,7 +52,7 @@ export function NoteQualityScore({ quality }: { quality: NoteQuality }) {
 }
 
 function getQualityStatus(score: number) {
-  if (score >= 80) return { label: "Ready for review", ready: true };
-  if (score >= 60) return { label: "Review suggested", ready: false };
+  if (score >= 80) return { label: "Strong", ready: true };
+  if (score >= 60) return { label: "Good", ready: false };
   return { label: "Needs attention", ready: false };
 }

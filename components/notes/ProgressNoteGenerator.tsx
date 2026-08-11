@@ -4,15 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Camera, CheckCircle2, Trash2 } from "lucide-react";
 import { BodyMap, type BodyMarker, type BodyView } from "@/components/incidents/IncidentReportForm";
-import { GuidedVoiceDocumentation } from "@/components/voice/GuidedVoiceDocumentation";
-import { NoteQualityScore } from "@/components/notes/NoteQualityScore";
+import { ProgressNoteWritingPad } from "@/components/notes/ProgressNoteWritingPad";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { RecordActions } from "@/components/records/RecordActions";
 import { Card } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { participants, sampleRoughNote, supportTypes, type Participant } from "@/lib/sample-data";
-import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality, suggestGoalLinks } from "@/lib/ai-mock";
+import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality } from "@/lib/ai-mock";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { saveTenantProgressNote } from "@/lib/progress-note-records";
@@ -65,6 +64,14 @@ type MonthlyReport = {
 };
 
 type NoteClient = Participant & { colourSchemeId?: string; preferredName?: string; profilePhotoPath?: string };
+type ProgressNoteEditorState = {
+  originalInput: string;
+  workingDraft: string;
+  voiceTranscript: string;
+  aiImprovedVersion: string | null;
+  preImprovementDraft: string;
+  inputMethod: "typed" | "voice" | "mixed";
+};
 
 const continenceSupportOptions = [
   "Incontinence support",
@@ -270,9 +277,9 @@ export function ProgressNoteGenerator() {
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [progressNoteId] = useState(() => globalThis.crypto?.randomUUID?.() || `progress-note-${Date.now()}`);
-  const [roughNote, setRoughNote] = useState("");
-  const [inputMethod, setInputMethod] = useState<"typed" | "standard_voice">("typed");
-  const [rewriteOptions, setRewriteOptions] = useState<string[]>([]);
+  const [editor, setEditor] = useState<ProgressNoteEditorState>({ originalInput: "", workingDraft: "", voiceTranscript: "", aiImprovedVersion: null, preImprovementDraft: "", inputMethod: "typed" });
+  const roughNote = editor.workingDraft;
+  const inputMethod = editor.inputMethod;
   const [photoEvidence, setPhotoEvidence] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
@@ -328,11 +335,11 @@ export function ProgressNoteGenerator() {
 
   useEffect(() => {
     if (!realMode && !roughNote) {
-      setRoughNote(sampleRoughNote);
+      setEditor((current) => ({ ...current, originalInput: sampleRoughNote, workingDraft: sampleRoughNote }));
     }
 
     if (realMode && roughNote === sampleRoughNote) {
-      setRoughNote("");
+      setEditor((current) => ({ ...current, originalInput: "", workingDraft: "" }));
     }
   }, [realMode, roughNote]);
 
@@ -463,30 +470,56 @@ export function ProgressNoteGenerator() {
   }
 
   async function improve() {
+    if (!roughNote.trim()) return;
     setLoading(true);
     const options = await getProgressNoteRewriteOptions(roughNote);
-    setRewriteOptions(options);
-    setMissing([]);
+    const improved = options[0]?.trim();
+    if (improved) {
+      setEditor((current) => ({
+        ...current,
+        originalInput: current.originalInput || current.workingDraft,
+        preImprovementDraft: current.workingDraft,
+        workingDraft: improved,
+        aiImprovedVersion: improved
+      }));
+      setMissing(checkMissingDetails(improved));
+      markTrialStepComplete("progress-note");
+    }
     setLoading(false);
   }
 
-  function applyRewriteOption(option: string) {
-    const mealsAndFluidSummary = formatMealsAndFluidSummary();
-    const careSummaries = [mealsAndFluidSummary].filter(Boolean).join("\n\n");
-    const noteWithCareRecord = careSummaries ? `${option}\n\n${careSummaries}` : option;
-    setRoughNote(noteWithCareRecord);
-    setRewriteOptions([]);
-    setMissing([
-      ...checkMissingDetails(noteWithCareRecord),
-    ]);
-    markTrialStepComplete("progress-note");
+  function updateWorkingDraft(value: string) {
+    setEditor((current) => ({
+      ...current,
+      workingDraft: value,
+      originalInput: current.aiImprovedVersion ? current.originalInput : value,
+      inputMethod: current.voiceTranscript ? "mixed" : "typed"
+    }));
+    setMissing(checkMissingDetails(value));
   }
 
   function applyVoiceTranscript(transcript: string) {
-    setRoughNote(transcript);
-    setInputMethod("standard_voice");
-    setRewriteOptions([]);
-    setMissing(checkMissingDetails(transcript));
+    const cleanTranscript = transcript.trim();
+    if (!cleanTranscript) return;
+    setEditor((current) => {
+      if (current.voiceTranscript.split("\n\n").includes(cleanTranscript)) return current;
+      const workingDraft = appendParagraph(current.workingDraft, cleanTranscript);
+      return {
+        ...current,
+        originalInput: appendParagraph(current.originalInput, cleanTranscript),
+        workingDraft,
+        voiceTranscript: appendParagraph(current.voiceTranscript, cleanTranscript),
+        preImprovementDraft: current.aiImprovedVersion
+          ? appendParagraph(current.preImprovementDraft, cleanTranscript)
+          : current.preImprovementDraft,
+        inputMethod: current.workingDraft.trim() ? "mixed" : "voice"
+      };
+    });
+    setMissing(checkMissingDetails(appendParagraph(roughNote, cleanTranscript)));
+  }
+
+  function undoImprovement() {
+    setEditor((current) => ({ ...current, workingDraft: current.preImprovementDraft || current.originalInput, aiImprovedVersion: null }));
   }
 
   function addPhotoEvidence(files: FileList | null) {
@@ -518,6 +551,30 @@ export function ProgressNoteGenerator() {
   const noteRecordId = `progress-note-${selectedParticipantId || "client"}-${selectedHouseId || "service"}-${supportDate}-${startTime.replace(":", "")}-${finishTime.replace(":", "")}`;
   const selectedHouseName = selectedHouse?.name ?? "Unassigned service";
   const selectedHouseSlug = selectedHouseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "service";
+
+  function persistProgressNote(status: "Draft" | "Submitted") {
+    return saveTenantProgressNote({
+      id: progressNoteId,
+      participantId: selectedParticipantId,
+      supportDate,
+      startTime,
+      endTime: finishTime,
+      supportType,
+      note: noteRecordBody,
+      status,
+      originalInput: isFocusedCareLog ? recordNarrative : editor.originalInput,
+      voiceTranscript: editor.voiceTranscript,
+      workingDraft: recordNarrative,
+      aiImprovedVersion: editor.aiImprovedVersion,
+      finalApprovedVersion: status === "Submitted" ? recordNarrative : null,
+      inputMethod,
+      missingDetails: missing,
+      qualityScore: quality.auditReadiness,
+      billingEvidenceScore: quality.billingEvidenceScore,
+      qualityBreakdown: quality,
+      photoFiles: isFocusedCareLog ? [] : photoEvidence.map((photo) => photo.file)
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -571,10 +628,19 @@ export function ProgressNoteGenerator() {
         </div>
         {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
         {!isFocusedCareLog ? <>
-          <label className="mt-5 block text-sm font-semibold text-slate-700">
-            Shift note
-            <textarea className="mt-2 min-h-40 w-full rounded-md border border-slate-300 bg-slate-50 p-4 leading-7 text-black shadow-inner placeholder:text-slate-500" value={roughNote} onChange={(event) => setRoughNote(event.target.value)} />
-          </label>
+          <ProgressNoteWritingPad
+            value={roughNote}
+            originalInput={editor.originalInput}
+            hasImprovement={Boolean(editor.aiImprovedVersion)}
+            improving={loading}
+            quality={quality}
+            missingDetails={missing}
+            goal={participantGoals[0] || ""}
+            onChange={updateWorkingDraft}
+            onTranscript={applyVoiceTranscript}
+            onImprove={() => void improve()}
+            onUndo={undoImprovement}
+          />
           <div className="mt-4 rounded-md border border-teal-200 bg-teal-50/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -599,7 +665,6 @@ export function ProgressNoteGenerator() {
             </div>
           ) : null}
           </div>
-          <GuidedVoiceDocumentation embedded onUseTranscript={applyVoiceTranscript} />
         </> : null}
         {isBowelCare ? (
           <div className="mt-5 rounded-md border border-amber-200 bg-amber-50/50 p-4">
@@ -777,9 +842,6 @@ export function ProgressNoteGenerator() {
             </div>
           </div>
         ) : null}
-        {!isFocusedCareLog ? <button type="button" onClick={improve} className="mt-4 inline-flex min-h-12 items-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift">
-          {loading ? "Preparing options..." : "Optional: rephrase note"}
-        </button> : null}
         {selectedHouse ? (
           <RecordActions
             className="mt-3"
@@ -790,21 +852,8 @@ export function ProgressNoteGenerator() {
             filename={`empower-notes-progress-note-${selectedParticipantName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${selectedHouseSlug}-${supportDate}`}
             allowDownload={false}
             actionLabel="Submit"
-            saveRelatedRecord={() => saveTenantProgressNote({
-              id: progressNoteId,
-              participantId: selectedParticipantId,
-              supportDate,
-              startTime,
-              endTime: finishTime,
-              supportType,
-              note: noteRecordBody,
-              inputMethod,
-              missingDetails: missing,
-              qualityScore: quality.auditReadiness,
-              billingEvidenceScore: quality.billingEvidenceScore,
-              qualityBreakdown: quality,
-              photoFiles: isFocusedCareLog ? [] : photoEvidence.map((photo) => photo.file)
-            })}
+            saveDraftRelatedRecord={() => persistProgressNote("Draft")}
+            saveRelatedRecord={() => persistProgressNote("Submitted")}
           />
         ) : (
           <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This client needs a house/service assignment before the shift note can be saved. Ask an authorised team leader to update the client profile.</p>
@@ -843,38 +892,14 @@ export function ProgressNoteGenerator() {
           />
         </Card>
       ) : null}
-      {!isFocusedCareLog && rewriteOptions.length ? (
-        <Card>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-sea">Rephrased options</p>
-              <h2 className="mt-1 text-xl font-semibold text-ink">Choose the version that best fits the shift</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Click one option to place it into the note pad above, then edit or save it.</p>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 lg:grid-cols-2">
-            {rewriteOptions.map((option, index) => (
-              <button
-                key={`${option}-${index}`}
-                type="button"
-                onClick={() => applyRewriteOption(option)}
-                className="rounded-md border border-slate-200 bg-slate-50 p-4 text-left text-sm leading-7 text-slate-800 transition hover:border-teal-400 hover:bg-white focus:outline focus:outline-2 focus:outline-teal-700"
-              >
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-sea">Option {index + 1}</span>
-                {option}
-              </button>
-            ))}
-          </div>
-        </Card>
-      ) : null}
-      {!isFocusedCareLog ? <div className="max-w-2xl"><NoteQualityScore quality={quality} /></div> : null}
-      {!isFocusedCareLog ? <Card>
-        <h2 className="text-xl font-semibold text-ink">Goal-linking Assistant</h2>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {(participantGoals.length ? participantGoals : realMode ? [] : suggestGoalLinks()).map((goal) => <span key={goal} className="rounded-md bg-skySoft px-3 py-2 text-sm font-semibold text-sky-900">{goal}</span>)}
-          {!participantGoals.length && realMode ? <p className="text-sm text-slate-600">No verified goals are available for this client yet.</p> : null}
-        </div>
-      </Card> : null}
     </div>
   );
+}
+
+function appendParagraph(existing: string, addition: string) {
+  const cleanExisting = existing.trim();
+  const cleanAddition = addition.trim();
+  if (!cleanExisting) return cleanAddition;
+  if (!cleanAddition || cleanExisting.includes(cleanAddition)) return cleanExisting;
+  return `${cleanExisting}\n\n${cleanAddition}`;
 }

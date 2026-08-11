@@ -130,7 +130,8 @@ test("shift notes persist against an authorised client and signed-in worker", as
   assert.match(noteRecords, /participant_id:\s*input\.participantId/);
   assert.match(noteRecords, /staff_id:\s*staffId/);
   assert.match(noteRecords, /getCurrentOrganisationId/);
-  assert.match(generator, /saveRelatedRecord=.*saveTenantProgressNote/s);
+  assert.match(generator, /saveRelatedRecord=\{\(\) => persistProgressNote\("Submitted"\)\}/);
+  assert.match(generator, /saveDraftRelatedRecord=\{\(\) => persistProgressNote\("Draft"\)\}/);
   assert.match(generator, /baseParticipants\.map\(\(participant\)/);
 });
 
@@ -239,20 +240,20 @@ test("client assignments link invited and authenticated staff identities", async
   assert.match(migration, /lower\(app_user\.email\) = lower\(invite\.email\)/);
 });
 
-test("voice progress notes submit only the worker-selected final version", async () => {
+test("voice progress notes submit one final note while preserving source history", async () => {
   const [voice, generator, records, actions] = await Promise.all([
-    source("components/voice/GuidedVoiceDocumentation.tsx"),
+    source("components/voice/VoiceRecorder.tsx"),
     source("components/notes/ProgressNoteGenerator.tsx"),
     source("lib/progress-note-records.ts"),
     source("components/records/RecordActions.tsx")
   ]);
   assert.doesNotMatch(voice, /saveTenantRetainedRecord|saveTranscriptDraft|saveFinalNote/);
-  assert.match(voice, /Use original note/);
-  assert.match(voice, /Use improved note/);
+  assert.match(voice, /onTranscript\(transcript\)/);
   assert.match(generator, /actionLabel="Submit"/);
-  assert.match(records, /rough_note:\s*""/);
+  assert.match(records, /rough_note:\s*input\.originalInput/);
   assert.match(records, /final_note:\s*input\.note/);
-  assert.match(records, /status:\s*"Submitted"/);
+  assert.match(records, /voice_transcript:\s*input\.voiceTranscript/);
+  assert.match(records, /status:\s*input\.status \|\| "Submitted"/);
   assert.match(actions, /actionLabel === "Submit"/);
 });
 
@@ -275,6 +276,41 @@ test("note quality stays compact, advisory and detailed for manager review", asy
   assert.match(records, /Keep advisory scoring from blocking a note/);
   assert.match(review, /qualityBreakdown/);
   assert.match(migration, /add column if not exists quality_breakdown jsonb/);
+});
+
+test("progress notes use one writing surface for typed, voice and AI content", async () => {
+  const [pad, generator, recorder, records, actions, migration] = await Promise.all([
+    source("components/notes/ProgressNoteWritingPad.tsx"),
+    source("components/notes/ProgressNoteGenerator.tsx"),
+    source("components/voice/VoiceRecorder.tsx"),
+    source("lib/progress-note-records.ts"),
+    source("components/records/RecordActions.tsx"),
+    source("supabase/unified-progress-note-editor.sql")
+  ]);
+  assert.equal((pad.match(/<textarea/g) || []).length, 1);
+  assert.match(pad, /progress-note-working-draft/);
+  assert.match(pad, /VoiceRecorder compact/);
+  assert.match(pad, /Improve note with AI/);
+  assert.match(pad, /Read current note aloud/);
+  assert.match(pad, /View original/);
+  assert.match(pad, /Undo improvement/);
+  assert.match(pad, /Note improved - original preserved/);
+  assert.match(generator, /type ProgressNoteEditorState/);
+  assert.match(generator, /inputMethod: "typed" \| "voice" \| "mixed"/);
+  assert.match(generator, /appendParagraph\(current\.workingDraft, cleanTranscript\)/);
+  assert.match(generator, /current\.voiceTranscript\.split\("\\n\\n"\)\.includes\(cleanTranscript\)/);
+  assert.match(generator, /preImprovementDraft: current\.workingDraft/);
+  assert.match(generator, /workingDraft: improved/);
+  assert.match(generator, /workingDraft: current\.preImprovementDraft \|\| current\.originalInput/);
+  assert.doesNotMatch(generator, /GuidedVoiceDocumentation|Rephrased options/);
+  assert.match(recorder, /Recording · \{formatElapsed/);
+  assert.match(recorder, /Recording cancelled\. Your note is unchanged/);
+  assert.match(records, /original_input: input\.originalInput/);
+  assert.match(records, /working_draft: input\.workingDraft/);
+  assert.match(records, /ai_improved_version: input\.aiImprovedVersion/);
+  assert.match(records, /final_approved_version: input\.finalApprovedVersion/);
+  assert.match(actions, /saveDraftRelatedRecord/);
+  assert.match(migration, /add value if not exists 'mixed'/);
 });
 
 test("staff dashboard hides management surfaces unless server access is verified", async () => {
