@@ -4,7 +4,7 @@ import { PageHeader, Section, StatusBadge } from "@/components/ui";
 
 export default function PlanBillingPage() {
   return <AdminGate permission="settings">
-    <PageHeader eyebrow="Workspace" title="Plan & billing" description="Your EmpowerNotes subscription at a glance." actions={<StatusBadge label="Owner controls" tone="blue" />} />
+    <PageHeader eyebrow="Workspace" title="Plan & billing" description="Review your current plan, usage and available options." actions={<StatusBadge label="Owner controls" tone="green" />} />
     <Section><SubscriptionWorkspace /></Section>
   </AdminGate>;
 }

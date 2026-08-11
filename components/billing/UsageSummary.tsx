@@ -95,7 +95,7 @@ export function UsageSummary() {
 
   return (
     <div className="space-y-4">
-      <Card className="border-slate-200">
+      <Card className="border-teal-100 bg-white">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase text-sea">This month</p>

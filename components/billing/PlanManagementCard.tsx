@@ -6,7 +6,14 @@ import { Card, StatusBadge } from "@/components/ui";
 import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
-import { getPricingPlan, selfServicePlans } from "@/lib/pricing-data";
+import { getPricingPlan, plans } from "@/lib/pricing-data";
+
+const planAccents: Record<SubscriptionTier, { selected: string; icon: string }> = {
+  solo: { selected: "border-teal-500 bg-mint ring-teal-200", icon: "text-teal-700" },
+  practice: { selected: "border-sky-400 bg-skySoft ring-sky-200", icon: "text-sky-700" },
+  provider: { selected: "border-amber-400 bg-amber-50 ring-amber-200", icon: "text-gold" },
+  enterprise: { selected: "border-navy bg-slate-100 ring-slate-300", icon: "text-navy" }
+};
 
 export function PlanManagementCard() {
   const [tier, setTier] = useState<SubscriptionTier>("practice");
@@ -39,6 +46,11 @@ export function PlanManagementCard() {
   }, []);
 
   async function openBillingEndpoint(endpoint: "checkout" | "portal") {
+    if (endpoint === "checkout" && selectedTier === "enterprise") {
+      window.location.assign("/contact");
+      return;
+    }
+
     setBusyAction(endpoint);
     setBillingMessage(endpoint === "checkout" ? "Opening secure checkout..." : "Opening billing portal...");
     try {
@@ -62,8 +74,8 @@ export function PlanManagementCard() {
 
   return (
     <Card className="overflow-hidden border-slate-200 p-0">
-      <div className="border-b border-slate-200 bg-ink px-5 py-5 text-white">
-      <p className="text-xs font-semibold uppercase text-teal-200">Current plan</p>
+      <div className="border-b border-teal-800 bg-navy px-5 py-5 text-white">
+      <p className="text-xs font-semibold uppercase text-mint">Current plan</p>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">{planConfirmed ? subscriptionTiers[tier].name : "Unavailable"}</h2>
         <StatusBadge label={statusLabel(status)} tone={statusTone(status)} />
@@ -81,16 +93,16 @@ export function PlanManagementCard() {
       <div className="p-5">
         <p className="text-sm font-semibold text-ink">Change plan</p>
         <div className="mt-3 grid gap-2">
-          {selfServicePlans.map((plan) => <button key={plan.tier} type="button" onClick={() => setSelectedTier(plan.tier)} aria-pressed={selectedTier === plan.tier} className={`flex min-h-12 items-center justify-between gap-4 rounded-md border px-3 text-left transition ${selectedTier === plan.tier ? "border-teal-500 bg-teal-50 ring-1 ring-teal-200" : "border-slate-200 hover:border-slate-400"}`}>
+          {plans.map((plan) => <button key={plan.tier} type="button" onClick={() => setSelectedTier(plan.tier)} aria-pressed={selectedTier === plan.tier} className={`flex min-h-12 items-center justify-between gap-4 rounded-md border px-3 text-left transition ${selectedTier === plan.tier ? `${planAccents[plan.tier].selected} ring-1` : "border-slate-200 bg-white hover:border-teal-300 hover:bg-mist"}`}>
             <span><span className="block text-sm font-semibold text-ink">{plan.shortName}</span><span className="block text-xs text-slate-500">{plan.price}</span></span>
-            {selectedTier === plan.tier ? <Check size={17} className="text-teal-700" /> : <ArrowRight size={16} className="text-slate-400" />}
+            {selectedTier === plan.tier ? <Check size={17} className={planAccents[plan.tier].icon} /> : <ArrowRight size={16} className="text-slate-400" />}
           </button>)}
         </div>
 
       <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("checkout")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("checkout")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           <CreditCard size={16} aria-hidden="true" />
-          {busyAction === "checkout" ? "Opening..." : selectedTier === tier ? "Renew plan" : "Switch plan"}
+          {busyAction === "checkout" ? "Opening..." : selectedTier === "enterprise" ? "Contact Enterprise" : selectedTier === tier ? "Renew plan" : "Switch plan"}
         </button>
         <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("portal")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
           <ArrowUpRight size={16} aria-hidden="true" />
