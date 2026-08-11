@@ -72,7 +72,7 @@ export function OrganisationBrandingForm() {
       </div>
 
       {profile.logoDataUrl ? (
-        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="mt-5 rounded-md border border-teal-100 bg-mist p-3">
           <p className="text-sm font-semibold text-slate-700">Logo preview</p>
           <Image src={profile.logoDataUrl} alt="Organisation logo preview" width={240} height={96} unoptimized className="mt-3 max-h-24 rounded-md bg-white object-contain p-2" />
         </div>
@@ -84,7 +84,7 @@ export function OrganisationBrandingForm() {
       </label>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={saveProfile} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift">
+        <button type="button" onClick={saveProfile} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
           <Save size={17} aria-hidden="true" />
           Save branding
         </button>

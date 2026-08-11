@@ -76,7 +76,7 @@ export function SettingsSecurityGate({ children }: { children: ReactNode }) {
         description="Organisation settings contain sensitive access, branding, security and plan controls. Confirm your own password to continue."
       />
       <Section>
-        <Card className="mx-auto max-w-lg border-teal-200">
+        <Card className="mx-auto max-w-lg border-teal-200 bg-white shadow-lift">
           <span className="grid h-12 w-12 place-items-center rounded-md bg-mint text-teal-900"><LockKeyhole size={22} aria-hidden="true" /></span>
           <h2 className="mt-4 text-xl font-bold text-ink">Settings verification</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">Signed in as <span className="font-semibold text-ink">{auth.email || "administrator"}</span>. Access remains unlocked for 15 minutes in this browser tab.</p>
@@ -85,7 +85,7 @@ export function SettingsSecurityGate({ children }: { children: ReactNode }) {
               Administrator password
               <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-ink shadow-sm" autoFocus />
             </label>
-            <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               <ShieldCheck size={17} aria-hidden="true" />
               {busy ? "Verifying..." : "Unlock settings"}
             </button>

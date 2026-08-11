@@ -49,7 +49,7 @@ export function ProgressIntelligenceSettings() {
 
 function SettingsBlock({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-md border border-teal-100 bg-mist p-4">
       <h3 className="font-semibold text-ink">{title}</h3>
       <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
         {items.map((item) => <li key={item}>{item}</li>)}

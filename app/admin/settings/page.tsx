@@ -4,15 +4,16 @@ import { PresentationModeCard } from "@/components/admin/PresentationModeCard";
 import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { ProgressIntelligenceSettings } from "@/components/settings/progress/ProgressIntelligenceSettings";
 import { SettingsSecurityGate } from "@/components/admin/SettingsSecurityGate";
+import { Building2, FileCheck2, FileLock2, Palette, ShieldCheck, UsersRound } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
 const settings = [
-  { label: "Organisation name", value: "EmpowerNotes Provider" },
-  { label: "Provider mode", value: "Organisation" },
-  { label: "Default documentation style", value: "Person-centred, objective, evidence-ready" },
-  { label: "Worker roster access", value: "Locked" },
-  { label: "Admin reports", value: "Weekly, fortnightly, monthly" },
-  { label: "Document visibility", value: "Worker-visible or manager-only" }
+  { label: "Organisation name", value: "EmpowerNotes Provider", icon: Building2, accent: "bg-mint text-teal-800" },
+  { label: "Provider mode", value: "Organisation", icon: UsersRound, accent: "bg-skySoft text-sky-800" },
+  { label: "Documentation style", value: "Person-centred, objective, evidence-ready", icon: Palette, accent: "bg-amber-50 text-gold" },
+  { label: "Worker roster access", value: "Locked", icon: ShieldCheck, accent: "bg-mint text-teal-800" },
+  { label: "Admin reports", value: "Weekly, fortnightly, monthly", icon: FileCheck2, accent: "bg-skySoft text-sky-800" },
+  { label: "Document visibility", value: "Worker-visible or manager-only", icon: FileLock2, accent: "bg-amber-50 text-gold" }
 ];
 
 export default function AdminSettingsPage() {
@@ -21,19 +22,26 @@ export default function AdminSettingsPage() {
       <SettingsSecurityGate>
         <PageHeader
           eyebrow="Admin settings"
-          title="Organisation controls and default settings"
-          description="Business details, access defaults, templates, documentation wording, and compliance preferences for testing and rollout."
-          actions={<StatusBadge label="Admin settings" tone="blue" />}
+          title="Organisation settings"
+          description="Manage your organisation identity, security and documentation defaults."
+          actions={<StatusBadge label="Protected" tone="green" />}
         />
-        <Section className="grid gap-4 md:grid-cols-2">
+        <Section className="grid gap-5 md:grid-cols-2">
           <SupabaseSecurityPanel />
           <OrganisationBrandingForm />
           <PresentationModeCard />
           <ProgressIntelligenceSettings />
           {settings.map((item) => (
-            <Card key={item.label}>
-              <p className="text-sm font-semibold text-slate-500">{item.label}</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{item.value}</p>
+            <Card key={item.label} className="border-slate-200/80 transition-colors hover:border-teal-200">
+              <div className="flex items-start gap-3">
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md ${item.accent}`}>
+                  <item.icon size={18} aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-500">{item.label}</p>
+                  <p className="mt-1 text-base font-semibold leading-6 text-ink">{item.value}</p>
+                </div>
+              </div>
             </Card>
           ))}
         </Section>

@@ -134,7 +134,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
-        <button type="button" disabled={busy || !configured} onClick={signIn} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="button" disabled={busy || !configured} onClick={signIn} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           <KeyRound size={17} aria-hidden="true" />
           Sign in
         </button>
