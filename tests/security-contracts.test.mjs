@@ -97,6 +97,37 @@ test("staff invitations remain manager and organisation scoped", async () => {
   assert.match(policy, /grant select, insert, update, delete on public\.staff_invites to authenticated/);
 });
 
+test("organisation invitations deliver before activating tenant membership", async () => {
+  const [inviteRoute, acceptRoute, form, acceptance, migration, emailDocs] = await Promise.all([
+    source("app/api/team/invite/route.ts"),
+    source("app/api/team/invite/accept/route.ts"),
+    source("components/admin/InviteTeamMemberForm.tsx"),
+    source("components/auth/InviteAcceptanceForm.tsx"),
+    source("supabase/organisation-invitations.sql"),
+    source("docs/AUTH_EMAIL_DELIVERY.md")
+  ]);
+  assert.match(inviteRoute, /verifyServerAccess\(request, "admin", "team"\)/);
+  assert.match(inviteRoute, /const emailPattern/);
+  assert.match(inviteRoute, /role_escalation/);
+  assert.match(inviteRoute, /organisation_memberships\?select=id&organisation_id=eq\.\$\{access\.organisationId\}/);
+  assert.match(inviteRoute, /type: "invite", email, redirect_to: redirectTo/);
+  assert.match(inviteRoute, /invite_status: "Draft"[\s\S]*organisation_invites/);
+  assert.match(inviteRoute, /status: "failed"/);
+  assert.match(inviteRoute, /generatedNewAuthUser.*deleteAuthUser/s);
+  assert.match(inviteRoute, /Accept EmpowerNotes invitation/);
+  assert.doesNotMatch(inviteRoute, /body:\s*JSON\.stringify\(\{[\s\S]*organisation_id:\s*body\./);
+  assert.match(form, /sendInvitationEmail\(\{[\s\S]*staffId/);
+  assert.match(form, /Access will activate after acceptance/);
+  assert.match(acceptRoute, /invite\.email\.trim\(\)\.toLowerCase\(\) !== authUser\.email/);
+  assert.match(acceptRoute, /invite\.status === "revoked"/);
+  assert.match(acceptRoute, /new Date\(invite\.expires_at\)\.getTime\(\) <= Date\.now\(\)/);
+  assert.match(acceptRoute, /organisation_memberships\?on_conflict=organisation_id,user_id/);
+  assert.match(acceptance, /Sign in to accept/);
+  assert.match(migration, /status in \('pending','sent','accepted','expired','revoked','failed'\)/);
+  assert.match(migration, /revoke all on public\.organisation_invites from anon, authenticated/);
+  assert.match(emailDocs, /https:\/\/www\.empowernotes\.org\/auth\/accept-invite/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),

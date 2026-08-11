@@ -126,42 +126,38 @@ export function InviteTeamMemberForm() {
       adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : []
     };
 
-    const result = await saveTenantStaffInvite(record);
-    if (result.error && result.error.includes("allows")) {
-      setSaved(false);
-      setSaving(false);
-      setSaveFailed(true);
-      setMessage(result.error);
-      return;
-    }
-
-    setSaved(Boolean(result.savedToCloud));
     const localMessage = action === "sent" ? "Invite saved and marked ready to send." : "Permissions saved for this draft invite.";
-    if (!result.savedToCloud) {
-      setSaving(false);
-      setSaveFailed(true);
-      setMessage(`Cloud save failed. The staff details remain here for retry. ${result.error || "Try again."}`);
-      return;
-    }
-
     if (action === "sent") {
       const emailResult = await sendInvitationEmail({
+        staffId,
         name: cleanName,
         email: cleanEmail,
         role,
         roleLabel: roleLabelFor(role),
-        adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : []
+        adminPermissions: delegatedManagerRoles.has(role) ? adminPermissions : [],
+        assignedParticipantIds: assignedParticipants,
+        houseAccessMode,
+        assignedHouseIds: record.assignedHouseIds,
+        resend: saveFailed
       });
       setSaved(emailResult.ok);
       setMessage(emailResult.ok
-        ? `Invitation emailed to ${cleanEmail} and saved to this organisation.`
-        : emailResult.error || "The invite was saved, but the email could not be delivered.");
+        ? `Invitation sent to ${cleanEmail}. Access will activate after acceptance.`
+        : emailResult.error || "The invitation could not be delivered.");
       setSaveFailed(!emailResult.ok);
       if (!emailResult.ok) {
         setSaving(false);
         return;
       }
     } else {
+      const result = await saveTenantStaffInvite(record);
+      setSaved(Boolean(result.savedToCloud));
+      if (!result.savedToCloud) {
+        setSaving(false);
+        setSaveFailed(true);
+        setMessage(`Cloud save failed. The staff details remain here for retry. ${result.error || "Try again."}`);
+        return;
+      }
       setMessage(`${localMessage} Saved to this organisation.`);
     }
     markTrialStepComplete("add-staff");
@@ -288,7 +284,18 @@ export function InviteTeamMemberForm() {
   );
 }
 
-async function sendInvitationEmail(input: { name: string; email: string; role: UserRole; roleLabel: string; adminPermissions: AdminPermission[] }) {
+async function sendInvitationEmail(input: {
+  staffId: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  roleLabel: string;
+  adminPermissions: AdminPermission[];
+  assignedParticipantIds: string[];
+  houseAccessMode: "all" | "selected";
+  assignedHouseIds: string[];
+  resend: boolean;
+}) {
   const accessToken = getStoredAccessToken();
   if (!accessToken) return { ok: false, error: "Sign in before sending invitation emails." };
 
