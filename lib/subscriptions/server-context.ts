@@ -1,4 +1,6 @@
 import { defaultSubscriptionTier, type SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { resolveUserAccessContext } from "@/lib/security/user-access-context";
+import type { FeaturePermission } from "@/lib/feature-permissions";
 
 const subscriptionTierKeys: SubscriptionTier[] = ["solo", "practice", "provider", "enterprise"];
 
@@ -6,6 +8,7 @@ export type ServerSubscriptionContext = {
   authenticated: boolean;
   userId: string;
   userRole: string;
+  permissions: FeaturePermission[];
   organisationId: string;
   tier: SubscriptionTier;
   status: string;
@@ -33,63 +36,32 @@ export function getLegacyRequestTier(request: Request): SubscriptionTier {
 
 export async function resolveServerSubscriptionContext(request: Request): Promise<ServerSubscriptionContext> {
   const fallback = createFallbackContext(request);
-  const authorization = request.headers.get("authorization") || "";
+  const access = await resolveUserAccessContext(request);
+  if (!access.context) return { ...fallback, resolutionError: access.error };
+  const trusted = access.context;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!authorization.toLowerCase().startsWith("bearer ")) {
-    return { ...fallback, resolutionError: "No authenticated session was supplied." };
-  }
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
     return { ...fallback, resolutionError: "Supabase server configuration is unavailable." };
   }
 
   const headers = {
-    apikey: supabaseAnonKey,
-    Authorization: authorization,
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
     "Content-Type": "application/json"
   };
 
   try {
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      method: "GET",
-      headers,
-      cache: "no-store"
-    });
-    if (!userResponse.ok) {
-      return { ...fallback, resolutionError: `Authentication validation failed (${userResponse.status}).` };
-    }
-
-    const authUser = await userResponse.json() as { id?: string };
-    if (!authUser.id) {
-      return { ...fallback, resolutionError: "The authenticated user identifier was unavailable." };
-    }
-
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/users?select=organisation_id,role&id=eq.${encodeURIComponent(authUser.id)}&limit=1`,
-      { method: "GET", headers, cache: "no-store" }
-    );
-    if (!profileResponse.ok) {
-      return { ...fallback, authenticated: true, userId: authUser.id, resolutionError: `User profile resolution failed (${profileResponse.status}).` };
-    }
-
-    const profiles = await profileResponse.json() as Array<{ organisation_id?: string; role?: string }>;
-    const organisationId = profiles[0]?.organisation_id || "";
-    const userRole = profiles[0]?.role || "";
-    if (!organisationId) {
-      return { ...fallback, authenticated: true, userId: authUser.id, resolutionError: "The user is not connected to an organisation." };
-    }
-
     const organisationResponse = await fetch(
-      `${supabaseUrl}/rest/v1/organisations?select=subscription_tier,subscription_status,subscription_enforcement_mode,trial_ends_at,subscription_current_period_end,subscription_grace_ends_at&id=eq.${encodeURIComponent(organisationId)}&limit=1`,
+      `${supabaseUrl}/rest/v1/organisations?select=subscription_tier,subscription_status,subscription_enforcement_mode,trial_ends_at,subscription_current_period_end,subscription_grace_ends_at&id=eq.${encodeURIComponent(trusted.organisationId)}&limit=1`,
       { method: "GET", headers, cache: "no-store" }
     );
     if (!organisationResponse.ok) {
       return {
         ...fallback,
         authenticated: true,
-        userId: authUser.id,
-        organisationId,
+        userId: trusted.userId,
+        organisationId: trusted.organisationId,
         resolutionError: `Organisation subscription resolution failed (${organisationResponse.status}).`
       };
     }
@@ -108,17 +80,18 @@ export async function resolveServerSubscriptionContext(request: Request): Promis
       return {
         ...fallback,
         authenticated: true,
-        userId: authUser.id,
-        organisationId,
+        userId: trusted.userId,
+        organisationId: trusted.organisationId,
         resolutionError: "The organisation subscription tier is missing or invalid."
       };
     }
 
     return {
       authenticated: true,
-      userId: authUser.id,
-      userRole,
-      organisationId,
+      userId: trusted.userId,
+      userRole: trusted.role,
+      permissions: trusted.permissions,
+      organisationId: trusted.organisationId,
       tier,
       status: organisation.subscription_status || "trialing",
       trialEndsAt: organisation.trial_ends_at || "",
@@ -180,6 +153,7 @@ function createFallbackContext(request: Request): ServerSubscriptionContext {
     authenticated: false,
     userId: "",
     userRole: "",
+    permissions: [],
     organisationId: "",
     tier: getLegacyRequestTier(request),
     status: "unknown",

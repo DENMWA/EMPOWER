@@ -147,7 +147,7 @@ function validateStaff(body: StaffInput, currentRole: string) {
 }
 
 async function getContext(request: Request) {
-  const access = await verifyServerAccess(request, "admin", "team");
+  const access = await verifyServerAccess(request, "admin", "team", "staff.manage");
   if (!access.allowed) return { response: NextResponse.json({ error: access.reason }, { status: access.status }), url: "", organisationId: "", role: "", headers: {} };
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

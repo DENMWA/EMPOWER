@@ -23,7 +23,9 @@ export async function GET(request: Request) {
     allowed: true,
     role: access.role,
     organisationId: access.organisationId,
+    membershipId: access.membershipId,
     email: access.email,
+    permissions: access.permissions,
     adminPermissions: access.adminPermissions
   });
 }

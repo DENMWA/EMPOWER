@@ -6,12 +6,14 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("privileged server access verifies the Supabase user and stored organisation role", async () => {
-  const access = await source("lib/security/server-access.ts");
-  assert.match(access, /\/auth\/v1\/user/);
-  assert.match(access, /users\?select=role,organisation_id/);
-  assert.match(access, /canAccessAdmin\(profile\.role, adminPermissions, requiredPermission\)/);
-  assert.match(access, /admin_permissions/);
+test("privileged server access delegates to active organisation membership authority", async () => {
+  const [access, resolver] = await Promise.all([source("lib/security/server-access.ts"), source("lib/security/user-access-context.ts")]);
+  assert.match(access, /resolveUserAccessContext\(request\)/);
+  assert.match(access, /canAccessAdmin\(context\.role, context\.adminPermissions, requiredPermission\)/);
+  assert.doesNotMatch(access, /users\?select=role,organisation_id/);
+  assert.match(resolver, /organisation_memberships\?select=id,organisation_id,role/);
+  assert.match(resolver, /membership\.access_status !== "active"/);
+  assert.doesNotMatch(resolver, /legacyProfiles|available\[0\]/);
   assert.match(access, /PLATFORM_OWNER_EMAILS/);
 });
 
@@ -106,7 +108,7 @@ test("organisation invitations deliver before activating tenant membership", asy
     source("supabase/organisation-invitations.sql"),
     source("docs/AUTH_EMAIL_DELIVERY.md")
   ]);
-  assert.match(inviteRoute, /verifyServerAccess\(request, "admin", "team"\)/);
+  assert.match(inviteRoute, /verifyServerAccess\(request, "admin", "team", "staff\.invite"\)/);
   assert.match(inviteRoute, /const emailPattern/);
   assert.match(inviteRoute, /role_escalation/);
   assert.match(inviteRoute, /organisation_memberships\?select=id&organisation_id=eq\.\$\{access\.organisationId\}/);
@@ -157,7 +159,7 @@ test("roles determine features while dated house assignments determine participa
   assert.match(migration, /validate_shift_staff_house_eligibility/);
   assert.match(migration, /The selected worker is not assigned to this house on the shift date/);
   assert.match(migration, /switch_active_organisation/);
-  assert.match(context, /requested\.organisationId[\s\S]*available\.find/);
+  assert.match(context, /memberships\.find\(\(item\) => item\.organisation_id === requestedOrganisationId\)/);
   assert.match(context, /requested\.houseId && !activeHouseIds\.includes/);
   assert.match(context, /requested\.participantId && !accessibleParticipantIds\.includes/);
   assert.match(context, /employmentType/);
@@ -177,12 +179,48 @@ test("roles determine features while dated house assignments determine participa
   assert.match(selector, /sessionStorage\.removeItem/);
 });
 
+test("active workspace remains non-authoritative across RLS, switching, storage and AI", async () => {
+  const [migration, resolver, serverAccess, subscription, aiGuard, switchRoute, switcher, storageRoute, documentRecords, jobs] = await Promise.all([
+    source("supabase/membership-authority-hardening.sql"),
+    source("lib/security/user-access-context.ts"),
+    source("lib/security/server-access.ts"),
+    source("lib/subscriptions/server-context.ts"),
+    source("lib/security/ai-request-guard.ts"),
+    source("app/api/access/switch/route.ts"),
+    source("components/auth/WorkspaceSwitcher.tsx"),
+    source("app/api/storage/sign/route.ts"),
+    source("lib/document-records.ts"),
+    source("lib/security/tenant-job-context.ts")
+  ]);
+  assert.match(migration, /Non-authoritative active workspace preference/);
+  assert.match(migration, /join public\.organisation_memberships om[\s\S]*om\.access_status = 'active'/);
+  assert.match(migration, /idx_org_memberships_user_org_status/);
+  assert.match(migration, /current_user_membership_role/);
+  assert.match(migration, /organisation_workspace_switched/);
+  assert.match(migration, /previous_organisation_id/);
+  assert.match(migration, /insert into public\.organisation_memberships[\s\S]*owner_role/);
+  assert.match(migration, /set_config\('app\.workspace_switch', 'true', true\)/);
+  assert.match(migration, /staff\.assign_houses/);
+  assert.doesNotMatch(resolver, /legacyProfiles|legacyProfiles\.filter/);
+  assert.match(resolver, /Select an organisation workspace to continue/);
+  assert.match(serverAccess, /resolveUserAccessContext/);
+  assert.match(subscription, /resolveUserAccessContext/);
+  assert.doesNotMatch(subscription, /users\?select=organisation_id,role/);
+  assert.match(aiGuard, /gate\.permissions\.includes\(requiredPermission\)/);
+  assert.match(switchRoute, /resolveUserAccessContext\(request, \{ organisationId: body\.organisationId \}\)/);
+  assert.match(switcher, /switchActiveOrganisation/);
+  assert.match(documentRecords, /\/api\/storage\/sign/);
+  assert.match(storageRoute, /resolveUserAccessContext\(request, \{ organisationId: pathOrganisationId, participantId \}\)/);
+  assert.match(storageRoute, /expiresIn: 300/);
+  assert.match(jobs, /Active workspace pointers are never job authority/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),
     source("lib/staff-records.ts")
   ]);
-  assert.match(route, /verifyServerAccess\(request, "admin", "team"\)/);
+  assert.match(route, /verifyServerAccess\(request, "admin", "team", "staff\.manage"\)/);
   assert.match(route, /organisation_id: context\.organisationId/);
   assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(client, /fetch\("\/api\/team\/staff"/);

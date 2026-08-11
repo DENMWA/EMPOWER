@@ -19,7 +19,7 @@ async function extractText(file: File) {
 
 export async function POST(request: Request) {
   try {
-    const access = await guardAiRequest(request, { entitlement: "basicPlanParsing", action: "parse_plan" });
+    const access = await guardAiRequest(request, { entitlement: "basicPlanParsing", action: "parse_plan", permission: "service_agreements.manage" });
     if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
     if (!apiKey) return NextResponse.json({ error: "ChatGPT agreement extraction is not configured." }, { status: 503 });
 

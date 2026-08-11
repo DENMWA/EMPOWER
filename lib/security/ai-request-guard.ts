@@ -1,5 +1,6 @@
 import { getPlanToProgressEntitlements, type PlanToProgressEntitlementKey } from "@/lib/subscriptions/entitlements";
 import { checkRequestEntitlement } from "@/lib/subscriptions/server-gate";
+import type { FeaturePermission } from "@/lib/feature-permissions";
 
 type RateLimitResult = {
   allowed?: boolean;
@@ -7,8 +8,9 @@ type RateLimitResult = {
 };
 
 export async function guardAiRequest(request: Request, options: {
-  entitlement: PlanToProgressEntitlementKey;
-  action: "improve_note" | "parse_plan" | "transcribe_note";
+    entitlement: PlanToProgressEntitlementKey;
+    action: "improve_note" | "parse_plan" | "transcribe_note";
+    permission?: FeaturePermission;
 }) {
   const gate = await checkRequestEntitlement(request, options.entitlement);
 
@@ -27,6 +29,18 @@ export async function guardAiRequest(request: Request, options: {
       ok: false as const,
       status: 403,
       message: gate.message,
+      retryAfterSeconds: 0,
+      gate
+    };
+  }
+
+  const requiredPermission = options.permission || (options.action === "parse_plan" ? "documents.manage" : "notes.create");
+  if (!gate.permissions.includes(requiredPermission)) {
+    console.warn(JSON.stringify({ event: "ai_scope_denied", actorUserId: gate.userId, endpoint: new URL(request.url).pathname, correlationId: request.headers.get("x-correlation-id") || "", timestamp: new Date().toISOString() }));
+    return {
+      ok: false as const,
+      status: 403,
+      message: "This AI function has not been assigned to your organisation role.",
       retryAfterSeconds: 0,
       gate
     };

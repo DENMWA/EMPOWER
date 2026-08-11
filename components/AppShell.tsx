@@ -7,6 +7,7 @@ import { AccessibilityToggle } from "@/components/accessibility/AccessibilityTog
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus, signOutSupabaseSession } from "@/lib/supabase-auth";
+import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
@@ -125,6 +126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {isPlatform ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100">Internal platform</span> : null}
             {!signedIn && !isPlatform ? <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-teal-100">Product preview</span> : null}
             <AccessibilityToggle enabled={accessibilityMode} onChange={setAccessibilityMode} />
+            {signedIn && !isPlatform ? <WorkspaceSwitcher /> : null}
             {signedIn ? (
               <button type="button" onClick={signOut} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-red-300 hover:text-red-700" aria-label="Sign out of EmpowerNotes">
                 <LogOut size={17} aria-hidden="true" />

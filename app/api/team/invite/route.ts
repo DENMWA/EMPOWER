@@ -31,7 +31,7 @@ type InviteInput = {
 };
 
 export async function POST(request: NextRequest) {
-  const access = await verifyServerAccess(request, "admin", "team");
+  const access = await verifyServerAccess(request, "admin", "team", "staff.invite");
   if (!access.allowed) return NextResponse.json({ ok: false, error: access.reason }, { status: access.status });
 
   const subscription = await resolveServerSubscriptionContext(request);

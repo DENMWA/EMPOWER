@@ -1,83 +1,144 @@
-import { resolveFeaturePermissions, type EmploymentType, type FeaturePermission } from "@/lib/feature-permissions";
+import { normalizeAdminPermissions, type AdminPermission } from "@/lib/admin-permissions";
+import { resolveMembershipPermissions, type EmploymentType, type FeaturePermission } from "@/lib/feature-permissions";
 import type { UserRole } from "@/lib/sample-data";
 
 export type UserAccessContext = {
   userId: string;
+  email: string;
   organisationId: string;
+  membershipId: string;
+  membershipStatus: "active";
   role: UserRole;
   employmentType: EmploymentType;
   permissions: FeaturePermission[];
+  adminPermissions: AdminPermission[];
   activeHouseIds: string[];
   accessibleParticipantIds: string[];
   houseScoped: boolean;
   requestedHouseId: string;
+  correlationId: string;
 };
 
-export async function resolveUserAccessContext(request: Request, requested: { organisationId?: string; houseId?: string; participantId?: string } = {}) {
+type RequestedScope = { organisationId?: string; houseId?: string; participantId?: string };
+type MembershipRow = {
+  id: string;
+  organisation_id: string;
+  role: UserRole;
+  employment_type?: EmploymentType;
+  feature_permissions?: FeaturePermission[];
+  admin_permissions?: AdminPermission[];
+  access_status?: string;
+};
+
+export async function resolveUserAccessContext(request: Request, requested: RequestedScope = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const authorization = request.headers.get("authorization") || "";
-  if (!url || !anonKey || !serviceKey) return { context: null, status: 503, error: "Secure access resolution is not configured." };
-  if (!authorization.startsWith("Bearer ")) return { context: null, status: 401, error: "Sign in to continue." };
+  const correlationId = request.headers.get("x-correlation-id") || crypto.randomUUID();
+  if (!url || !anonKey || !serviceKey) return denied(503, "Secure access resolution is not configured.", correlationId);
+  if (!authorization.startsWith("Bearer ")) return denied(401, "Sign in to continue.", correlationId);
 
-  const authResponse = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anonKey, Authorization: authorization }, cache: "no-store" });
-  const authUser = authResponse.ok ? await authResponse.json() as { id?: string } : {};
-  if (!authUser.id) return { context: null, status: 401, error: "Your session is no longer valid." };
-  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
-  const legacyProfiles = await rows<{ organisation_id: string; role: UserRole; employment_type?: EmploymentType; feature_permissions?: FeaturePermission[]; access_status?: string }>(url, headers, `users?select=organisation_id,role,employment_type,feature_permissions,access_status&id=eq.${authUser.id}&limit=1`);
-  const memberships = await rows<{ organisation_id: string; role: UserRole; employment_type?: EmploymentType; feature_permissions?: FeaturePermission[]; access_status?: string }>(url, headers, `organisation_memberships?select=organisation_id,role,employment_type,feature_permissions,access_status&user_id=eq.${authUser.id}`);
-  const available = [...memberships, ...legacyProfiles.filter((profile) => !memberships.some((membership) => membership.organisation_id === profile.organisation_id))];
-  const membership = requested.organisationId
-    ? available.find((item) => item.organisation_id === requested.organisationId)
-    : available[0];
-  if (!membership || membership.access_status === "suspended") return { context: null, status: 403, error: "Active organisation membership is required." };
+  try {
+    const authResponse = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anonKey, Authorization: authorization }, cache: "no-store" });
+    const authUser = authResponse.ok ? await authResponse.json() as { id?: string; email?: string } : {};
+    if (!authUser.id) return denied(401, "Your session is no longer valid.", correlationId);
 
-  const organisationId = membership.organisation_id;
-  const fullOrganisationAccess = ["owner", "admin", "sole_provider"].includes(membership.role);
-  const locations = await rows<{ id: string }>(url, headers, `service_locations?select=id&organisation_id=eq.${organisationId}&status=eq.active`);
-  const activeHouseIds = fullOrganisationAccess
-    ? locations.map((house) => house.id)
-    : (await rows<{ house_id: string }>(url, headers,
-      `staff_house_assignments?select=house_id&organisation_id=eq.${organisationId}&user_id=eq.${authUser.id}&status=in.(active,scheduled)&start_date=lte.${today()}&or=(end_date.is.null,end_date.gte.${today()})`))
-      .map((assignment) => assignment.house_id);
-  if (requested.houseId && !activeHouseIds.includes(requested.houseId)) return { context: null, status: 403, error: "This house is outside your active assignment." };
+    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
+    const [profiles, memberships] = await Promise.all([
+      rows<{ organisation_id?: string }>(url, headers, `users?select=organisation_id&id=eq.${authUser.id}&limit=1`),
+      rows<MembershipRow>(url, headers, `organisation_memberships?select=id,organisation_id,role,employment_type,feature_permissions,admin_permissions,access_status&user_id=eq.${authUser.id}`)
+    ]);
 
-  const houseFilter = requested.houseId ? [requested.houseId] : activeHouseIds;
-  const participantHouses = houseFilter.length ? await rows<{ participant_id: string }>(url, headers,
-    `participant_house_assignments?select=participant_id&organisation_id=eq.${organisationId}&house_id=in.(${houseFilter.map(encodeURIComponent).join(",")})&status=in.(active,scheduled)&start_date=lte.${today()}&or=(end_date.is.null,end_date.gte.${today()})`) : [];
-  const directAssignments = await rows<{ participant_id: string }>(url, headers, `participant_assignments?select=participant_id&organisation_id=eq.${organisationId}&user_id=eq.${authUser.id}`);
-  const organisationParticipants = !locations.length || fullOrganisationAccess
-    ? await rows<{ id: string }>(url, headers, `participants_or_clients?select=id&organisation_id=eq.${organisationId}&status=eq.active`)
-    : [];
-  const accessibleParticipantIds = [...new Set([
-    ...participantHouses.map((item) => item.participant_id),
-    ...directAssignments.map((item) => item.participant_id),
-    ...organisationParticipants.map((item) => item.id)
-  ])];
-  if (requested.participantId && !accessibleParticipantIds.includes(requested.participantId)) return { context: null, status: 403, error: "This participant is outside your active scope." };
+    const pointer = profiles[0]?.organisation_id || "";
+    const requestedOrganisationId = requested.organisationId || request.headers.get("x-empowernotes-organisation-id") || pointer;
+    let membership: MembershipRow | undefined;
+    if (requestedOrganisationId) {
+      membership = memberships.find((item) => item.organisation_id === requestedOrganisationId);
+    } else {
+      const activeMemberships = memberships.filter((item) => item.access_status === "active");
+      if (activeMemberships.length === 1) membership = activeMemberships[0];
+      else if (activeMemberships.length > 1) return denied(409, "Select an organisation workspace to continue.", correlationId);
+    }
 
-  const context: UserAccessContext = {
-    userId: authUser.id,
-    organisationId,
-    role: membership.role,
-    employmentType: membership.employment_type || "other",
-    permissions: resolveFeaturePermissions(membership.role, membership.feature_permissions),
-    activeHouseIds,
-    accessibleParticipantIds,
-    houseScoped: locations.length > 0,
-    requestedHouseId: requested.houseId || ""
-  };
-  return { context, status: 200, error: "" };
+    if (!membership || membership.access_status !== "active") {
+      securityEvent("membership_denied", { actorUserId: authUser.id, endpoint: new URL(request.url).pathname, correlationId });
+      return denied(403, "Active organisation membership is required.", correlationId);
+    }
+
+    const organisationId = membership.organisation_id;
+    if (pointer && pointer !== organisationId) {
+      securityEvent("stale_workspace_pointer", { actorUserId: authUser.id, endpoint: new URL(request.url).pathname, correlationId });
+    }
+    const fullOrganisationAccess = ["owner", "admin", "sole_provider"].includes(membership.role);
+    const locations = await rows<{ id: string }>(url, headers, `service_locations?select=id&organisation_id=eq.${organisationId}&status=eq.active`);
+    const activeHouseIds = fullOrganisationAccess
+      ? locations.map((house) => house.id)
+      : (await rows<{ house_id: string }>(url, headers,
+        `staff_house_assignments?select=house_id&organisation_id=eq.${organisationId}&user_id=eq.${authUser.id}&status=in.(active,scheduled)&start_date=lte.${today()}&or=(end_date.is.null,end_date.gte.${today()})`))
+        .map((assignment) => assignment.house_id);
+    if (requested.houseId && !activeHouseIds.includes(requested.houseId)) {
+      securityEvent("house_scope_denied", { actorUserId: authUser.id, resourceId: requested.houseId, endpoint: new URL(request.url).pathname, correlationId });
+      return denied(403, "This house is outside your active assignment.", correlationId);
+    }
+
+    const houseFilter = requested.houseId ? [requested.houseId] : activeHouseIds;
+    const participantHouses = houseFilter.length ? await rows<{ participant_id: string }>(url, headers,
+      `participant_house_assignments?select=participant_id&organisation_id=eq.${organisationId}&house_id=in.(${houseFilter.map(encodeURIComponent).join(",")})&status=in.(active,scheduled)&start_date=lte.${today()}&or=(end_date.is.null,end_date.gte.${today()})`) : [];
+    const directAssignments = await rows<{ participant_id: string }>(url, headers, `participant_assignments?select=participant_id&organisation_id=eq.${organisationId}&user_id=eq.${authUser.id}`);
+    const organisationParticipants = !locations.length || fullOrganisationAccess
+      ? await rows<{ id: string }>(url, headers, `participants_or_clients?select=id&organisation_id=eq.${organisationId}&status=eq.active`)
+      : [];
+    const accessibleParticipantIds = [...new Set([
+      ...participantHouses.map((item) => item.participant_id),
+      ...directAssignments.map((item) => item.participant_id),
+      ...organisationParticipants.map((item) => item.id)
+    ])];
+    if (requested.participantId && !accessibleParticipantIds.includes(requested.participantId)) {
+      securityEvent("participant_scope_denied", { actorUserId: authUser.id, resourceId: requested.participantId, endpoint: new URL(request.url).pathname, correlationId });
+      return denied(404, "The requested resource was not found.", correlationId);
+    }
+
+    const context: UserAccessContext = {
+      userId: authUser.id,
+      email: authUser.email || "",
+      organisationId,
+      membershipId: membership.id,
+      membershipStatus: "active",
+      role: membership.role,
+      employmentType: membership.employment_type || "other",
+      permissions: resolveMembershipPermissions(membership.role, membership.feature_permissions, membership.admin_permissions),
+      adminPermissions: normalizeAdminPermissions(membership.admin_permissions),
+      activeHouseIds,
+      accessibleParticipantIds,
+      houseScoped: locations.length > 0,
+      requestedHouseId: requested.houseId || "",
+      correlationId
+    };
+    return { context, status: 200, error: "", correlationId };
+  } catch {
+    return denied(503, "Secure access verification is temporarily unavailable.", correlationId);
+  }
 }
 
-export function requirePermission(context: UserAccessContext, permission: FeaturePermission) {
+export function hasPermission(context: UserAccessContext, permission: FeaturePermission) {
   return context.permissions.includes(permission);
 }
 
+export const requirePermission = hasPermission;
+
 async function rows<T>(url: string, headers: Record<string, string>, path: string): Promise<T[]> {
   const response = await fetch(`${url}/rest/v1/${path}`, { headers, cache: "no-store" });
-  return response.ok ? await response.json() as T[] : [];
+  if (!response.ok) throw new Error(`Access lookup failed (${response.status}).`);
+  return await response.json() as T[];
+}
+
+function denied(status: number, error: string, correlationId: string) {
+  return { context: null, status, error, correlationId };
+}
+
+function securityEvent(event: string, details: { actorUserId: string; endpoint: string; correlationId: string; resourceId?: string }) {
+  console.warn(JSON.stringify({ event, ...details, timestamp: new Date().toISOString() }));
 }
 
 function today() { return new Date().toISOString().slice(0, 10); }

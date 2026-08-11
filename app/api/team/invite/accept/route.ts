@@ -83,6 +83,13 @@ export async function POST(request: Request) {
     method: "POST", headers: { ...headers, Prefer: "return=minimal" },
     body: JSON.stringify({ organisation_id: invite.organisation_id, actor_id: authUser.id, action: "staff_house_assigned", entity_type: "organisation_invite", entity_id: invite.id, metadata: { house_ids: invite.assigned_house_ids || [], start_date: invite.assignment_start_date, end_date: invite.assignment_end_date } })
   });
+  const switchResponse = await fetch(`${url}/rest/v1/rpc/switch_active_organisation`, {
+    method: "POST",
+    headers: { apikey: anonKey, Authorization: authorization, "Content-Type": "application/json" },
+    body: JSON.stringify({ requested_organisation_id: invite.organisation_id }),
+    cache: "no-store"
+  });
+  if (!switchResponse.ok) return response("workspace", "Your membership was activated, but the workspace could not be selected. Sign in again or contact your administrator.", 502);
   return NextResponse.json({ ok: true, status: "accepted", organisationId: invite.organisation_id });
 }
 

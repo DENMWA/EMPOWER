@@ -16,6 +16,7 @@ export async function checkRequestEntitlement(request: Request, entitlement: Pla
     authenticated: context.authenticated,
     userId: context.userId,
     userRole: context.userRole,
+    permissions: context.permissions,
     organisationId: context.organisationId,
     tier: context.tier,
     tierName: subscriptionTiers[context.tier].name,

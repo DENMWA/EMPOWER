@@ -144,13 +144,47 @@ export async function getCurrentOrganisationId() {
   const userId = getCurrentUserId();
   if (!userId) return "";
 
-  const result = await supabaseRequest<Array<{ organisation_id: string }>>("users", {
-    query: `select=organisation_id&id=eq.${encodeURIComponent(userId)}`
-  });
-
-  const organisationId = result.data?.[0]?.organisation_id || "";
+  const result = await supabaseRpc<string>("current_user_organisation_id", {});
+  const organisationId = result.data || "";
   cacheActiveOrganisationId(organisationId);
   return organisationId;
+}
+
+type WorkspaceSwitchResult = { switched: boolean; error: string; requiresDraftDecision?: boolean };
+
+export async function switchActiveOrganisation(organisationId: string, options: { discardUnsavedDrafts?: boolean } = {}): Promise<WorkspaceSwitchResult> {
+  const token = getStoredAccessToken();
+  if (!token) return { switched: false, error: "Sign in to switch workspace." };
+  if (!options.discardUnsavedDrafts && hasUnsavedWorkspaceDrafts()) {
+    return { switched: false, error: "Finish or save your unsaved draft before switching workspace.", requiresDraftDecision: true };
+  }
+  const response = await fetch("/api/access/switch", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ organisationId }),
+    cache: "no-store"
+  });
+  const result = await response.json() as { ok?: boolean; error?: string };
+  if (!response.ok || !result.ok) return { switched: false, error: result.error || "Workspace switching failed." };
+  invalidateWorkspaceState(organisationId);
+  return { switched: true, error: "" };
+}
+
+function hasUnsavedWorkspaceDrafts() {
+  if (typeof window === "undefined") return false;
+  return Object.keys(window.localStorage).concat(Object.keys(window.sessionStorage)).some((key) => /draft|upload-queue/i.test(key));
+}
+
+function invalidateWorkspaceState(organisationId: string) {
+  if (typeof window === "undefined") return;
+  const preservedDraftKeys = new Set(Object.keys(window.localStorage).concat(Object.keys(window.sessionStorage)).filter((key) => /draft/i.test(key)));
+  const statePatterns = [/selected-participant/i, /active-house/i, /participant-search/i, /house-query/i, /invoice-context/i, /ai-context/i, /upload-queue/i, /handover-context/i, /shift-context/i];
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    for (const key of Object.keys(storage)) {
+      if (!preservedDraftKeys.has(key) && statePatterns.some((pattern) => pattern.test(key))) storage.removeItem(key);
+    }
+  }
+  cacheActiveOrganisationId(organisationId);
 }
 
 export async function createCurrentUserOrganisation(input: {
