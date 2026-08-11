@@ -376,25 +376,4 @@ using (organisation_id = public.current_user_organisation_id()
   and private.current_user_has_permission('incidents.view')
   and (staff_id = (select auth.uid()) or private.current_user_can_access_participant(participant_id)));
 
--- Plan-progress tables are optional in deployments that do not include that module.
-do $$ begin
-  if to_regclass('public.participant_plans') is not null then
-    execute 'drop policy if exists "plans visible by participant access" on public.participant_plans';
-    execute 'create policy "plans visible by active participant scope" on public.participant_plans for select to authenticated
-      using (organisation_id = public.current_user_organisation_id() and private.current_user_has_permission(''documents.view'') and private.current_user_can_access_participant(participant_id))';
-  end if;
-
-  if to_regclass('public.participant_goals') is not null then
-    execute 'drop policy if exists "participant goals visible by participant access" on public.participant_goals';
-    execute 'create policy "participant goals visible by active scope" on public.participant_goals for select to authenticated
-      using (organisation_id = public.current_user_organisation_id() and private.current_user_has_permission(''participants.view_support'') and private.current_user_can_access_participant(participant_id))';
-  end if;
-
-  if to_regclass('public.goal_evidence') is not null then
-    execute 'drop policy if exists "goal evidence visible by participant access" on public.goal_evidence';
-    execute 'create policy "goal evidence visible by active scope" on public.goal_evidence for select to authenticated
-      using (organisation_id = public.current_user_organisation_id() and private.current_user_has_permission(''participants.view_support'') and private.current_user_can_access_participant(participant_id))';
-  end if;
-end $$;
-
 select pg_notify('pgrst', 'reload schema');
