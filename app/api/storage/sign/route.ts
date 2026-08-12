@@ -38,7 +38,50 @@ export async function POST(request: Request) {
   const data = await signResponse.json() as { signedURL?: string; signedUrl?: string };
   const signedPath = data.signedURL || data.signedUrl || "";
   if (!signedPath) return notFound();
+  await recordDocumentAccess({
+    url,
+    headers,
+    organisationId: resolved.context.organisationId,
+    actorId: resolved.context.userId,
+    documentId: documents[0]?.id,
+    participantId,
+    filePath,
+    correlationId: resolved.correlationId
+  });
   return NextResponse.json({ url: signedPath.startsWith("http") ? signedPath : `${url}${signedPath}`, expiresIn: 300 }, { headers: { "Cache-Control": "private, no-store" } });
+}
+
+async function recordDocumentAccess(input: {
+  url: string;
+  headers: Record<string, string>;
+  organisationId: string;
+  actorId: string;
+  documentId?: string;
+  participantId: string;
+  filePath: string;
+  correlationId: string;
+}) {
+  const response = await fetch(`${input.url}/rest/v1/audit_logs`, {
+    method: "POST",
+    headers: { ...input.headers, Prefer: "return=minimal" },
+    body: JSON.stringify({
+      organisation_id: input.organisationId,
+      actor_id: input.actorId,
+      action: "document_download_link_issued",
+      entity_type: "document",
+      entity_id: input.documentId || null,
+      metadata: {
+        participant_id: input.participantId,
+        file_path: input.filePath,
+        correlation_id: input.correlationId,
+        signed_url_expires_seconds: 300
+      }
+    }),
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    console.error(JSON.stringify({ event: "document_access_audit_failed", correlationId: input.correlationId, status: response.status }));
+  }
 }
 
 function notFound() {

@@ -224,6 +224,23 @@ test("active workspace remains non-authoritative across RLS, switching, storage 
   assert.match(jobs, /Active workspace pointers are never job authority/);
 });
 
+test("private document access and lifecycle changes create durable audit events", async () => {
+  const [route, migration] = await Promise.all([
+    source("app/api/storage/sign/route.ts"),
+    source("supabase/document-access-audit.sql")
+  ]);
+  assert.match(route, /document_download_link_issued/);
+  assert.match(route, /\/rest\/v1\/audit_logs/);
+  assert.match(route, /signed_url_expires_seconds: 300/);
+  assert.match(route, /document_access_audit_failed/);
+  assert.match(migration, /after insert or update or delete on public\.documents/);
+  assert.match(migration, /document_uploaded/);
+  assert.match(migration, /document_verified/);
+  assert.match(migration, /document_visibility_changed/);
+  assert.match(migration, /document_deleted/);
+  assert.match(migration, /insert into public\.audit_logs/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),
