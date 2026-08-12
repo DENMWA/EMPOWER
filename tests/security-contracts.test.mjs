@@ -457,6 +457,30 @@ test("progress notes use one writing surface for typed, voice and AI content", a
   assert.match(migration, /add value if not exists 'mixed'/);
 });
 
+test("submitted progress notes create traceable pending goal evidence without claiming progress", async () => {
+  const [generator, records, goals, migration] = await Promise.all([
+    source("components/notes/ProgressNoteGenerator.tsx"),
+    source("lib/progress-note-records.ts"),
+    source("lib/plan-progress/goal-records.ts"),
+    source("supabase/goal-evidence-integrity.sql")
+  ]);
+  assert.match(generator, /Goals relevant to this note/);
+  assert.match(generator, /Pending manager verification after submission/);
+  assert.match(records, /status \|\| "Submitted"\) === "Submitted"/);
+  assert.match(goals, /source_type: "progress_note"/);
+  assert.match(goals, /verification_status: "pending"/);
+  assert.doesNotMatch(goals, /suggested_progress_status:/);
+  assert.match(records, /goal_evidence_link_failed/);
+  assert.match(records, /savedToCloud,/);
+  assert.match(migration, /goal\.organisation_id = new\.organisation_id/);
+  assert.match(migration, /note\.participant_id = new\.participant_id/);
+  assert.match(migration, /note\.status <> 'Draft'/);
+  assert.match(migration, /create table if not exists public\.participant_goals/);
+  assert.match(migration, /create table if not exists public\.goal_evidence/);
+  assert.match(migration, /alter table public\.goal_evidence enable row level security/);
+  assert.match(migration, /verification_status = 'pending'/);
+});
+
 test("staff dashboard hides management surfaces unless server access is verified", async () => {
   const [dashboard, roleAware, shell] = await Promise.all([
     source("app/dashboard/page.tsx"),

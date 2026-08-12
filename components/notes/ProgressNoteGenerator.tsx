@@ -15,6 +15,7 @@ import { checkMissingDetails, getProgressNoteRewriteOptions, scoreNoteQuality } 
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { markTrialStepComplete } from "@/lib/trial-run";
 import { saveTenantProgressNote } from "@/lib/progress-note-records";
+import { getActiveParticipantGoals, type ParticipantGoalRecord } from "@/lib/plan-progress/goal-records";
 
 type ContinenceCareRecord = {
   applicableSupports: string[];
@@ -275,6 +276,8 @@ export function ProgressNoteGenerator() {
   const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
+  const [availableGoals, setAvailableGoals] = useState<ParticipantGoalRecord[]>([]);
+  const [selectedGoalIds, setSelectedGoalIds] = useState<string[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [progressNoteId] = useState(() => globalThis.crypto?.randomUUID?.() || `progress-note-${Date.now()}`);
   const [editor, setEditor] = useState<ProgressNoteEditorState>({ originalInput: "", workingDraft: "", voiceTranscript: "", aiImprovedVersion: null, preImprovementDraft: "", inputMethod: "typed" });
@@ -322,6 +325,15 @@ export function ProgressNoteGenerator() {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
     getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setSelectedGoalIds([]);
+    getActiveParticipantGoals(selectedParticipantId)
+      .then((goals) => { if (active) setAvailableGoals(goals); })
+      .catch(() => { if (active) setAvailableGoals([]); });
+    return () => { active = false; };
+  }, [selectedParticipantId]);
 
   useEffect(() => {
     function syncDataMode() {
@@ -572,7 +584,8 @@ export function ProgressNoteGenerator() {
       qualityScore: quality.auditReadiness,
       billingEvidenceScore: quality.billingEvidenceScore,
       qualityBreakdown: quality,
-      photoFiles: isFocusedCareLog ? [] : photoEvidence.map((photo) => photo.file)
+      photoFiles: isFocusedCareLog ? [] : photoEvidence.map((photo) => photo.file),
+      linkedGoalIds: selectedGoalIds
     });
   }
 
@@ -623,6 +636,24 @@ export function ProgressNoteGenerator() {
           </div>
         </div>
         {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
+        {availableGoals.length && !isFocusedCareLog ? (
+          <fieldset className="mt-4 rounded-md border border-slate-200 bg-white p-4">
+            <legend className="px-1 text-sm font-semibold text-ink">Goals relevant to this note</legend>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              {availableGoals.map((goal) => (
+                <label key={goal.id} className="flex min-h-11 items-start gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={selectedGoalIds.includes(goal.id)}
+                    onChange={() => setSelectedGoalIds((current) => current.includes(goal.id) ? current.filter((id) => id !== goal.id) : [...current, goal.id])}
+                  />
+                  <span><span className="font-semibold text-ink">{goal.title}</span><span className="block text-xs text-slate-500">{goal.category} · Pending manager verification after submission</span></span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
         {!isFocusedCareLog ? <>
           <ProgressNoteWritingPad
             value={roughNote}

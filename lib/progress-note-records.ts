@@ -1,6 +1,7 @@
 import { getCurrentOrganisationId, getCurrentUserId, supabaseRequest } from "@/lib/supabase-rest";
 import { buildDocumentStoragePath, uploadTenantDocumentFile } from "@/lib/document-records";
 import type { NoteQuality } from "@/lib/ai-mock";
+import { savePendingGoalEvidence } from "@/lib/plan-progress/goal-records";
 
 export type ProgressNoteRecordInput = {
   id: string;
@@ -22,6 +23,7 @@ export type ProgressNoteRecordInput = {
   billingEvidenceScore: number;
   qualityBreakdown: NoteQuality;
   photoFiles?: File[];
+  linkedGoalIds?: string[];
 };
 
 export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
@@ -91,8 +93,22 @@ export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
     });
   }
 
+  const savedToCloud = Boolean(result.data?.length && !result.error);
+  const evidenceResult = savedToCloud && (input.status || "Submitted") === "Submitted"
+    ? await savePendingGoalEvidence({
+        participantId: input.participantId,
+        progressNoteId: input.id,
+        goalIds: input.linkedGoalIds || [],
+        evidenceDate: `${input.supportDate}T${input.endTime || input.startTime || "00:00"}:00`,
+        evidenceText: input.note
+      })
+    : { saved: true, error: "" };
+  if (!evidenceResult.saved) {
+    console.error(JSON.stringify({ event: "goal_evidence_link_failed", progressNoteId: input.id, error: evidenceResult.error }));
+  }
+
   return {
-    savedToCloud: Boolean(result.data?.length && !result.error),
+    savedToCloud,
     error: result.error,
     bodyAppend: photoEvidence.length ? `\n\nPhoto evidence:\n${photoEvidence.map((photo) => `- ${photo.path}`).join("\n")}` : ""
   };
