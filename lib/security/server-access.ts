@@ -6,6 +6,7 @@ type AccessMode = "admin" | "platform";
 
 const adminFeatureMap: Partial<Record<AdminPermission, FeaturePermission>> = {
   incident_actioning: "incidents.review",
+  restrictive_practice_reporting: "incidents.review",
   shift_verification: "notes.review",
   scheduling: "rostering.manage",
   people: "participants.view_sensitive",

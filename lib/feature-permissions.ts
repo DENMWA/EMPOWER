@@ -47,6 +47,7 @@ export function resolveFeaturePermissions(role: UserRole, overrides: unknown) {
 
 export const adminPermissionFeatureMap: Record<AdminPermission, FeaturePermission[]> = {
   incident_actioning: ["incidents.view", "incidents.review"],
+  restrictive_practice_reporting: ["incidents.view", "incidents.review"],
   shift_verification: ["notes.view", "notes.review", "notes.approve"],
   scheduling: ["rostering.view", "rostering.manage", "rostering.assign_staff"],
   people: ["participants.view_basic", "participants.view_support", "participants.view_sensitive"],

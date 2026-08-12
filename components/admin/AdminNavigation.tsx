@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, CreditCard, Files, LayoutDashboard, ReceiptText, Settings, UserRoundPlus, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, CreditCard, Files, LayoutDashboard, ReceiptText, Settings, ShieldAlert, UserRoundPlus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessAdmin, fullAdminRoles, type AdminPermission } from "@/lib/admin-permissions";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
@@ -15,6 +15,7 @@ const adminNavigation = [
   { label: "Scheduling", href: "/admin/scheduling", icon: CalendarDays, permission: "scheduling" as AdminPermission },
   { label: "Shift review", href: "/admin/reviews", icon: ClipboardList, permission: "shift_verification" as AdminPermission },
   { label: "Incidents", href: "/admin/incidents", icon: AlertTriangle, permission: "incident_actioning" as AdminPermission },
+  { label: "Restrictive practices", href: "/admin/restrictive-practices", icon: ShieldAlert, permission: "restrictive_practice_reporting" as AdminPermission },
   { label: "Invoicing", href: "/admin/billing", icon: ReceiptText, permission: "billing" as AdminPermission },
   { label: "Documents", href: "/admin/documents", icon: Files, permission: "documents" as AdminPermission },
   { label: "Plan & billing", href: "/admin/plan-billing", icon: CreditCard, permission: "settings" as AdminPermission, fullAdminOnly: true },

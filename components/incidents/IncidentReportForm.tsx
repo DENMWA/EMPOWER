@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Download, Maximize2, Minimize2, Plus, Save, Send, Trash2 } from "lucide-react";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
@@ -351,6 +352,7 @@ export function BodyMap({ markers, expanded, onAdd, onSelect }: { markers: BodyM
 }
 
 export function IncidentReportForm() {
+  const searchParams = useSearchParams();
   const [storedClients, setStoredClients] = useState<ClientRecord[]>([]);
   const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
@@ -390,6 +392,21 @@ export function IncidentReportForm() {
     getTenantClients().then(setStoredClients).catch(() => setStoredClients([]));
     getTenantHouses().then(setHouses).catch(() => setHouses([]));
   }, []);
+
+  useEffect(() => {
+    const restrictivePracticeUseId = searchParams.get("rpUseId");
+    if (!restrictivePracticeUseId) return;
+    setReport((current) => ({
+      ...current,
+      participantId: searchParams.get("participantId") || current.participantId,
+      houseId: searchParams.get("houseId") || current.houseId,
+      incidentTypes: ["Safeguarding concern"],
+      whatHappened: searchParams.get("details") || current.whatHappened,
+      injurySummary: searchParams.get("injury") || "",
+      followUp: `Linked restrictive practice use: ${restrictivePracticeUseId}. Manager to assess authorisation, reporting, notifications, and follow-up.`,
+      managerReview: "Pending manager review of the linked restrictive practice use."
+    }));
+  }, [searchParams]);
 
   useEffect(() => {
     function syncDataMode() {

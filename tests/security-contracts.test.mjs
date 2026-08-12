@@ -99,6 +99,22 @@ test("staff invitations remain manager and organisation scoped", async () => {
   assert.match(policy, /grant select, insert, update, delete on public\.staff_invites to authenticated/);
 });
 
+test("restrictive practice reporting remains separate, tenant scoped, and incident linked", async () => {
+  const [policy, records, form, navigation] = await Promise.all([
+    source("supabase/restrictive-practice-reporting.sql"),
+    source("lib/restrictive-practice-records.ts"),
+    source("components/incidents/IncidentReportForm.tsx"),
+    source("components/admin/AdminNavigation.tsx")
+  ]);
+  assert.match(policy, /enable row level security/g);
+  assert.match(policy, /organisation_id\s*=\s*public\.current_user_organisation_id\(\)/);
+  assert.match(policy, /revoke delete/);
+  assert.match(records, /restrictive_practice_authorisations/);
+  assert.match(records, /restrictive_practice_uses/);
+  assert.match(form, /rpUseId/);
+  assert.match(navigation, /Restrictive practices/);
+});
+
 test("organisation invitations deliver before activating tenant membership", async () => {
   const [inviteRoute, acceptRoute, form, acceptance, migration, emailLock, accessContext, emailDocs] = await Promise.all([
     source("app/api/team/invite/route.ts"),

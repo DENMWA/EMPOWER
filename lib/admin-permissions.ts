@@ -1,5 +1,6 @@
 export const adminPermissionOptions = [
   { key: "incident_actioning", label: "Incident actioning", description: "Review incidents and record manager actions." },
+  { key: "restrictive_practice_reporting", label: "Restrictive practice reporting", description: "Manage authorisations, review use records, and prepare monthly reporting." },
   { key: "shift_verification", label: "Shift verification", description: "Review, approve, and return shift records." },
   { key: "scheduling", label: "Scheduling", description: "Create and manage rosters and staff assignments." },
   { key: "people", label: "Clients and houses", description: "Manage client profiles, houses, and service assignments." },

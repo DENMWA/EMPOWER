@@ -10,6 +10,7 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const permissionRoutes: Record<AdminPermission, string> = {
   incident_actioning: "/admin/incidents",
+  restrictive_practice_reporting: "/admin/restrictive-practices",
   shift_verification: "/admin/reviews",
   scheduling: "/admin/scheduling",
   people: "/admin/clients",
