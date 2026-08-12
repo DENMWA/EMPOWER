@@ -573,6 +573,13 @@ test("participant invoices require an approved NDIS, agreement or manual rate", 
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
   assert.match(workspace, /Create participant invoice/);
+  assert.match(workspace, /Invoice Workspace/);
+  assert.match(workspace, /Create invoices from delivered supports/);
+  assert.match(workspace, /Select client/);
+  assert.match(workspace, /Delivered services/);
+  assert.match(workspace, /Manage pricing and agreement/);
+  assert.match(workspace, /clientInvoices\.map/);
+  assert.match(workspace, /Exceptions and budget/);
   assert.match(billing, /export function createInvoiceFromServices/);
   assert.match(billing, /An invoice can only contain services for one participant/);
   assert.match(billing, /agreementItemId/);

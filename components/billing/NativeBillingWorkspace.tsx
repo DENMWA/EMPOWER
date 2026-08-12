@@ -78,6 +78,7 @@ export function NativeBillingWorkspace() {
   const [allowNonFaceToFace, setAllowNonFaceToFace] = useState(false);
   const [allowCancellations, setAllowCancellations] = useState(false);
   const [message, setMessage] = useState("");
+  const [showBillingSetup, setShowBillingSetup] = useState(false);
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
@@ -100,7 +101,9 @@ export function NativeBillingWorkspace() {
   const selectedAgreement = selectedClient ? records.agreements.find((agreement) => agreement.participantId === selectedClient.id && agreement.status === "active") : undefined;
   const selectedSupportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
   const budgetRows = selectedClient ? getBudgetUsage(records, selectedClient.id) : [];
-  const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason);
+  const clientInvoices = selectedClient ? records.invoices.filter((invoice) => invoice.participantId === selectedClient.id) : [];
+  const clientInvoiceIds = new Set(clientInvoices.map((invoice) => invoice.id));
+  const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason && clientInvoiceIds.has(line.invoiceId));
   const completedRosterServices = selectedClient ? rosterServices.filter((shift) =>
     shift.participantId === selectedClient.id
       && (shift.status === "Completed" || shift.status === "Note Completed")
@@ -494,8 +497,8 @@ export function NativeBillingWorkspace() {
       <Card className="border-teal-100 bg-gradient-to-r from-white to-teal-50/40">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase text-sea">Invoice workspace</p>
-            <h2 className="mt-1 text-2xl font-bold text-ink">From service to invoice</h2>
+            <h1 className="text-2xl font-bold text-ink">Invoice Workspace</h1>
+            <p className="mt-1 text-sm text-slate-600">Create invoices from delivered supports.</p>
           </div>
           <StatusBadge label="NDIS aligned" tone="green" />
         </div>
@@ -503,22 +506,30 @@ export function NativeBillingWorkspace() {
 
       {message ? <div role="status" aria-live="polite" className="sticky top-3 z-20 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-900 shadow-sm">{message}</div> : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div>
+      <Card className="border-slate-200">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-end">
+          <div>
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Client
+            Select client
             <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
               {!clients.length ? <option>Add a client first</option> : null}
               {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
             </select>
           </label>
-          <ClientIdentity client={selectedClient} detail={[selectedClient?.primaryHouseName, selectedClient?.serviceName].filter(Boolean).join(" - ")} className="mt-2 rounded-md border border-slate-200 bg-white p-3" />
+          </div>
+          {selectedClient ? <div className="rounded-md border border-teal-100 bg-teal-50/40 p-3">
+            <ClientIdentity client={selectedClient} detail={`Client No. ${formatClientNumber(selectedClient.id)} · ${selectedClient.primaryHouseName || selectedClient.serviceName || "No house assigned"}`} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <StatusBadge label={selectedAgreement ? "Active agreement" : "No active agreement"} tone={selectedAgreement ? "green" : "amber"} />
+              <StatusBadge label={`${completedRosterServices.length} delivered supports`} tone="blue" />
+              <StatusBadge label={`${exceptionLines.length} exceptions`} tone={exceptionLines.length ? "amber" : "green"} />
+            </div>
+          </div> : null}
         </div>
-        <StatusPanel records={records} exceptionCount={exceptionLines.length} />
-      </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
+        {showBillingSetup ? <Card className="order-3">
           <h2 className="text-xl font-semibold text-ink">1. Pricing</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             <button type="button" onClick={importPricingVersion} className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Import manual pricing draft</button>
@@ -527,9 +538,9 @@ export function NativeBillingWorkspace() {
           <div className="mt-4 flex flex-wrap gap-2">
             {records.pricingVersions.map((version) => <StatusBadge key={version.id} label={`${version.versionName} - ${version.status}`} tone={version.status === "active" ? "green" : version.status === "draft" ? "amber" : "blue"} />)}
           </div>
-        </Card>
+        </Card> : null}
 
-        <Card className="xl:col-span-2">
+        {showBillingSetup ? <Card className="order-4 xl:col-span-2">
           <h2 className="text-xl font-semibold text-ink">2. Service agreement</h2>
           <p className="mt-1 text-sm text-slate-600">Set the agreement, then add its funded rates.</p>
 
@@ -693,11 +704,18 @@ export function NativeBillingWorkspace() {
               );
             })}
           </div>
-        </Card>
+        </Card> : null}
 
-        <Card>
-          <h2 className="text-xl font-semibold text-ink">3. Completed services</h2>
-          <p className="mt-1 text-sm text-slate-600">Select completed supports for this invoice.</p>
+        <Card className="order-1 xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Delivered services</h2>
+              <p className="mt-1 text-sm text-slate-600">Choose services, confirm rates, then generate the invoice.</p>
+            </div>
+            <button type="button" onClick={() => setShowBillingSetup((current) => !current)} className="min-h-11 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink">
+              {showBillingSetup ? "Hide pricing and agreement" : "Manage pricing and agreement"}
+            </button>
+          </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <BillingField label="Billing period from" value={invoicePeriodStart} onChange={setInvoicePeriodStart} type="date" />
             <BillingField label="Billing period to" value={invoicePeriodEnd} onChange={setInvoicePeriodEnd} type="date" />
@@ -831,10 +849,11 @@ export function NativeBillingWorkspace() {
           </button>
         </Card>
 
-        <Card>
-          <h2 className="text-xl font-semibold text-ink">4. Invoices</h2>
+        <Card className="order-2 xl:col-span-2">
+          <h2 className="text-xl font-semibold text-ink">Client invoices</h2>
           <div className="mt-4 space-y-3">
-            {records.invoices.map((invoice) => {
+            {!clientInvoices.length ? <p className="text-sm text-slate-600">No invoices have been created for this client.</p> : null}
+            {clientInvoices.map((invoice) => {
               const lines = records.invoiceLines.filter((line) => line.invoiceId === invoice.id);
               return (
                 <div key={invoice.id} className="rounded-md border border-slate-200 p-3">
@@ -869,38 +888,33 @@ export function NativeBillingWorkspace() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="text-xl font-semibold text-ink">Billing exceptions</h2>
-          <div className="mt-4 space-y-2">
-            {!exceptionLines.length ? <p className="text-sm text-slate-600">No invoice exceptions yet.</p> : null}
-            {exceptionLines.map((line) => <p key={line.id} className="rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-900"><ShieldAlert className="mr-2 inline" size={16} />{line.exceptionReason}</p>)}
+      <details className="rounded-md border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer font-semibold text-ink">Exceptions and budget</summary>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div>
+            <h2 className="font-semibold text-ink">Billing exceptions</h2>
+            <div className="mt-3 space-y-2">
+              {!exceptionLines.length ? <p className="text-sm text-slate-600">No invoice exceptions for this client.</p> : null}
+              {exceptionLines.map((line) => <p key={line.id} className="rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-900"><ShieldAlert className="mr-2 inline" size={16} />{line.exceptionReason}</p>)}
+            </div>
           </div>
-        </Card>
-        <Card>
-          <h2 className="text-xl font-semibold text-ink">Budget usage</h2>
-          <div className="mt-4 space-y-2">
-            {!budgetRows.length ? <p className="text-sm text-slate-600">Create an agreement item to track budget usage.</p> : null}
-            {budgetRows.map((budget) => <p key={budget.category} className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">{budget.category}: ${budget.used} used of ${budget.allocated} - {budget.warning}</p>)}
+          <div>
+            <h2 className="font-semibold text-ink">Budget usage</h2>
+            <div className="mt-3 space-y-2">
+              {!budgetRows.length ? <p className="text-sm text-slate-600">No budget information available.</p> : null}
+              {budgetRows.map((budget) => <p key={budget.category} className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">{budget.category}: ${budget.used} used of ${budget.allocated} - {budget.warning}</p>)}
+            </div>
           </div>
-        </Card>
-      </div>
+        </div>
+      </details>
 
     </div>
   );
 }
 
-function StatusPanel({ records, exceptionCount }: { records: NativeBillingRecords; exceptionCount: number }) {
-  return (
-    <div className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
-      <div className="flex flex-wrap gap-2">
-        <StatusBadge label={`${records.shifts.length} rendered services`} tone="blue" />
-        <StatusBadge label={`${records.agreements.length} agreements`} tone="green" />
-        <StatusBadge label={`${records.invoices.length} invoices`} tone="blue" />
-        <StatusBadge label={`${exceptionCount} exceptions`} tone={exceptionCount ? "amber" : "green"} />
-      </div>
-    </div>
-  );
+function formatClientNumber(id: string) {
+  const compact = id.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return `CL-${compact.slice(-6).padStart(6, "0")}`;
 }
 
 function BillingField({
