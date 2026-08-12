@@ -116,6 +116,9 @@ test("restrictive practice reporting remains separate, tenant scoped, and incide
   assert.match(navigation, /Restrictive practices/);
   const workspace = await source("components/admin/RestrictivePracticeWorkspace.tsx");
   assert.match(workspace, /Guidance only\. This explanation is not added to the saved record/);
+  assert.match(workspace, /Use intelligence/);
+  assert.match(workspace, /Phasing out/);
+  assert.match(workspace, /Update lifecycle/);
   assert.doesNotMatch(records, /The person is alone in a room or area/);
 });
 

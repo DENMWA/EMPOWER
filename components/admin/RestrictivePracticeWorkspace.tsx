@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardPlus, FileWarning, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, CalendarClock, CheckCircle2, ClipboardPlus, FileWarning, ShieldCheck } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getHousesForClient, getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { getRestrictivePracticeAuthorisations, getRestrictivePracticeUses, saveRestrictivePracticeAuthorisation, saveRestrictivePracticeUse, type RestrictivePracticeAuthorisation, type RestrictivePracticeType, type RestrictivePracticeUse } from "@/lib/restrictive-practice-records";
 
-type View = "authorisations" | "uses" | "monthly";
+type View = "insights" | "authorisations" | "uses" | "monthly";
 const today = () => new Date().toISOString().slice(0, 10);
 const localNow = () => { const date = new Date(); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 16); };
 const uid = () => globalThis.crypto?.randomUUID?.() || `rp-${Date.now()}`;
@@ -30,7 +30,7 @@ function expiryTone(expiresOn: string) {
 }
 
 export function RestrictivePracticeWorkspace() {
-  const [view, setView] = useState<View>("authorisations");
+  const [view, setView] = useState<View>("insights");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [authorisations, setAuthorisations] = useState<RestrictivePracticeAuthorisation[]>([]);
@@ -45,9 +45,10 @@ export function RestrictivePracticeWorkspace() {
 
   return <div className="space-y-5">
     <div className="flex gap-1 overflow-x-auto rounded-md border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label="Restrictive practice reporting views">
-      {([['authorisations','Authorisations',ShieldCheck],['uses','Use log',ClipboardPlus],['monthly','Monthly reporting',CalendarClock]] as const).map(([key,label,Icon]) => <button key={key} type="button" role="tab" aria-selected={view === key} onClick={() => setView(key)} className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-4 text-sm font-semibold ${view === key ? "bg-white text-teal-800 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-ink"}`}><Icon size={17} aria-hidden="true" />{label}</button>)}
+      {([['insights','Insights',Activity],['authorisations','Authorisations',ShieldCheck],['uses','Use log',ClipboardPlus],['monthly','Monthly reporting',CalendarClock]] as const).map(([key,label,Icon]) => <button key={key} type="button" role="tab" aria-selected={view === key} onClick={() => setView(key)} className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-4 text-sm font-semibold ${view === key ? "bg-white text-teal-800 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-ink"}`}><Icon size={17} aria-hidden="true" />{label}</button>)}
     </div>
     {message ? <p className="rounded-md border border-teal-100 bg-teal-50 p-3 text-sm font-semibold text-teal-900" role="status">{message}</p> : null}
+    {view === "insights" ? <RestrictivePracticeInsights clients={clients} houses={houses} authorisations={authorisations} uses={uses} /> : null}
     {view === "authorisations" ? <Authorisations clients={clients} houses={houses} records={authorisations} onSaved={async (text) => { setMessage(text); await load(); }} /> : null}
     {view === "uses" ? <UseLog clients={clients} houses={houses} authorisations={authorisations} uses={uses} onSaved={async (text) => { setMessage(text); await load(); }} /> : null}
     {view === "monthly" ? <MonthlyReporting clients={clients} authorisations={authorisations} uses={uses} /> : null}
@@ -55,12 +56,14 @@ export function RestrictivePracticeWorkspace() {
 }
 
 function Authorisations({ clients, houses, records, onSaved }: { clients: ClientRecord[]; houses: HouseRecord[]; records: RestrictivePracticeAuthorisation[]; onSaved: (message: string) => void }) {
-  const [form, setForm] = useState<RestrictivePracticeAuthorisation>({ id: uid(), participantId: "", houseId: "", practiceType: "Environmental restraint", practiceName: "", behaviourSupportPlan: "", authorisingBody: "", authorisationReference: "", startsOn: today(), expiresOn: "", conditions: "", maximumDurationMinutes: null, maximumFrequency: "", approvalStatus: "Approved", status: "Active" });
+  const [form, setForm] = useState<RestrictivePracticeAuthorisation>({ id: uid(), participantId: "", houseId: "", practiceType: "Environmental restraint", practiceName: "", behaviourSupportPlan: "", authorisingBody: "", authorisationReference: "", startsOn: today(), expiresOn: "", conditions: "", maximumDurationMinutes: null, maximumFrequency: "", approvalStatus: "Approved", status: "Active", phaseOutTargetDate: "", ceasedOn: "", cessationReason: "" });
   const client = clients.find((item) => item.id === form.participantId);
   const availableHouses = client ? getHousesForClient(houses, client) : [];
   const update = <K extends keyof RestrictivePracticeAuthorisation>(key: K, value: RestrictivePracticeAuthorisation[K]) => setForm((current) => ({ ...current, [key]: value }));
   async function save() {
     if (!form.participantId || !form.practiceName || !form.expiresOn || (form.approvalStatus === "Approved" && !form.authorisationReference)) return onSaved("Complete the client, practice, expiry date, and approval reference where approved.");
+    if (form.status === "Phasing out" && !form.phaseOutTargetDate) return onSaved("Add the target date for phase-out.");
+    if (form.status === "Ceased" && (!form.ceasedOn || !form.cessationReason.trim())) return onSaved("Add the cessation date and reason.");
     const result = await saveRestrictivePracticeAuthorisation(form);
     if (!result.saved) return onSaved(`Authorisation was not saved. ${result.error || "Try again."}`);
     setForm((current) => ({ ...current, id: uid(), practiceName: "", authorisationReference: "", conditions: "" })); onSaved("Authorisation saved securely.");
@@ -78,16 +81,18 @@ function Authorisations({ clients, houses, records, onSaved }: { clients: Client
       <Input label="Start date" type="date" value={form.startsOn} onChange={(value) => update("startsOn", value)} />
       <Input label="Expiry date" type="date" value={form.expiresOn} onChange={(value) => update("expiresOn", value)} />
       <Input label="Maximum duration (minutes)" type="number" value={form.maximumDurationMinutes?.toString() || ""} onChange={(value) => update("maximumDurationMinutes", value ? Number(value) : null)} />
-      <Select label="Status" value={form.status} onChange={(value) => update("status", value as RestrictivePracticeAuthorisation["status"])} options={[["Active","Active"],["Suspended","Suspended"],["Expired","Expired"]]} />
-    </div><PracticeGuideCards value={form.practiceType} onChange={(value) => update("practiceType", value)} /><TextArea label="Conditions and permitted circumstances" value={form.conditions} onChange={(value) => update("conditions", value)} /><button type="button" onClick={() => void save()} className="mt-4 min-h-11 rounded-md bg-sea px-4 text-sm font-semibold text-white">Save authorisation</button></Card>
-    <Card><h2 className="text-xl font-bold text-ink">Current register</h2><div className="mt-4 space-y-3">{records.length ? records.map((record) => { const expiry = expiryTone(record.expiresOn); return <div key={record.id} className="rounded-md border border-slate-200 p-4"><div className="flex justify-between gap-3"><div><p className="font-bold text-ink">{clients.find((item) => item.id === record.participantId)?.name || "Client"}</p><p className="mt-1 text-sm text-slate-600">{record.practiceType} · {record.practiceName}</p></div><div className="flex flex-wrap justify-end gap-2"><StatusBadge label={record.approvalStatus} tone={record.approvalStatus === "Approved" ? "green" : "red"} /><StatusBadge label={record.status === "Active" ? expiry.label : record.status} tone={record.status === "Active" ? expiry.tone : "red"} /></div></div><p className="mt-3 text-sm text-slate-600">Expires {record.expiresOn || "not recorded"} · Ref {record.authorisationReference || "not available"}</p></div>; }) : <Empty text="No authorisations recorded." />}</div></Card>
+      <Select label="Status" value={form.status} onChange={(value) => update("status", value as RestrictivePracticeAuthorisation["status"])} options={[["Active","Active"],["Phasing out","Phasing out"],["Ceased","Ceased"],["Suspended","Suspended"],["Expired","Expired"]]} />
+      {form.status === "Phasing out" ? <Input label="Phase-out target" type="date" value={form.phaseOutTargetDate} onChange={(value) => update("phaseOutTargetDate", value)} /> : null}
+      {form.status === "Ceased" ? <Input label="Ceased on" type="date" value={form.ceasedOn} onChange={(value) => update("ceasedOn", value)} /> : null}
+    </div><PracticeGuideCards value={form.practiceType} onChange={(value) => update("practiceType", value)} /><TextArea label="Conditions and permitted circumstances" value={form.conditions} onChange={(value) => update("conditions", value)} />{form.status === "Ceased" ? <TextArea label="Reason ceased" value={form.cessationReason} onChange={(value) => update("cessationReason", value)} /> : null}<button type="button" onClick={() => void save()} className="mt-4 min-h-11 rounded-md bg-sea px-4 text-sm font-semibold text-white">Save authorisation</button></Card>
+    <Card><h2 className="text-xl font-bold text-ink">Current register</h2><div className="mt-4 space-y-3">{records.length ? records.map((record) => { const expiry = expiryTone(record.expiresOn); return <div key={record.id} className="rounded-md border border-slate-200 p-4"><div className="flex justify-between gap-3"><div><p className="font-bold text-ink">{clients.find((item) => item.id === record.participantId)?.name || "Client"}</p><p className="mt-1 text-sm text-slate-600">{record.practiceType} - {record.practiceName}</p></div><div className="flex flex-wrap justify-end gap-2"><StatusBadge label={record.approvalStatus} tone={record.approvalStatus === "Approved" ? "green" : "red"} /><StatusBadge label={record.status === "Active" ? expiry.label : record.status} tone={record.status === "Active" ? expiry.tone : record.status === "Phasing out" ? "amber" : "red"} /></div></div><p className="mt-3 text-sm text-slate-600">Expires {record.expiresOn || "not recorded"} - Ref {record.authorisationReference || "not available"}</p>{record.status === "Phasing out" ? <p className="mt-2 text-sm font-semibold text-amber-800">Phase-out target: {record.phaseOutTargetDate}</p> : null}{record.status === "Ceased" ? <p className="mt-2 text-sm text-slate-700">Ceased {record.ceasedOn}: {record.cessationReason}</p> : null}<button type="button" onClick={() => { setForm(record); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mt-3 min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">Update lifecycle</button></div>; }) : <Empty text="No authorisations recorded." />}</div></Card>
   </div>;
 }
 
 function UseLog({ clients, houses, authorisations, uses, onSaved }: { clients: ClientRecord[]; houses: HouseRecord[]; authorisations: RestrictivePracticeAuthorisation[]; uses: RestrictivePracticeUse[]; onSaved: (message: string) => void }) {
   const [form, setForm] = useState<RestrictivePracticeUse>({ id: uid(), authorisationId: "", participantId: "", houseId: "", practiceType: "Environmental restraint", usedAt: localNow(), endedAt: "", triggerContext: "", alternativesAttempted: "", implementation: "", participantResponse: "", monitoring: "", recoverySupport: "", injuryOrHarm: false, injurySummary: "", approvalStatus: "Approved", matchedAuthorisation: true, varianceDetails: "", staffNames: "", notifications: "", status: "Draft" });
   const client = clients.find((item) => item.id === form.participantId);
-  const availableAuthorisations = authorisations.filter((item) => item.participantId === form.participantId && item.status === "Active" && item.approvalStatus === "Approved");
+  const availableAuthorisations = authorisations.filter((item) => item.participantId === form.participantId && ["Active", "Phasing out"].includes(item.status) && item.approvalStatus === "Approved");
   const availableHouses = client ? getHousesForClient(houses, client) : [];
   const update = <K extends keyof RestrictivePracticeUse>(key: K, value: RestrictivePracticeUse[K]) => setForm((current) => ({ ...current, [key]: value }));
   async function save(status: RestrictivePracticeUse["status"]) { if (!form.participantId || !form.usedAt || !form.implementation) return onSaved("Choose the client and record what was implemented."); if ((form.approvalStatus === "Unapproved" || !form.matchedAuthorisation) && !form.varianceDetails.trim()) return onSaved("Explain the unapproved use or variance before saving."); const result = await saveRestrictivePracticeUse({ ...form, status }); if (!result.saved) return onSaved(`Use record was not saved. ${result.error || "Try again."}`); onSaved(status === "Submitted" ? "Use record submitted for review." : "Draft saved."); }
@@ -111,9 +116,37 @@ function UseLog({ clients, houses, authorisations, uses, onSaved }: { clients: C
 
 function MonthlyReporting({ clients, authorisations, uses }: { clients: ClientRecord[]; authorisations: RestrictivePracticeAuthorisation[]; uses: RestrictivePracticeUse[] }) {
   const [month, setMonth] = useState(today().slice(0,7));
-  const rows = useMemo(() => authorisations.filter((item) => item.status === "Active").map((item) => ({ item, uses: uses.filter((entry) => entry.authorisationId === item.id && entry.usedAt.startsWith(month)) })), [authorisations, uses, month]);
+  const rows = useMemo(() => authorisations.filter((item) => ["Active", "Phasing out"].includes(item.status)).map((item) => ({ item, uses: uses.filter((entry) => entry.authorisationId === item.id && entry.usedAt.startsWith(month)) })), [authorisations, uses, month]);
   return <Card><div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-xl font-bold text-ink">Monthly reporting ledger</h2><p className="mt-1 text-sm text-slate-600">Review every active practice, including nil use.</p></div><Input label="Reporting month" type="month" value={month} onChange={setMonth} /></div><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-slate-600"><th className="py-3 pr-4">Client</th><th className="py-3 pr-4">Practice</th><th className="py-3 pr-4">Uses</th><th className="py-3 pr-4">Total duration</th><th className="py-3">Status</th></tr></thead><tbody>{rows.map(({item,uses: monthlyUses}) => { const minutes = monthlyUses.reduce((sum, use) => sum + Math.max(0,(new Date(use.endedAt).getTime()-new Date(use.usedAt).getTime())/60000 || 0),0); return <tr key={item.id} className="border-b border-slate-100"><td className="py-4 pr-4 font-semibold text-ink">{clients.find((client) => client.id === item.participantId)?.name || "Client"}</td><td className="py-4 pr-4">{item.practiceName}</td><td className="py-4 pr-4">{monthlyUses.length}</td><td className="py-4 pr-4">{Math.round(minutes)} min</td><td className="py-4"><StatusBadge label={monthlyUses.length ? "Usage recorded" : "Nil use"} tone={monthlyUses.length ? "blue" : "slate"} /></td></tr>; })}</tbody></table>{!rows.length ? <Empty text="No active authorisations for this reporting month." /> : null}</div><div className="mt-4 flex gap-3 rounded-md border border-amber-100 bg-amber-50 p-3 text-sm text-amber-950"><CheckCircle2 size={18} className="shrink-0" /><p>This ledger prepares the figures for authorised review. Submission to the NDIS Commission remains a separate authorised officer action.</p></div></Card>;
 }
+
+const chartColours: Record<RestrictivePracticeType, string> = {
+  "Seclusion": "bg-rose-500", "Chemical restraint": "bg-violet-500", "Mechanical restraint": "bg-amber-500",
+  "Physical restraint": "bg-sky-600", "Environmental restraint": "bg-teal-600"
+};
+
+function RestrictivePracticeInsights({ clients, houses, authorisations, uses }: { clients: ClientRecord[]; houses: HouseRecord[]; authorisations: RestrictivePracticeAuthorisation[]; uses: RestrictivePracticeUse[] }) {
+  const [period, setPeriod] = useState("6");
+  const [clientId, setClientId] = useState("all");
+  const [houseId, setHouseId] = useState("all");
+  const filtered = useMemo(() => { const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - Number(period)); return uses.filter((item) => new Date(item.usedAt) >= cutoff && (clientId === "all" || item.participantId === clientId) && (houseId === "all" || item.houseId === houseId)); }, [uses, period, clientId, houseId]);
+  const typeRows = practiceGuides.map(({ type }) => ({ type, count: filtered.filter((item) => item.practiceType === type).length }));
+  const maxType = Math.max(1, ...typeRows.map((item) => item.count));
+  const months = useMemo(() => Array.from({ length: Number(period) }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - (Number(period) - index - 1)); const key = date.toISOString().slice(0,7); return { key, label: date.toLocaleDateString("en-AU", { month: "short", year: Number(period) > 6 ? "2-digit" : undefined }), approved: filtered.filter((item) => item.usedAt.startsWith(key) && item.approvalStatus === "Approved").length, unapproved: filtered.filter((item) => item.usedAt.startsWith(key) && item.approvalStatus === "Unapproved").length }; }), [filtered, period]);
+  const maxMonth = Math.max(1, ...months.map((item) => item.approved + item.unapproved));
+  const phasing = authorisations.filter((item) => item.status === "Phasing out").length;
+  const ceased = authorisations.filter((item) => item.status === "Ceased").length;
+  const unapproved = filtered.filter((item) => item.approvalStatus === "Unapproved").length;
+  return <div className="space-y-5">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Uses in period" value={filtered.length} detail={`${period} month view`} /><Metric label="Unapproved" value={unapproved} detail="Requires review" tone={unapproved ? "red" : "green"} /><Metric label="Phasing out" value={phasing} detail="Active reduction plans" tone="amber" /><Metric label="Ceased" value={ceased} detail="Retained in history" tone="green" /></div>
+    <Card><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold text-ink">Use intelligence</h2><p className="mt-1 text-sm text-slate-600">Live from submitted restrictive practice records.</p></div><div className="flex flex-wrap gap-2"><Select label="Period" value={period} onChange={setPeriod} options={[["3","3 months"],["6","6 months"],["12","12 months"]]} /><Select label="Client" value={clientId} onChange={setClientId} options={[["all","All clients"],...clients.map((item): [string,string] => [item.id,item.name])]} /><Select label="House" value={houseId} onChange={setHouseId} options={[["all","All houses"],...houses.map((item): [string,string] => [item.id,item.name])]} /></div></div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-2"><div><h3 className="font-semibold text-ink">Use by type</h3><div className="mt-4 space-y-3">{typeRows.map((item) => <div key={item.type}><div className="mb-1 flex justify-between text-sm"><span className="font-semibold text-slate-700">{item.type}</span><span>{item.count}</span></div><button type="button" className="block h-8 w-full overflow-hidden rounded-md bg-slate-100 text-left" aria-label={`${item.type}: ${item.count} uses`}><span className={`block h-full ${chartColours[item.type]}`} style={{ width: `${(item.count/maxType)*100}%` }} /></button></div>)}</div></div>
+      <div><h3 className="font-semibold text-ink">Approved and unapproved trend</h3><div className="mt-4 flex h-64 items-end gap-2 border-b border-slate-200 px-1">{months.map((item) => <div key={item.key} className="flex h-full min-w-0 flex-1 flex-col justify-end"><div className="flex w-full items-end justify-center" style={{ height: `${Math.max(8,((item.approved+item.unapproved)/maxMonth)*85)}%` }}><span className="w-1/2 bg-teal-600" style={{ height: `${item.approved ? Math.max(10,(item.approved/(item.approved+item.unapproved))*100) : 0}%` }} title={`${item.approved} approved`} /><span className="w-1/2 bg-red-500" style={{ height: `${item.unapproved ? Math.max(10,(item.unapproved/(item.approved+item.unapproved))*100) : 0}%` }} title={`${item.unapproved} unapproved`} /></div><span className="mt-2 truncate text-center text-xs text-slate-500">{item.label}</span></div>)}</div><div className="mt-3 flex gap-4 text-xs font-semibold text-slate-600"><span className="flex items-center gap-2"><i className="h-3 w-3 bg-teal-600" />Approved</span><span className="flex items-center gap-2"><i className="h-3 w-3 bg-red-500" />Unapproved</span></div></div></div>
+    </Card>
+  </div>;
+}
+
+function Metric({ label, value, detail, tone = "blue" }: { label:string; value:number; detail:string; tone?:"blue"|"red"|"green"|"amber" }) { const tones = { blue:"border-sky-200 bg-sky-50", red:"border-red-200 bg-red-50", green:"border-emerald-200 bg-emerald-50", amber:"border-amber-200 bg-amber-50" }; return <div className={`rounded-md border p-4 ${tones[tone]}`}><p className="text-sm font-semibold text-slate-600">{label}</p><p className="mt-2 text-3xl font-bold text-ink">{value}</p><p className="mt-1 text-xs text-slate-600">{detail}</p></div>; }
 
 function Input({ label, value, onChange, type="text" }: { label:string; value:string; onChange:(value:string)=>void; type?:string }) { return <label className="grid gap-2 text-sm font-semibold text-slate-700">{label}<input type={type} value={value} onChange={(event)=>onChange(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-ink" /></label>; }
 function Select({ label, value, onChange, options, placeholder }: { label:string; value:string; onChange:(value:string)=>void; options:readonly (readonly [string,string])[]; placeholder?:string }) { return <label className="grid gap-2 text-sm font-semibold text-slate-700">{label}<select value={value} onChange={(event)=>onChange(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-ink">{placeholder ? <option value="">{placeholder}</option> : null}{options.map(([key,name])=><option key={key} value={key}>{name}</option>)}</select></label>; }

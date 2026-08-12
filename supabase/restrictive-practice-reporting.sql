@@ -19,7 +19,8 @@ create table if not exists public.restrictive_practice_authorisations (
   practice_name text not null,
   behaviour_support_plan text not null default '', authorising_body text not null default '', authorisation_reference text not null,
   starts_on date not null, expires_on date not null, conditions text not null default '', maximum_duration_minutes integer null check (maximum_duration_minutes is null or maximum_duration_minutes > 0),
-  maximum_frequency text not null default '', status text not null default 'Active' check (status in ('Active','Suspended','Expired')),
+  maximum_frequency text not null default '', status text not null default 'Active' check (status in ('Active','Phasing out','Ceased','Suspended','Expired')),
+  phase_out_target_date date null, ceased_on date null, cessation_reason text not null default '',
   approval_status text not null default 'Approved' check (approval_status in ('Approved','Unapproved')),
   created_by uuid not null default auth.uid() references public.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   constraint restrictive_practice_authorisation_dates check (expires_on >= starts_on)
@@ -44,6 +45,13 @@ create index if not exists idx_rp_uses_org_month on public.restrictive_practice_
 create index if not exists idx_rp_uses_participant on public.restrictive_practice_uses (organisation_id, participant_id, used_at desc);
 
 alter table public.restrictive_practice_authorisations add column if not exists approval_status text not null default 'Approved';
+alter table public.restrictive_practice_authorisations add column if not exists phase_out_target_date date null;
+alter table public.restrictive_practice_authorisations add column if not exists ceased_on date null;
+alter table public.restrictive_practice_authorisations add column if not exists cessation_reason text not null default '';
+alter table public.restrictive_practice_authorisations drop constraint if exists restrictive_practice_authorisations_status_check;
+alter table public.restrictive_practice_authorisations add constraint restrictive_practice_authorisations_status_check check (status in ('Active','Phasing out','Ceased','Suspended','Expired'));
+alter table public.restrictive_practice_authorisations drop constraint if exists restrictive_practice_authorisations_cessation_check;
+alter table public.restrictive_practice_authorisations add constraint restrictive_practice_authorisations_cessation_check check (status <> 'Ceased' or (ceased_on is not null and length(trim(cessation_reason)) > 0));
 alter table public.restrictive_practice_uses add column if not exists approval_status text not null default 'Approved';
 alter table public.restrictive_practice_uses add column if not exists practice_type text not null default 'Environmental restraint';
 alter table public.restrictive_practice_uses drop constraint if exists restrictive_practice_uses_practice_type_check;

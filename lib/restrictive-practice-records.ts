@@ -6,7 +6,8 @@ export type RestrictivePracticeType = typeof restrictivePracticeTypes[number];
 export type RestrictivePracticeAuthorisation = {
   id: string; participantId: string; houseId: string; practiceType: RestrictivePracticeType; practiceName: string;
   behaviourSupportPlan: string; authorisingBody: string; authorisationReference: string; startsOn: string; expiresOn: string;
-  conditions: string; maximumDurationMinutes: number | null; maximumFrequency: string; approvalStatus: "Approved" | "Unapproved"; status: "Active" | "Suspended" | "Expired";
+  conditions: string; maximumDurationMinutes: number | null; maximumFrequency: string; approvalStatus: "Approved" | "Unapproved";
+  status: "Active" | "Phasing out" | "Ceased" | "Suspended" | "Expired"; phaseOutTargetDate: string; ceasedOn: string; cessationReason: string;
 };
 
 export type RestrictivePracticeUse = {
@@ -28,7 +29,8 @@ export async function getRestrictivePracticeAuthorisations() {
     practiceName: text(row.practice_name), behaviourSupportPlan: text(row.behaviour_support_plan), authorisingBody: text(row.authorising_body),
     authorisationReference: text(row.authorisation_reference), startsOn: text(row.starts_on), expiresOn: text(row.expires_on), conditions: text(row.conditions),
     maximumDurationMinutes: typeof row.maximum_duration_minutes === "number" ? row.maximum_duration_minutes : null,
-    maximumFrequency: text(row.maximum_frequency), approvalStatus: text(row.approval_status) === "Unapproved" ? "Unapproved" : "Approved", status: text(row.status) as RestrictivePracticeAuthorisation["status"]
+    maximumFrequency: text(row.maximum_frequency), approvalStatus: text(row.approval_status) === "Unapproved" ? "Unapproved" : "Approved", status: text(row.status) as RestrictivePracticeAuthorisation["status"],
+    phaseOutTargetDate: text(row.phase_out_target_date), ceasedOn: text(row.ceased_on), cessationReason: text(row.cessation_reason)
   }));
 }
 
@@ -39,7 +41,8 @@ export async function saveRestrictivePracticeAuthorisation(record: RestrictivePr
     id: record.id, organisation_id: organisationId, participant_id: record.participantId, house_id: record.houseId || null, practice_type: record.practiceType,
     practice_name: record.practiceName, behaviour_support_plan: record.behaviourSupportPlan, authorising_body: record.authorisingBody,
     authorisation_reference: record.authorisationReference, starts_on: record.startsOn, expires_on: record.expiresOn, conditions: record.conditions,
-    maximum_duration_minutes: record.maximumDurationMinutes, maximum_frequency: record.maximumFrequency, approval_status: record.approvalStatus, status: record.status, updated_at: new Date().toISOString()
+    maximum_duration_minutes: record.maximumDurationMinutes, maximum_frequency: record.maximumFrequency, approval_status: record.approvalStatus, status: record.status,
+    phase_out_target_date: record.phaseOutTargetDate || null, ceased_on: record.ceasedOn || null, cessation_reason: record.cessationReason || "", updated_at: new Date().toISOString()
   }});
   return { saved: Boolean(result.data && !result.error), error: result.error };
 }
