@@ -82,6 +82,8 @@ test("background health monitoring requires a cron secret and isolates incident 
   assert.match(policy, /revoke all on table public\.platform_health_incidents from anon, authenticated/);
 });
 
+test("document expiry alerts are tenant scoped, deduplicated and cron protected", async()=>{const[route,policy,ui,vercel]=await Promise.all([source("app/api/cron/document-expiry/route.ts"),source("supabase/document-expiry-notifications.sql"),source("components/admin/DocumentExpiryAlerts.tsx"),source("vercel.json")]);assert.match(route,/CRON_SECRET/);assert.match(route,/SUPABASE_SERVICE_ROLE_KEY/);assert.match(route,/RESEND_API_KEY/);assert.match(policy,/unique \(organisation_id, document_id, reminder_stage, expiry_date\)/);assert.match(policy,/enable row level security/);assert.match(policy,/current_user_organisation_id/);assert.match(ui,/Acknowledge/);assert.match(vercel,/api\/cron\/document-expiry/)});
+
 test("client writes remain manager and organisation scoped", async () => {
   const policy = await source("supabase/repair-client-rls.sql");
   assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);

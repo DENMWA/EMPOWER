@@ -4,12 +4,14 @@ import { DocumentUploadCard } from "@/components/documents/DocumentUploadCard";
 import { DocumentVault } from "@/components/documents/DocumentVault";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
 import { StaffCredentialPanel } from "@/components/staff/StaffCredentialPanel";
+import { DocumentExpiryAlerts } from "@/components/admin/DocumentExpiryAlerts";
 
 export default function AdminDocumentsPage() {
   return (
     <AdminGate permission="documents">
       <PageHeader eyebrow="Admin workspace" title="Document Vault" description="Review client documents, staff uploads, access and expiry status." actions={<StatusBadge label="Duty controlled" tone="green" />} />
       <Section><DocumentUploadCard /></Section>
+      <Section><DocumentExpiryAlerts /></Section>
       <Section className="grid gap-6 lg:grid-cols-2"><DocumentVault reviewMode /><DocumentIntelligencePanel /></Section>
       <Section><StaffCredentialPanel /></Section>
     </AdminGate>
