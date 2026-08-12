@@ -3,6 +3,7 @@ import { DocumentIntelligencePanel } from "@/components/documents/DocumentIntell
 import { DocumentUploadCard } from "@/components/documents/DocumentUploadCard";
 import { DocumentVault } from "@/components/documents/DocumentVault";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
+import { StaffCredentialPanel } from "@/components/staff/StaffCredentialPanel";
 
 export default function AdminDocumentsPage() {
   return (
@@ -10,6 +11,7 @@ export default function AdminDocumentsPage() {
       <PageHeader eyebrow="Admin workspace" title="Document Vault" description="Review client documents, staff uploads, access and expiry status." actions={<StatusBadge label="Duty controlled" tone="green" />} />
       <Section><DocumentUploadCard /></Section>
       <Section className="grid gap-6 lg:grid-cols-2"><DocumentVault reviewMode /><DocumentIntelligencePanel /></Section>
+      <Section><StaffCredentialPanel /></Section>
     </AdminGate>
   );
 }

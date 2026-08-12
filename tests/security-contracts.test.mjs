@@ -241,6 +241,16 @@ test("private document access and lifecycle changes create durable audit events"
   assert.match(migration, /insert into public\.audit_logs/);
 });
 
+test("staff credential expiry tracking is tenant scoped, audited and advisory", async () => {
+  const [panel, records, migration] = await Promise.all([source("components/staff/StaffCredentialPanel.tsx"), source("lib/staff-credential-records.ts"), source("supabase/staff-credential-expiry.sql")]);
+  assert.match(panel, /Alerts are advisory and do not block shifts/);
+  assert.match(records, /getCurrentOrganisationId/);
+  assert.match(migration, /alter table public\.staff_credentials enable row level security/);
+  assert.match(migration, /organisation_id = public\.current_user_organisation_id\(\)/);
+  assert.match(migration, /staff_credential_added/);
+  assert.doesNotMatch(migration, /support_shifts|roster_shifts/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),
