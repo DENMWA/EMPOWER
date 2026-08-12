@@ -561,25 +561,37 @@ test("agreed billing rates save for explicitly authorised billing managers", asy
 });
 
 test("participant invoices require an approved NDIS, agreement or manual rate", async () => {
-  const [workspace, billing] = await Promise.all([
+  const [workspace, billing, profiles] = await Promise.all([
     source("components/billing/NativeBillingWorkspace.tsx"),
-    source("lib/native-billing.ts")
+    source("lib/native-billing.ts"),
+    source("components/participants/ClientProfiles.tsx")
   ]);
   assert.match(workspace, /Billing period from/);
-    assert.match(workspace, /NDIS advised rate/);
-    assert.match(workspace, /Service agreement rate/);
-    assert.match(workspace, /Manual override/);
-    assert.match(workspace, /Approve selected code, staffing ratio and calculated rate/);
+  assert.match(workspace, /NDIS Price Limit/);
+  assert.match(workspace, /Service Agreement Rate/);
+  assert.match(workspace, /Manual Rate/);
+  assert.match(workspace, /Approve selected code, staffing ratio and calculated rate/);
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
-  assert.match(workspace, /Create participant invoice/);
+  assert.match(workspace, /Create Invoice/);
   assert.match(workspace, /Invoice Workspace/);
   assert.match(workspace, /Create invoices from delivered supports/);
   assert.match(workspace, /Select client/);
   assert.match(workspace, /Delivered services/);
   assert.match(workspace, /Manage pricing and agreement/);
   assert.match(workspace, /clientInvoices\.map/);
-  assert.match(workspace, /Exceptions and budget/);
+  assert.match(workspace, /Billing Exceptions/);
+  assert.match(workspace, /Budget Usage/);
+  assert.match(workspace, /Invoice History/);
+  assert.match(workspace, /Invoice Summary/);
+  assert.match(workspace, /Preview Invoice/);
+  assert.match(workspace, /Evidence linked/);
+  assert.match(workspace, /Evidence review required/);
+  assert.match(workspace, /Billing period presets/);
+  assert.match(workspace, /new URLSearchParams\(window\.location\.search\)\.get\("clientId"\)/);
+  assert.match(workspace, /getInvoicePreview/);
+  assert.match(workspace, /Rate exceeds selected NDIS price limit - review required/);
+  assert.match(profiles, /\/admin\/billing\?clientId=/);
   assert.match(billing, /export function createInvoiceFromServices/);
   assert.match(billing, /An invoice can only contain services for one participant/);
   assert.match(billing, /agreementItemId/);

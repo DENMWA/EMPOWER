@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ClipboardCheck, FileDown, FileSearch, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
+import { Check, ClipboardCheck, Eye, FileDown, FileSearch, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -79,6 +79,7 @@ export function NativeBillingWorkspace() {
   const [allowCancellations, setAllowCancellations] = useState(false);
   const [message, setMessage] = useState("");
   const [showBillingSetup, setShowBillingSetup] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
@@ -110,6 +111,7 @@ export function NativeBillingWorkspace() {
       && shift.shiftDate >= invoicePeriodStart
       && shift.shiftDate <= invoicePeriodEnd
   ) : [];
+  const invoicePreview = getInvoicePreview(records, selectedInvoiceServices, serviceRateDrafts, includedTravel);
 
   useEffect(() => {
     async function loadRecords() {
@@ -122,7 +124,8 @@ export function NativeBillingWorkspace() {
       setNotes(noteItems);
       const rosterResult = await loadTenantRosterShifts();
       setRosterServices(rosterResult.shifts);
-      setSelectedClientId((current) => current || clientItems[0]?.id || "");
+      const requestedClientId = new URLSearchParams(window.location.search).get("clientId") || "";
+      setSelectedClientId((current) => current || clientItems.find((client) => client.id === requestedClientId)?.id || clientItems[0]?.id || "");
       const cloudRecords = await loadTenantNativeBillingRecords(clientItems, staffItems);
       setRecords(cloudRecords);
     }
@@ -144,6 +147,16 @@ export function NativeBillingWorkspace() {
       window.removeEventListener("empowernotes:native-billing-cloud-status", showCloudStatus);
     };
   }, []);
+
+  function setBillingPeriod(preset: "daily" | "weekly" | "fortnightly" | "monthly") {
+    const end = new Date();
+    const start = new Date(end);
+    if (preset === "weekly") start.setDate(end.getDate() - 6);
+    if (preset === "fortnightly") start.setDate(end.getDate() - 13);
+    if (preset === "monthly") start.setDate(1);
+    setInvoicePeriodStart(start.toISOString().slice(0, 10));
+    setInvoicePeriodEnd(end.toISOString().slice(0, 10));
+  }
 
   useEffect(() => {
     const client = clients.find((item) => item.id === selectedClientId) || clients[0];
@@ -720,6 +733,12 @@ export function NativeBillingWorkspace() {
             <BillingField label="Billing period from" value={invoicePeriodStart} onChange={setInvoicePeriodStart} type="date" />
             <BillingField label="Billing period to" value={invoicePeriodEnd} onChange={setInvoicePeriodEnd} type="date" />
           </div>
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="Billing period presets">
+            {([['daily', 'Today'], ['weekly', '7 days'], ['fortnightly', 'Fortnight'], ['monthly', 'This month']] as const).map(([preset, label]) => <button key={preset} type="button" onClick={() => setBillingPeriod(preset)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-800">{label}</button>)}
+          </div>
+          <div className={`mt-4 rounded-md border px-3 py-2 text-sm ${activePricingVersion ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+            <span className="font-semibold">NDIS Pricing:</span> {activePricingVersion ? `${activePricingVersion.versionName} · effective ${activePricingVersion.effectiveFrom}` : "No active NDIS pricing version"}
+          </div>
           <div className="mt-4 space-y-3">
             {!completedRosterServices.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No completed roster services are available for this client.</p> : null}
             {completedRosterServices.map((shift) => {
@@ -743,10 +762,17 @@ export function NativeBillingWorkspace() {
               const invoiceEligibility = billingService && selectedAgreement
                 ? getInvoiceEligibility(shift.shiftDate, selectedAgreement, selectedClient, `${shift.shiftDate}T${shift.startTime}:00`)
                 : { allowed: true, reason: "" };
+              const evidenceLinked = Boolean(billingService?.noteRecordId && notes.some((note) => note.id === billingService.noteRecordId));
+              const selectedRate = rateDraft.source === "ndis_catalogue" ? selectedNdisItem?.priceLimit : rateDraft.source === "service_agreement" ? agreementItem?.agreedRate : Number(rateDraft.manualRate || 0);
+              const rateAboveLimit = rateDraft.source === "manual" && Boolean(selectedNdisItem?.priceLimit && selectedRate && selectedRate > selectedNdisItem.priceLimit);
               return (
                 <div key={shift.id} className="rounded-md border border-slate-200 p-3">
                   <p className="font-semibold text-ink">{shift.shiftDate} - {shift.supportType}</p>
                   <p className="mt-1 text-sm text-slate-600">{shift.startTime}-{shift.endTime} - {shift.location} - {shift.assignedWorkers?.map((worker) => worker.name).join(", ") || shift.workerName}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
+                    <span className={`rounded-md px-2 py-1 ${evidenceLinked ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>{evidenceLinked ? "Evidence linked" : "Evidence review required"}</span>
+                    {billingService ? <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">{formatServiceHours(billingService.startTime, billingService.endTime)} service hours</span> : null}
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" disabled={linked} onClick={() => linkRenderedService(shift)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
                       <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked" : "Link service"}
@@ -761,10 +787,11 @@ export function NativeBillingWorkspace() {
                   {billingService ? (
                     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
-                        {([['ndis_catalogue', 'NDIS advised rate'], ['service_agreement', 'Service agreement rate'], ['manual', 'Manual override']] as const).map(([source, label]) => (
+                        {([['ndis_catalogue', 'NDIS Price Limit'], ['service_agreement', 'Service Agreement Rate'], ['manual', 'Manual Rate']] as const).map(([source, label]) => (
                           <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
                         ))}
                       </div>
+                      {rateAboveLimit ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Rate exceeds selected NDIS price limit - review required.</p> : null}
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         <div className="rounded-md border border-teal-200 bg-white p-3 text-sm">
                           <p className="font-semibold text-ink">NDIS advised rate</p>
@@ -844,13 +871,36 @@ export function NativeBillingWorkspace() {
               );
             })}
           </div>
-          <button type="button" disabled={creatingInvoiceId === "batch" || !Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => void generateHolisticInvoice()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
-            <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Creating invoice..." : `Create participant invoice (${Object.values(selectedInvoiceServices).filter(Boolean).length})`}
-          </button>
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <h3 className="font-semibold text-ink">Invoice Summary</h3>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
+              <SummaryValue label="Selected services" value={String(invoicePreview.serviceCount)} />
+              <SummaryValue label="Billable quantity" value={formatQuantity(invoicePreview.quantity)} />
+              <SummaryValue label="Subtotal" value={formatMoney(invoicePreview.subtotal)} />
+              <SummaryValue label="GST" value={formatMoney(invoicePreview.gst)} />
+              <SummaryValue label="Total" value={formatMoney(invoicePreview.total)} strong />
+            </div>
+          </div>
+          {showInvoicePreview ? <div className="mt-4 rounded-md border border-teal-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-ink">Invoice preview</h3><StatusBadge label={invoicePreview.reviewCount ? `${invoicePreview.reviewCount} review item${invoicePreview.reviewCount === 1 ? "" : "s"}` : "Ready"} tone={invoicePreview.reviewCount ? "amber" : "green"} /></div>
+            <div className="mt-3 space-y-2">
+              {invoicePreview.lines.map((line) => <div key={line.shiftId} className="grid gap-1 rounded-md bg-slate-50 p-3 text-sm sm:grid-cols-[1fr_auto]">
+                <div><p className="font-semibold text-ink">{line.date} · {line.code || "Support code required"}</p><p className="mt-1 text-slate-600">{line.quantity} {line.unit} · {line.source}</p></div>
+                <p className="font-bold text-ink">{formatMoney(line.amount)}</p>
+              </div>)}
+              {!invoicePreview.lines.length ? <p className="text-sm text-slate-600">Select linked services to preview the invoice.</p> : null}
+            </div>
+          </div> : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" disabled={!Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => setShowInvoicePreview((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:bg-slate-100 disabled:text-slate-400"><Eye size={17} aria-hidden="true" />{showInvoicePreview ? "Hide Preview" : "Preview Invoice"}</button>
+            <button type="button" disabled={creatingInvoiceId === "batch" || !Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => void generateHolisticInvoice()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+              <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Creating invoice..." : `Create Invoice (${Object.values(selectedInvoiceServices).filter(Boolean).length})`}
+            </button>
+          </div>
         </Card>
 
-        <Card className="order-2 xl:col-span-2">
-          <h2 className="text-xl font-semibold text-ink">Client invoices</h2>
+        <details className="order-2 rounded-md border border-slate-200 bg-white p-4 xl:col-span-2">
+          <summary className="cursor-pointer text-xl font-semibold text-ink">Invoice History</summary>
           <div className="mt-4 space-y-3">
             {!clientInvoices.length ? <p className="text-sm text-slate-600">No invoices have been created for this client.</p> : null}
             {clientInvoices.map((invoice) => {
@@ -885,28 +935,31 @@ export function NativeBillingWorkspace() {
               );
             })}
           </div>
-        </Card>
+        </details>
       </div>
 
-      <details className="rounded-md border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer font-semibold text-ink">Exceptions and budget</summary>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <details className="rounded-md border border-slate-200 bg-white p-4">
+          <summary className="cursor-pointer font-semibold text-ink">Billing Exceptions {exceptionLines.length ? `(${exceptionLines.length})` : ""}</summary>
+          <div className="mt-4">
             <h2 className="font-semibold text-ink">Billing exceptions</h2>
             <div className="mt-3 space-y-2">
               {!exceptionLines.length ? <p className="text-sm text-slate-600">No invoice exceptions for this client.</p> : null}
               {exceptionLines.map((line) => <p key={line.id} className="rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-900"><ShieldAlert className="mr-2 inline" size={16} />{line.exceptionReason}</p>)}
             </div>
           </div>
-          <div>
+        </details>
+        {budgetRows.length ? <details className="rounded-md border border-slate-200 bg-white p-4">
+          <summary className="cursor-pointer font-semibold text-ink">Budget Usage</summary>
+          <div className="mt-4">
             <h2 className="font-semibold text-ink">Budget usage</h2>
             <div className="mt-3 space-y-2">
               {!budgetRows.length ? <p className="text-sm text-slate-600">No budget information available.</p> : null}
               {budgetRows.map((budget) => <p key={budget.category} className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">{budget.category}: ${budget.used} used of ${budget.allocated} - {budget.warning}</p>)}
             </div>
           </div>
-        </div>
-      </details>
+        </details> : null}
+      </div>
 
     </div>
   );
@@ -916,6 +969,43 @@ function formatClientNumber(id: string) {
   const compact = id.replace(/[^a-z0-9]/gi, "").toUpperCase();
   return `CL-${compact.slice(-6).padStart(6, "0")}`;
 }
+
+function SummaryValue({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return <div className="rounded-md bg-white p-3"><p className="text-xs font-semibold uppercase text-slate-500">{label}</p><p className={`mt-1 ${strong ? "text-lg font-bold text-teal-800" : "font-semibold text-ink"}`}>{value}</p></div>;
+}
+
+function getInvoicePreview(
+  records: NativeBillingRecords,
+  selectedServices: Record<string, boolean>,
+  drafts: Record<string, ServiceRateDraft>,
+  includedTravel: Record<string, boolean>
+) {
+  const lines = Object.entries(selectedServices).filter(([, selected]) => selected).flatMap(([shiftId]) => {
+    const shift = records.shifts.find((item) => item.id === shiftId);
+    if (!shift) return [];
+    const draft = drafts[shiftId] || getSuggestedRateDraft(shift, records);
+    const agreementItem = draft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === draft.itemId) : undefined;
+    const supportItem = draft.source === "ndis_catalogue" ? records.supportItems.find((item) => item.id === draft.itemId) : undefined;
+    const code = supportItem?.supportItemNumber || agreementItem?.supportItemNumber || draft.manualCode;
+    const unit = supportItem?.unitType || agreementItem?.unitType || draft.manualUnit;
+    const rate = supportItem?.priceLimit || agreementItem?.agreedRate || Number(draft.manualRate || 0);
+    const quantity = unit ? getBillableQuantity(shift, unit) : 0;
+    const ndisLimit = supportItem?.priceLimit ?? agreementItem?.ndisPriceLimit ?? null;
+    const review = !draft.approved || !code || !rate || (draft.source === "manual" && ndisLimit !== null && rate > ndisLimit);
+    const serviceLine = { shiftId, date: shift.startTime.slice(0, 10), code, quantity, unit, source: formatRateSource(draft.source), amount: Math.round(quantity * rate * 100) / 100, review };
+    if (!includedTravel[shiftId] || !shift.travelKilometres || !shift.travelRatePerKilometre) return [serviceLine];
+    return [serviceLine, { shiftId: `${shiftId}-travel`, date: shift.startTime.slice(0, 10), code: shift.travelSupportItemNumber || "Travel", quantity: shift.travelKilometres, unit: "km", source: "Service Agreement Rate", amount: Math.round(shift.travelKilometres * shift.travelRatePerKilometre * 100) / 100, review: true }];
+  });
+  const subtotal = Math.round(lines.reduce((total, line) => total + line.amount, 0) * 100) / 100;
+  return { lines, serviceCount: Object.values(selectedServices).filter(Boolean).length, quantity: lines.reduce((total, line) => total + line.quantity, 0), subtotal, gst: 0, total: subtotal, reviewCount: lines.filter((line) => line.review).length };
+}
+
+function formatRateSource(source: InvoiceRateSource) {
+  return source === "ndis_catalogue" ? "NDIS Price Limit" : source === "service_agreement" ? "Service Agreement Rate" : "Manual Rate";
+}
+
+function formatMoney(value: number) { return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(value); }
+function formatQuantity(value: number) { return Number.isInteger(value) ? String(value) : value.toFixed(2); }
 
 function BillingField({
   label,

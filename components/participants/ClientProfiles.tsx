@@ -12,7 +12,7 @@ import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-re
 import { accessChangedEvent } from "@/lib/user-access";
 import { fullAdminRoles } from "@/lib/admin-permissions";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
-import { Power, RotateCcw } from "lucide-react";
+import { Power, ReceiptText, RotateCcw } from "lucide-react";
 
 export function ClientProfiles({ admin = false }: { admin?: boolean }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -120,6 +120,7 @@ export function ClientProfiles({ admin = false }: { admin?: boolean }) {
               </div>
             ) : null}
             {admin && canControlLifecycle ? <ClientProfilePhotoManager client={client} onSaved={refreshClientRecords} /> : null}
+            {admin ? <Link href={`/admin/billing?clientId=${encodeURIComponent(client.id)}`} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-teal-200 bg-white px-4 text-sm font-semibold text-teal-800 hover:bg-teal-50"><ReceiptText size={16} aria-hidden="true" />Billing / Invoices</Link> : null}
             <ParticipantProfile
               participant={client}
               colourSchemeId={client.colourSchemeId}
