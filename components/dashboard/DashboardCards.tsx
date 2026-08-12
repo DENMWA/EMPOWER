@@ -9,7 +9,7 @@ import { getRosterSummary, type RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getTenantStaffInvites, type StaffRecord } from "@/lib/staff-records";
 import { participants, progressNotes, users } from "@/lib/sample-data";
-import { AlertTriangle, ArrowRight, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, BookOpenCheck, CalendarDays, CheckCircle2, ClipboardList, FileWarning, FolderLock, LockKeyhole, Mic, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { isDemoModeEnabled } from "@/lib/presentation-mode";
 import type { AdminPermission } from "@/lib/admin-permissions";
 
@@ -18,7 +18,8 @@ const workerActions = [
   { label: "Create progress note", detail: "Structured support record", href: "/notes/new", icon: ClipboardList },
   { label: "Record voice note", detail: "Speak naturally on shift", href: "/notes/new#voice", icon: Mic },
   { label: "New incident report", detail: "Structured event capture", href: "/incidents/new", icon: ShieldCheck },
-  { label: "Documents", detail: "Upload to a client file", href: "/documents", icon: FolderLock }
+  { label: "Documents", detail: "Upload to a client file", href: "/documents", icon: FolderLock },
+  { label: "Handover", detail: "Review the last 24 hours", href: "/handover", icon: BookOpenCheck }
 ];
 
 export function ManagerDashboardCards({ fullAccess, permissions }: { fullAccess: boolean; permissions: AdminPermission[] }) {

@@ -251,6 +251,15 @@ test("staff credential expiry tracking is tenant scoped, audited and advisory", 
   assert.doesNotMatch(migration, /support_shifts|roster_shifts/);
 });
 
+test("handover communication book is house scoped and acknowledged", async () => {
+  const [workspace, records, migration, shell] = await Promise.all([source("components/handover/HandoverWorkspace.tsx"), source("lib/handover-records.ts"), source("supabase/handover-communication-book.sql"), source("components/AppShell.tsx")]);
+  assert.match(workspace, /Last 24 hours/); assert.match(workspace, /Mark as read/);
+  assert.match(records, /getRecentHandovers\(hours = 24\)/);
+  assert.match(migration, /private\.current_user_can_access_house\(house_id\)/);
+  assert.match(migration, /private\.current_user_can_access_participant\(participant_id\)/);
+  assert.match(migration, /handover_acknowledged/); assert.match(shell, /href: "\/handover"/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),

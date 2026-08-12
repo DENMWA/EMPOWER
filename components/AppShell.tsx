@@ -12,7 +12,7 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -21,6 +21,7 @@ const navItems = [
   { href: "/participants", label: "My Clients", icon: Users },
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
   { href: "/documents", label: "Documents", icon: FolderLock },
+  { href: "/handover", label: "Handover", icon: BookOpenCheck },
   { href: "/signin", label: "Sign in", icon: KeyRound },
   { href: "/signup", label: "Sign up", icon: Sparkles }
 ];
