@@ -30,6 +30,7 @@ create table if not exists public.restrictive_practice_uses (
   id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id) on delete cascade,
   authorisation_id uuid null references public.restrictive_practice_authorisations(id) on delete restrict,
   participant_id uuid not null references public.participants_or_clients(id) on delete restrict, house_id uuid null,
+  practice_type text not null default 'Environmental restraint' check (practice_type in ('Seclusion','Chemical restraint','Mechanical restraint','Physical restraint','Environmental restraint')),
   used_at timestamptz not null, ended_at timestamptz null, trigger_context text not null default '', alternatives_attempted text not null default '',
   implementation text not null, participant_response text not null default '', monitoring text not null default '', recovery_support text not null default '',
   injury_or_harm boolean not null default false, injury_summary text not null default '', matched_authorisation boolean not null default true,
@@ -44,6 +45,9 @@ create index if not exists idx_rp_uses_participant on public.restrictive_practic
 
 alter table public.restrictive_practice_authorisations add column if not exists approval_status text not null default 'Approved';
 alter table public.restrictive_practice_uses add column if not exists approval_status text not null default 'Approved';
+alter table public.restrictive_practice_uses add column if not exists practice_type text not null default 'Environmental restraint';
+alter table public.restrictive_practice_uses drop constraint if exists restrictive_practice_uses_practice_type_check;
+alter table public.restrictive_practice_uses add constraint restrictive_practice_uses_practice_type_check check (practice_type in ('Seclusion','Chemical restraint','Mechanical restraint','Physical restraint','Environmental restraint'));
 alter table public.restrictive_practice_authorisations drop constraint if exists restrictive_practice_authorisations_approval_status_check;
 alter table public.restrictive_practice_authorisations add constraint restrictive_practice_authorisations_approval_status_check check (approval_status in ('Approved','Unapproved'));
 alter table public.restrictive_practice_uses drop constraint if exists restrictive_practice_uses_approval_status_check;

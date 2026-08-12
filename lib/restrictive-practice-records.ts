@@ -10,7 +10,7 @@ export type RestrictivePracticeAuthorisation = {
 };
 
 export type RestrictivePracticeUse = {
-  id: string; authorisationId: string; participantId: string; houseId: string; usedAt: string; endedAt: string;
+  id: string; authorisationId: string; participantId: string; houseId: string; practiceType: RestrictivePracticeType; usedAt: string; endedAt: string;
   triggerContext: string; alternativesAttempted: string; implementation: string; participantResponse: string; monitoring: string;
   recoverySupport: string; injuryOrHarm: boolean; injurySummary: string; approvalStatus: "Approved" | "Unapproved"; matchedAuthorisation: boolean; varianceDetails: string;
   staffNames: string; notifications: string; status: "Draft" | "Submitted" | "Reviewed"; linkedIncidentId?: string;
@@ -48,7 +48,7 @@ export async function getRestrictivePracticeUses() {
   const result = await supabaseRequest<DbUse[]>("restrictive_practice_uses", { query: "select=*&order=used_at.desc" });
   if (!result.data || result.error) return [];
   return result.data.map((row): RestrictivePracticeUse => ({
-    id: text(row.id), authorisationId: text(row.authorisation_id), participantId: text(row.participant_id), houseId: text(row.house_id), usedAt: text(row.used_at), endedAt: text(row.ended_at),
+    id: text(row.id), authorisationId: text(row.authorisation_id), participantId: text(row.participant_id), houseId: text(row.house_id), practiceType: (text(row.practice_type) || "Environmental restraint") as RestrictivePracticeType, usedAt: text(row.used_at), endedAt: text(row.ended_at),
     triggerContext: text(row.trigger_context), alternativesAttempted: text(row.alternatives_attempted), implementation: text(row.implementation), participantResponse: text(row.participant_response),
     monitoring: text(row.monitoring), recoverySupport: text(row.recovery_support), injuryOrHarm: Boolean(row.injury_or_harm), injurySummary: text(row.injury_summary),
     approvalStatus: text(row.approval_status) === "Unapproved" ? "Unapproved" : "Approved", matchedAuthorisation: row.matched_authorisation !== false, varianceDetails: text(row.variance_details), staffNames: text(row.staff_names), notifications: text(row.notifications),
@@ -60,7 +60,7 @@ export async function saveRestrictivePracticeUse(record: RestrictivePracticeUse)
   const organisationId = await getCurrentOrganisationId();
   if (!organisationId) return { saved: false, error: "Sign in before saving this use record." };
   const result = await supabaseRequest<DbUse[]>("restrictive_practice_uses", { method: "POST", query: "on_conflict=id", prefer: "resolution=merge-duplicates,return=representation", body: {
-    id: record.id, organisation_id: organisationId, authorisation_id: record.authorisationId || null, participant_id: record.participantId, house_id: record.houseId || null,
+    id: record.id, organisation_id: organisationId, authorisation_id: record.authorisationId || null, participant_id: record.participantId, house_id: record.houseId || null, practice_type: record.practiceType,
     used_at: record.usedAt, ended_at: record.endedAt || null, trigger_context: record.triggerContext, alternatives_attempted: record.alternativesAttempted,
     implementation: record.implementation, participant_response: record.participantResponse, monitoring: record.monitoring, recovery_support: record.recoverySupport,
     injury_or_harm: record.injuryOrHarm, injury_summary: record.injurySummary, approval_status: record.approvalStatus, matched_authorisation: record.matchedAuthorisation,

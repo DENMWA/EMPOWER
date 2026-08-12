@@ -114,6 +114,9 @@ test("restrictive practice reporting remains separate, tenant scoped, and incide
   assert.match(records, /restrictive_practice_uses/);
   assert.match(form, /rpUseId/);
   assert.match(navigation, /Restrictive practices/);
+  const workspace = await source("components/admin/RestrictivePracticeWorkspace.tsx");
+  assert.match(workspace, /Guidance only\. This explanation is not added to the saved record/);
+  assert.doesNotMatch(records, /The person is alone in a room or area/);
 });
 
 test("organisation invitations deliver before activating tenant membership", async () => {
