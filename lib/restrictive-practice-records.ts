@@ -6,13 +6,13 @@ export type RestrictivePracticeType = typeof restrictivePracticeTypes[number];
 export type RestrictivePracticeAuthorisation = {
   id: string; participantId: string; houseId: string; practiceType: RestrictivePracticeType; practiceName: string;
   behaviourSupportPlan: string; authorisingBody: string; authorisationReference: string; startsOn: string; expiresOn: string;
-  conditions: string; maximumDurationMinutes: number | null; maximumFrequency: string; status: "Active" | "Suspended" | "Expired";
+  conditions: string; maximumDurationMinutes: number | null; maximumFrequency: string; approvalStatus: "Approved" | "Unapproved"; status: "Active" | "Suspended" | "Expired";
 };
 
 export type RestrictivePracticeUse = {
   id: string; authorisationId: string; participantId: string; houseId: string; usedAt: string; endedAt: string;
   triggerContext: string; alternativesAttempted: string; implementation: string; participantResponse: string; monitoring: string;
-  recoverySupport: string; injuryOrHarm: boolean; injurySummary: string; matchedAuthorisation: boolean; varianceDetails: string;
+  recoverySupport: string; injuryOrHarm: boolean; injurySummary: string; approvalStatus: "Approved" | "Unapproved"; matchedAuthorisation: boolean; varianceDetails: string;
   staffNames: string; notifications: string; status: "Draft" | "Submitted" | "Reviewed"; linkedIncidentId?: string;
 };
 
@@ -28,7 +28,7 @@ export async function getRestrictivePracticeAuthorisations() {
     practiceName: text(row.practice_name), behaviourSupportPlan: text(row.behaviour_support_plan), authorisingBody: text(row.authorising_body),
     authorisationReference: text(row.authorisation_reference), startsOn: text(row.starts_on), expiresOn: text(row.expires_on), conditions: text(row.conditions),
     maximumDurationMinutes: typeof row.maximum_duration_minutes === "number" ? row.maximum_duration_minutes : null,
-    maximumFrequency: text(row.maximum_frequency), status: text(row.status) as RestrictivePracticeAuthorisation["status"]
+    maximumFrequency: text(row.maximum_frequency), approvalStatus: text(row.approval_status) === "Unapproved" ? "Unapproved" : "Approved", status: text(row.status) as RestrictivePracticeAuthorisation["status"]
   }));
 }
 
@@ -39,7 +39,7 @@ export async function saveRestrictivePracticeAuthorisation(record: RestrictivePr
     id: record.id, organisation_id: organisationId, participant_id: record.participantId, house_id: record.houseId || null, practice_type: record.practiceType,
     practice_name: record.practiceName, behaviour_support_plan: record.behaviourSupportPlan, authorising_body: record.authorisingBody,
     authorisation_reference: record.authorisationReference, starts_on: record.startsOn, expires_on: record.expiresOn, conditions: record.conditions,
-    maximum_duration_minutes: record.maximumDurationMinutes, maximum_frequency: record.maximumFrequency, status: record.status, updated_at: new Date().toISOString()
+    maximum_duration_minutes: record.maximumDurationMinutes, maximum_frequency: record.maximumFrequency, approval_status: record.approvalStatus, status: record.status, updated_at: new Date().toISOString()
   }});
   return { saved: Boolean(result.data && !result.error), error: result.error };
 }
@@ -51,7 +51,7 @@ export async function getRestrictivePracticeUses() {
     id: text(row.id), authorisationId: text(row.authorisation_id), participantId: text(row.participant_id), houseId: text(row.house_id), usedAt: text(row.used_at), endedAt: text(row.ended_at),
     triggerContext: text(row.trigger_context), alternativesAttempted: text(row.alternatives_attempted), implementation: text(row.implementation), participantResponse: text(row.participant_response),
     monitoring: text(row.monitoring), recoverySupport: text(row.recovery_support), injuryOrHarm: Boolean(row.injury_or_harm), injurySummary: text(row.injury_summary),
-    matchedAuthorisation: row.matched_authorisation !== false, varianceDetails: text(row.variance_details), staffNames: text(row.staff_names), notifications: text(row.notifications),
+    approvalStatus: text(row.approval_status) === "Unapproved" ? "Unapproved" : "Approved", matchedAuthorisation: row.matched_authorisation !== false, varianceDetails: text(row.variance_details), staffNames: text(row.staff_names), notifications: text(row.notifications),
     status: text(row.status) as RestrictivePracticeUse["status"], linkedIncidentId: text(row.linked_incident_id) || undefined
   }));
 }
@@ -63,7 +63,7 @@ export async function saveRestrictivePracticeUse(record: RestrictivePracticeUse)
     id: record.id, organisation_id: organisationId, authorisation_id: record.authorisationId || null, participant_id: record.participantId, house_id: record.houseId || null,
     used_at: record.usedAt, ended_at: record.endedAt || null, trigger_context: record.triggerContext, alternatives_attempted: record.alternativesAttempted,
     implementation: record.implementation, participant_response: record.participantResponse, monitoring: record.monitoring, recovery_support: record.recoverySupport,
-    injury_or_harm: record.injuryOrHarm, injury_summary: record.injurySummary, matched_authorisation: record.matchedAuthorisation,
+    injury_or_harm: record.injuryOrHarm, injury_summary: record.injurySummary, approval_status: record.approvalStatus, matched_authorisation: record.matchedAuthorisation,
     variance_details: record.varianceDetails, staff_names: record.staffNames, notifications: record.notifications, status: record.status,
     linked_incident_id: record.linkedIncidentId || null, updated_at: new Date().toISOString()
   }});

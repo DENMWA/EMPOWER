@@ -20,6 +20,7 @@ create table if not exists public.restrictive_practice_authorisations (
   behaviour_support_plan text not null default '', authorising_body text not null default '', authorisation_reference text not null,
   starts_on date not null, expires_on date not null, conditions text not null default '', maximum_duration_minutes integer null check (maximum_duration_minutes is null or maximum_duration_minutes > 0),
   maximum_frequency text not null default '', status text not null default 'Active' check (status in ('Active','Suspended','Expired')),
+  approval_status text not null default 'Approved' check (approval_status in ('Approved','Unapproved')),
   created_by uuid not null default auth.uid() references public.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   constraint restrictive_practice_authorisation_dates check (expires_on >= starts_on)
 );
@@ -32,6 +33,7 @@ create table if not exists public.restrictive_practice_uses (
   used_at timestamptz not null, ended_at timestamptz null, trigger_context text not null default '', alternatives_attempted text not null default '',
   implementation text not null, participant_response text not null default '', monitoring text not null default '', recovery_support text not null default '',
   injury_or_harm boolean not null default false, injury_summary text not null default '', matched_authorisation boolean not null default true,
+  approval_status text not null default 'Approved' check (approval_status in ('Approved','Unapproved')),
   variance_details text not null default '', staff_names text not null default '', notifications text not null default '',
   status text not null default 'Draft' check (status in ('Draft','Submitted','Reviewed')), linked_incident_id text null,
   recorded_by uuid not null default auth.uid() references public.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
@@ -39,6 +41,13 @@ create table if not exists public.restrictive_practice_uses (
 );
 create index if not exists idx_rp_uses_org_month on public.restrictive_practice_uses (organisation_id, used_at desc);
 create index if not exists idx_rp_uses_participant on public.restrictive_practice_uses (organisation_id, participant_id, used_at desc);
+
+alter table public.restrictive_practice_authorisations add column if not exists approval_status text not null default 'Approved';
+alter table public.restrictive_practice_uses add column if not exists approval_status text not null default 'Approved';
+alter table public.restrictive_practice_authorisations drop constraint if exists restrictive_practice_authorisations_approval_status_check;
+alter table public.restrictive_practice_authorisations add constraint restrictive_practice_authorisations_approval_status_check check (approval_status in ('Approved','Unapproved'));
+alter table public.restrictive_practice_uses drop constraint if exists restrictive_practice_uses_approval_status_check;
+alter table public.restrictive_practice_uses add constraint restrictive_practice_uses_approval_status_check check (approval_status in ('Approved','Unapproved'));
 
 alter table public.restrictive_practice_authorisations enable row level security;
 alter table public.restrictive_practice_uses enable row level security;

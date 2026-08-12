@@ -109,6 +109,7 @@ test("restrictive practice reporting remains separate, tenant scoped, and incide
   assert.match(policy, /enable row level security/g);
   assert.match(policy, /organisation_id\s*=\s*public\.current_user_organisation_id\(\)/);
   assert.match(policy, /revoke delete/);
+  assert.match(policy, /approval_status text not null default 'Approved'/);
   assert.match(records, /restrictive_practice_authorisations/);
   assert.match(records, /restrictive_practice_uses/);
   assert.match(form, /rpUseId/);
