@@ -323,13 +323,23 @@ test("staff credential expiry tracking is tenant scoped, audited and advisory", 
   assert.doesNotMatch(migration, /support_shifts|roster_shifts/);
 });
 
-test("handover communication book is house scoped and acknowledged", async () => {
-  const [workspace, records, migration, shell] = await Promise.all([source("components/handover/HandoverWorkspace.tsx"), source("lib/handover-records.ts"), source("supabase/handover-communication-book.sql"), source("components/AppShell.tsx")]);
+test("handover communication book supports house, client and operational scopes", async () => {
+  const [workspace, records, migration, flexibleScope, shell] = await Promise.all([source("components/handover/HandoverWorkspace.tsx"), source("lib/handover-records.ts"), source("supabase/handover-communication-book.sql"), source("supabase/flexible-handover-scope.sql"), source("components/AppShell.tsx")]);
   assert.match(workspace, /Last 24 hours/); assert.match(workspace, /Mark as read/);
   assert.match(records, /getRecentHandovers\(hours = 24\)/);
   assert.match(migration, /private\.current_user_can_access_house\(house_id\)/);
   assert.match(migration, /private\.current_user_can_access_participant\(participant_id\)/);
   assert.match(migration, /handover_acknowledged/); assert.match(shell, /href: "\/handover"/);
+  assert.match(flexibleScope, /scope_type = 'house'/);
+  assert.match(flexibleScope, /scope_type = 'client'/);
+  assert.match(flexibleScope, /scope_type = 'organisation'.*category = 'operational'/s);
+  assert.match(flexibleScope, /private\.current_user_can_access_participant\(participant_id\)/);
+  assert.match(workspace, /Handover for/);
+  assert.match(workspace, /In-home, community or individual support/);
+  assert.match(workspace, /Do not include client information/);
+  assert.match(workspace, /scopeType === "house" && !houseId/);
+  assert.match(workspace, /scopeType === "client" && !participantId/);
+  assert.match(records, /scope_type: input\.scopeType/);
 });
 
 test("worker dashboard opens with a house-scoped incoming handover panel", async () => {
