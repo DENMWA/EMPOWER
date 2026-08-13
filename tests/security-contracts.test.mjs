@@ -177,10 +177,11 @@ test("organisation invitations deliver before activating tenant membership", asy
   assert.match(inviteRoute, /type: "invite", email, redirect_to: redirectTo/);
   assert.match(inviteRoute, /type: "magiclink", email, redirect_to: redirectTo/);
   assert.match(inviteRoute, /body\.properties\?\.action_link \|\| body\.action_link/);
+  assert.match(inviteRoute, /Create password and join/);
+  assert.match(acceptance, /requiresPassword \? "Create password and join"/);
   assert.match(inviteRoute, /invite_status: "Draft"[\s\S]*organisation_invites/);
   assert.match(inviteRoute, /status: "failed"/);
   assert.match(inviteRoute, /generatedNewAuthUser.*deleteAuthUser/s);
-  assert.match(inviteRoute, /Accept EmpowerNotes invitation/);
   assert.doesNotMatch(inviteRoute, /body:\s*JSON\.stringify\(\{[\s\S]*organisation_id:\s*body\./);
   assert.match(form, /sendInvitationEmail\(\{[\s\S]*staffId/);
   assert.match(form, /Access will activate after acceptance/);

@@ -59,8 +59,8 @@ export function InviteAcceptanceForm() {
       <div className="flex items-center gap-3">
         {complete ? <CheckCircle2 className="text-emerald-600" aria-hidden="true" /> : <UserCheck className="text-teal-700" aria-hidden="true" />}
         <div>
-          <h2 className="text-xl font-bold text-ink">{complete ? "Invitation accepted" : "Join your workspace"}</h2>
-          <p className="mt-1 text-sm text-slate-600">Your role and access are verified when you continue.</p>
+          <h2 className="text-xl font-bold text-ink">{complete ? "Invitation accepted" : requiresPassword ? "Create your password" : "Join your workspace"}</h2>
+          <p className="mt-1 text-sm text-slate-600">{requiresPassword ? "Choose your password before entering the workspace." : "Your role and access are verified when you continue."}</p>
         </div>
       </div>
       {!complete && requiresPassword ? (
@@ -71,7 +71,7 @@ export function InviteAcceptanceForm() {
       ) : null}
       {!complete && signedIn && invitationId ? (
         <button type="button" onClick={acceptInvitation} disabled={busy} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-md bg-sea px-5 text-sm font-semibold text-white shadow-lift disabled:bg-slate-400">
-          {busy ? "Verifying invitation..." : "Accept invitation"}
+          {busy ? "Setting up workspace..." : requiresPassword ? "Create password and join" : "Accept invitation"}
         </button>
       ) : null}
       {!complete && !signedIn && invitationId ? (
