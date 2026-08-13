@@ -80,11 +80,11 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
     }
     const fullOrganisationAccess = ["owner", "admin", "sole_provider"].includes(membership.role);
     const locations = await rows<{ id: string }>(url, headers, `service_locations?select=id&organisation_id=eq.${organisationId}&status=eq.active`);
-    const activeHouseIds = fullOrganisationAccess
-      ? locations.map((house) => house.id)
-      : (await rows<{ house_id: string }>(url, headers,
+    const assignedHouseIds = fullOrganisationAccess ? [] : (await rows<{ house_id: string }>(url, headers,
         `staff_house_assignments?select=house_id&organisation_id=eq.${organisationId}&user_id=eq.${authUser.id}&status=in.(active,scheduled)&start_date=lte.${today()}&or=(end_date.is.null,end_date.gte.${today()})`))
         .map((assignment) => assignment.house_id);
+    const unrestrictedOrganisationAccess = fullOrganisationAccess || assignedHouseIds.length === 0;
+    const activeHouseIds = unrestrictedOrganisationAccess ? locations.map((house) => house.id) : assignedHouseIds;
     if (requested.houseId && !activeHouseIds.includes(requested.houseId)) {
       securityEvent("house_scope_denied", { actorUserId: authUser.id, resourceId: requested.houseId, endpoint: new URL(request.url).pathname, correlationId });
       return denied(403, "This house is outside your active assignment.", correlationId);
@@ -94,7 +94,7 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
     const participantHouses = houseFilter.length ? await rows<{ participant_id: string }>(url, headers,
       `participant_house_assignments?select=participant_id&organisation_id=eq.${organisationId}&house_id=in.(${houseFilter.map(encodeURIComponent).join(",")})&status=in.(active,scheduled)&start_date=lte.${today()}&or=(end_date.is.null,end_date.gte.${today()})`) : [];
     const directAssignments = await rows<{ participant_id: string }>(url, headers, `participant_assignments?select=participant_id&organisation_id=eq.${organisationId}&user_id=eq.${authUser.id}`);
-    const organisationParticipants = !locations.length || fullOrganisationAccess
+    const organisationParticipants = !locations.length || unrestrictedOrganisationAccess
       ? await rows<{ id: string }>(url, headers, `participants_or_clients?select=id&organisation_id=eq.${organisationId}&status=eq.active`)
       : [];
     const accessibleParticipantIds = [...new Set([

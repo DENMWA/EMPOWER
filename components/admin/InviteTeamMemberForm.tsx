@@ -23,7 +23,7 @@ export function InviteTeamMemberForm() {
   const [houses, setHouses] = useState<HouseRecord[]>([]);
   const [realMode, setRealMode] = useState(false);
   const [assignedParticipants, setAssignedParticipants] = useState<string[]>([]);
-  const [houseAccessMode, setHouseAccessMode] = useState<"all" | "selected">("selected");
+  const [houseAccessMode, setHouseAccessMode] = useState<"all" | "selected">("all");
   const [assignedHouseIds, setAssignedHouseIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
@@ -57,17 +57,6 @@ export function InviteTeamMemberForm() {
     window.addEventListener("empowernotes:data-mode-updated", syncDataMode);
     return () => window.removeEventListener("empowernotes:data-mode-updated", syncDataMode);
   }, []);
-
-  useEffect(() => {
-    if (!assignedHouseIds.length && houses[0]) {
-      setAssignedHouseIds([houses[0].id]);
-      return;
-    }
-
-    if (!houses.length && assignedHouseIds.length) {
-      setAssignedHouseIds([]);
-    }
-  }, [assignedHouseIds, houses]);
 
   useEffect(() => {
     const scopedParticipantIds = new Set(houseScopedParticipants.map((participant) => participant.id));
@@ -252,7 +241,7 @@ export function InviteTeamMemberForm() {
             <input type="radio" className="mt-1 h-4 w-4 accent-teal-700" checked={houseAccessMode === "all"} onChange={() => setHouseAccessMode("all")} />
             <span>
               <span className="block font-semibold text-ink">All houses/services</span>
-              <span className="block text-slate-600">This staff member can document across every current house/service.</span>
+              <span className="block text-slate-600">No house restriction. All organisation clients will be available, including in-home services.</span>
             </span>
           </label>
           <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">

@@ -203,8 +203,9 @@ test("organisation invitations deliver before activating tenant membership", asy
 });
 
 test("roles determine features while dated house assignments determine participant scope", async () => {
-  const [migration, context, invite, accept, form, permissions, houses, clients, clientRoute, roster, selector] = await Promise.all([
+  const [migration, unrestrictedMigration, context, invite, accept, form, permissions, houses, clients, clientRoute, roster, selector] = await Promise.all([
     source("supabase/house-scoped-access.sql"),
+    source("supabase/unassigned-staff-organisation-client-access.sql"),
     source("lib/security/user-access-context.ts"),
     source("app/api/team/invite/route.ts"),
     source("app/api/team/invite/accept/route.ts"),
@@ -228,6 +229,8 @@ test("roles determine features while dated house assignments determine participa
   assert.match(migration, /Backfilled from existing staff house access/);
   assert.match(migration, /not exists \(select 1 from public\.service_locations h where h\.organisation_id = p\.organisation_id/);
   assert.match(migration, /private\.current_user_can_access_participant/);
+  assert.match(unrestrictedMigration, /not exists \([\s\S]*public\.staff_house_assignments sha/);
+  assert.match(unrestrictedMigration, /sha\.organisation_id = om\.organisation_id/);
   assert.match(migration, /revoke all on schema private from public, anon/);
   assert.match(migration, /validate_shift_staff_house_eligibility/);
   assert.match(migration, /The selected worker is not assigned to this house on the shift date/);
@@ -235,6 +238,7 @@ test("roles determine features while dated house assignments determine participa
   assert.match(context, /memberships\.find\(\(item\) => item\.organisation_id === requestedOrganisationId\)/);
   assert.match(context, /requested\.houseId && !activeHouseIds\.includes/);
   assert.match(context, /requested\.participantId && !accessibleParticipantIds\.includes/);
+  assert.match(context, /unrestrictedOrganisationAccess = fullOrganisationAccess \|\| assignedHouseIds\.length === 0/);
   assert.match(context, /employmentType/);
   assert.match(invite, /employment_type: employmentType/);
   assert.match(invite, /assignment_start_date: assignmentStartDate/);
@@ -242,6 +246,8 @@ test("roles determine features while dated house assignments determine participa
   assert.match(accept, /invite\.assignment_end_date/);
   assert.match(form, /Employment type/);
   assert.match(form, /Optional participant-specific access/);
+  assert.match(form, /useState<"all" \| "selected">\("all"\)/);
+  assert.match(form, /including in-home services/);
   assert.match(form, /rolePermissionTemplates\[role\]/);
   assert.match(permissions, /finance_officer:[\s\S]*billing\.view/);
   assert.doesNotMatch(permissions, /finance_officer:[^\n]*notes\.view/);
