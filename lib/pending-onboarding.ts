@@ -1,5 +1,7 @@
 import { createCurrentUserOrganisation } from "@/lib/supabase-rest";
 import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { getMarketingVisitorId } from "@/lib/marketing/client";
+import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 
 const pendingOnboardingKey = "empowernotes:pending-onboarding";
 
@@ -40,6 +42,15 @@ export async function completePendingOnboarding() {
       completed: false,
       error: "We could not finish setting up your workspace. Please try again shortly or contact support."
     };
+  }
+
+  const visitorId = getMarketingVisitorId();
+  if (visitorId) {
+    void fetch("/api/marketing/signup", {
+      method: "POST",
+      headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ visitorId })
+    }).catch(() => undefined);
   }
 
   window.localStorage.removeItem(pendingOnboardingKey);

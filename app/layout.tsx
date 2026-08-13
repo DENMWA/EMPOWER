@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
+import { MarketingAttribution } from "@/components/marketing/MarketingAttribution";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.empowernotes.org";
 const seoDescription =
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en-AU">
       <body>
+        <MarketingAttribution />
         <AppShell>{children}</AppShell>
       </body>
     </html>

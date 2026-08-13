@@ -8,6 +8,7 @@ import {
   type StripeInvoice,
   type StripeSubscription
 } from "@/lib/stripe/server";
+import { recordSubscriptionMarketingConversion } from "@/lib/marketing/server";
 
 export const runtime = "nodejs";
 
@@ -36,12 +37,15 @@ export async function POST(request: Request) {
       const session = event.data?.object || {};
       const subscriptionId = stringId(session.subscription);
       const organisationId = stringValue(session.client_reference_id) || metadataValue(session, "organisation_id");
-      if (subscriptionId && organisationId) await retrieveAndSync(subscriptionId, organisationId);
+      if (subscriptionId && organisationId) {
+        await retrieveAndSync(subscriptionId, organisationId);
+      }
     } else if (event.type?.startsWith("customer.subscription.")) {
       const subscription = event.data?.object as StripeSubscription | undefined;
       if (subscription?.id) {
         const organisationId = await findOrganisationForSubscription(subscription);
         if (organisationId) await ensureSynced(organisationId, subscription);
+        if (organisationId && subscription.status === "active") await recordSubscriptionMarketingConversion(organisationId, subscription.id).catch(() => undefined);
       }
     } else if (event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
       const invoice = (event.data?.object || {}) as StripeInvoice;
@@ -50,6 +54,7 @@ export async function POST(request: Request) {
       if (organisationId) {
         const ledger = await recordSubscriptionInvoice(organisationId, invoice, event.id || "", event.type);
         if (ledger.error) throw new Error(ledger.error);
+        if (event.type === "invoice.payment_succeeded" && subscriptionId) await recordSubscriptionMarketingConversion(organisationId, subscriptionId).catch(() => undefined);
       }
     }
   } catch {

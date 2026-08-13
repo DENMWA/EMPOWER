@@ -10,6 +10,7 @@ import { setDataMode } from "@/lib/presentation-mode";
 import { setCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
 import { subscriptionTiers, type SubscriptionTier } from "@/lib/subscriptions/tiers";
 import { selfServicePlans } from "@/lib/pricing-data";
+import { trackMarketingEvent } from "@/lib/marketing/client";
 
 const planOptions = selfServicePlans.map(({ tier, price }) => ({ tier, price }));
 
@@ -53,6 +54,7 @@ export function SimpleSignupForm() {
 
     setBusy(true);
     setMessage("");
+    void trackMarketingEvent("signup_started", { plan: tier, providerType });
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     savePendingOnboarding({
       organisationName: cleanOrganisation,

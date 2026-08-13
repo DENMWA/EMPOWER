@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";import { recordMarketingEvent } from "@/lib/marketing/server";
+export const runtime="nodejs";export async function POST(request:Request){const length=Number(request.headers.get("content-length")||0);if(length>8192)return NextResponse.json({error:"Payload too large."},{status:413});try{const body=await request.json() as Record<string,unknown>;return NextResponse.json(await recordMarketingEvent(body));}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Invalid marketing event."},{status:400})}}

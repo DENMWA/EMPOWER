@@ -921,6 +921,39 @@ test("official NDIS pricing updates remain draft until the platform owner publis
   assert.match(vercel, /ndis-pricing-monitor/);
 });
 
+test("marketing attribution is first party, bounded, platform private and Stripe authoritative", async () => {
+  const [client, attribution, server, events, signup, webhook, migration, layout, panel] = await Promise.all([
+    source("lib/marketing/client.ts"), source("lib/marketing/attribution.ts"), source("lib/marketing/server.ts"),
+    source("app/api/marketing/events/route.ts"), source("app/api/marketing/signup/route.ts"),
+    source("app/api/stripe/webhook/route.ts"), source("supabase/marketing-attribution-v1.sql"),
+    source("app/layout.tsx"), source("components/platform/MarketingAttributionPanel.tsx")
+  ]);
+  assert.match(client, /crypto\.randomUUID/);
+  assert.match(client, /empower_visitor_id/);
+  assert.match(client, /oppref/);
+  assert.match(client, /gclid/);
+  assert.match(attribution, /openai_ads/);
+  assert.match(attribution, /google_ads/);
+  assert.match(server, /marketingEventNames\.includes/);
+  assert.match(server, /allowedMetadata/);
+  assert.doesNotMatch(server, /participant_name|ndis_number|progress_note|incident_text|medical_condition|support_plan|medication|restrictive_practice|auth_token/);
+  assert.match(events, /content-length/);
+  assert.match(signup, /resolveUserAccessContext/);
+  assert.match(webhook, /recordSubscriptionMarketingConversion/);
+  assert.match(migration, /enable row level security/g);
+  assert.match(migration, /revoke all .* from anon,authenticated/g);
+  assert.match(layout, /MarketingAttribution/);
+  assert.match(panel, /First-party attribution/);
+});
+
+test("advertising tracking is excluded from authenticated care routes", async () => {
+  const tracker = await source("components/marketing/MarketingAttribution.tsx");
+  assert.match(tracker, /publicRoutes/);
+  for (const path of ["participants", "notes", "incidents", "documents", "billing", "handover", "restrictive-practices"]) {
+    assert.doesNotMatch(tracker, new RegExp(`/${path}`));
+  }
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),
