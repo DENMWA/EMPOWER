@@ -142,18 +142,23 @@ export async function POST(request: NextRequest) {
   await audit(url, headers, access, invitationId, "staff_invite_created", { email, role });
 
   let authUserId = authUser?.id || "";
-  let invitationUrl = `${appUrl}/signin?next=${encodeURIComponent(`/auth/accept-invite?id=${invitationId}`)}`;
+  let invitationUrl = "";
   let generatedNewAuthUser = false;
-  if (!authUserId) {
+  {
     const redirectTo = `${appUrl}/auth/accept-invite?id=${invitationId}`;
+    const linkType = authUserId ? "magiclink" : "invite";
     const linkResponse = await fetch(`${url}/auth/v1/admin/generate_link`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ type: "invite", email, redirect_to: redirectTo, data: { name, invitation_id: invitationId } }),
+      body: JSON.stringify(linkType === "invite"
+        ? { type: "invite", email, redirect_to: redirectTo, data: { name, invitation_id: invitationId } }
+        : { type: "magiclink", email, redirect_to: redirectTo }),
       cache: "no-store"
     });
-    const linkBody = await readJson<{ action_link?: string; user?: { id?: string }; msg?: string; message?: string }>(linkResponse);
-    if (!linkResponse.ok || !linkBody.action_link || !linkBody.user?.id) {
+    const linkBody = await readJson<AuthLinkResponse>(linkResponse);
+    const actionLink = getAuthActionLink(linkBody);
+    const linkedUserId = linkBody.user?.id || authUserId;
+    if (!linkResponse.ok || !actionLink || !linkedUserId) {
       const category = linkResponse.status === 429 ? "rate_limit" : /authoriz|smtp|email/i.test(linkBody.msg || linkBody.message || "") ? "email_configuration" : "auth_api";
       await markFailed(url, headers, invitationId, category);
       await audit(url, headers, access, invitationId, "staff_invite_failed", { email, role, category });
@@ -164,9 +169,9 @@ export async function POST(request: NextRequest) {
           : "A secure invitation link could not be generated. Please retry or check Supabase Auth logs.";
       return invitationError(category, message, linkResponse.status === 429 ? 429 : 502);
     }
-    authUserId = linkBody.user.id;
-    invitationUrl = linkBody.action_link;
-    generatedNewAuthUser = true;
+    authUserId = linkedUserId;
+    invitationUrl = actionLink;
+    generatedNewAuthUser = linkType === "invite";
   }
 
   const organisation = await getRows<{ name: string }>(url, headers, `organisations?select=name&id=eq.${access.organisationId}&limit=1`);
@@ -260,6 +265,18 @@ async function deleteAuthUser(url: string, headers: Record<string, string>, id: 
 
 async function readJson<T>(response: Response): Promise<T> {
   try { return await response.json() as T; } catch { return {} as T; }
+}
+
+type AuthLinkResponse = {
+  action_link?: string;
+  properties?: { action_link?: string };
+  user?: { id?: string };
+  msg?: string;
+  message?: string;
+};
+
+function getAuthActionLink(body: AuthLinkResponse) {
+  return body.properties?.action_link || body.action_link || "";
 }
 
 function invitationError(category: string, error: string, status: number) {

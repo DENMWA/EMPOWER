@@ -175,6 +175,8 @@ test("organisation invitations deliver before activating tenant membership", asy
   assert.match(inviteRoute, /role_escalation/);
   assert.match(inviteRoute, /organisation_memberships\?select=id&organisation_id=eq\.\$\{access\.organisationId\}/);
   assert.match(inviteRoute, /type: "invite", email, redirect_to: redirectTo/);
+  assert.match(inviteRoute, /type: "magiclink", email, redirect_to: redirectTo/);
+  assert.match(inviteRoute, /body\.properties\?\.action_link \|\| body\.action_link/);
   assert.match(inviteRoute, /invite_status: "Draft"[\s\S]*organisation_invites/);
   assert.match(inviteRoute, /status: "failed"/);
   assert.match(inviteRoute, /generatedNewAuthUser.*deleteAuthUser/s);
