@@ -107,12 +107,29 @@ export function NativeBillingWorkspace() {
   const clientInvoices = selectedClient ? records.invoices.filter((invoice) => invoice.participantId === selectedClient.id) : [];
   const clientInvoiceIds = new Set(clientInvoices.map((invoice) => invoice.id));
   const exceptionLines = records.invoiceLines.filter((line) => line.exceptionReason && clientInvoiceIds.has(line.invoiceId));
-  const completedRosterServices = selectedClient ? rosterServices.filter((shift) =>
-    shift.participantId === selectedClient.id
-      && (shift.status === "Completed" || shift.status === "Note Completed")
-      && shift.shiftDate >= invoicePeriodStart
-      && shift.shiftDate <= invoicePeriodEnd
-  ) : [];
+  const deliveredServices = selectedClient ? records.shifts.filter((service) =>
+    service.participantId === selectedClient.id
+      && service.status === "completed"
+      && service.startTime.slice(0, 10) >= invoicePeriodStart
+      && service.startTime.slice(0, 10) <= invoicePeriodEnd
+  ).sort((left, right) => left.startTime.localeCompare(right.startTime)) : [];
+  const deliveredHours = deliveredServices.reduce((total, service) => total + formatServiceHours(service.startTime, service.endTime), 0);
+  const invoiceServiceRows: RosterShift[] = deliveredServices.map((service) => rosterServices.find((shift) => shift.id === service.rosterShiftId) || {
+    id: service.rosterShiftId || service.id,
+    participantId: service.participantId,
+    participantName: service.participantName,
+    workerId: service.staffId,
+    workerName: service.staffName,
+    supportType: service.supportType,
+    shiftDate: service.startTime.slice(0, 10),
+    startTime: formatServiceTime(service.startTime),
+    endTime: formatServiceTime(service.endTime),
+    location: service.location,
+    shiftInstructions: "",
+    status: "Completed",
+    noteRequired: false,
+    noteCompleted: Boolean(service.noteRecordId)
+  });
   const invoicePreview = getInvoicePreview(records, selectedInvoiceServices, serviceRateDrafts, includedTravel);
 
   useEffect(() => {
@@ -546,7 +563,7 @@ export function NativeBillingWorkspace() {
             <ClientIdentity client={selectedClient} detail={`Client No. ${formatClientNumber(selectedClient.id)} · ${selectedClient.primaryHouseName || selectedClient.serviceName || "No house assigned"}`} />
             <div className="mt-3 flex flex-wrap gap-2">
               <StatusBadge label={selectedAgreement ? "Active agreement" : "No active agreement"} tone={selectedAgreement ? "green" : "amber"} />
-              <StatusBadge label={`${completedRosterServices.length} delivered supports`} tone="blue" />
+              <StatusBadge label={`${deliveredServices.length} delivered supports`} tone="blue" />
               <StatusBadge label={`${exceptionLines.length} exceptions`} tone={exceptionLines.length ? "amber" : "green"} />
             </div>
           </div> : null}
@@ -746,7 +763,7 @@ export function NativeBillingWorkspace() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold text-ink">Delivered services</h2>
-              <p className="mt-1 text-sm text-slate-600">Choose services, confirm rates, then generate the invoice.</p>
+              <p className="mt-1 text-sm text-slate-600">Review delivered hours, choose a price, then create the invoice.</p>
             </div>
             <button type="button" onClick={() => setShowBillingSetup((current) => !current)} className="min-h-11 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink">
               {showBillingSetup ? "Hide pricing and agreement" : "Manage pricing and agreement"}
@@ -762,10 +779,15 @@ export function NativeBillingWorkspace() {
           <div className={`mt-4 rounded-md border px-3 py-2 text-sm ${activePricingVersion ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
             <span className="font-semibold">NDIS Pricing:</span> {activePricingVersion ? `${activePricingVersion.versionName} · effective ${activePricingVersion.effectiveFrom}` : "No active NDIS pricing version"}
           </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <SummaryValue label="Services rendered" value={String(deliveredServices.length)} />
+            <SummaryValue label="Hours delivered" value={formatQuantity(deliveredHours)} />
+            <SummaryValue label="Client" value={selectedClient?.name || "None selected"} />
+          </div>
           <div className="mt-4 space-y-3">
-            {!completedRosterServices.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No completed roster services are available for this client.</p> : null}
-            {completedRosterServices.map((shift) => {
-              const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
+            {!invoiceServiceRows.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No delivered services were recorded for this client in the selected period.</p> : null}
+            {invoiceServiceRows.map((shift) => {
+              const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id || item.id === shift.id);
               const availableAgreementItems = billingService
                 ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
                 : [];
@@ -924,7 +946,7 @@ export function NativeBillingWorkspace() {
                 <div><p className="font-semibold text-ink">{line.date} · {line.code || "Support code required"}</p><p className="mt-1 text-slate-600">{line.quantity} {line.unit} · {line.source}</p></div>
                 <p className="font-bold text-ink">{formatMoney(line.amount)}</p>
               </div>)}
-              {!invoicePreview.lines.length ? <p className="text-sm text-slate-600">Select linked services to preview the invoice.</p> : null}
+              {!invoicePreview.lines.length ? <p className="text-sm text-slate-600">Choose delivered services to preview the invoice.</p> : null}
             </div>
           </div> : null}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -1170,4 +1192,10 @@ function getRatioStaffCount(ratio?: string) {
 
 function formatServiceHours(start: string, end: string) {
   return Math.max(0, Math.round(((new Date(end).getTime() - new Date(start).getTime()) / 3_600_000) * 100) / 100);
+}
+
+function formatServiceTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(11, 16);
+  return date.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false });
 }

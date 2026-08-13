@@ -796,6 +796,17 @@ test("invoice pricing requires an explicit exact-price authorisation", async () 
   assert.match(workspace, /source === "service_agreement" && !availableAgreementItems\.length/);
 });
 
+test("invoice workspace renders durable completed services with delivered hours", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /const deliveredServices = selectedClient \? records\.shifts\.filter/);
+  assert.match(workspace, /service\.status === "completed"/);
+  assert.match(workspace, /const deliveredHours = deliveredServices\.reduce/);
+  assert.match(workspace, /Services rendered/);
+  assert.match(workspace, /Hours delivered/);
+  assert.match(workspace, /invoiceServiceRows\.map/);
+  assert.doesNotMatch(workspace, /Select linked services|Link service/);
+});
+
 test("linked services can select any active NDIS service price", async () => {
   const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
   assert.match(workspace, /Search code, service or category/);
