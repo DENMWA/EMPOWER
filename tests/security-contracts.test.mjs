@@ -883,6 +883,21 @@ test("delivered supports preselect a defensible NDIS code while retaining pricin
   assert.match(billing, /match\.confidence >= 20/);
 });
 
+test("NDIS pricing never presents missing catalogue values as zero-dollar rates", async () => {
+  const [workspace, cloud, billing, route] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing-cloud.ts"),
+    source("lib/native-billing.ts"),
+    source("app/api/billing/import-ndis-catalogue/route.ts")
+  ]);
+  assert.match(cloud, /Number\.isFinite\(number\) && number > 0 \? number : null/);
+  assert.match(billing, /typeof item\.priceLimit === "number" && item\.priceLimit > 0/);
+  assert.match(workspace, /formatPositiveRate/);
+  assert.match(workspace, /no usable positive price/);
+  assert.match(route, /price_limit=gt\.0/);
+  assert.match(route, /cannot be activated/);
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),

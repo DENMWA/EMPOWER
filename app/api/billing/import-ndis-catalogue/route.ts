@@ -75,6 +75,9 @@ export async function PATCH(request: Request) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return NextResponse.json({ error: "Secure NDIS pricing activation is not configured." }, { status: 503 });
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
+  const pricedItemsResponse = await fetch(`${url}/rest/v1/ndis_support_items?pricing_version_id=eq.${encodeURIComponent(versionId)}&price_limit=gt.0&select=id&limit=1`, { headers });
+  const pricedItems = pricedItemsResponse.ok ? await pricedItemsResponse.json() as Array<{ id: string }> : [];
+  if (!pricedItems.length) return NextResponse.json({ error: "This catalogue has no positive NDIS prices and cannot be activated. Re-import the official NDIA pricing CSV." }, { status: 422 });
   const currentResponse = await fetch(`${url}/rest/v1/ndis_pricing_versions?organisation_id=eq.${encodeURIComponent(access.organisationId)}&status=eq.active`, { method: "PATCH", headers, body: JSON.stringify({ status: "superseded" }) });
   if (!currentResponse.ok) return NextResponse.json({ error: "The existing catalogue version could not be superseded." }, { status: 502 });
   const response = await fetch(`${url}/rest/v1/ndis_pricing_versions?id=eq.${encodeURIComponent(versionId)}&organisation_id=eq.${encodeURIComponent(access.organisationId)}&status=eq.draft`, { method: "PATCH", headers: { ...headers, Prefer: "return=representation" }, body: JSON.stringify({ status: "active", reviewed_by: access.userId, reviewed_at: new Date().toISOString(), activated_by: access.userId, activated_at: new Date().toISOString() }) });

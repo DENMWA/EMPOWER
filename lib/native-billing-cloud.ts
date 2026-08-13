@@ -470,5 +470,8 @@ function asNumber(value: unknown) {
 }
 
 function asNullableNumber(value: unknown) {
-  return value == null || value === "" ? null : asNumber(value);
+  if (value == null || value === "") return null;
+  const normalised = typeof value === "string" ? value.replace(/[$,\s]/g, "") : value;
+  const number = Number(normalised);
+  return Number.isFinite(number) && number > 0 ? number : null;
 }

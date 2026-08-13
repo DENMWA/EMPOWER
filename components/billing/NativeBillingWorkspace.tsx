@@ -203,7 +203,7 @@ export function NativeBillingWorkspace() {
     const supportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
     if (!supportItem) return;
     setSelectedSupportItemId(supportItem.id);
-    setAgreedRate(String(supportItem.priceLimit || ""));
+    setAgreedRate(supportItem.priceLimit && supportItem.priceLimit > 0 ? String(supportItem.priceLimit) : "");
     const unit = supportItem.unitType.toLowerCase();
     setRatePeriod(unit.includes("week") ? "week" : unit.includes("month") ? "month" : "hour");
   }, [selectedSupportItemId, supportItems]);
@@ -861,17 +861,17 @@ export function NativeBillingWorkspace() {
                         <input type="search" value={pricingSearch} onChange={(event) => setServicePricingSearches((current) => ({ ...current, [billingService.id]: event.target.value }))} placeholder="Search code, service or category" className="min-h-11 rounded-md border border-slate-300 bg-white px-3 font-normal text-ink" />
                         <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.ndisSupportItemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, ndisSupportItemId: event.target.value, itemId: rateDraft.source === "ndis_catalogue" ? event.target.value : rateDraft.itemId, approved: false } }))}>
                           <option value="">Confirm the applicable NDIS code</option>
-                          {visibleNdisItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - ${item.priceLimit?.toFixed(2)} / {item.unitType}{ndisMatches.some((match) => match.item.id === item.id) ? " - suggested" : ""}</option>)}
+                          {visibleNdisItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - {formatPositiveRate(item.priceLimit)} / {item.unitType}{ndisMatches.some((match) => match.item.id === item.id) ? " - suggested" : ""}</option>)}
                         </select>
                         {selectedNdisItem ? <span className="font-normal text-teal-800">Suggested from {billingService.supportType}. Confirm before invoicing.</span> : null}
-                        {!activeNdisItems.length ? <span className="font-normal text-amber-800">No active catalogue pricing is available for this service date.</span> : null}
+                        {!activeNdisItems.length ? <span className="font-normal text-amber-800">The active NDIS catalogue has no usable positive price for this service date. Import and activate the official pricing CSV.</span> : null}
                         {activeNdisItems.length && !visibleNdisItems.length ? <span className="font-normal text-amber-800">No active support items match this search.</span> : null}
                       </label>
                       {rateAboveLimit ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Rate exceeds selected NDIS price limit - review required.</p> : null}
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         <div className="rounded-md border border-teal-200 bg-white p-3 text-sm">
                           <p className="font-semibold text-ink">NDIS advised rate</p>
-                          <p className="mt-1 text-slate-700">{selectedNdisItem ? `${selectedNdisItem.supportItemNumber} · $${selectedNdisItem.priceLimit?.toFixed(2)} / ${selectedNdisItem.unitType}` : "No catalogue match available"}</p>
+                          <p className="mt-1 text-slate-700">{selectedNdisItem && selectedNdisItem.priceLimit && selectedNdisItem.priceLimit > 0 ? `${selectedNdisItem.supportItemNumber} · ${formatPositiveRate(selectedNdisItem.priceLimit)} / ${selectedNdisItem.unitType}` : "No priced catalogue match available"}</p>
                         </div>
                         <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
                           <p className="font-semibold text-ink">Service agreement rate</p>
@@ -1078,6 +1078,7 @@ function formatRateSource(source: InvoiceRateSource) {
 }
 
 function formatMoney(value: number) { return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(value); }
+function formatPositiveRate(value: number | null) { return value && value > 0 ? formatMoney(value) : "Price unavailable"; }
 function formatQuantity(value: number) { return Number.isInteger(value) ? String(value) : value.toFixed(2); }
 
 function BillingField({
@@ -1179,7 +1180,8 @@ function getActiveNdisItemsForService(service: NativeBillingRecords["shifts"][nu
   const suggestedOrder = new Map(matchNdisSupportItems(service, records.supportItems, records.pricingVersions).map((match, index) => [match.item.id, index]));
   return records.supportItems
     .filter((item) => activeVersionIds.has(item.pricingVersionId)
-      && item.priceLimit !== null
+      && typeof item.priceLimit === "number"
+      && item.priceLimit > 0
       && (!item.effectiveFrom || item.effectiveFrom <= serviceDate)
       && (!item.effectiveTo || item.effectiveTo >= serviceDate))
     .sort((left, right) => (suggestedOrder.get(left.id) ?? 999) - (suggestedOrder.get(right.id) ?? 999)

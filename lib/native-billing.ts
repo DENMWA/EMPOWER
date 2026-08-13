@@ -745,7 +745,7 @@ export function matchNdisSupportItems(shift: Pick<SupportShift, "supportType" | 
   const serviceTokens = tokenise(expandNdisServiceTerms(`${shift.supportType} ${shift.title}`));
   const expectedTimeBand = inferNdisTimeBand(shift.startTime);
   return items
-    .filter((item) => activeVersionIds.has(item.pricingVersionId) && item.priceLimit !== null && (!item.effectiveFrom || item.effectiveFrom <= serviceDate) && (!item.effectiveTo || item.effectiveTo >= serviceDate))
+    .filter((item) => activeVersionIds.has(item.pricingVersionId) && typeof item.priceLimit === "number" && item.priceLimit > 0 && (!item.effectiveFrom || item.effectiveFrom <= serviceDate) && (!item.effectiveTo || item.effectiveTo >= serviceDate))
     .map((item) => {
       const itemTokens = tokenise(`${item.supportItemName} ${item.supportCategory} ${item.registrationGroup} ${item.timeBand || ""} ${item.claimType}`);
       const overlap = serviceTokens.filter((token) => itemTokens.includes(token)).length;
