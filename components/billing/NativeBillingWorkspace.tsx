@@ -83,6 +83,7 @@ export function NativeBillingWorkspace() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
+  const [linkingServiceId, setLinkingServiceId] = useState("");
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
   const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
@@ -375,16 +376,39 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  function linkRenderedService(rosterShift: RosterShift) {
+  async function linkRenderedService(rosterShift: RosterShift) {
+    if (linkingServiceId) return;
     if (!selectedAgreement) {
       setMessage("Create an active service agreement for this client before linking delivered support.");
       return;
     }
+    setLinkingServiceId(rosterShift.id);
     const matchingNote = notes.find((note) => note.body.includes(rosterShift.participantName) || note.id.includes(rosterShift.participantId));
     const result = linkCompletedRosterService({ rosterShift, agreement: selectedAgreement, noteRecordId: matchingNote?.id });
-    setMessage(result.error || (matchingNote
-      ? "Completed service linked to its service agreement and progress-note evidence."
-      : "Completed service linked. The invoice will flag that supporting note evidence is missing."));
+    if (result.error || !result.shift) {
+      setMessage(result.error || "This completed service could not be linked.");
+      setLinkingServiceId("");
+      return;
+    }
+
+    setRecords(getNativeBillingRecords());
+    setServiceRateDrafts((current) => ({
+      ...current,
+      [result.shift!.id]: current[result.shift!.id] || getSuggestedRateDraft(result.shift!, getNativeBillingRecords())
+    }));
+    setMessage("Linking completed service...");
+    try {
+      await waitForNativeBillingSave();
+      setRecords(getNativeBillingRecords());
+      setMessage(matchingNote
+        ? "Completed service linked to its service agreement and progress-note evidence."
+        : "Completed service linked. The invoice will flag that supporting note evidence is missing.");
+    } catch (error) {
+      setRecords(getNativeBillingRecords());
+      setMessage(`The completed service was not linked. ${getBillingError(error)}`);
+    } finally {
+      setLinkingServiceId("");
+    }
   }
 
   function getTravelDraft(shiftId: string): TravelDraft {
@@ -767,8 +791,8 @@ export function NativeBillingWorkspace() {
                     {billingService ? <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">{formatServiceHours(billingService.startTime, billingService.endTime)} service hours</span> : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" disabled={linked} onClick={() => linkRenderedService(shift)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
-                      <ClipboardCheck size={16} aria-hidden="true" />{linked ? "Linked" : "Link service"}
+                    <button type="button" disabled={linked || Boolean(linkingServiceId)} aria-busy={linkingServiceId === shift.id} onClick={() => void linkRenderedService(shift)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
+                      <ClipboardCheck size={16} aria-hidden="true" />{linkingServiceId === shift.id ? "Linking..." : linked ? "Linked" : "Link service"}
                     </button>
                     {billingService ? (
                       <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">

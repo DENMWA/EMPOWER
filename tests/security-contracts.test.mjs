@@ -772,6 +772,16 @@ test("every invoice rate source retains a confirmed NDIS catalogue code", async 
   assert.match(billing, /export function buildInvoiceCsv/);
 });
 
+test("linking a delivered service remains stable until cloud persistence finishes", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /const \[linkingServiceId, setLinkingServiceId\]/);
+  assert.match(workspace, /await waitForNativeBillingSave\(\)/);
+  assert.match(workspace, /setRecords\(getNativeBillingRecords\(\)\)/);
+  assert.match(workspace, /aria-busy=\{linkingServiceId === shift\.id\}/);
+  assert.match(workspace, /"Linking\.\.\."/);
+  assert.match(workspace, /The completed service was not linked/);
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),
