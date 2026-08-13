@@ -8,6 +8,7 @@ import { StaffProfiles } from "@/components/staff/StaffProfiles";
 import { fullAdminRoles, type AdminPermission } from "@/lib/admin-permissions";
 import { HouseScopeSelector } from "@/components/dashboard/HouseScopeSelector";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
+import { DashboardHandoverPanel } from "@/components/dashboard/DashboardHandoverPanel";
 
 type WorkspaceAccess = {
   role: string;
@@ -38,16 +39,21 @@ export function RoleAwareDashboard() {
   return (
     <>
       <div className="mb-4 flex justify-end"><HouseScopeSelector /></div>
-      <WorkerDashboardCards />
-      {access ? <ManagerDashboardCards fullAccess={fullAccess} permissions={access.permissions} /> : null}
-      {fullAccess ? <DashboardOperationalLists /> : null}
-      {can("team") ? <StaffProfiles /> : null}
-      {can("shift_verification") || can("billing") ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {can("shift_verification") ? <ManagerApprovalPanel /> : null}
-          {can("billing") ? <InvoiceReadinessPanel /> : null}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className="space-y-7">
+          <WorkerDashboardCards />
+          {access ? <ManagerDashboardCards fullAccess={fullAccess} permissions={access.permissions} /> : null}
+          {fullAccess ? <DashboardOperationalLists /> : null}
+          {can("team") ? <StaffProfiles /> : null}
+          {can("shift_verification") || can("billing") ? (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {can("shift_verification") ? <ManagerApprovalPanel /> : null}
+              {can("billing") ? <InvoiceReadinessPanel /> : null}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+        <DashboardHandoverPanel />
+      </div>
     </>
   );
 }

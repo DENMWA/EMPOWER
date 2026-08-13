@@ -285,6 +285,20 @@ test("handover communication book is house scoped and acknowledged", async () =>
   assert.match(migration, /handover_acknowledged/); assert.match(shell, /href: "\/handover"/);
 });
 
+test("worker dashboard opens with a house-scoped incoming handover panel", async () => {
+  const [dashboard, panel] = await Promise.all([
+    source("components/dashboard/RoleAwareDashboard.tsx"),
+    source("components/dashboard/DashboardHandoverPanel.tsx")
+  ]);
+  assert.match(dashboard, /xl:grid-cols-\[minmax\(0,1fr\)_360px\]/);
+  assert.match(dashboard, /<DashboardHandoverPanel \/>/);
+  assert.match(panel, /getRecentHandovers\(24\)/);
+  assert.match(panel, /Number\(left\.acknowledged\) - Number\(right\.acknowledged\)/);
+  assert.match(panel, /priority\[left\.priority\] - priority\[right\.priority\]/);
+  assert.match(panel, /Mark as read/);
+  assert.match(panel, /Open communication book/);
+});
+
 test("staff writes use the verified server tenant rather than browser supplied organisation data", async () => {
   const [route, client] = await Promise.all([
     source("app/api/team/staff/route.ts"),
