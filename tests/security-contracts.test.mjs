@@ -92,6 +92,18 @@ test("client writes remain manager and organisation scoped", async () => {
   assert.match(policy, /for update\s+to authenticated\s+using/s);
 });
 
+test("the admin clients workspace keeps a visible add-client action", async () => {
+  const [clientsPage, newClientPage] = await Promise.all([
+    source("app/admin/clients/page.tsx"),
+    source("app/admin/clients/new/page.tsx")
+  ]);
+  assert.match(clientsPage, /href="\/admin\/clients\/new"/);
+  assert.match(clientsPage, />\s*Add client\s*</);
+  assert.match(clientsPage, /AdminGate permission="people"/);
+  assert.match(newClientPage, /AdminGate permission="people"/);
+  assert.match(newClientPage, /AddClientForm/);
+});
+
 test("staff invitations remain manager and organisation scoped", async () => {
   const policy = await source("supabase/repair-staff-invites-rls.sql");
   assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
