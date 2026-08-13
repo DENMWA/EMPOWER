@@ -866,6 +866,23 @@ test("official NDIA catalogue rows power date-aware invoice recommendations", as
   assert.match(cloud, /remote_type: item\.remoteType/);
 });
 
+test("delivered supports preselect a defensible NDIS code while retaining pricing choice", async () => {
+  const [workspace, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(workspace, /next\[service\.id\] = getSuggestedRateDraft\(service, records\)/);
+  assert.match(workspace, /item\.participantId === billingService\.participantId/);
+  assert.match(workspace, /aria-pressed=\{rateDraft\.source === source\}/);
+  assert.match(workspace, /Suggested from \{billingService\.supportType\}\. Confirm before invoicing\./);
+  assert.match(workspace, /\['ndis_catalogue', 'NDIS guide'\]/);
+  assert.match(workspace, /\['service_agreement', 'Service agreement'\]/);
+  assert.match(workspace, /\['manual', 'Manual entry'\]/);
+  assert.match(billing, /expandNdisServiceTerms/);
+  assert.match(billing, /inferNdisTimeBand/);
+  assert.match(billing, /match\.confidence >= 20/);
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),

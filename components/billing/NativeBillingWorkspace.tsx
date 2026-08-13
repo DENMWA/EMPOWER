@@ -208,6 +208,20 @@ export function NativeBillingWorkspace() {
     setRatePeriod(unit.includes("week") ? "week" : unit.includes("month") ? "month" : "hour");
   }, [selectedSupportItemId, supportItems]);
 
+  useEffect(() => {
+    if (!records.shifts.length || !records.supportItems.length) return;
+    setServiceRateDrafts((current) => {
+      const next = { ...current };
+      let changed = false;
+      for (const service of records.shifts) {
+        if (service.status !== "completed" || next[service.id]) continue;
+        next[service.id] = getSuggestedRateDraft(service, records);
+        changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [records]);
+
   async function importOfficialCatalogue() {
     const token = getStoredAccessToken();
     if (!catalogueFile || !catalogueEffectiveFrom || !token) {
@@ -789,7 +803,7 @@ export function NativeBillingWorkspace() {
             {invoiceServiceRows.map((shift) => {
               const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id || item.id === shift.id);
               const availableAgreementItems = billingService
-                ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
+                ? records.agreementItems.filter((item) => item.participantId === billingService.participantId && item.status === "active")
                 : [];
               const ndisMatches = billingService ? matchNdisSupportItems(billingService, records.supportItems, records.pricingVersions) : [];
               const activeNdisItems = billingService ? getActiveNdisItemsForService(billingService, records) : [];
@@ -834,7 +848,7 @@ export function NativeBillingWorkspace() {
                     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
                         {([['ndis_catalogue', 'NDIS guide'], ['service_agreement', 'Service agreement'], ['manual', 'Manual entry']] as const).map(([source, label]) => (
-                          <button key={source} type="button" disabled={source === "service_agreement" && !availableAgreementItems.length} onClick={() => {
+                          <button key={source} type="button" aria-pressed={rateDraft.source === source} disabled={source === "service_agreement" && !availableAgreementItems.length} onClick={() => {
                             const agreementRate = source === "service_agreement"
                               ? availableAgreementItems.find((item) => item.supportItemId === rateDraft.ndisSupportItemId) || availableAgreementItems[0]
                               : undefined;
@@ -849,6 +863,7 @@ export function NativeBillingWorkspace() {
                           <option value="">Confirm the applicable NDIS code</option>
                           {visibleNdisItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - ${item.priceLimit?.toFixed(2)} / {item.unitType}{ndisMatches.some((match) => match.item.id === item.id) ? " - suggested" : ""}</option>)}
                         </select>
+                        {selectedNdisItem ? <span className="font-normal text-teal-800">Suggested from {billingService.supportType}. Confirm before invoicing.</span> : null}
                         {!activeNdisItems.length ? <span className="font-normal text-amber-800">No active catalogue pricing is available for this service date.</span> : null}
                         {activeNdisItems.length && !visibleNdisItems.length ? <span className="font-normal text-amber-800">No active support items match this search.</span> : null}
                       </label>
@@ -1134,7 +1149,7 @@ function getDefaultRateDraft(): ServiceRateDraft {
 }
 
 function getSuggestedRateDraft(service: NativeBillingRecords["shifts"][number], records: NativeBillingRecords): ServiceRateDraft {
-  const agreementItems = records.agreementItems.filter((item) => item.serviceAgreementId === service.serviceAgreementId && item.status === "active");
+  const agreementItems = records.agreementItems.filter((item) => item.participantId === service.participantId && item.status === "active");
   const ndisMatch = matchNdisSupportItems(service, records.supportItems, records.pricingVersions)[0]?.item;
   const agreementMatch = agreementItems.find((item) => item.supportItemId && item.supportItemId === ndisMatch?.id)
     || agreementItems.find((item) => textMatchScore(`${service.supportType} ${service.title}`, `${item.supportItemNumber} ${item.supportItemName}`) > 0)

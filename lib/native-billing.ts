@@ -742,15 +742,20 @@ export function buildInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine
 export function matchNdisSupportItems(shift: Pick<SupportShift, "supportType" | "title" | "startTime">, items: NdisSupportItem[], versions: NdisPricingVersion[]) {
   const serviceDate = shift.startTime.slice(0, 10);
   const activeVersionIds = new Set(versions.filter((version) => version.status === "active" && (!version.effectiveFrom || version.effectiveFrom <= serviceDate) && (!version.effectiveTo || version.effectiveTo >= serviceDate)).map((version) => version.id));
-  const serviceTokens = tokenise(`${shift.supportType} ${shift.title}`);
+  const serviceTokens = tokenise(expandNdisServiceTerms(`${shift.supportType} ${shift.title}`));
+  const expectedTimeBand = inferNdisTimeBand(shift.startTime);
   return items
     .filter((item) => activeVersionIds.has(item.pricingVersionId) && item.priceLimit !== null && (!item.effectiveFrom || item.effectiveFrom <= serviceDate) && (!item.effectiveTo || item.effectiveTo >= serviceDate))
     .map((item) => {
       const itemTokens = tokenise(`${item.supportItemName} ${item.supportCategory} ${item.registrationGroup} ${item.timeBand || ""} ${item.claimType}`);
       const overlap = serviceTokens.filter((token) => itemTokens.includes(token)).length;
-      const score = serviceTokens.length ? overlap / serviceTokens.length : 0;
-      return { item, confidence: Math.round(Math.min(0.99, 0.35 + score * 0.6) * 100) };
+      const overlapScore = serviceTokens.length ? overlap / serviceTokens.length : 0;
+      const timeBandScore = expectedTimeBand && item.timeBand?.toLowerCase().includes(expectedTimeBand) ? 0.12 : 0;
+      const exactNameScore = normaliseNdisText(item.supportItemName).includes(normaliseNdisText(shift.supportType)) ? 0.22 : 0;
+      const score = overlapScore + timeBandScore + exactNameScore;
+      return { item, confidence: Math.round(Math.min(0.99, score) * 100) };
     })
+    .filter((match) => match.confidence >= 20)
     .sort((a, b) => b.confidence - a.confidence || a.item.supportItemNumber.localeCompare(b.item.supportItemNumber))
     .slice(0, 5);
 }
@@ -844,6 +849,38 @@ function roundCurrency(value: number) {
 function tokenise(value: string) {
   const ignored = new Set(["and", "the", "support", "service", "shift", "with", "for", "client"]);
   return Array.from(new Set(value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((token) => token.length > 2 && !ignored.has(token))));
+}
+
+function expandNdisServiceTerms(value: string) {
+  const normalised = value.toLowerCase();
+  const concepts: Array<[RegExp, string]> = [
+    [/community access|community participation|social participation/, "community social civic participation access activities"],
+    [/personal care|bowel care|continence|toileting|medication prompting/, "assistance self care activities daily personal living"],
+    [/domestic assistance|household|cleaning/, "household tasks domestic assistance"],
+    [/meal|food|fluid/, "assistance self care activities daily living meal preparation"],
+    [/behavio(?:u)?r support/, "behaviour support implementation specialist positive behaviour"],
+    [/social work/, "social worker therapeutic support"],
+    [/youth support/, "community participation daily living social support"],
+    [/appointment/, "community access participation assistance appointment"],
+    [/travel|transport/, "activity based transport provider travel"],
+  ];
+  return `${value} ${concepts.filter(([pattern]) => pattern.test(normalised)).map(([, terms]) => terms).join(" ")}`;
+}
+
+function inferNdisTimeBand(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = date.getDay();
+  if (day === 0) return "sunday";
+  if (day === 6) return "saturday";
+  const hour = date.getHours();
+  if (hour >= 20 || hour < 6) return "night";
+  if (hour >= 18) return "evening";
+  return "daytime";
+}
+
+function normaliseNdisText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function getExpectedStaffCount(ratio?: string) {
