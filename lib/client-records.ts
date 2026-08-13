@@ -1,6 +1,7 @@
 import type { Participant } from "@/lib/sample-data";
 import { isPresentationModeEnabled } from "@/lib/presentation-mode";
-import { getCurrentOrganisationId, supabaseRequest } from "@/lib/supabase-rest";
+import { supabaseRequest } from "@/lib/supabase-rest";
+import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { checkActiveParticipantLimit } from "@/lib/subscriptions/client-limits";
 import { tenantStorageKey } from "@/lib/tenant-storage";
 
@@ -148,16 +149,11 @@ export async function saveTenantClient(client: ClientRecord) {
   const limit = checkActiveParticipantLimit(storedClients.some((item) => item.id === client.id) ? Math.max(0, storedClients.length - 1) : storedClients.length);
   if (!limit.allowed) return { savedToCloud: false, error: limit.message };
 
-  const organisationId = await getCurrentOrganisationId();
-  if (!organisationId) return { savedToCloud: false, error: "Sign in before saving to your workspace." };
-
-  const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
+  const response = await fetch("/api/admin/clients", {
     method: "POST",
-    query: "on_conflict=id",
-    prefer: "resolution=merge-duplicates,return=representation",
-    body: {
+    headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
       id: client.id,
-      organisation_id: organisationId,
       name: client.name,
       support_needs: client.supportNeeds,
       communication_preferences: client.communication,
@@ -184,25 +180,13 @@ export async function saveTenantClient(client: ClientRecord) {
       emergency_contacts: client.emergencyContacts || [],
       key_worker_id: client.keyWorkerId || null,
       status: client.status || "active"
-    }
+    })
   });
-
-  const savedClient = result.data?.[0];
-  if (savedClient?.id && client.primaryHouseId) {
-    const currentAssignment = await supabaseRequest<Array<{ id: string }>>("participant_house_assignments", {
-      query: `select=id&organisation_id=eq.${encodeURIComponent(organisationId)}&participant_id=eq.${encodeURIComponent(savedClient.id)}&house_id=eq.${encodeURIComponent(client.primaryHouseId)}&status=in.(active,scheduled)&limit=1`
-    });
-    if (!currentAssignment.data?.[0]) {
-      const assignment = await supabaseRequest<Array<{ id: string }>>("participant_house_assignments", {
-        method: "POST",
-        body: { organisation_id: organisationId, participant_id: savedClient.id, house_id: client.primaryHouseId, assignment_type: "primary", start_date: new Date().toISOString().slice(0, 10), status: "active" }
-      });
-      if (!assignment.data?.[0]?.id) return { savedToCloud: false, error: assignment.error || "The client was saved, but the house assignment could not be secured.", clientId: savedClient.id };
-    }
-  }
+  const result = await response.json().catch(() => ({})) as { client?: SupabaseClientRow; error?: string };
+  const savedClient = result.client;
   if (savedClient?.id) {
     addStoredClient(toClientRecord(savedClient));
   }
 
-  return { savedToCloud: Boolean(result.data && !result.error), error: result.error, clientId: savedClient?.id || client.id };
+  return { savedToCloud: response.ok && Boolean(savedClient), error: result.error || "", clientId: savedClient?.id || client.id };
 }

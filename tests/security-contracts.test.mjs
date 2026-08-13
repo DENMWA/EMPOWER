@@ -92,6 +92,20 @@ test("client writes remain manager and organisation scoped", async () => {
   assert.match(policy, /for update\s+to authenticated\s+using/s);
 });
 
+test("client saves derive organisation authority on the server", async () => {
+  const [records, route] = await Promise.all([
+    source("lib/client-records.ts"),
+    source("app/api/admin/clients/route.ts")
+  ]);
+  assert.match(records, /fetch\("\/api\/admin\/clients"/);
+  assert.doesNotMatch(records.slice(records.indexOf("export async function saveTenantClient")), /organisation_id: organisationId/);
+  assert.match(route, /verifyServerAccess\(request, "admin", "people", "participants\.view_sensitive"\)/);
+  assert.match(route, /organisation_id: access\.organisationId/);
+  assert.match(route, /belongs to another workspace/);
+  assert.match(route, /service_locations.*organisation_id=eq/);
+  assert.match(route, /participant_house_assignments/);
+});
+
 test("the admin clients workspace keeps a visible add-client action", async () => {
   const [clientsPage, newClientPage] = await Promise.all([
     source("app/admin/clients/page.tsx"),
@@ -177,7 +191,7 @@ test("organisation invitations deliver before activating tenant membership", asy
 });
 
 test("roles determine features while dated house assignments determine participant scope", async () => {
-  const [migration, context, invite, accept, form, permissions, houses, clients, roster, selector] = await Promise.all([
+  const [migration, context, invite, accept, form, permissions, houses, clients, clientRoute, roster, selector] = await Promise.all([
     source("supabase/house-scoped-access.sql"),
     source("lib/security/user-access-context.ts"),
     source("app/api/team/invite/route.ts"),
@@ -186,6 +200,7 @@ test("roles determine features while dated house assignments determine participa
     source("lib/feature-permissions.ts"),
     source("lib/house-records.ts"),
     source("lib/client-records.ts"),
+    source("app/api/admin/clients/route.ts"),
     source("lib/roster-cloud.ts"),
     source("components/dashboard/HouseScopeSelector.tsx")
   ]);
@@ -219,7 +234,9 @@ test("roles determine features while dated house assignments determine participa
   assert.match(permissions, /finance_officer:[\s\S]*billing\.view/);
   assert.doesNotMatch(permissions, /finance_officer:[^\n]*notes\.view/);
   assert.match(houses, /service_locations/);
-  assert.match(clients, /participant_house_assignments/);
+  assert.match(clients, /\/api\/admin\/clients/);
+  assert.match(clientRoute, /participant_house_assignments/);
+  assert.match(clientRoute, /organisation_id: access\.organisationId/);
   assert.match(roster, /save_roster_shift_with_staff/);
   assert.match(selector, /All my houses/);
   assert.match(selector, /sessionStorage\.removeItem/);
