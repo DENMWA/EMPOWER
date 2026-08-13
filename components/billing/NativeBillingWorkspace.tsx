@@ -88,6 +88,7 @@ export function NativeBillingWorkspace() {
   const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
   const [serviceRateDrafts, setServiceRateDrafts] = useState<Record<string, ServiceRateDraft>>({});
+  const [servicePricingSearches, setServicePricingSearches] = useState<Record<string, string>>({});
   const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
   const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
   const [vaultAgreements, setVaultAgreements] = useState<StoredDocumentRecord[]>([]);
@@ -765,6 +766,7 @@ export function NativeBillingWorkspace() {
                 ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
                 : [];
               const ndisMatches = billingService ? matchNdisSupportItems(billingService, records.supportItems, records.pricingVersions) : [];
+              const activeNdisItems = billingService ? getActiveNdisItemsForService(billingService, records) : [];
               const rateDraft = billingService ? serviceRateDrafts[billingService.id] || getSuggestedRateDraft(billingService, records) : getDefaultRateDraft();
               const agreementItem = rateDraft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === rateDraft.itemId) : undefined;
               const selectedNdisItem = records.supportItems.find((item) => item.id === rateDraft.ndisSupportItemId);
@@ -782,6 +784,8 @@ export function NativeBillingWorkspace() {
               const evidenceLinked = Boolean(billingService?.noteRecordId && notes.some((note) => note.id === billingService.noteRecordId));
               const selectedRate = rateDraft.source === "ndis_catalogue" ? selectedNdisItem?.priceLimit : rateDraft.source === "service_agreement" ? agreementItem?.agreedRate : Number(rateDraft.manualRate || 0);
               const rateAboveLimit = rateDraft.source === "manual" && Boolean(selectedNdisItem?.priceLimit && selectedRate && selectedRate > selectedNdisItem.priceLimit);
+              const pricingSearch = billingService ? servicePricingSearches[billingService.id] || "" : "";
+              const visibleNdisItems = filterNdisItems(activeNdisItems, pricingSearch, selectedNdisItem?.id);
               return (
                 <div key={shift.id} className="rounded-md border border-slate-200 p-3">
                   <p className="font-semibold text-ink">{shift.shiftDate} - {shift.supportType}</p>
@@ -805,16 +809,18 @@ export function NativeBillingWorkspace() {
                     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
                         {([['ndis_catalogue', 'NDIS Price Limit'], ['service_agreement', 'Service Agreement Rate'], ['manual', 'Manual Rate']] as const).map(([source, label]) => (
-                          <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
+                          <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source, ndisSupportItemId: rateDraft.ndisSupportItemId, itemId: source === "ndis_catalogue" ? rateDraft.ndisSupportItemId : "" } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
                         ))}
                       </div>
                       <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
                         NDIS support item code
+                        <input type="search" value={pricingSearch} onChange={(event) => setServicePricingSearches((current) => ({ ...current, [billingService.id]: event.target.value }))} placeholder="Search code, service or category" className="min-h-11 rounded-md border border-slate-300 bg-white px-3 font-normal text-ink" />
                         <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.ndisSupportItemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, ndisSupportItemId: event.target.value, itemId: rateDraft.source === "ndis_catalogue" ? event.target.value : rateDraft.itemId, approved: false } }))}>
                           <option value="">Confirm the applicable NDIS code</option>
-                          {ndisMatches.map(({ item, confidence }) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - {confidence}% match</option>)}
+                          {visibleNdisItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - ${item.priceLimit?.toFixed(2)} / {item.unitType}{ndisMatches.some((match) => match.item.id === item.id) ? " - suggested" : ""}</option>)}
                         </select>
-                        {!ndisMatches.length ? <span className="font-normal text-amber-800">No catalogue match is available. Add or activate the current NDIS catalogue before invoicing.</span> : null}
+                        {!activeNdisItems.length ? <span className="font-normal text-amber-800">No active catalogue pricing is available for this service date.</span> : null}
+                        {activeNdisItems.length && !visibleNdisItems.length ? <span className="font-normal text-amber-800">No active support items match this search.</span> : null}
                       </label>
                       {rateAboveLimit ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Rate exceeds selected NDIS price limit - review required.</p> : null}
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -830,7 +836,10 @@ export function NativeBillingWorkspace() {
                       {rateDraft.source === "service_agreement" ? (
                         <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
                           Agreed support code and rate
-                          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.itemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, itemId: event.target.value, approved: false } }))}>
+                          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.itemId} onChange={(event) => {
+                            const agreementRate = availableAgreementItems.find((item) => item.id === event.target.value);
+                            setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, itemId: event.target.value, ndisSupportItemId: agreementRate?.supportItemId || rateDraft.ndisSupportItemId, approved: false } }));
+                          }}>
                             <option value="">Select an agreed support</option>
                             {availableAgreementItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - ${item.agreedRate.toFixed(2)} / {item.unitType}</option>)}
                           </select>
@@ -1108,6 +1117,31 @@ function findAgreementNdisMatch(code: string, name: string, records: NativeBilli
     .map((item) => ({ item, score: textMatchScore(`${code} ${name}`, `${item.supportItemNumber} ${item.supportItemName}`) }))
     .sort((left, right) => right.score - left.score);
   return ranked[0]?.score > 0 ? ranked[0].item : undefined;
+}
+
+function getActiveNdisItemsForService(service: NativeBillingRecords["shifts"][number], records: NativeBillingRecords) {
+  const serviceDate = service.startTime.slice(0, 10);
+  const activeVersionIds = new Set(records.pricingVersions.filter((version) =>
+    version.status === "active"
+      && (!version.effectiveFrom || version.effectiveFrom <= serviceDate)
+      && (!version.effectiveTo || version.effectiveTo >= serviceDate)
+  ).map((version) => version.id));
+  const suggestedOrder = new Map(matchNdisSupportItems(service, records.supportItems, records.pricingVersions).map((match, index) => [match.item.id, index]));
+  return records.supportItems
+    .filter((item) => activeVersionIds.has(item.pricingVersionId)
+      && item.priceLimit !== null
+      && (!item.effectiveFrom || item.effectiveFrom <= serviceDate)
+      && (!item.effectiveTo || item.effectiveTo >= serviceDate))
+    .sort((left, right) => (suggestedOrder.get(left.id) ?? 999) - (suggestedOrder.get(right.id) ?? 999)
+      || left.supportItemNumber.localeCompare(right.supportItemNumber));
+}
+
+function filterNdisItems(items: NativeBillingRecords["supportItems"], search: string, selectedId?: string) {
+  const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return items;
+  return items.filter((item) => item.id === selectedId || terms.every((term) =>
+    `${item.supportItemNumber} ${item.supportItemName} ${item.supportCategory} ${item.registrationGroup}`.toLowerCase().includes(term)
+  ));
 }
 
 function textMatchScore(left: string, right: string) {

@@ -782,6 +782,16 @@ test("linking a delivered service remains stable until cloud persistence finishe
   assert.match(workspace, /The completed service was not linked/);
 });
 
+test("linked services can select any active NDIS service price", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /Search code, service or category/);
+  assert.match(workspace, /getActiveNdisItemsForService/);
+  assert.match(workspace, /filterNdisItems/);
+  assert.match(workspace, /item\.priceLimit !== null/);
+  assert.match(workspace, /agreementRate\?\.supportItemId \|\| rateDraft\.ndisSupportItemId/);
+  assert.doesNotMatch(workspace.slice(workspace.indexOf("NDIS support item code"), workspace.indexOf("NDIS advised rate")), /ndisMatches\.map/);
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),
