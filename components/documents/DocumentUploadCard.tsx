@@ -163,7 +163,22 @@ export function DocumentUploadCard() {
     }
 
     const fileText = selectedFile ? "File uploaded to private storage." : "No file selected; document metadata saved only.";
-    setMessage(`${documentType} saved for ${selectedClient.name}. Saved to this organisation. ${fileText}`);
+    const shouldParseAgreement = Boolean(selectedFile && /service agreement|pricing agreement/i.test(documentType));
+    if (shouldParseAgreement) {
+      const token = getStoredAccessToken();
+      setMessage(`${documentType} saved. Reading agreed rates for review...`);
+      const parseResponse = await fetch("/api/billing/parse-service-agreement", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId })
+      });
+      const parsed = await parseResponse.json() as { items?: unknown[]; error?: string };
+      setMessage(parseResponse.ok
+        ? `${documentType} saved. ${parsed.items?.length || 0} rate${parsed.items?.length === 1 ? "" : "s"} are ready for review in Invoicing.`
+        : `${documentType} saved, but automatic rate extraction stopped. ${parsed.error || "Open Invoicing to retry."}`);
+    } else {
+      setMessage(`${documentType} saved for ${selectedClient.name}. Saved to this organisation. ${fileText}`);
+    }
     setPendingDocumentId("");
     setPendingFilePath("");
     markTrialStepComplete("upload-document");

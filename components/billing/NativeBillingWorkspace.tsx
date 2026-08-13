@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ClipboardCheck, Eye, FileDown, FileSearch, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
+import { Check, ClipboardCheck, Eye, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -34,9 +34,10 @@ import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
 import type { RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
+import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
 
 type TravelDraft = { odometerStart: string; odometerEnd: string; rate: string; supportItemNumber: string; notes: string };
-type ServiceRateDraft = { source: InvoiceRateSource; itemId: string; manualCode: string; manualRate: string; manualUnit: string; approved: boolean };
+type ServiceRateDraft = { source: InvoiceRateSource; itemId: string; ndisSupportItemId: string; manualRate: string; manualUnit: string; approved: boolean };
 type AgreementDraftItem = {
   id: string;
   supportItemNumber: string;
@@ -88,10 +89,9 @@ export function NativeBillingWorkspace() {
   const [serviceRateDrafts, setServiceRateDrafts] = useState<Record<string, ServiceRateDraft>>({});
   const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
   const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
-  const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [vaultAgreements, setVaultAgreements] = useState<StoredDocumentRecord[]>([]);
   const [agreementDraftItems, setAgreementDraftItems] = useState<AgreementDraftItem[]>([]);
   const [agreementSourceFile, setAgreementSourceFile] = useState("");
-  const [parsingAgreement, setParsingAgreement] = useState(false);
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -115,13 +115,15 @@ export function NativeBillingWorkspace() {
 
   useEffect(() => {
     async function loadRecords() {
-      const [clientItems, staffItems, noteItems] = await Promise.all([
+      const [clientItems, staffItems, noteItems, documentItems] = await Promise.all([
         getTenantClients(true).catch(() => []),
         getTenantStaffInvites().catch(() => []),
-        getTenantRetainedRecords("progress-note").catch(() => [])
+        getTenantRetainedRecords("progress-note").catch(() => []),
+        getTenantDocumentRecords().catch(() => [])
       ]);
       setClients(clientItems);
       setNotes(noteItems);
+      setVaultAgreements(documentItems.filter((document) => /service agreement|pricing agreement/i.test(document.type)));
       const rosterResult = await loadTenantRosterShifts();
       setRosterServices(rosterResult.shifts);
       const requestedClientId = new URLSearchParams(window.location.search).get("clientId") || "";
@@ -221,24 +223,10 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  async function parseServiceAgreement() {
-    if (!agreementFile || !selectedClient) {
-      setMessage("Choose a client and service agreement document first.");
-      return;
-    }
-    const token = getStoredAccessToken();
-    if (!token) {
-      setMessage("Sign in before using agreement extraction.");
-      return;
-    }
-    setParsingAgreement(true);
-    setMessage("Reading service agreement for review...");
-    const form = new FormData();
-    form.append("file", agreementFile);
+  function loadVaultAgreement(document: StoredDocumentRecord) {
     try {
-      const response = await fetch("/api/billing/parse-service-agreement", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
-      const result = await response.json() as Record<string, unknown> & { error?: string; items?: Array<Record<string, unknown>> };
-      if (!response.ok) throw new Error(result.error || "Agreement extraction failed.");
+      const result = document.billingParsedTerms as Record<string, unknown> & { items?: Array<Record<string, unknown>> };
+      if (!result?.items?.length) throw new Error(document.billingParseError || "This agreement has no extracted rates yet.");
       const allowedUnits = new Set(["hour", "day", "week", "month", "each", "km"]);
       const items = (result.items || []).map((item, index): AgreementDraftItem => {
         const supportItemNumber = typeof item.supportItemNumber === "string" ? item.supportItemNumber : "";
@@ -261,7 +249,7 @@ export function NativeBillingWorkspace() {
         approved: false
       }});
       setAgreementDraftItems(items);
-      setAgreementSourceFile(typeof result.sourceFileName === "string" ? result.sourceFileName : agreementFile.name);
+      setAgreementSourceFile(document.fileName || document.type);
       if (typeof result.agreementName === "string" && result.agreementName) setAgreementName(result.agreementName);
       if (typeof result.startDate === "string" && result.startDate) setAgreementStartDate(result.startDate);
       if (typeof result.endDate === "string") setAgreementEndDate(result.endDate);
@@ -269,9 +257,7 @@ export function NativeBillingWorkspace() {
       if (typeof result.recipientEmail === "string") setRecipientEmail(result.recipientEmail);
       setMessage(`${items.length} agreement rate${items.length === 1 ? "" : "s"} extracted. Review and edit before approval.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Agreement extraction failed.");
-    } finally {
-      setParsingAgreement(false);
+      setMessage(error instanceof Error ? error.message : "Agreement rates could not be loaded.");
     }
   }
 
@@ -454,8 +440,7 @@ export function NativeBillingWorkspace() {
           rateSource: draft.source,
           approved: draft.approved,
           agreementItemId: draft.source === "service_agreement" ? draft.itemId : undefined,
-          supportItemId: draft.source === "ndis_catalogue" ? draft.itemId : undefined,
-          manualSupportItemNumber: draft.source === "manual" ? draft.manualCode : undefined,
+          supportItemId: draft.ndisSupportItemId,
           manualRate: draft.source === "manual" ? Number(draft.manualRate) : undefined,
           manualUnitType: draft.source === "manual" ? draft.manualUnit : undefined,
           includeTravel: Boolean(includedTravel[shiftId])
@@ -565,11 +550,19 @@ export function NativeBillingWorkspace() {
               </div>
               <StatusBadge label={agreementDraftItems.length ? "Review required" : "No active draft"} tone={agreementDraftItems.length ? "amber" : "blue"} />
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <input type="file" accept=".pdf,.docx,.txt" onChange={(event) => setAgreementFile(event.target.files?.[0] || null)} className="min-h-11 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" />
-              <button type="button" disabled={parsingAgreement || !agreementFile} onClick={() => void parseServiceAgreement()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
-                <FileSearch size={17} aria-hidden="true" />{parsingAgreement ? "Reading agreement..." : "Extract rates for review"}
-              </button>
+            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+              <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm" defaultValue="" onChange={(event) => {
+                const document = vaultAgreements.find((item) => item.id === event.target.value);
+                if (document) loadVaultAgreement(document);
+              }}>
+                <option value="">Choose a parsed Document Vault agreement</option>
+                {vaultAgreements.filter((document) => document.participantId === selectedClient?.id).map((document) => (
+                  <option key={document.id} value={document.id} disabled={document.billingParseStatus !== "ready"}>
+                    {document.fileName || document.type} - {document.billingParseStatus === "ready" ? "ready for review" : document.billingParseStatus || "awaiting extraction"}
+                  </option>
+                ))}
+              </select>
+              <a href="/admin/documents" className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400">Open Document Vault</a>
             </div>
             {agreementDraftItems.length ? (
               <div className="mt-4 space-y-3">
@@ -750,7 +743,7 @@ export function NativeBillingWorkspace() {
               const ndisMatches = billingService ? matchNdisSupportItems(billingService, records.supportItems, records.pricingVersions) : [];
               const rateDraft = billingService ? serviceRateDrafts[billingService.id] || getSuggestedRateDraft(billingService, records) : getDefaultRateDraft();
               const agreementItem = rateDraft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === rateDraft.itemId) : undefined;
-              const selectedNdisItem = rateDraft.source === "ndis_catalogue" ? records.supportItems.find((item) => item.id === rateDraft.itemId) : ndisMatches[0]?.item;
+              const selectedNdisItem = records.supportItems.find((item) => item.id === rateDraft.ndisSupportItemId);
               const assignedStaffCount = billingService ? Math.max(1, billingService.assignedStaffCount || 1) : 1;
               const expectedStaffCount = billingService ? getRatioStaffCount(billingService.staffingRatio) : 0;
               const ratioMismatch = Boolean(expectedStaffCount && expectedStaffCount !== assignedStaffCount);
@@ -791,6 +784,14 @@ export function NativeBillingWorkspace() {
                           <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
                         ))}
                       </div>
+                      <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
+                        NDIS support item code
+                        <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.ndisSupportItemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, ndisSupportItemId: event.target.value, itemId: rateDraft.source === "ndis_catalogue" ? event.target.value : rateDraft.itemId, approved: false } }))}>
+                          <option value="">Confirm the applicable NDIS code</option>
+                          {ndisMatches.map(({ item, confidence }) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - {confidence}% match</option>)}
+                        </select>
+                        {!ndisMatches.length ? <span className="font-normal text-amber-800">No catalogue match is available. Add or activate the current NDIS catalogue before invoicing.</span> : null}
+                      </label>
                       {rateAboveLimit ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Rate exceeds selected NDIS price limit - review required.</p> : null}
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         <div className="rounded-md border border-teal-200 bg-white p-3 text-sm">
@@ -802,16 +803,6 @@ export function NativeBillingWorkspace() {
                           <p className="mt-1 text-slate-700">{availableAgreementItems[0] ? `${availableAgreementItems[0].supportItemNumber} · $${availableAgreementItems[0].agreedRate.toFixed(2)} / ${availableAgreementItems[0].unitType}` : "No approved agreement rate available"}</p>
                         </div>
                       </div>
-                      {rateDraft.source === "ndis_catalogue" ? (
-                        <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
-                          Suggested NDIS support code
-                          <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={rateDraft.itemId} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, itemId: event.target.value, approved: false } }))}>
-                            <option value="">Review and select a match</option>
-                            {ndisMatches.map(({ item, confidence }) => <option key={item.id} value={item.id}>{item.supportItemNumber} - ${item.priceLimit?.toFixed(2)} / {item.unitType} - {confidence}% match</option>)}
-                          </select>
-                          {!ndisMatches.length ? <span className="font-normal text-amber-800">No priced item is available in the active NDIS catalogue.</span> : null}
-                        </label>
-                      ) : null}
                       {rateDraft.source === "service_agreement" ? (
                         <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
                           Agreed support code and rate
@@ -823,7 +814,6 @@ export function NativeBillingWorkspace() {
                       ) : null}
                       {rateDraft.source === "manual" ? (
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          <BillingField label="Support code" value={rateDraft.manualCode} onChange={(value) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, manualCode: value, approved: false } }))} />
                           <BillingField label="Rate" type="number" value={rateDraft.manualRate} onChange={(value) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, manualRate: value, approved: false } }))} />
                           <label className="grid gap-2 text-sm font-semibold text-slate-700">Unit<select value={rateDraft.manualUnit} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, manualUnit: event.target.value, approved: false } }))} className="min-h-11 rounded-md border border-slate-300 bg-white px-3"><option value="hour">Hour</option><option value="day">Day</option><option value="each">Each</option><option value="km">Kilometre</option></select></label>
                         </div>
@@ -833,7 +823,7 @@ export function NativeBillingWorkspace() {
                         <p className="mt-1">{selectedUnit?.toLowerCase().includes("hour") && billableQuantity ? `${formatServiceHours(billingService.startTime, billingService.endTime)} service hours × ${assignedStaffCount} staff = ${billableQuantity} billable hours` : "Quantity is confirmed from the selected billing unit."}</p>
                         {ratioMismatch ? <p className="mt-1 font-semibold">The roster ratio and assigned staff do not match. Correct the roster before invoicing.</p> : null}
                       </div>
-                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />Approve selected code, staffing ratio and calculated rate</label>
+                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch || !selectedNdisItem} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />Approve NDIS code, staffing ratio and calculated rate</label>
                     </div>
                   ) : null}
                   {billingService && agreementItem?.allowTravel && agreementItem.allowKilometres ? (() => {
@@ -985,10 +975,10 @@ function getInvoicePreview(
     if (!shift) return [];
     const draft = drafts[shiftId] || getSuggestedRateDraft(shift, records);
     const agreementItem = draft.source === "service_agreement" ? records.agreementItems.find((item) => item.id === draft.itemId) : undefined;
-    const supportItem = draft.source === "ndis_catalogue" ? records.supportItems.find((item) => item.id === draft.itemId) : undefined;
-    const code = supportItem?.supportItemNumber || agreementItem?.supportItemNumber || draft.manualCode;
-    const unit = supportItem?.unitType || agreementItem?.unitType || draft.manualUnit;
-    const rate = supportItem?.priceLimit || agreementItem?.agreedRate || Number(draft.manualRate || 0);
+    const supportItem = records.supportItems.find((item) => item.id === draft.ndisSupportItemId);
+    const code = supportItem?.supportItemNumber || "NDIS code required";
+    const unit = draft.source === "service_agreement" ? agreementItem?.unitType : draft.source === "manual" ? draft.manualUnit : supportItem?.unitType;
+    const rate = (draft.source === "service_agreement" ? agreementItem?.agreedRate : draft.source === "manual" ? Number(draft.manualRate || 0) : supportItem?.priceLimit) || 0;
     const quantity = unit ? getBillableQuantity(shift, unit) : 0;
     const ndisLimit = supportItem?.priceLimit ?? agreementItem?.ndisPriceLimit ?? null;
     const review = !draft.approved || !code || !rate || (draft.source === "manual" && ndisLimit !== null && rate > ndisLimit);
@@ -1072,7 +1062,7 @@ function getBillingError(error: unknown) {
 }
 
 function getDefaultRateDraft(): ServiceRateDraft {
-  return { source: "ndis_catalogue", itemId: "", manualCode: "", manualRate: "", manualUnit: "hour", approved: false };
+  return { source: "ndis_catalogue", itemId: "", ndisSupportItemId: "", manualRate: "", manualUnit: "hour", approved: false };
 }
 
 function getSuggestedRateDraft(service: NativeBillingRecords["shifts"][number], records: NativeBillingRecords): ServiceRateDraft {
@@ -1081,8 +1071,8 @@ function getSuggestedRateDraft(service: NativeBillingRecords["shifts"][number], 
   const agreementMatch = agreementItems.find((item) => item.supportItemId && item.supportItemId === ndisMatch?.id)
     || agreementItems.find((item) => textMatchScore(`${service.supportType} ${service.title}`, `${item.supportItemNumber} ${item.supportItemName}`) > 0)
     || agreementItems[0];
-  if (agreementMatch) return { ...getDefaultRateDraft(), source: "service_agreement", itemId: agreementMatch.id };
-  if (ndisMatch) return { ...getDefaultRateDraft(), itemId: ndisMatch.id };
+  if (agreementMatch) return { ...getDefaultRateDraft(), source: "service_agreement", itemId: agreementMatch.id, ndisSupportItemId: agreementMatch.supportItemId || ndisMatch?.id || "" };
+  if (ndisMatch) return { ...getDefaultRateDraft(), itemId: ndisMatch.id, ndisSupportItemId: ndisMatch.id };
   return getDefaultRateDraft();
 }
 

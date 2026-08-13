@@ -12,6 +12,9 @@ export type StoredDocumentRecord = SupportDocument & {
   storageBucket?: string;
   fileSizeBytes?: number;
   savedAt: string;
+  billingParseStatus?: "pending" | "processing" | "ready" | "failed";
+  billingParsedTerms?: Record<string, unknown>;
+  billingParseError?: string;
 };
 
 const documentStorageKey = "empowernotes:document-records";
@@ -55,6 +58,9 @@ type SupabaseDocumentRow = {
   expiry_date: string | null;
   created_at: string;
   file_size_bytes: number | null;
+  billing_parse_status: "pending" | "processing" | "ready" | "failed" | null;
+  billing_parsed_terms: Record<string, unknown> | null;
+  billing_parse_error: string | null;
 };
 
 function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client"): StoredDocumentRecord {
@@ -72,14 +78,17 @@ function toStoredDocumentRecord(row: SupabaseDocumentRow, clientName = "Client")
     filePath: row.file_path,
     storageBucket: row.storage_bucket || "participant-documents",
     fileSizeBytes: Number(row.file_size_bytes) || 0,
-    savedAt: row.created_at
+    savedAt: row.created_at,
+    billingParseStatus: row.billing_parse_status || undefined,
+    billingParsedTerms: row.billing_parsed_terms || undefined,
+    billingParseError: row.billing_parse_error || undefined
   };
 }
 
 export async function getTenantDocumentRecords() {
   if (isPresentationModeEnabled()) return [];
   const result = await supabaseRequest<SupabaseDocumentRow[]>("documents", {
-    query: "select=id,participant_id,document_type,file_path,storage_bucket,visibility,status,manager_verified,start_date,expiry_date,file_size_bytes,created_at&order=created_at.desc"
+    query: "select=id,participant_id,document_type,file_path,storage_bucket,visibility,status,manager_verified,start_date,expiry_date,file_size_bytes,created_at,billing_parse_status,billing_parsed_terms,billing_parse_error&order=created_at.desc"
   });
 
   if (!result.data || result.error) return [];

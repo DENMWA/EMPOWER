@@ -655,7 +655,7 @@ test("participant invoices require an approved NDIS, agreement or manual rate", 
   assert.match(workspace, /NDIS Price Limit/);
   assert.match(workspace, /Service Agreement Rate/);
   assert.match(workspace, /Manual Rate/);
-  assert.match(workspace, /Approve selected code, staffing ratio and calculated rate/);
+  assert.match(workspace, /Approve NDIS code, staffing ratio and calculated rate/);
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
   assert.match(workspace, /Create Invoice/);
@@ -733,15 +733,18 @@ test("provider travel uses odometer evidence and a separately reviewed invoice l
   assert.match(migration, /odometer end reading cannot be lower/i);
 });
 
-test("AI service agreement rates remain editable drafts until explicit approval", async () => {
-  const [workspace, route, billing] = await Promise.all([
+test("Document Vault agreement rates remain editable drafts until explicit approval", async () => {
+  const [workspace, route, billing, upload, migration] = await Promise.all([
     source("components/billing/NativeBillingWorkspace.tsx"),
     source("app/api/billing/parse-service-agreement/route.ts"),
-    source("lib/native-billing.ts")
+    source("lib/native-billing.ts"),
+    source("components/documents/DocumentUploadCard.tsx"),
+    source("supabase/document-vault-agreement-parsing.sql")
   ]);
   assert.match(route, /Never infer a rate/);
   assert.match(route, /reviewStatus: "pending"/);
-  assert.match(workspace, /Extract rates for review/);
+  assert.match(workspace, /Choose a parsed Document Vault agreement/);
+  assert.doesNotMatch(workspace, /type="file" accept="\.pdf,\.docx,\.txt"/);
   assert.match(workspace, /Reviewed and approved/);
     assert.match(workspace, /Approve selected rates/);
     assert.match(workspace, /NDIS catalogue comparison/);
@@ -751,6 +754,22 @@ test("AI service agreement rates remain editable drafts until explicit approval"
   assert.match(workspace, /agreementDraftItems\.filter\(\(item\) => item\.approved\)/);
   assert.match(workspace, /updateAgreementDraftItem/);
   assert.match(billing, /"hour" \| "day" \| "week" \| "month" \| "each" \| "km"/);
+  assert.match(upload, /Reading agreed rates for review/);
+  assert.match(route, /organisation_id: `eq\.\$\{access\.gate\.organisationId!/);
+  assert.match(migration, /billing_parsed_terms jsonb/);
+});
+
+test("every invoice rate source retains a confirmed NDIS catalogue code", async () => {
+  const [workspace, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(workspace, /NDIS support item code/);
+  assert.match(workspace, /supportItemId: draft\.ndisSupportItemId/);
+  assert.doesNotMatch(workspace, /manualSupportItemNumber/);
+  assert.match(billing, /Confirm the applicable NDIS support item code for every service/);
+  assert.match(billing, /const supportItemNumber = supportItem!\.supportItemNumber/);
+  assert.match(billing, /export function buildInvoiceCsv/);
 });
 
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {

@@ -7,14 +7,13 @@ const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const apiKey = process.env.OPENAI_API_KEY || process.env.EMPOWERNOTES_CHAT_KEY || process.env["EmpowerNotes chat-key"];
 const maxFileBytes = 10 * 1024 * 1024;
 
-async function extractText(file: File) {
-  if (file.size > maxFileBytes) throw new Error("The service agreement must be smaller than 10 MB.");
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const extension = file.name.toLowerCase().split(".").pop();
+async function extractText(buffer: Buffer, fileName: string, contentType = "") {
+  if (buffer.byteLength > maxFileBytes) throw new Error("The service agreement must be smaller than 10 MB.");
+  const extension = fileName.toLowerCase().split(".").pop();
   if (extension === "pdf") return ((await import("pdf-parse")).default(buffer)).then((result) => result.text || "");
   if (extension === "docx") return (await import("mammoth")).extractRawText({ buffer }).then((result) => result.value || "");
-  if (extension === "txt" || file.type.startsWith("text/")) return buffer.toString("utf8");
-  throw new Error("Upload a PDF, DOCX or TXT service agreement.");
+  if (extension === "txt" || contentType.startsWith("text/")) return buffer.toString("utf8");
+  throw new Error("The agreement must be a PDF, DOCX or TXT document.");
 }
 
 export async function POST(request: Request) {
@@ -23,10 +22,43 @@ export async function POST(request: Request) {
     if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
     if (!apiKey) return NextResponse.json({ error: "ChatGPT agreement extraction is not configured." }, { status: 503 });
 
-    const form = await request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "Choose a service agreement first." }, { status: 400 });
-    const text = (await extractText(file)).replace(/\s+/g, " ").trim().slice(0, 30000);
+    const contentType = request.headers.get("content-type") || "";
+    let sourceFileName = "service-agreement";
+    let sourceDocumentId = "";
+    let fileBuffer: Buffer;
+
+    if (contentType.includes("application/json")) {
+      const body = await request.json() as { documentId?: string };
+      sourceDocumentId = body.documentId?.trim() || "";
+      if (!sourceDocumentId) return NextResponse.json({ error: "Choose a Document Vault agreement first." }, { status: 400 });
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!url || !serviceKey) return NextResponse.json({ error: "Secure document parsing is not configured." }, { status: 503 });
+      const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
+      const documentQuery = new URLSearchParams({
+        select: "id,document_type,file_path,storage_bucket",
+        id: `eq.${sourceDocumentId}`,
+        organisation_id: `eq.${access.gate.organisationId!}`,
+        limit: "1"
+      });
+      const documentResponse = await fetch(`${url}/rest/v1/documents?${documentQuery}`, { headers, cache: "no-store" });
+      const documents = documentResponse.ok ? await documentResponse.json() as Array<{ id: string; document_type: string; file_path: string; storage_bucket: string }> : [];
+      const document = documents[0];
+      if (!document || !/service agreement|pricing agreement/i.test(document.document_type)) return NextResponse.json({ error: "The selected Document Vault record is not an accessible service or pricing agreement." }, { status: 404 });
+      await fetch(`${url}/rest/v1/documents?id=eq.${encodeURIComponent(document.id)}&organisation_id=eq.${encodeURIComponent(access.gate.organisationId!)}`, { method: "PATCH", headers, body: JSON.stringify({ billing_parse_status: "processing", billing_parse_error: null }) });
+      const fileResponse = await fetch(`${url}/storage/v1/object/authenticated/${document.storage_bucket || "participant-documents"}/${encodeURI(document.file_path)}`, { headers, cache: "no-store" });
+      if (!fileResponse.ok) throw new Error("The private agreement file could not be read from Document Vault.");
+      sourceFileName = document.file_path.split("/").pop() || sourceFileName;
+      fileBuffer = Buffer.from(await fileResponse.arrayBuffer());
+    } else {
+      const form = await request.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) return NextResponse.json({ error: "Choose a service agreement first." }, { status: 400 });
+      sourceFileName = file.name;
+      fileBuffer = Buffer.from(await file.arrayBuffer());
+    }
+
+    const text = (await extractText(fileBuffer, sourceFileName, contentType)).replace(/\s+/g, " ").trim().slice(0, 30000);
     if (text.length < 30) return NextResponse.json({ error: "No readable agreement text was found." }, { status: 422 });
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -58,8 +90,17 @@ export async function POST(request: Request) {
     const content = payload?.choices?.[0]?.message?.content;
     if (typeof content !== "string") throw new Error("ChatGPT returned no readable agreement data.");
     const parsed = JSON.parse(content);
+    if (sourceDocumentId) {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      await fetch(`${url}/rest/v1/documents?id=eq.${encodeURIComponent(sourceDocumentId)}&organisation_id=eq.${encodeURIComponent(access.gate.organisationId!)}`, {
+        method: "PATCH",
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ billing_parse_status: "ready", billing_parsed_terms: parsed, billing_parse_error: null, billing_parsed_at: new Date().toISOString() })
+      });
+    }
     await access.gate.recordUsage();
-    return NextResponse.json({ ...parsed, sourceFileName: file.name, reviewStatus: "pending" });
+    return NextResponse.json({ ...parsed, sourceFileName, sourceDocumentId, reviewStatus: "pending" });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Agreement extraction failed." }, { status: 500 });
   }

@@ -19,7 +19,6 @@ export type InvoiceServiceSelection = {
   approved: boolean;
   agreementItemId?: string;
   supportItemId?: string;
-  manualSupportItemNumber?: string;
   manualRate?: number;
   manualUnitType?: string;
   includeTravel?: boolean;
@@ -477,7 +476,7 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[],
   if (!agreement) return { invoice: null, lines: [], error: "Service agreement not found." };
   const agreementItem = records.agreementItems.find((item) => item.serviceAgreementId === agreement.id && item.status === "active");
   if (!agreementItem) return { invoice: null, lines: [], error: "Add a service agreement item before invoicing." };
-  return createInvoiceFromServices([{ shiftId, rateSource: "service_agreement", agreementItemId: agreementItem.id, approved: true }], notes, client);
+  return createInvoiceFromServices([{ shiftId, rateSource: "service_agreement", agreementItemId: agreementItem.id, supportItemId: agreementItem.supportItemId, approved: true }], notes, client);
 }
 
 export function createInvoiceFromServices(
@@ -497,14 +496,13 @@ export function createInvoiceFromServices(
     agreementItem: selection.rateSource === "service_agreement"
       ? records.agreementItems.find((item) => item.id === selection.agreementItemId && item.status === "active")
       : undefined,
-    supportItem: selection.rateSource === "ndis_catalogue"
-      ? records.supportItems.find((item) => item.id === selection.supportItemId)
-      : undefined
+    supportItem: records.supportItems.find((item) => item.id === selection.supportItemId)
   }));
   if (selected.some(({ shift }) => !shift)) return { invoice: null, lines: [], error: "One or more completed services could not be found." };
   if (selected.some(({ selection, agreementItem }) => selection.rateSource === "service_agreement" && !agreementItem)) return { invoice: null, lines: [], error: "Choose an active service agreement rate for every agreement-priced service." };
-  if (selected.some(({ selection, supportItem }) => selection.rateSource === "ndis_catalogue" && (!supportItem || supportItem.priceLimit === null))) return { invoice: null, lines: [], error: "Choose a priced item from the active NDIS catalogue for every NDIS-priced service." };
-  if (selected.some(({ selection }) => selection.rateSource === "manual" && (!selection.manualSupportItemNumber?.trim() || !selection.manualRate || selection.manualRate <= 0))) return { invoice: null, lines: [], error: "Enter a support code and valid rate for every manually priced service." };
+  if (selected.some(({ supportItem }) => !supportItem)) return { invoice: null, lines: [], error: "Confirm the applicable NDIS support item code for every service." };
+  if (selected.some(({ selection, supportItem }) => selection.rateSource === "ndis_catalogue" && supportItem?.priceLimit === null)) return { invoice: null, lines: [], error: "The selected NDIS support item does not have an active price limit." };
+  if (selected.some(({ selection }) => selection.rateSource === "manual" && (!selection.manualRate || selection.manualRate <= 0))) return { invoice: null, lines: [], error: "Enter a valid manual rate for every manually priced service." };
 
   const shifts = selected.map(({ shift }) => shift as SupportShift);
   const participantId = shifts[0].participantId;
@@ -541,12 +539,12 @@ export function createInvoiceFromServices(
   const lines = selected.map(({ shift: possibleShift, agreementItem, supportItem, selection }) => {
     const shift = possibleShift as SupportShift;
     const serviceDate = formatDateOnly(new Date(shift.startTime));
-    const supportItemNumber = selection.rateSource === "ndis_catalogue" ? supportItem!.supportItemNumber : selection.rateSource === "service_agreement" ? agreementItem!.supportItemNumber : selection.manualSupportItemNumber!.trim();
-    const supportItemName = selection.rateSource === "ndis_catalogue" ? supportItem!.supportItemName : selection.rateSource === "service_agreement" ? agreementItem!.supportItemName : supportItemNumber;
-    const unitType = selection.rateSource === "ndis_catalogue" ? supportItem!.unitType : selection.rateSource === "service_agreement" ? agreementItem!.unitType : selection.manualUnitType || "hour";
+    const supportItemNumber = supportItem!.supportItemNumber;
+    const supportItemName = supportItem!.supportItemName;
+    const unitType = selection.rateSource === "service_agreement" ? agreementItem!.unitType : selection.rateSource === "manual" ? selection.manualUnitType || supportItem!.unitType : supportItem!.unitType;
     const rate = selection.rateSource === "ndis_catalogue" ? supportItem!.priceLimit! : selection.rateSource === "service_agreement" ? agreementItem!.agreedRate : selection.manualRate!;
-    const pricingVersionId = selection.rateSource === "ndis_catalogue" ? supportItem!.pricingVersionId : agreementItem?.pricingVersionId || "";
-    const priceLimit = selection.rateSource === "ndis_catalogue" ? supportItem!.priceLimit : agreementItem?.ndisPriceLimit ?? null;
+    const pricingVersionId = supportItem!.pricingVersionId;
+    const priceLimit = supportItem!.priceLimit;
     const pricingVersion = records.pricingVersions.find((item) => item.id === pricingVersionId);
     const quantity = getBillableQuantity(shift, unitType);
     const evidenceStatus = getEvidenceStatus(shift, notes);
@@ -579,7 +577,7 @@ export function createInvoiceFromServices(
       amount,
       gstCode: "GST-free",
       pricingVersionId,
-      pricingVersionName: pricingVersion?.versionName || (selection.rateSource === "service_agreement" ? "Service agreement" : "Manual entry"),
+      pricingVersionName: pricingVersion?.versionName || "NDIS catalogue",
       ndisPriceLimitUsed: priceLimit,
       agreedRateUsed: rate,
       evidenceStatus,
