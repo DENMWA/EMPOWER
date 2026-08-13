@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ClipboardCheck, Eye, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
+import { Check, Eye, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
@@ -18,7 +18,7 @@ import {
   getBillableQuantity,
   matchNdisSupportItems,
   getNativeBillingRecords,
-  linkCompletedRosterService,
+  reconcileCompletedRosterServices,
   markInvoicePaymentStatus,
   nativeBillingUpdatedEvent,
   updateSupportShiftTravel,
@@ -81,7 +81,6 @@ export function NativeBillingWorkspace() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
-  const [linkingServiceId, setLinkingServiceId] = useState("");
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
   const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
@@ -132,7 +131,21 @@ export function NativeBillingWorkspace() {
       const requestedClientId = new URLSearchParams(window.location.search).get("clientId") || "";
       setSelectedClientId((current) => current || clientItems.find((client) => client.id === requestedClientId)?.id || clientItems[0]?.id || "");
       const cloudRecords = await loadTenantNativeBillingRecords(clientItems, staffItems);
-      setRecords(cloudRecords);
+      const completedServices = rosterResult.shifts.filter((shift) => shift.status === "Completed" || shift.status === "Note Completed");
+      const reconciliation = reconcileCompletedRosterServices(completedServices.map((rosterShift) => ({
+        rosterShift,
+        agreement: cloudRecords.agreements.find((agreement) => agreement.participantId === rosterShift.participantId && agreement.status === "active"),
+        noteRecordId: noteItems.find((note) => note.body.includes(rosterShift.participantName) || note.id.includes(rosterShift.participantId))?.id
+      })));
+      setRecords(reconciliation.records);
+      if (reconciliation.linked) {
+        try {
+          await waitForNativeBillingSave();
+          setRecords(getNativeBillingRecords());
+        } catch (error) {
+          setMessage(`Some delivered services remain available locally while cloud sync retries. ${getBillingError(error)}`);
+        }
+      }
     }
 
     function loadLocalRecords() {
@@ -398,41 +411,6 @@ export function NativeBillingWorkspace() {
       setMessage(`The agreed rate was not saved. ${getBillingError(error)}`);
     } finally {
       setSavingAction("");
-    }
-  }
-
-  async function linkRenderedService(rosterShift: RosterShift) {
-    if (linkingServiceId) return;
-    if (!selectedAgreement) {
-      setMessage("Create an active service agreement for this client before linking delivered support.");
-      return;
-    }
-    setLinkingServiceId(rosterShift.id);
-    const matchingNote = notes.find((note) => note.body.includes(rosterShift.participantName) || note.id.includes(rosterShift.participantId));
-    const result = linkCompletedRosterService({ rosterShift, agreement: selectedAgreement, noteRecordId: matchingNote?.id });
-    if (result.error || !result.shift) {
-      setMessage(result.error || "This completed service could not be linked.");
-      setLinkingServiceId("");
-      return;
-    }
-
-    setRecords(getNativeBillingRecords());
-    setServiceRateDrafts((current) => ({
-      ...current,
-      [result.shift!.id]: current[result.shift!.id] || getSuggestedRateDraft(result.shift!, getNativeBillingRecords())
-    }));
-    setMessage("Linking completed service...");
-    try {
-      await waitForNativeBillingSave();
-      setRecords(getNativeBillingRecords());
-      setMessage(matchingNote
-        ? "Completed service linked to its service agreement and progress-note evidence."
-        : "Completed service linked. The invoice will flag that supporting note evidence is missing.");
-    } catch (error) {
-      setRecords(getNativeBillingRecords());
-      setMessage(`The completed service was not linked. ${getBillingError(error)}`);
-    } finally {
-      setLinkingServiceId("");
     }
   }
 
@@ -788,7 +766,6 @@ export function NativeBillingWorkspace() {
             {!completedRosterServices.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No completed roster services are available for this client.</p> : null}
             {completedRosterServices.map((shift) => {
               const billingService = records.shifts.find((item) => item.rosterShiftId === shift.id);
-              const linked = Boolean(billingService);
               const availableAgreementItems = billingService
                 ? records.agreementItems.filter((item) => item.serviceAgreementId === billingService.serviceAgreementId && item.status === "active")
                 : [];
@@ -810,6 +787,8 @@ export function NativeBillingWorkspace() {
                 : { allowed: true, reason: "" };
               const evidenceLinked = Boolean(billingService?.noteRecordId && notes.some((note) => note.id === billingService.noteRecordId));
               const selectedRate = rateDraft.source === "ndis_catalogue" ? selectedNdisItem?.priceLimit : rateDraft.source === "service_agreement" ? agreementItem?.agreedRate : Number(rateDraft.manualRate || 0);
+              const selectedLineTotal = selectedRate ? Math.round(billableQuantity * selectedRate * 100) / 100 : 0;
+              const selectedSourceLabel = rateDraft.source === "ndis_catalogue" ? "NDIS guide" : rateDraft.source === "service_agreement" ? "Service agreement" : "Manual entry";
               const rateAboveLimit = rateDraft.source === "manual" && Boolean(selectedNdisItem?.priceLimit && selectedRate && selectedRate > selectedNdisItem.priceLimit);
               const pricingSearch = billingService ? servicePricingSearches[billingService.id] || "" : "";
               const visibleNdisItems = filterNdisItems(activeNdisItems, pricingSearch, selectedNdisItem?.id);
@@ -822,21 +801,23 @@ export function NativeBillingWorkspace() {
                     {billingService ? <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">{formatServiceHours(billingService.startTime, billingService.endTime)} service hours</span> : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" disabled={linked || Boolean(linkingServiceId)} aria-busy={linkingServiceId === shift.id} onClick={() => void linkRenderedService(shift)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
-                      <ClipboardCheck size={16} aria-hidden="true" />{linkingServiceId === shift.id ? "Linking..." : linked ? "Linked" : "Link service"}
-                    </button>
                     {billingService ? (
                       <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">
                         <input type="checkbox" disabled={invoiced || !invoiceEligibility.allowed} checked={Boolean(selectedInvoiceServices[billingService.id])} onChange={(event) => setSelectedInvoiceServices((current) => ({ ...current, [billingService.id]: event.target.checked }))} />
                         {invoiced ? "Already invoiced" : "Include in invoice"}
                       </label>
-                    ) : null}
+                    ) : <span className="inline-flex min-h-10 items-center rounded-md bg-slate-100 px-3 text-sm font-semibold text-slate-600">Preparing pricing options...</span>}
                   </div>
                   {billingService ? (
                     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
-                        {([['ndis_catalogue', 'NDIS Price Limit'], ['service_agreement', 'Service Agreement Rate'], ['manual', 'Manual Rate']] as const).map(([source, label]) => (
-                          <button key={source} type="button" onClick={() => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source, ndisSupportItemId: rateDraft.ndisSupportItemId, itemId: source === "ndis_catalogue" ? rateDraft.ndisSupportItemId : "" } }))} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
+                        {([['ndis_catalogue', 'NDIS guide'], ['service_agreement', 'Service agreement'], ['manual', 'Manual entry']] as const).map(([source, label]) => (
+                          <button key={source} type="button" disabled={source === "service_agreement" && !availableAgreementItems.length} onClick={() => {
+                            const agreementRate = source === "service_agreement"
+                              ? availableAgreementItems.find((item) => item.supportItemId === rateDraft.ndisSupportItemId) || availableAgreementItems[0]
+                              : undefined;
+                            setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source, ndisSupportItemId: agreementRate?.supportItemId || rateDraft.ndisSupportItemId, itemId: source === "ndis_catalogue" ? rateDraft.ndisSupportItemId : agreementRate?.id || "" } }));
+                          }} className={`min-h-10 rounded px-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
                         ))}
                       </div>
                       <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
@@ -857,7 +838,7 @@ export function NativeBillingWorkspace() {
                         </div>
                         <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
                           <p className="font-semibold text-ink">Service agreement rate</p>
-                          <p className="mt-1 text-slate-700">{availableAgreementItems[0] ? `${availableAgreementItems[0].supportItemNumber} · $${availableAgreementItems[0].agreedRate.toFixed(2)} / ${availableAgreementItems[0].unitType}` : "No approved agreement rate available"}</p>
+                          <p className="mt-1 text-slate-700">{agreementItem ? `${agreementItem.supportItemNumber} · $${agreementItem.agreedRate.toFixed(2)} / ${agreementItem.unitType}` : "No approved agreement rate selected"}</p>
                         </div>
                       </div>
                       {rateDraft.source === "service_agreement" ? (
@@ -883,7 +864,12 @@ export function NativeBillingWorkspace() {
                         <p className="mt-1">{selectedUnit?.toLowerCase().includes("hour") && billableQuantity ? `${formatServiceHours(billingService.startTime, billingService.endTime)} service hours × ${assignedStaffCount} staff = ${billableQuantity} billable hours` : "Quantity is confirmed from the selected billing unit."}</p>
                         {ratioMismatch ? <p className="mt-1 font-semibold">The roster ratio and assigned staff do not match. Correct the roster before invoicing.</p> : null}
                       </div>
-                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch || !selectedNdisItem} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />Approve NDIS code, staffing ratio and calculated rate</label>
+                      <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                        <p className="font-semibold text-ink">Selected price</p>
+                        <p className="mt-1 text-slate-700">{selectedSourceLabel} · {selectedRate ? `$${selectedRate.toFixed(2)} / ${selectedUnit || "unit"}` : "Select a valid price"}</p>
+                        <p className="mt-1 font-semibold text-ink">{billableQuantity || 0} × {selectedRate ? `$${selectedRate.toFixed(2)}` : "$0.00"} = ${selectedLineTotal.toFixed(2)}</p>
+                      </div>
+                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch || !selectedNdisItem || !selectedRate || (rateDraft.source === "service_agreement" && !agreementItem)} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />I authorise {selectedSourceLabel.toLowerCase()} pricing at ${selectedLineTotal.toFixed(2)}</label>
                     </div>
                   ) : null}
                   {billingService && agreementItem?.allowTravel && agreementItem.allowKilometres ? (() => {

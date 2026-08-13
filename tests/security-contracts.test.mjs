@@ -652,10 +652,10 @@ test("participant invoices require an approved NDIS, agreement or manual rate", 
     source("components/participants/ClientProfiles.tsx")
   ]);
   assert.match(workspace, /Billing period from/);
-  assert.match(workspace, /NDIS Price Limit/);
-  assert.match(workspace, /Service Agreement Rate/);
-  assert.match(workspace, /Manual Rate/);
-  assert.match(workspace, /Approve NDIS code, staffing ratio and calculated rate/);
+  assert.match(workspace, /NDIS guide/);
+  assert.match(workspace, /Service agreement/);
+  assert.match(workspace, /Manual entry/);
+  assert.match(workspace, /I authorise/);
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
   assert.match(workspace, /Create Invoice/);
@@ -772,14 +772,28 @@ test("every invoice rate source retains a confirmed NDIS catalogue code", async 
   assert.match(billing, /export function buildInvoiceCsv/);
 });
 
-test("linking a delivered service remains stable until cloud persistence finishes", async () => {
-  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
-  assert.match(workspace, /const \[linkingServiceId, setLinkingServiceId\]/);
+test("completed services reconcile automatically before pricing", async () => {
+  const [workspace, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(workspace, /reconcileCompletedRosterServices/);
   assert.match(workspace, /await waitForNativeBillingSave\(\)/);
-  assert.match(workspace, /setRecords\(getNativeBillingRecords\(\)\)/);
-  assert.match(workspace, /aria-busy=\{linkingServiceId === shift\.id\}/);
-  assert.match(workspace, /"Linking\.\.\."/);
-  assert.match(workspace, /The completed service was not linked/);
+  assert.match(workspace, /Preparing pricing options/);
+  assert.doesNotMatch(workspace, /Link service|linkingServiceId|ClipboardCheck/);
+  assert.match(billing, /export function reconcileCompletedRosterServices/);
+  assert.match(billing, /if \(index >= 0\) return/);
+});
+
+test("invoice pricing requires an explicit exact-price authorisation", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /NDIS guide/);
+  assert.match(workspace, /Service agreement/);
+  assert.match(workspace, /Manual entry/);
+  assert.match(workspace, /Selected price/);
+  assert.match(workspace, /selectedLineTotal/);
+  assert.match(workspace, /I authorise \{selectedSourceLabel\.toLowerCase\(\)\} pricing/);
+  assert.match(workspace, /source === "service_agreement" && !availableAgreementItems\.length/);
 });
 
 test("linked services can select any active NDIS service price", async () => {

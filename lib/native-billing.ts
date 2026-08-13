@@ -397,12 +397,12 @@ export function completeShift(shiftId: string, noteRecordId: string) {
 
 export function linkCompletedRosterService(input: {
   rosterShift: RosterShift;
-  agreement: ServiceAgreement;
+  agreement?: ServiceAgreement;
   noteRecordId?: string;
 }) {
   const records = getNativeBillingRecords();
   const existing = records.shifts.find((shift) => shift.id === input.rosterShift.id || shift.rosterShiftId === input.rosterShift.id);
-  if (existing?.serviceAgreementId) return { shift: existing, error: "This completed roster service is already linked to billing." };
+  if (existing && (!input.agreement || existing.serviceAgreementId === input.agreement.id)) return { shift: existing, error: "" };
 
   const assignedStaff = input.rosterShift.assignedWorkers?.length
     ? input.rosterShift.assignedWorkers
@@ -416,7 +416,7 @@ export function linkCompletedRosterService(input: {
     staffName: assignedStaff.map((worker) => worker.name).join(", "),
     assignedStaffCount: assignedStaff.filter((worker) => worker.id).length,
     staffingRatio: input.rosterShift.staffingRatio,
-    serviceAgreementId: input.agreement.id,
+    serviceAgreementId: input.agreement?.id || "",
     title: input.rosterShift.supportType,
     supportType: input.rosterShift.supportType,
     location: input.rosterShift.location,
@@ -435,6 +435,24 @@ export function linkCompletedRosterService(input: {
       : [shift, ...records.shifts]
   });
   return { shift, error: "" };
+}
+
+export function reconcileCompletedRosterServices(inputs: Array<{ rosterShift: RosterShift; agreement?: ServiceAgreement; noteRecordId?: string }>) {
+  if (!inputs.length) return { linked: 0, records: getNativeBillingRecords() };
+  const original = getNativeBillingRecords();
+  let linked = 0;
+  const shifts = [...original.shifts];
+  inputs.forEach(({ rosterShift, agreement, noteRecordId }) => {
+    const index = shifts.findIndex((shift) => shift.id === rosterShift.id || shift.rosterShiftId === rosterShift.id);
+    if (index >= 0) return;
+    const assignedStaff = rosterShift.assignedWorkers?.length ? rosterShift.assignedWorkers : [{ id: rosterShift.workerId, name: rosterShift.workerName }];
+    shifts.unshift({ id: rosterShift.id, rosterShiftId: rosterShift.id, participantId: rosterShift.participantId, participantName: rosterShift.participantName, staffId: assignedStaff[0]?.id || "", staffName: assignedStaff.map((worker) => worker.name).join(", "), assignedStaffCount: assignedStaff.filter((worker) => worker.id).length, staffingRatio: rosterShift.staffingRatio, serviceAgreementId: agreement?.id || "", title: rosterShift.supportType, supportType: rosterShift.supportType, location: rosterShift.location, startTime: `${rosterShift.shiftDate}T${rosterShift.startTime}:00`, endTime: `${rosterShift.shiftDate}T${rosterShift.endTime}:00`, status: "completed", recurrenceRule: "", noteRecordId, createdAt: new Date().toISOString() });
+    linked += 1;
+  });
+  if (!linked) return { linked, records: original };
+  const records = { ...original, shifts };
+  saveNativeBillingRecords(records);
+  return { linked, records };
 }
 
 export function updateSupportShiftTravel(shiftId: string, input: {
