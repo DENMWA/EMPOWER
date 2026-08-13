@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { checkOfficialNdisPricing } from "@/lib/ndis-pricing-monitor";
+export const runtime="nodejs"; export const dynamic="force-dynamic";
+export async function GET(request:Request){if(!process.env.CRON_SECRET||request.headers.get("authorization")!==`Bearer ${process.env.CRON_SECRET}`)return NextResponse.json({error:"Unauthorised"},{status:401});const url=process.env.NEXT_PUBLIC_SUPABASE_URL,serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!serviceKey)return NextResponse.json({error:"Pricing monitoring is not configured."},{status:503});try{return NextResponse.json(await checkOfficialNdisPricing({url,serviceKey}));}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Pricing check failed."},{status:500});}}

@@ -901,6 +901,26 @@ test("NDIS pricing never presents missing catalogue values as zero-dollar rates"
   assert.match(route, /cannot be activated/);
 });
 
+test("official NDIS pricing updates remain draft until the platform owner publishes them", async () => {
+  const [monitor, route, cron, panel, migration, vercel] = await Promise.all([
+    source("lib/ndis-pricing-monitor.ts"), source("app/api/platform/ndis-pricing/route.ts"),
+    source("app/api/cron/ndis-pricing-monitor/route.ts"), source("components/platform/NdisPricingMonitorPanel.tsx"),
+    source("supabase/central-ndis-pricing-monitor.sql"), source("vercel.json")
+  ]);
+  assert.match(monitor, /ALLOWED_HOSTS/);
+  assert.match(monitor, /status: "draft"/);
+  assert.match(monitor, /organisation_id: null/);
+  assert.match(monitor, /automatic_official_ndis_csv/);
+  assert.match(monitor, /publishPlatformNdisPricing/);
+  assert.match(route, /verifyServerAccess\(request,"platform"\)/);
+  assert.match(cron, /CRON_SECRET/);
+  assert.match(panel, /Automatic checks create drafts/);
+  assert.match(panel, /Publish reviewed version/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /revoke all .* from anon, authenticated/);
+  assert.match(vercel, /ndis-pricing-monitor/);
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),
