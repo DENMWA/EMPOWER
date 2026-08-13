@@ -823,7 +823,8 @@ export function NativeBillingWorkspace() {
                 : { allowed: true, reason: "" };
               const evidenceLinked = Boolean(billingService?.noteRecordId && notes.some((note) => note.id === billingService.noteRecordId));
               const selectedRate = rateDraft.source === "ndis_catalogue" ? selectedNdisItem?.priceLimit : rateDraft.source === "service_agreement" ? agreementItem?.agreedRate : Number(rateDraft.manualRate || 0);
-              const selectedLineTotal = selectedRate ? Math.round(billableQuantity * selectedRate * 100) / 100 : 0;
+              const hasValidSelectedRate = typeof selectedRate === "number" && Number.isFinite(selectedRate) && selectedRate > 0;
+              const selectedLineTotal = hasValidSelectedRate ? Math.round(billableQuantity * selectedRate * 100) / 100 : null;
               const selectedSourceLabel = rateDraft.source === "ndis_catalogue" ? "NDIS guide" : rateDraft.source === "service_agreement" ? "Service agreement" : "Manual entry";
               const rateAboveLimit = rateDraft.source === "manual" && Boolean(selectedNdisItem?.priceLimit && selectedRate && selectedRate > selectedNdisItem.priceLimit);
               const pricingSearch = billingService ? servicePricingSearches[billingService.id] || "" : "";
@@ -903,10 +904,10 @@ export function NativeBillingWorkspace() {
                       </div>
                       <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
                         <p className="font-semibold text-ink">Selected price</p>
-                        <p className="mt-1 text-slate-700">{selectedSourceLabel} · {selectedRate ? `$${selectedRate.toFixed(2)} / ${selectedUnit || "unit"}` : "Select a valid price"}</p>
-                        <p className="mt-1 font-semibold text-ink">{billableQuantity || 0} × {selectedRate ? `$${selectedRate.toFixed(2)}` : "$0.00"} = ${selectedLineTotal.toFixed(2)}</p>
+                        <p className="mt-1 text-slate-700">{selectedSourceLabel} · {hasValidSelectedRate ? `${formatMoney(selectedRate)} / ${selectedUnit || "unit"}` : "Price unavailable"}</p>
+                        <p className="mt-1 font-semibold text-ink">{hasValidSelectedRate && selectedLineTotal !== null ? `${billableQuantity || 0} × ${formatMoney(selectedRate)} = ${formatMoney(selectedLineTotal)}` : "Choose a valid priced NDIS item, agreement rate, or manual rate."}</p>
                       </div>
-                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch || !selectedNdisItem || !selectedRate || (rateDraft.source === "service_agreement" && !agreementItem)} checked={!ratioMismatch && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />I authorise {selectedSourceLabel.toLowerCase()} pricing at ${selectedLineTotal.toFixed(2)}</label>
+                      <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" disabled={ratioMismatch || !selectedNdisItem || !hasValidSelectedRate || (rateDraft.source === "service_agreement" && !agreementItem)} checked={!ratioMismatch && hasValidSelectedRate && rateDraft.approved} onChange={(event) => setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...rateDraft, approved: event.target.checked } }))} />{hasValidSelectedRate && selectedLineTotal !== null ? `I authorise ${selectedSourceLabel.toLowerCase()} pricing at ${formatMoney(selectedLineTotal)}` : `${selectedSourceLabel} price unavailable - authorization blocked`}</label>
                     </div>
                   ) : null}
                   {billingService && agreementItem?.allowTravel && agreementItem.allowKilometres ? (() => {

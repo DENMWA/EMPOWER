@@ -821,7 +821,10 @@ test("invoice pricing requires an explicit exact-price authorisation", async () 
   assert.match(workspace, /Manual entry/);
   assert.match(workspace, /Selected price/);
   assert.match(workspace, /selectedLineTotal/);
-  assert.match(workspace, /I authorise \{selectedSourceLabel\.toLowerCase\(\)\} pricing/);
+  assert.match(workspace, /`I authorise \$\{selectedSourceLabel\.toLowerCase\(\)\} pricing at \$\{formatMoney\(selectedLineTotal\)\}`/);
+  assert.match(workspace, /price unavailable - authorization blocked/);
+  assert.match(workspace, /!hasValidSelectedRate/);
+  assert.doesNotMatch(workspace, /pricing at \$\{selectedLineTotal\.toFixed/);
   assert.match(workspace, /source === "service_agreement" && !availableAgreementItems\.length/);
 });
 
