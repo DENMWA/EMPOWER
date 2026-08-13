@@ -96,13 +96,6 @@ export function AddClientForm() {
       setMessage("Add the client's full name before saving.");
       return;
     }
-    if (!primaryHouseId) {
-      setSaved(false);
-      setSaveFailed(true);
-      setMessage(houses.length ? "Select the client's house or service before saving." : "Add a house or service location before adding this client.");
-      return;
-    }
-
     setSaving(true);
     setSaveFailed(false);
     setMessage("Saving client to this organisation...");
@@ -290,12 +283,12 @@ export function AddClientForm() {
         </div>
         <div className="rounded-md border border-teal-200 bg-teal-50/60 p-4 lg:col-span-2">
           <h3 className="font-semibold text-ink">House and service assignment</h3>
-          <p className="mt-1 text-sm text-slate-600">Required so shift notes, incidents, rostering and reports use the correct service context.</p>
+          <p className="mt-1 text-sm text-slate-600">Optional. Assign a house or service when this client receives location-based support.</p>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <label className="block text-sm font-semibold text-slate-700">
               Primary house/service
-              <select required className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={primaryHouseId} onChange={(event) => setPrimaryHouseId(event.target.value)}>
-                <option value="">Select house or service</option>
+              <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={primaryHouseId} onChange={(event) => setPrimaryHouseId(event.target.value)}>
+                <option value="">No house assigned</option>
                 {houses.map((house) => <option key={house.id} value={house.id}>{house.name} - {house.serviceType}</option>)}
               </select>
             </label>
@@ -304,7 +297,7 @@ export function AddClientForm() {
               <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" placeholder="e.g. SIL weekday support" value={serviceName} onChange={(event) => setServiceName(event.target.value)} />
             </label>
           </div>
-          {!houses.length ? <p className="mt-3 text-sm font-semibold text-amber-800">Create a house or service location in Admin Settings before saving this client.</p> : null}
+          {!houses.length ? <p className="mt-3 text-sm text-slate-600">You can save this client now and add a house or service later.</p> : null}
         </div>
         <label className="block text-sm font-semibold text-slate-700">
           Client phone

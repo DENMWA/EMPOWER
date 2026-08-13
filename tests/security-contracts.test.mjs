@@ -118,6 +118,15 @@ test("the admin clients workspace keeps a visible add-client action", async () =
   assert.match(newClientPage, /AddClientForm/);
 });
 
+test("client intake supports sole providers without a house", async () => {
+  const form = await source("components/admin/AddClientForm.tsx");
+  assert.match(form, /Optional\. Assign a house or service/);
+  assert.match(form, /No house assigned/);
+  assert.match(form, /save this client now and add a house or service later/);
+  assert.doesNotMatch(form, /if \(!primaryHouseId\)/);
+  assert.doesNotMatch(form, /<select required[^>]*value=\{primaryHouseId\}/);
+});
+
 test("staff invitations remain manager and organisation scoped", async () => {
   const policy = await source("supabase/repair-staff-invites-rls.sql");
   assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
