@@ -501,6 +501,21 @@ test("progress notes use one writing surface for typed, voice and AI content", a
   assert.match(migration, /add value if not exists 'mixed'/);
 });
 
+test("workers edit only their own unapproved progress notes and approval is a footnote", async () => {
+  const [log, records, policy] = await Promise.all([
+    source("components/notes/ProgressNoteLog.tsx"),
+    source("lib/progress-note-records.ts"),
+    source("supabase/worker-progress-note-edits.sql")
+  ]);
+  assert.match(log, /canEdit = record\.isOwn && record\.status !== "Approved" && record\.status !== "Locked"/);
+  assert.match(log, /Approved progress note\. This record is read-only\./);
+  assert.match(log, /record\.status !== "Approved" \? <StatusBadge/);
+  assert.match(records, /export async function updateOwnProgressNote/);
+  assert.match(records, /Only the worker who wrote this note can edit it/);
+  assert.match(policy, /status not in \('Approved', 'Locked'\)/);
+  assert.match(policy, /staff_id = \(select auth\.uid\(\)\)/);
+});
+
 test("submitted progress notes create traceable pending goal evidence without claiming progress", async () => {
   const [generator, records, goals, migration] = await Promise.all([
     source("components/notes/ProgressNoteGenerator.tsx"),

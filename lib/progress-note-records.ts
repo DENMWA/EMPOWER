@@ -26,6 +26,86 @@ export type ProgressNoteRecordInput = {
   linkedGoalIds?: string[];
 };
 
+export type WorkerProgressNote = {
+  id: string;
+  participantId: string;
+  staffId: string;
+  supportDate: string;
+  startTime: string;
+  endTime: string;
+  supportType: string;
+  status: string;
+  body: string;
+  photoPaths: string[];
+  updatedAt: string;
+  isOwn: boolean;
+};
+
+type WorkerProgressNoteRow = {
+  id: string;
+  participant_id: string;
+  staff_id: string;
+  support_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  support_type: string;
+  status: string;
+  final_note: string | null;
+  rough_note: string;
+  photo_evidence: Array<{ path?: string }> | null;
+  updated_at: string;
+};
+
+export async function getTenantWorkerProgressNotes() {
+  const currentUserId = getCurrentUserId();
+  const result = await supabaseRequest<WorkerProgressNoteRow[]>("progress_notes", {
+    query: "select=id,participant_id,staff_id,support_date,start_time,end_time,support_type,status,final_note,rough_note,photo_evidence,updated_at&order=updated_at.desc"
+  });
+  if (!result.data || result.error) return { records: [] as WorkerProgressNote[], error: result.error };
+  return {
+    records: result.data.map((row) => ({
+      id: row.id,
+      participantId: row.participant_id,
+      staffId: row.staff_id,
+      supportDate: row.support_date,
+      startTime: row.start_time || "",
+      endTime: row.end_time || "",
+      supportType: row.support_type,
+      status: row.status,
+      body: row.final_note || row.rough_note,
+      photoPaths: (row.photo_evidence || []).map((photo) => photo.path || "").filter(Boolean),
+      updatedAt: row.updated_at,
+      isOwn: row.staff_id === currentUserId
+    })),
+    error: ""
+  };
+}
+
+export async function updateOwnProgressNote(noteId: string, body: string) {
+  const currentUserId = getCurrentUserId();
+  if (!currentUserId) return { saved: false, error: "Sign in before editing this progress note." };
+  const existing = await supabaseRequest<Array<{ id: string; staff_id: string; status: string }>>("progress_notes", {
+    query: `select=id,staff_id,status&id=eq.${encodeURIComponent(noteId)}&limit=1`
+  });
+  const note = existing.data?.[0];
+  if (!note || existing.error) return { saved: false, error: existing.error || "Progress note not found." };
+  if (note.staff_id !== currentUserId) return { saved: false, error: "Only the worker who wrote this note can edit it." };
+  if (note.status === "Approved" || note.status === "Locked") return { saved: false, error: "Approved records cannot be edited." };
+  const result = await supabaseRequest<Array<{ id: string }>>("progress_notes", {
+    method: "PATCH",
+    query: `id=eq.${encodeURIComponent(noteId)}&staff_id=eq.${encodeURIComponent(currentUserId)}`,
+    prefer: "return=representation",
+    body: {
+      final_note: body.trim(),
+      working_draft: body.trim(),
+      final_approved_version: null,
+      owner_approved: false,
+      updated_at: new Date().toISOString()
+    }
+  });
+  return { saved: Boolean(result.data?.length && !result.error), error: result.error };
+}
+
 export async function saveTenantProgressNote(input: ProgressNoteRecordInput) {
   const organisationId = await getCurrentOrganisationId();
   const staffId = getCurrentUserId();
