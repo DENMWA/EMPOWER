@@ -792,6 +792,26 @@ test("linked services can select any active NDIS service price", async () => {
   assert.doesNotMatch(workspace.slice(workspace.indexOf("NDIS support item code"), workspace.indexOf("NDIS advised rate")), /ndisMatches\.map/);
 });
 
+test("official NDIA catalogue rows power date-aware invoice recommendations", async () => {
+  const [workspace, route, billing, cloud] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("app/api/billing/import-ndis-catalogue/route.ts"),
+    source("lib/native-billing.ts"),
+    source("lib/native-billing-cloud.ts")
+  ]);
+  assert.match(workspace, /Official NDIA catalogue CSV/);
+  assert.match(workspace, /Invoice recommendations now use this catalogue by service date/);
+  assert.match(route, /verifyServerAccess\(request, "admin", "billing", "billing\.manage"\)/);
+  assert.match(route, /National Disability Insurance Agency/);
+  assert.match(route, /status: "draft"/);
+  assert.match(route, /checksum: createHash\("sha256"\)/);
+  assert.match(route, /organisation_id: access\.organisationId/);
+  assert.match(route, /regionalPriceColumns/);
+  assert.match(billing, /item\.timeBand/);
+  assert.match(cloud, /state_or_region: item\.stateOrRegion/);
+  assert.match(cloud, /remote_type: item\.remoteType/);
+});
+
 test("participant invoicing and the EmpowerNotes subscription remain separate", async () => {
   const [invoicePage, planPage, navigation, subscriptionWorkspace] = await Promise.all([
     source("app/admin/billing/page.tsx"),

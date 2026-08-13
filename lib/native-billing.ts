@@ -79,6 +79,9 @@ export type NdisSupportItem = {
   supportCategory: string;
   unitType: string;
   claimType: string;
+  timeBand?: string;
+  stateOrRegion?: string;
+  remoteType?: string;
   priceLimit: number | null;
   gstCode: string;
   effectiveFrom: string;
@@ -725,7 +728,7 @@ export function matchNdisSupportItems(shift: Pick<SupportShift, "supportType" | 
   return items
     .filter((item) => activeVersionIds.has(item.pricingVersionId) && item.priceLimit !== null && (!item.effectiveFrom || item.effectiveFrom <= serviceDate) && (!item.effectiveTo || item.effectiveTo >= serviceDate))
     .map((item) => {
-      const itemTokens = tokenise(`${item.supportItemName} ${item.supportCategory} ${item.registrationGroup}`);
+      const itemTokens = tokenise(`${item.supportItemName} ${item.supportCategory} ${item.registrationGroup} ${item.timeBand || ""} ${item.claimType}`);
       const overlap = serviceTokens.filter((token) => itemTokens.includes(token)).length;
       const score = serviceTokens.length ? overlap / serviceTokens.length : 0;
       return { item, confidence: Math.round(Math.min(0.99, 0.35 + score * 0.6) * 100) };

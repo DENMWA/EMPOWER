@@ -8,12 +8,10 @@ import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantRetainedRecords, type RetainedRecord } from "@/lib/retained-records";
 import { getTenantStaffInvites } from "@/lib/staff-records";
 import {
-  activatePricingVersion,
   addManualServiceAgreementItem,
   addServiceAgreementItem,
   buildInvoiceCsv,
   createInvoiceFromServices,
-  createPricingVersionFromManualUpload,
   createServiceAgreement,
   getBudgetUsage,
   getInvoiceEligibility,
@@ -94,6 +92,9 @@ export function NativeBillingWorkspace() {
   const [vaultAgreements, setVaultAgreements] = useState<StoredDocumentRecord[]>([]);
   const [agreementDraftItems, setAgreementDraftItems] = useState<AgreementDraftItem[]>([]);
   const [agreementSourceFile, setAgreementSourceFile] = useState("");
+  const [catalogueFile, setCatalogueFile] = useState<File | null>(null);
+  const [catalogueEffectiveFrom, setCatalogueEffectiveFrom] = useState("");
+  const [importingCatalogue, setImportingCatalogue] = useState(false);
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -177,18 +178,41 @@ export function NativeBillingWorkspace() {
     setRatePeriod(unit.includes("week") ? "week" : unit.includes("month") ? "month" : "hour");
   }, [selectedSupportItemId, supportItems]);
 
-  function importPricingVersion() {
-    const version = createPricingVersionFromManualUpload({
-      versionName: `Manual NDIS pricing ${new Date().toLocaleDateString("en-AU")}`,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
-      sourceFilename: "manual-ndis-support-catalogue.csv"
-    });
-    setMessage(`${version.versionName} imported as draft. Review and activate before invoice use.`);
+  async function importOfficialCatalogue() {
+    const token = getStoredAccessToken();
+    if (!catalogueFile || !catalogueEffectiveFrom || !token) {
+      setMessage("Choose the official NDIA Support Catalogue CSV, its effective date, and sign in.");
+      return;
+    }
+    setImportingCatalogue(true);
+    setMessage("Validating the NDIA Support Catalogue...");
+    try {
+      const form = new FormData();
+      form.append("file", catalogueFile);
+      form.append("effectiveFrom", catalogueEffectiveFrom);
+      const response = await fetch("/api/billing/import-ndis-catalogue", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+      const result = await response.json() as { error?: string; itemCount?: number };
+      if (!response.ok) throw new Error(result.error || "The catalogue could not be imported.");
+      const clientItems = clients.length ? clients : await getTenantClients(true);
+      const staffItems = await getTenantStaffInvites();
+      setRecords(await loadTenantNativeBillingRecords(clientItems, staffItems));
+      setMessage(`${result.itemCount || 0} official catalogue price rows imported as a draft. Review and activate the version before invoice use.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The catalogue could not be imported.");
+    } finally {
+      setImportingCatalogue(false);
+    }
   }
 
-  function activateDraft(versionId: string) {
-    activatePricingVersion(versionId);
-    setMessage("Pricing version activated. Older active versions are preserved as superseded.");
+  async function activateDraft(versionId: string) {
+    const token = getStoredAccessToken();
+    if (!token) return setMessage("Sign in before activating NDIS pricing.");
+    const response = await fetch("/api/billing/import-ndis-catalogue", { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ versionId }) });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) return setMessage(result.error || "The catalogue could not be activated.");
+    const staffItems = await getTenantStaffInvites();
+    setRecords(await loadTenantNativeBillingRecords(clients, staffItems));
+    setMessage("Official NDIS pricing activated. Invoice recommendations now use this catalogue by service date.");
   }
 
   async function saveAgreement() {
@@ -554,10 +578,13 @@ export function NativeBillingWorkspace() {
       <div className="grid gap-4 xl:grid-cols-2">
         {showBillingSetup ? <Card className="order-3">
           <h2 className="text-xl font-semibold text-ink">1. Pricing</h2>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button type="button" onClick={importPricingVersion} className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white">Import manual pricing draft</button>
-            {draftPricingVersions.map((version) => <button key={version.id} type="button" onClick={() => activateDraft(version.id)} className="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold">Activate {version.versionName}</button>)}
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">Official NDIA catalogue CSV<input type="file" accept=".csv,text/csv" onChange={(event) => setCatalogueFile(event.target.files?.[0] || null)} className="min-h-11 rounded-md border border-slate-300 bg-white p-2 font-normal" /></label>
+            <BillingField label="Effective from" value={catalogueEffectiveFrom} onChange={setCatalogueEffectiveFrom} type="date" />
+            <button type="button" disabled={importingCatalogue || !catalogueFile || !catalogueEffectiveFrom} onClick={() => void importOfficialCatalogue()} className="min-h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:bg-slate-400">{importingCatalogue ? "Importing..." : "Import catalogue"}</button>
           </div>
+          {draftPricingVersions.length ? <p className="mt-3 text-sm font-semibold text-amber-800">Imported drafts require review and activation before they can recommend invoice rates.</p> : null}
+          <div className="mt-3 flex flex-wrap gap-2">{draftPricingVersions.map((version) => <button key={version.id} type="button" onClick={() => void activateDraft(version.id)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">Activate {version.versionName}</button>)}</div>
           <div className="mt-4 flex flex-wrap gap-2">
             {records.pricingVersions.map((version) => <StatusBadge key={version.id} label={`${version.versionName} - ${version.status}`} tone={version.status === "active" ? "green" : version.status === "draft" ? "amber" : "blue"} />)}
           </div>
