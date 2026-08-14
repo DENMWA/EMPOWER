@@ -12,6 +12,9 @@ type HealthCheck = {
   detail: string;
   checkedAt: string;
   responseMs: number;
+  configured: boolean;
+  expiresAt: string | null;
+  available: boolean;
 };
 
 type HealthSnapshot = {
@@ -33,12 +36,15 @@ type HealthIncident = {
   occurrence_count: number;
 };
 
+type ApiObservation = { check_id: string; check_name: string; status: "healthy" | "warning" | "critical"; available: boolean; response_ms: number; detail: string; checked_at: string; expires_at: string | null };
+
 export function SystemHealthPanel() {
   const [snapshot, setSnapshot] = useState<HealthSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [incidents, setIncidents] = useState<HealthIncident[]>([]);
   const [historyMessage, setHistoryMessage] = useState("");
+  const [apiObservations, setApiObservations] = useState<ApiObservation[]>([]);
 
   const scan = useCallback(async () => {
     setLoading(true);
@@ -49,9 +55,10 @@ export function SystemHealthPanel() {
       if (!response.ok) throw new Error(result.error || "System health scan could not be completed.");
       setSnapshot(result);
       const historyResponse = await fetch("/api/platform/health/incidents", { headers: getAuthenticatedApiHeaders(), cache: "no-store" });
-      const history = await historyResponse.json() as { incidents?: HealthIncident[]; error?: string };
+      const history = await historyResponse.json() as { incidents?: HealthIncident[]; apiObservations?: ApiObservation[]; error?: string };
       if (historyResponse.ok) {
         setIncidents(history.incidents || []);
+        setApiObservations(history.apiObservations || []);
         setHistoryMessage("");
       } else {
         setHistoryMessage(history.error || "Monitoring history is not ready.");
@@ -108,9 +115,11 @@ export function SystemHealthPanel() {
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-700">{check.detail}</p>
                 <p className="mt-2 text-xs text-slate-500">Response {check.responseMs} ms</p>
+                <p className="mt-1 text-xs text-slate-500">{check.expiresAt ? `Credential expiry ${new Date(check.expiresAt).toLocaleDateString("en-AU")}` : check.id === "app-url" ? "Public endpoint" : "No expiry reported by provider"}</p>
               </div>
             ))}
           </div>
+          <ApiReliabilityPanel checks={snapshot.checks.filter((check) => check.id !== "app-url")} observations={apiObservations} />
           <p className="mt-4 text-xs font-medium text-slate-500">Last scan: {new Date(snapshot.checkedAt).toLocaleString("en-AU")} · Automatically rescans every five minutes while this console is open.</p>
           <div className="mt-6 border-t border-slate-200 pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -140,6 +149,22 @@ export function SystemHealthPanel() {
     </Card>
   );
 }
+
+function ApiReliabilityPanel({ checks, observations }: { checks: HealthCheck[]; observations: ApiObservation[] }) {
+  const rows = checks.map((check) => {
+    const history = observations.filter((item) => item.check_id === check.id);
+    const failures = history.filter((item) => !item.available);
+    const lastSuccess = history.find((item) => item.available)?.checked_at || "";
+    const lastFailure = history.find((item) => !item.available)?.checked_at || "";
+    return { check, attempts: history.length, failureRate: Math.round(failures.length / Math.max(1, history.length) * 100), lastSuccess, lastFailure };
+  });
+  return <div className="mt-6 border-t border-slate-200 pt-5">
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="font-bold text-ink">API reliability</h3><p className="mt-1 text-sm text-slate-600">Availability, failures, response time and credential rotation.</p></div><StatusBadge label={`${rows.filter((row) => row.check.status === "healthy").length}/${rows.length} active`} tone={rows.every((row) => row.check.status === "healthy") ? "green" : "amber"} /></div>
+    <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">API</th><th className="py-3 pr-4">Status</th><th className="py-3 pr-4">Failure rate</th><th className="py-3 pr-4">Latency</th><th className="py-3 pr-4">Last success</th><th className="py-3 pr-4">Last failure</th><th className="py-3">Expiry</th></tr></thead><tbody>{rows.map(({ check, attempts, failureRate, lastSuccess, lastFailure }) => <tr key={check.id} className="border-b border-slate-100"><td className="py-3 pr-4 font-semibold text-ink">{check.name}</td><td className="py-3 pr-4"><StatusBadge label={check.configured ? check.status : "Not configured"} tone={check.status === "healthy" ? "green" : check.status === "critical" ? "red" : "amber"} /></td><td className="py-3 pr-4"><span className="font-semibold text-ink">{attempts ? `${failureRate}%` : "Collecting"}</span>{attempts ? <span className="ml-1 text-xs text-slate-500">({attempts} checks)</span> : null}</td><td className="py-3 pr-4">{check.responseMs} ms</td><td className="py-3 pr-4">{formatObservedAt(lastSuccess)}</td><td className="py-3 pr-4">{formatObservedAt(lastFailure)}</td><td className="py-3">{check.expiresAt ? new Date(check.expiresAt).toLocaleDateString("en-AU") : "Not reported"}</td></tr>)}</tbody></table></div>
+  </div>;
+}
+
+function formatObservedAt(value: string) { return value ? new Date(value).toLocaleString("en-AU") : "None recorded"; }
 
 function HealthMetric({ label, value, icon: Icon, tone }: { label: string; value: number; icon: typeof CheckCircle2; tone: "green" | "amber" | "red" }) {
   const styles = { green: "bg-emerald-50 text-emerald-800", amber: "bg-amber-50 text-amber-800", red: "bg-red-50 text-red-800" };

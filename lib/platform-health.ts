@@ -5,6 +5,9 @@ export type PlatformHealthCheck = {
   detail: string;
   checkedAt: string;
   responseMs: number;
+  configured: boolean;
+  expiresAt: string | null;
+  available: boolean;
 };
 
 export async function runPlatformHealthScan() {
@@ -29,7 +32,7 @@ async function checkSupabase(checkedAt: string) {
     const response = await fetch(`${url}/rest/v1/organisations?select=id&limit=1`, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`Database returned HTTP ${response.status}.`);
     return "Supabase REST connection is responding.";
-  });
+  }, "critical", expiry("SUPABASE_SERVICE_ROLE_KEY"));
 }
 
 async function checkOpenAi(checkedAt: string) {
@@ -39,7 +42,7 @@ async function checkOpenAi(checkedAt: string) {
     const response = await fetch("https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`OpenAI returned HTTP ${response.status}.`);
     return "OpenAI authentication is responding; no generation request was made.";
-  }, "warning");
+  }, "warning", expiry("OPENAI_API_KEY"));
 }
 
 async function checkStripe(checkedAt: string) {
@@ -49,7 +52,7 @@ async function checkStripe(checkedAt: string) {
     const response = await fetch("https://api.stripe.com/v1/account", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`Stripe returned HTTP ${response.status}.`);
     return "Stripe account connection is responding; no payment action was performed.";
-  }, "warning");
+  }, "warning", expiry("STRIPE_SECRET_KEY"));
 }
 
 async function checkResend(checkedAt: string) {
@@ -59,26 +62,39 @@ async function checkResend(checkedAt: string) {
     const response = await fetch("https://api.resend.com/domains", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`Resend returned HTTP ${response.status}.`);
     return "Resend connection is responding; no email was sent.";
-  }, "warning");
+  }, "warning", expiry("RESEND_API_KEY"));
 }
 
 async function checkApplicationUrl(checkedAt: string): Promise<PlatformHealthCheck> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
   if (!appUrl) return missingCheck("app-url", "Production URL", "NEXT_PUBLIC_APP_URL is not configured.", checkedAt, "warning");
   const valid = appUrl === "https://www.empowernotes.org" || appUrl === "https://empowernotes.org";
-  return { id: "app-url", name: "Production URL", status: valid ? "healthy" : "warning", detail: valid ? `Authentication redirects use ${appUrl}.` : `Authentication redirects currently use ${appUrl}; review the production URL setting.`, checkedAt, responseMs: 0 };
+  return { id: "app-url", name: "Production URL", status: valid ? "healthy" : "warning", detail: valid ? `Authentication redirects use ${appUrl}.` : `Authentication redirects currently use ${appUrl}; review the production URL setting.`, checkedAt, responseMs: 0, configured: true, expiresAt: null, available: valid };
 }
 
-async function runCheck(id: string, name: string, checkedAt: string, action: () => Promise<string>, failureStatus: "warning" | "critical" = "critical"): Promise<PlatformHealthCheck> {
+async function runCheck(id: string, name: string, checkedAt: string, action: () => Promise<string>, failureStatus: "warning" | "critical" = "critical", expiresAt: string | null = null): Promise<PlatformHealthCheck> {
   const startedAt = Date.now();
   try {
     const detail = await action();
-    return { id, name, status: "healthy", detail, checkedAt, responseMs: Date.now() - startedAt };
+    return { id, name, status: expiryWarning(expiresAt) ? "warning" : "healthy", detail: expiryWarning(expiresAt) || detail, checkedAt, responseMs: Date.now() - startedAt, configured: true, expiresAt, available: true };
   } catch (error) {
-    return { id, name, status: failureStatus, detail: error instanceof Error ? error.message : `${name} did not respond.`, checkedAt, responseMs: Date.now() - startedAt };
+    return { id, name, status: failureStatus, detail: error instanceof Error ? error.message : `${name} did not respond.`, checkedAt, responseMs: Date.now() - startedAt, configured: true, expiresAt, available: false };
   }
 }
 
 function missingCheck(id: string, name: string, detail: string, checkedAt: string, status: "warning" | "critical"): PlatformHealthCheck {
-  return { id, name, status, detail, checkedAt, responseMs: 0 };
+  return { id, name, status, detail, checkedAt, responseMs: 0, configured: false, expiresAt: null, available: false };
+}
+
+function expiry(keyName: string) {
+  const value = process.env[`${keyName}_EXPIRES_AT`]?.trim();
+  return value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toISOString() : null;
+}
+
+function expiryWarning(expiresAt: string | null) {
+  if (!expiresAt) return "";
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (days < 0) return `Credential expiry date passed ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago. Rotate and verify it.`;
+  if (days <= 30) return `Credential expires in ${days} day${days === 1 ? "" : "s"}. Schedule rotation.`;
+  return "";
 }

@@ -23,8 +23,16 @@ async function persistHealthIncidents(checks: PlatformHealthCheck[], checkedAt: 
 
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
   const results = await Promise.all(checks.map((check) => updateIncident(url, headers, check, checkedAt)));
+  const observations = await persistObservations(url, headers, checks);
+  if (!observations.ok) return observations;
   const failed = results.find((result) => !result.ok);
   return failed || { ok: true, updated: results.length };
+}
+
+async function persistObservations(url: string, headers: Record<string, string>, checks: PlatformHealthCheck[]) {
+  const apiChecks = checks.filter((check) => check.id !== "app-url").map((check) => ({ check_id: check.id, check_name: check.name, status: check.status, available: check.available, response_ms: check.responseMs, detail: check.detail, checked_at: check.checkedAt, expires_at: check.expiresAt }));
+  const response = await fetch(`${url}/rest/v1/platform_api_health_observations`, { method: "POST", headers: { ...headers, Prefer: "return=minimal" }, body: JSON.stringify(apiChecks), cache: "no-store" });
+  return response.ok ? { ok: true } : { ok: false, error: `API health history returned HTTP ${response.status}. Run platform-api-health-observations.sql first.` };
 }
 
 async function updateIncident(url: string, headers: Record<string, string>, check: PlatformHealthCheck, checkedAt: string) {

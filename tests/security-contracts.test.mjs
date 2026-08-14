@@ -1257,3 +1257,27 @@ test("NDIS invoice code and price matching reports privacy-safe success and fail
   assert.match(migration, /revoke all .* from anon, authenticated/);
   assert.doesNotMatch(migration, /participant_id|participant_name|service_narrative|note_content|diagnosis/);
 });
+
+test("developer API monitoring separates availability, failures and credential expiry", async () => {
+  const [health, cron, history, panel, migration] = await Promise.all([
+    source("lib/platform-health.ts"),
+    source("app/api/cron/platform-health/route.ts"),
+    source("app/api/platform/health/incidents/route.ts"),
+    source("components/platform/SystemHealthPanel.tsx"),
+    source("supabase/platform-api-health-observations.sql")
+  ]);
+  assert.match(health, /available: true/);
+  assert.match(health, /available: false/);
+  assert.match(health, /_EXPIRES_AT/);
+  assert.match(health, /Credential expires in/);
+  assert.match(cron, /platform_api_health_observations/);
+  assert.match(cron, /check\.available/);
+  assert.match(history, /apiObservations/);
+  assert.match(panel, /API reliability/);
+  assert.match(panel, /Failure rate/);
+  assert.match(panel, /Last success/);
+  assert.match(panel, /Last failure/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /revoke all .* from anon, authenticated/);
+  assert.doesNotMatch(migration, /secret_value|api_key|access_token/);
+});
