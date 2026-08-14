@@ -70,7 +70,58 @@ export async function getNdisPricingMonitorState(config: DbConfig) {
     fetch(`${config.url}/rest/v1/ndis_pricing_version_diffs?organisation_id=is.null&select=*&order=created_at.desc&limit=8`, { headers, cache: "no-store" })
   ]);
   if (!monitorResponse.ok) throw new Error("Run the central NDIS pricing monitor migration before using this panel.");
-  return { monitor: (await monitorResponse.json() as unknown[])[0] || null, versions: versionsResponse.ok ? await versionsResponse.json() : [], diffs: diffsResponse.ok ? await diffsResponse.json() : [] };
+  const versions = versionsResponse.ok ? await versionsResponse.json() as Array<{ id: string; status: string }> : [];
+  const activeVersion = versions.find((version) => version.status === "active");
+  let commonServiceFees: CommonServiceFee[] = [];
+  if (activeVersion) {
+    const feesResponse = await fetch(`${config.url}/rest/v1/ndis_support_items?pricing_version_id=eq.${encodeURIComponent(activeVersion.id)}&price_limit=gt.0&select=support_item_number,support_item_name,support_category,unit_type,time_band,state_or_region,remote_type,price_limit&limit=5000`, { headers, cache: "no-store" });
+    if (feesResponse.ok) commonServiceFees = selectCommonServiceFees(await feesResponse.json() as CommonServiceFee[]);
+  }
+  return {
+    monitor: (await monitorResponse.json() as unknown[])[0] || null,
+    versions,
+    diffs: diffsResponse.ok ? await diffsResponse.json() : [],
+    commonServiceFees
+  };
+}
+
+type CommonServiceFee = {
+  support_item_number: string;
+  support_item_name: string;
+  support_category: string | null;
+  unit_type: string;
+  time_band: string | null;
+  state_or_region: string | null;
+  remote_type: string | null;
+  price_limit: number;
+};
+
+function selectCommonServiceFees(items: CommonServiceFee[]) {
+  const clusters = [
+    ["self care", "personal care", "daily personal"],
+    ["community participation", "community access", "social and community"],
+    ["household tasks", "domestic assistance"],
+    ["supported independent living", "shared living"],
+    ["transport", "travel"],
+    ["development of daily living", "daily living skills"]
+  ];
+  const selected: CommonServiceFee[] = [];
+  for (const terms of clusters) {
+    const match = items
+      .filter((item) => terms.some((term) => `${item.support_item_name} ${item.support_category || ""}`.toLowerCase().includes(term)))
+      .sort((left, right) => commonFeeScore(right) - commonFeeScore(left) || left.support_item_number.localeCompare(right.support_item_number))[0];
+    if (match && !selected.some((item) => item.support_item_number === match.support_item_number)) selected.push(match);
+  }
+  return selected;
+}
+
+function commonFeeScore(item: CommonServiceFee) {
+  const context = `${item.time_band || ""} ${item.state_or_region || ""} ${item.remote_type || ""}`.toLowerCase();
+  return Number(context.includes("weekday")) * 4
+    + Number(context.includes("daytime")) * 4
+    + Number(context.includes("national")) * 3
+    + Number(context.includes("non_remote") || context.includes("non remote")) * 2
+    - Number(context.includes("very_remote") || context.includes("very remote")) * 3;
 }
 
 function extractOfficialLinks(html: string) {

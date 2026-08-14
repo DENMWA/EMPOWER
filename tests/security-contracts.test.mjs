@@ -1015,6 +1015,21 @@ test("official NDIS XLSX catalogues are parsed into reviewed drafts before publi
   assert.match(workspace, /accept="\.xlsx,\.csv/);
 });
 
+test("published NDIS pricing exposes common service fees from the live catalogue", async () => {
+  const [monitor, panel] = await Promise.all([
+    source("lib/ndis-pricing-monitor.ts"),
+    source("components/platform/NdisPricingMonitorPanel.tsx")
+  ]);
+  assert.match(monitor, /pricing_version_id=eq\.\$\{encodeURIComponent\(activeVersion\.id\)\}/);
+  assert.match(monitor, /price_limit=gt\.0/);
+  assert.match(monitor, /selectCommonServiceFees/);
+  assert.match(panel, /Common service fees/);
+  assert.match(panel, /Representative maximum prices from the live catalogue/);
+  assert.match(panel, /support_item_number/);
+  assert.match(panel, /state_or_region/);
+  assert.match(panel, /remote_type/);
+});
+
 test("marketing attribution is first party, bounded, platform private and Stripe authoritative", async () => {
   const [client, attribution, server, events, signup, webhook, migration, layout, panel] = await Promise.all([
     source("lib/marketing/client.ts"), source("lib/marketing/attribution.ts"), source("lib/marketing/server.ts"),
