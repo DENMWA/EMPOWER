@@ -13,12 +13,13 @@ export async function GET(request: Request) {
   const db = database();
   if (!db) return NextResponse.json({ error: "Platform operations storage is not configured." }, { status: 503 });
 
-  const [security, support, usage, observations, audits] = await Promise.all([
+  const [security, support, usage, observations, audits, snapshots] = await Promise.all([
     read(db, "platform_security_events?select=id,organisation_id,event_type,severity,summary,endpoint,occurred_at&order=occurred_at.desc&limit=100"),
     read(db, "platform_support_cases?select=id,organisation_id,title,category,severity,status,page_path,browser,deployment_id,created_at,updated_at,resolved_at&order=created_at.desc&limit=100"),
     read(db, "organisation_usage?select=organisation_id,usage_period_start,usage_period_end,active_participants,active_users,active_houses,documents_uploaded,ai_analysed_notes,invoice_lines,storage_bytes&order=usage_period_end.desc&limit=500"),
     read(db, "entitlement_observations?select=organisation_id,resource,action_name,would_block,observed_at&order=observed_at.desc&limit=1000"),
-    read(db, "audit_logs?select=organisation_id,actor_id,action,entity_type,created_at&order=created_at.desc&limit=100")
+    read(db, "audit_logs?select=organisation_id,actor_id,action,entity_type,created_at&order=created_at.desc&limit=100"),
+    read(db, "platform_metric_snapshots?select=snapshot_date,organisation_id,subscription_tier,subscription_status,platform_access_status,users_count,clients_count,houses_count,incidents_count,ai_notes_count,documents_count,invoice_lines_count,storage_bytes,collected_revenue_cents,outstanding_revenue_cents,captured_at&order=snapshot_date.asc&limit=4000")
   ]);
 
   return NextResponse.json({
@@ -28,12 +29,14 @@ export async function GET(request: Request) {
     usage: usage.rows,
     observations: observations.rows,
     auditEvents: audits.rows,
+    snapshots: snapshots.rows,
     availability: {
       security: security.ok,
       support: support.ok,
       usage: usage.ok,
       observations: observations.ok,
-      audit: audits.ok
+      audit: audits.ok,
+      snapshots: snapshots.ok
     }
   }, { headers: { "Cache-Control": "no-store" } });
 }

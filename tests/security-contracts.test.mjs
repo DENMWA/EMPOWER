@@ -101,6 +101,29 @@ test("the live developer console preserves every established operational workspa
   assert.match(shell, /\["Trial Run", "trial"\]/);
 });
 
+test("platform visual intelligence uses live ledgers and daily non-clinical snapshots", async () => {
+  const [charts, dashboard, operations, cron, migration, vercel] = await Promise.all([
+    source("components/platform/PlatformVisualIntelligence.tsx"),
+    source("components/platform/PlatformDashboard.tsx"),
+    source("app/api/platform/operations/route.ts"),
+    source("app/api/cron/platform-metrics/route.ts"),
+    source("supabase/platform-metric-snapshots.sql"),
+    source("vercel.json")
+  ]);
+  assert.match(charts, /Platform growth/);
+  assert.match(charts, /Revenue collected/);
+  assert.match(charts, /Payment ageing/);
+  assert.match(charts, /Organisation scale/);
+  assert.match(charts, /Selected detail/);
+  assert.match(dashboard, /setInterval\(\(\) => void loadData\(\), 120000\)/);
+  assert.match(operations, /platform_metric_snapshots/);
+  assert.match(cron, /CRON_SECRET/);
+  assert.match(cron, /platform_metric_snapshots\?on_conflict=snapshot_date,organisation_id/);
+  assert.match(migration, /Contains no participant names, notes, diagnoses or document content/);
+  assert.match(migration, /revoke all on public\.platform_metric_snapshots from anon, authenticated/);
+  assert.match(vercel, /api\/cron\/platform-metrics/);
+});
+
 test("system health monitoring is owner-only and read-only", async () => {
   const route = await source("app/api/platform/health/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);

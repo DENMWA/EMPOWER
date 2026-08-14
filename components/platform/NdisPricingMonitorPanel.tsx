@@ -111,6 +111,14 @@ export function NdisPricingMonitorPanel() {
           <p className="mt-3 font-semibold text-ink">{draft?.version_name || data?.monitor?.detected_filename || "No draft awaiting review"}</p>
           <p className="mt-1 text-sm leading-6 text-slate-600">{data?.monitor?.detail || "Run the first official source check."}</p>
           {diff ? <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-slate-700"><span>{diff.changed_price_count} price changes</span><span>{diff.new_items_count} new</span><span>{diff.removed_items_count} removed</span></div> : null}
+          {diff ? <div className="mt-4 space-y-2" aria-label="NDIS catalogue change chart">{[
+            ["Price changes", diff.changed_price_count, "bg-teal-700"],
+            ["New items", diff.new_items_count, "bg-sky-600"],
+            ["Removed items", diff.removed_items_count, "bg-rose-600"]
+          ].map(([label, value, colour]) => {
+            const total = Math.max(1, diff.changed_price_count, diff.new_items_count, diff.removed_items_count);
+            return <div key={String(label)} className="grid grid-cols-[6rem_1fr_2.5rem] items-center gap-2 text-xs"><span className="font-semibold text-slate-600">{label}</span><span className="h-5 overflow-hidden rounded-md bg-slate-100"><span className={`block h-full rounded-md ${colour}`} style={{ width: `${Number(value) / total * 100}%` }} /></span><strong className="text-right text-ink">{value}</strong></div>;
+          })}</div> : null}
           {data?.monitor?.detected_download_url ? <a href={data.monitor.detected_download_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-teal-800">Open official file <ExternalLink size={14} /></a> : null}
           <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4">
             <label className="grid gap-1 text-sm font-semibold text-slate-700">Official catalogue file<input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(event) => setCatalogueFile(event.target.files?.[0] || null)} className="min-h-11 rounded-md border border-slate-300 bg-white p-2 font-normal" /></label>
