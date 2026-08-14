@@ -86,6 +86,21 @@ test("platform operations are server enforced, audited, and isolated from tenant
   assert.match(support, /organisation_id: resolved\.context\.organisationId/);
 });
 
+test("the live developer console preserves every established operational workspace", async () => {
+  const [dashboard, shell] = await Promise.all([
+    source("components/platform/PlatformDashboard.tsx"),
+    source("components/AppShell.tsx")
+  ]);
+  for (const area of ["overview", "organisations", "subscriptions", "payments", "ndis", "diagnostics", "analytics", "marketing", "security", "support", "trial"]) {
+    assert.match(dashboard, new RegExp(`"${area}"`));
+  }
+  assert.match(dashboard, /activeArea === "ndis"[\s\S]*<NdisPricingMonitorPanel/);
+  assert.match(dashboard, /activeArea === "marketing"[\s\S]*<MarketingAttributionPanel/);
+  assert.match(dashboard, /return <TrialRunChecklist \/>/);
+  assert.match(shell, /\["NDIS Pricing", "ndis"\]/);
+  assert.match(shell, /\["Trial Run", "trial"\]/);
+});
+
 test("system health monitoring is owner-only and read-only", async () => {
   const route = await source("app/api/platform/health/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);

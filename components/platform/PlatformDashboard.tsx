@@ -26,15 +26,17 @@ import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { cn } from "@/lib/utils";
 import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 
-type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "diagnostics" | "analytics" | "security" | "support" | "trial";
+type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "ndis" | "diagnostics" | "analytics" | "marketing" | "security" | "support" | "trial";
 
 const consoleAreas = [
   { id: "overview", title: "Overview", detail: "Owner snapshot for growth, revenue, active users, failed payments, and platform health.", icon: BarChart3, badge: "Home" },
   { id: "organisations", title: "Organisations", detail: "Tenant status, owners, plans, users, clients, usage, and account health.", icon: Building2, badge: "Tenants" },
   { id: "subscriptions", title: "Subscriptions", detail: "Plan mix, renewals, trials, failed payments, invoices, refunds, MRR, and ARR.", icon: ReceiptText, badge: "Revenue" },
   { id: "payments", title: "Payments", detail: "Upcoming charges, retries, overdue accounts, payment method status, and schedules.", icon: CreditCard, badge: "Billing" },
+  { id: "ndis", title: "NDIS Pricing", detail: "Official catalogue monitoring, imports, change review, publication, and current service fees.", icon: ReceiptText, badge: "Pricing" },
   { id: "diagnostics", title: "Diagnostics", detail: "AI failures, upload issues, webhook delays, email reminder failures, and slow workflows.", icon: Activity, badge: "Health" },
   { id: "analytics", title: "Analytics", detail: "Feature adoption, activation, retention, usage trends, and cohort performance.", icon: BarChart3, badge: "Data" },
+  { id: "marketing", title: "Marketing", detail: "First-party acquisition, pricing interest, sign-ups, and paid conversion attribution.", icon: BarChart3, badge: "Growth" },
   { id: "security", title: "Security", detail: "Admin logins, role changes, exports, deletes, suspicious activity, and support access.", icon: LockKeyhole, badge: "Audit" },
   { id: "support", title: "Support", detail: "Search accounts, inspect recent issues, resend invites, and review account notes.", icon: LifeBuoy, badge: "Ops" },
   { id: "trial", title: "Trial Run", detail: "Internal checklist for product demos, QA walkthroughs, and end-to-end readiness checks.", icon: ListChecks, badge: "Internal" }
@@ -57,15 +59,6 @@ const supportEvents = [
 export function PlatformDashboard() {
   const [activeArea, setActiveArea] = useState<PlatformAreaId>("overview");
 
-  useEffect(() => {
-    function syncArea() {
-      const area = window.location.hash.slice(1) as PlatformAreaId;
-      if (consoleAreas.some((item) => item.id === area) && area !== "trial") setActiveArea(area);
-    }
-    syncArea();
-    window.addEventListener("hashchange", syncArea);
-    return () => window.removeEventListener("hashchange", syncArea);
-  }, []);
   const [dataModeChecked, setDataModeChecked] = useState(false);
   const [showDemoData, setShowDemoData] = useState(false);
   const active = consoleAreas.find((area) => area.id === activeArea) ?? consoleAreas[0];
@@ -194,6 +187,16 @@ function LivePlatformDataPending() {
   const [activeArea, setActiveArea] = useState<PlatformAreaId>("overview");
 
   useEffect(() => {
+    function syncArea() {
+      const area = window.location.hash.slice(1) as PlatformAreaId;
+      if (consoleAreas.some((item) => item.id === area)) setActiveArea(area);
+    }
+    syncArea();
+    window.addEventListener("hashchange", syncArea);
+    return () => window.removeEventListener("hashchange", syncArea);
+  }, []);
+
+  useEffect(() => {
     Promise.all([
       fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" }),
       fetch("/api/platform/operations", { headers: getAuthenticatedApiHeaders(), cache: "no-store" })
@@ -239,7 +242,7 @@ function LivePlatformDataPending() {
         {data && operations ? <>
           <Card className="p-3">
             <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Platform console areas">
-              {consoleAreas.filter((area) => area.id !== "trial").map((area) => <button key={area.id} type="button" role="tab" aria-selected={activeArea === area.id} onClick={() => setActiveArea(area.id)} className={cn("min-h-10 shrink-0 rounded-md px-3 text-sm font-semibold", activeArea === area.id ? "bg-teal-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-teal-50")}>{area.title}</button>)}
+              {consoleAreas.map((area) => <button key={area.id} type="button" role="tab" aria-selected={activeArea === area.id} onClick={() => { setActiveArea(area.id); window.history.replaceState(null, "", `#${area.id}`); }} className={cn("min-h-10 shrink-0 rounded-md px-3 text-sm font-semibold", activeArea === area.id ? "bg-teal-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-teal-50")}>{area.title}</button>)}
               <button type="button" onClick={refresh} className="ml-auto min-h-10 shrink-0 rounded-md border border-slate-300 px-3 text-sm font-semibold text-ink">Refresh</button>
             </div>
           </Card>
@@ -251,14 +254,17 @@ function LivePlatformDataPending() {
 }
 
 function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeArea: PlatformAreaId; data: LivePlatformSummary; operations: LivePlatformOperations; onRefresh: () => void }) {
-  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><SystemHealthPanel /><LiveUsagePanel data={data} operations={operations} /></div>;
+  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><SystemHealthPanel /><NdisPricingMonitorPanel /><MarketingAttributionPanel /><LiveUsagePanel data={data} operations={operations} /><SubscriptionPaymentLedger payments={data.payments} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
   if (activeArea === "organisations") return <LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} />;
   if (activeArea === "subscriptions") return <div className="space-y-6"><LiveSubscriptionSummary data={data} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
   if (activeArea === "payments") return <SubscriptionPaymentLedger payments={data.payments} />;
-  if (activeArea === "diagnostics") return <div className="space-y-6"><SystemHealthPanel /><NdisPricingMonitorPanel /></div>;
-  if (activeArea === "analytics") return <div className="space-y-6"><LiveUsagePanel data={data} operations={operations} /><MarketingAttributionPanel /></div>;
+  if (activeArea === "ndis") return <NdisPricingMonitorPanel />;
+  if (activeArea === "diagnostics") return <SystemHealthPanel />;
+  if (activeArea === "analytics") return <LiveUsagePanel data={data} operations={operations} />;
+  if (activeArea === "marketing") return <MarketingAttributionPanel />;
   if (activeArea === "security") return <LiveSecurityPanel data={data} operations={operations} />;
-  return <LiveSupportPanel data={data} operations={operations} onRefresh={onRefresh} />;
+  if (activeArea === "support") return <LiveSupportPanel data={data} operations={operations} onRefresh={onRefresh} />;
+  return <TrialRunChecklist />;
 }
 
 function LiveSubscriptionSummary({ data }: { data: LivePlatformSummary }) {
@@ -403,6 +409,7 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
   }
 
   if (activeArea === "payments") return <PaymentSchedulePanel />;
+  if (activeArea === "ndis") return <NdisPricingMonitorPanel />;
   if (activeArea === "diagnostics") return <PlatformPanel title="Diagnostics Console" badge="Live health" items={diagnosticEvents.map((item) => `${item.area}: ${item.event} (${item.time})`)} />;
   if (activeArea === "analytics") {
     return (
@@ -412,6 +419,7 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
       </div>
     );
   }
+  if (activeArea === "marketing") return <MarketingAttributionPanel />;
   if (activeArea === "security") return <PlatformPanel title="Security Audit" badge="Audit" items={securityEvents} />;
   if (activeArea === "trial") return <TrialRunChecklist />;
   return <PlatformPanel title="Support Operations" badge="Ops" items={supportEvents} />;

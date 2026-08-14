@@ -144,10 +144,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ["Organisations", "organisations"],
               ["Subscriptions", "subscriptions"],
               ["Payments", "payments"],
+              ["NDIS Pricing", "ndis"],
               ["Diagnostics", "diagnostics"],
               ["Analytics", "analytics"],
+              ["Marketing", "marketing"],
               ["Security", "security"],
-              ["Support", "support"]
+              ["Support", "support"],
+              ["Trial Run", "trial"]
             ].map(([label, hash]) => (
               <Link key={hash} href={`/platform#${hash}`} className="inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-ink">
                 {label}
