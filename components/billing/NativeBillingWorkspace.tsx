@@ -33,6 +33,7 @@ import type { RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/document-records";
+import { getInvoiceServicePreset, inferInvoiceServicePreset, invoiceServicePresets } from "@/lib/invoice-service-presets";
 
 type TravelDraft = { odometerStart: string; odometerEnd: string; rate: string; supportItemNumber: string; notes: string };
 type ServiceRateDraft = { source: InvoiceRateSource; itemId: string; ndisSupportItemId: string; manualRate: string; manualUnit: string; approved: boolean };
@@ -90,6 +91,7 @@ export function NativeBillingWorkspace() {
   const [aiPricingMatches, setAiPricingMatches] = useState<Record<string, AiPricingMatch>>({});
   const [aiMatchingServices, setAiMatchingServices] = useState<Record<string, boolean>>({});
   const [aiPricingAttempted, setAiPricingAttempted] = useState<Record<string, boolean>>({});
+  const [servicePresetIds, setServicePresetIds] = useState<Record<string, string>>({});
   const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
   const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
   const [vaultAgreements, setVaultAgreements] = useState<StoredDocumentRecord[]>([]);
@@ -136,9 +138,11 @@ export function NativeBillingWorkspace() {
   });
   const invoicePreview = getInvoicePreview(records, selectedInvoiceServices, serviceRateDrafts, includedTravel);
 
-  async function rankNdisPricing(service: NativeBillingRecords["shifts"][number]) {
-    if (aiPricingAttempted[service.id] || aiMatchingServices[service.id]) return;
-    const candidates = matchNdisSupportItems(service, records.supportItems, records.pricingVersions).slice(0, 8).map(({ item }) => ({
+  async function rankNdisPricing(service: NativeBillingRecords["shifts"][number], requestedPresetId?: string, force = false) {
+    if (!force && (aiPricingAttempted[service.id] || aiMatchingServices[service.id])) return;
+    const preset = getInvoiceServicePreset(requestedPresetId || servicePresetIds[service.id]) || inferInvoiceServicePreset(`${service.supportType} ${service.title}`);
+    const matchingService = { ...service, supportType: `${service.supportType} ${preset.label} ${preset.catalogueTerms.join(" ")}` };
+    const candidates = matchNdisSupportItems(matchingService, records.supportItems, records.pricingVersions).slice(0, 8).map(({ item }) => ({
       id: item.id,
       code: item.supportItemNumber,
       name: item.supportItemName,
@@ -157,7 +161,7 @@ export function NativeBillingWorkspace() {
         method: "POST",
         headers: { Authorization: `Bearer ${getStoredAccessToken()}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          service: { supportType: service.supportType, title: service.title, date: service.startTime.slice(0, 10), startTime: service.startTime, endTime: service.endTime, location: service.location, staffingRatio: service.staffingRatio },
+          service: { supportType: preset.label, title: preset.catalogueTerms.join(", "), date: service.startTime.slice(0, 10), startTime: service.startTime, endTime: service.endTime, location: service.location, staffingRatio: service.staffingRatio },
           candidates
         })
       });
@@ -870,6 +874,7 @@ export function NativeBillingWorkspace() {
               const selectedSourceLabel = rateDraft.source === "ndis_catalogue" ? "NDIS guide" : rateDraft.source === "service_agreement" ? "Service agreement" : "Manual entry";
               const rateAboveLimit = rateDraft.source === "manual" && Boolean(selectedNdisItem?.priceLimit && selectedRate && selectedRate > selectedNdisItem.priceLimit);
               const pricingSearch = billingService ? servicePricingSearches[billingService.id] || "" : "";
+              const servicePreset = billingService ? getInvoiceServicePreset(servicePresetIds[billingService.id]) || inferInvoiceServicePreset(`${billingService.supportType} ${billingService.title}`) : invoiceServicePresets[0];
               const visibleNdisItems = filterNdisItems(activeNdisItems, pricingSearch, selectedNdisItem?.id);
               return (
                 <div key={shift.id} className="rounded-md border border-slate-200 p-3">
@@ -892,6 +897,19 @@ export function NativeBillingWorkspace() {
                   </div>
                   {billingService ? (
                     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <label className="mb-3 grid gap-2 text-sm font-semibold text-slate-700">
+                        Service delivered
+                        <select value={servicePreset.id} onChange={(event) => {
+                          const presetId = event.target.value;
+                          setServicePresetIds((current) => ({ ...current, [billingService.id]: presetId }));
+                          setAiPricingMatches((current) => { const next = { ...current }; delete next[billingService.id]; return next; });
+                          setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source: "ndis_catalogue" } }));
+                          void rankNdisPricing(billingService, presetId, true);
+                        }} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 font-normal text-ink">
+                          {(["Daily support", "Health support", "Capacity building", "Travel and claims"] as const).map((group) => <optgroup key={group} label={group}>{invoiceServicePresets.filter((preset) => preset.group === group).map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}</optgroup>)}
+                        </select>
+                        {servicePreset.clinicalContext ? <span className="font-normal text-slate-600">Used to guide code matching only. Clinical context is not printed on the invoice.</span> : null}
+                      </label>
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
                         {([['ndis_catalogue', 'NDIS guide'], ['service_agreement', 'Service agreement'], ['manual', 'Manual entry']] as const).map(([source, label]) => (
                           <button key={source} type="button" aria-pressed={rateDraft.source === source} disabled={source === "service_agreement" && !availableAgreementItems.length} onClick={() => {

@@ -1074,6 +1074,22 @@ test("AI NDIS matching is candidate-bound, privacy-minimised and never self-appr
   assert.doesNotMatch(workspace, /service: \{[^}]*participantName/);
 });
 
+test("invoice service presets broaden catalogue matching without entering clinical context on invoices", async () => {
+  const [presets, workspace, billing] = await Promise.all([
+    source("lib/invoice-service-presets.ts"),
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  for (const label of ["Personal care and self-care", "Community and social participation", "Dysphagia-related eating and drinking assistance", "Continence support", "Community nursing", "Occupational therapy", "Provider travel and kilometres"]) assert.match(presets, new RegExp(label));
+  assert.match(workspace, /Service delivered/);
+  assert.match(workspace, /clinicalContext/);
+  assert.match(workspace, /Clinical context is not printed on the invoice/);
+  assert.match(workspace, /rankNdisPricing\(billingService, presetId, true\)/);
+  assert.match(billing, /const supportItemName = supportItem!\.supportItemName/);
+  assert.match(billing, /description: supportItemNumber/);
+  assert.doesNotMatch(billing, /description:.*servicePreset|description:.*clinicalContext/);
+});
+
 test("marketing attribution is first party, bounded, platform private and Stripe authoritative", async () => {
   const [client, attribution, server, events, signup, webhook, migration, layout, panel] = await Promise.all([
     source("lib/marketing/client.ts"), source("lib/marketing/attribution.ts"), source("lib/marketing/server.ts"),
