@@ -1,20 +1,25 @@
 import { createHash, randomUUID } from "node:crypto";
+import { DOMParser } from "@xmldom/xmldom";
 import { parseNdisCatalogueRows } from "@/lib/ndis-catalogue-parser";
 
 const OFFICIAL_PAGE = "https://www.ndis.gov.au/providers/pricing-and-payments/pricing/what-support-catalogue";
+const CURRENT_CATALOGUE_FALLBACK = "https://www.ndis.gov.au/media/8038/download?attachment";
 const ALLOWED_HOSTS = new Set(["www.ndis.gov.au", "ndis.gov.au"]);
+const browserHeaders = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+  "Accept-Language": "en-AU,en;q=0.9"
+};
 
 type DbConfig = { url: string; serviceKey: string };
 type SupportItem = Record<string, unknown>;
 
 export async function checkOfficialNdisPricing(config: DbConfig) {
   const checkedAt = new Date().toISOString();
-  const pageResponse = await fetch(OFFICIAL_PAGE, { cache: "no-store", headers: { "User-Agent": "EmpowerNotes pricing monitor" } });
-  if (!pageResponse.ok) throw new Error(`Official NDIS pricing page returned HTTP ${pageResponse.status}.`);
-  const html = await pageResponse.text();
+  const pageResponse = await fetch(OFFICIAL_PAGE, { cache: "no-store", headers: { ...browserHeaders, Accept: "text/html,application/xhtml+xml" }, redirect: "follow" });
+  const html = pageResponse.ok ? await pageResponse.text() : "";
   const links = extractOfficialLinks(html);
-  const preferred = links.find((link) => /\.csv(?:$|\?)/i.test(link)) || links.find((link) => /\.(xlsx|pdf|docx)(?:$|\?)/i.test(link));
-  const pageChecksum = sha256(Buffer.from(html));
+  const preferred = links.find((link) => /\.csv(?:$|\?)/i.test(link)) || links.find((link) => /\.xlsx(?:$|\?)/i.test(link)) || links[0] || CURRENT_CATALOGUE_FALLBACK;
+  const pageChecksum = sha256(Buffer.from(html || preferred));
   const previous = await getMonitor(config);
 
   if (!preferred) {
@@ -22,11 +27,11 @@ export async function checkOfficialNdisPricing(config: DbConfig) {
   }
   const sourceUrl = new URL(preferred);
   if (!ALLOWED_HOSTS.has(sourceUrl.hostname.toLowerCase())) throw new Error("The detected pricing file is not hosted on an approved NDIS domain.");
-  const fileResponse = await fetch(sourceUrl, { cache: "no-store", headers: { "User-Agent": "EmpowerNotes pricing monitor" } });
+  const fileResponse = await fetch(sourceUrl, { cache: "no-store", headers: { ...browserHeaders, Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv;q=0.9,*/*;q=0.8", Referer: OFFICIAL_PAGE }, redirect: "follow" });
   if (!fileResponse.ok) throw new Error(`Official pricing file returned HTTP ${fileResponse.status}.`);
   const source = Buffer.from(await fileResponse.arrayBuffer());
   const checksum = sha256(source);
-  const filename = decodeURIComponent(sourceUrl.pathname.split("/").pop() || "ndis-pricing-file");
+  const filename = getOfficialFilename(fileResponse, sourceUrl);
   if (previous?.detected_checksum === checksum && (previous.draft_version_id || previous.published_version_id)) {
     return saveMonitor(config, { checkedAt, pageChecksum, status: previous.status || "current", alertStatus: previous.alert_status || "none", detail: "No new official pricing file detected.", detectedDownloadUrl: sourceUrl.toString(), detectedFilename: filename, detectedChecksum: checksum, draftVersionId: previous.draft_version_id || null });
   }
@@ -69,9 +74,16 @@ export async function getNdisPricingMonitorState(config: DbConfig) {
 }
 
 function extractOfficialLinks(html: string) {
-  const links = Array.from(html.matchAll(/href=["']([^"']+)["']/gi)).map((match) => match[1]).filter((href) => /pricing|support.catalogue|support.catalog/i.test(href) && /\.(csv|xlsx|pdf|docx)(?:$|\?)/i.test(href));
+  if (!html) return [];
+  const document = new DOMParser().parseFromString(html, "text/html");
+  const links = Array.from(document.getElementsByTagName("a")).flatMap((anchor) => {
+    const href = anchor.getAttribute("href") || "";
+    const label = anchor.textContent || "";
+    return /support catalogue/i.test(`${label} ${href}`) && /(xlsx|csv|\/media\/\d+\/download)/i.test(`${label} ${href}`) ? [href] : [];
+  });
   return Array.from(new Set(links.map((href) => new URL(href, OFFICIAL_PAGE).toString())));
 }
+function getOfficialFilename(response: Response, sourceUrl: URL) { const disposition = response.headers.get("content-disposition") || ""; const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]; const plain = disposition.match(/filename=["']?([^"';]+)["']?/i)?.[1]; const supplied = encoded ? decodeURIComponent(encoded) : plain; if (supplied && /\.(csv|xlsx)$/i.test(supplied)) return supplied; const pathName = decodeURIComponent(sourceUrl.pathname.split("/").pop() || ""); if (/\.(csv|xlsx)$/i.test(pathName)) return pathName; const now = new Date(); const startYear = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1; return `NDIS-Support-Catalogue-${startYear}-${String(startYear + 1).slice(-2)}.xlsx`; }
 function inferEffectiveDate(filename: string, html: string) { const financialYear = filename.match(/(20\d{2})\s*[-–]\s*(?:20)?\d{2}/); if (financialYear) return `${financialYear[1]}-07-01`; const match = `${filename} ${html.slice(0, 20000)}`.match(/(?:effective\s*)?(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})/i); if (!match) return new Date().toISOString().slice(0, 10); const month = new Date(`${match[2]} 1, 2000`).getMonth() + 1; return `${match[3]}-${String(month).padStart(2, "0")}-${String(match[1]).padStart(2, "0")}`; }
 function sha256(value: Buffer) { return createHash("sha256").update(value).digest("hex"); }
 function dbHeaders(config: DbConfig) { return { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}`, "Content-Type": "application/json" }; }

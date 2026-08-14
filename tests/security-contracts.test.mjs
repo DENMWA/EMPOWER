@@ -1006,6 +1006,10 @@ test("official NDIS XLSX catalogues are parsed into reviewed drafts before publi
   assert.match(parser, /maxWorksheetXmlBytes/);
   assert.match(importer, /\.\(csv\|xlsx\)\$/);
   assert.match(monitor, /what-support-catalogue/);
+  assert.match(monitor, /Mozilla\/5\.0/);
+  assert.match(monitor, /\/media\/8038\/download\?attachment/);
+  assert.match(monitor, /support catalogue/);
+  assert.match(monitor, /content-disposition/);
   assert.match(monitor, /automatic_official_ndis_xlsx/);
   assert.match(monitor, /status: "draft"/);
   assert.match(workspace, /accept="\.xlsx,\.csv/);
