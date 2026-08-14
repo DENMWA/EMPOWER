@@ -592,7 +592,7 @@ export function NativeBillingWorkspace() {
         {showBillingSetup ? <Card className="order-3">
           <h2 className="text-xl font-semibold text-ink">1. Pricing</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
-            <label className="grid gap-2 text-sm font-semibold text-slate-700">Official NDIA catalogue CSV<input type="file" accept=".csv,text/csv" onChange={(event) => setCatalogueFile(event.target.files?.[0] || null)} className="min-h-11 rounded-md border border-slate-300 bg-white p-2 font-normal" /></label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">Official NDIS support catalogue<input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(event) => setCatalogueFile(event.target.files?.[0] || null)} className="min-h-11 rounded-md border border-slate-300 bg-white p-2 font-normal" /></label>
             <BillingField label="Effective from" value={catalogueEffectiveFrom} onChange={setCatalogueEffectiveFrom} type="date" />
             <button type="button" disabled={importingCatalogue || !catalogueFile || !catalogueEffectiveFrom} onClick={() => void importOfficialCatalogue()} className="min-h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:bg-slate-400">{importingCatalogue ? "Importing..." : "Import catalogue"}</button>
           </div>
@@ -869,7 +869,7 @@ export function NativeBillingWorkspace() {
                           {visibleNdisItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - {formatPositiveRate(item.priceLimit)} / {item.unitType}{ndisMatches.some((match) => match.item.id === item.id) ? " - suggested" : ""}</option>)}
                         </select>
                         {selectedNdisItem ? <span className="font-normal text-teal-800">Suggested from {billingService.supportType}. Confirm before invoicing.</span> : null}
-                        {!activeNdisItems.length ? <span className="font-normal text-amber-800">The active NDIS catalogue has no usable positive price for this service date. Import and activate the official pricing CSV.</span> : null}
+                        {!activeNdisItems.length ? <span className="font-normal text-amber-800">No active priced NDIS catalogue covers this service date. Import the official XLSX catalogue, review it, then activate it.</span> : null}
                         {activeNdisItems.length && !visibleNdisItems.length ? <span className="font-normal text-amber-800">No active support items match this search.</span> : null}
                       </label>
                       {rateAboveLimit ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Rate exceeds selected NDIS price limit - review required.</p> : null}

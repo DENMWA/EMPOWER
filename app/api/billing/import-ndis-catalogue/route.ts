@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { parseNdisCatalogueRows } from "@/lib/ndis-catalogue-parser";
 import { verifyServerAccess } from "@/lib/security/server-access";
 
 export const runtime = "nodejs";
@@ -19,12 +20,12 @@ export async function POST(request: Request) {
     const file = form.get("file");
     const effectiveFrom = String(form.get("effectiveFrom") || "");
     const versionName = String(form.get("versionName") || "").trim();
-    if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".csv")) return NextResponse.json({ error: "Choose the official NDIA Support Catalogue CSV export." }, { status: 400 });
+    if (!(file instanceof File) || !/\.(csv|xlsx)$/i.test(file.name)) return NextResponse.json({ error: "Choose the official NDIA Support Catalogue XLSX or CSV file." }, { status: 400 });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) return NextResponse.json({ error: "Enter the catalogue effective date." }, { status: 400 });
     if (file.size > maxBytes) return NextResponse.json({ error: "The catalogue must be smaller than 20 MB." }, { status: 413 });
 
     const source = Buffer.from(await file.arrayBuffer());
-    const rows = parseCsv(source.toString("utf8"));
+    const rows = await parseNdisCatalogueRows(source, file.name);
     if (rows.length < 2) return NextResponse.json({ error: "The catalogue has no support item rows." }, { status: 422 });
     const headers = rows[0].map(normaliseHeader);
     const columns = resolveColumns(headers);
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
         source_name: "National Disability Insurance Agency",
         source_url: "https://www.ndis.gov.au/providers/pricing-arrangements",
         source_filename: file.name,
-        import_method: "official_ndia_catalogue_csv",
+        import_method: file.name.toLowerCase().endsWith(".xlsx") ? "official_ndia_catalogue_xlsx" : "official_ndia_catalogue_csv",
         imported_by: access.userId,
         checksum: createHash("sha256").update(source).digest("hex"),
         status: "draft",
@@ -112,11 +113,6 @@ function toSupportItems(row: string[], columns: Columns, versionId: string, effe
   });
 }
 
-function parseCsv(value: string) {
-  const rows: string[][] = []; let row: string[] = []; let cellValue = ""; let quoted = false;
-  for (let index = 0; index < value.length; index += 1) { const character = value[index]; const next = value[index + 1]; if (character === '"' && quoted && next === '"') { cellValue += '"'; index += 1; } else if (character === '"') quoted = !quoted; else if (character === "," && !quoted) { row.push(cellValue); cellValue = ""; } else if ((character === "\n" || character === "\r") && !quoted) { if (character === "\r" && next === "\n") index += 1; row.push(cellValue); if (row.some((entry) => entry.trim())) rows.push(row); row = []; cellValue = ""; } else cellValue += character; }
-  row.push(cellValue); if (row.some((entry) => entry.trim())) rows.push(row); return rows;
-}
 function normaliseHeader(value: string) { return value.replace(/^\uFEFF/, "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim(); }
 function cell(row: string[], index: number) { return index >= 0 ? String(row[index] || "").trim() : ""; }
 function parsePrice(value: string) { const parsed = Number(value.replace(/[$,\s]/g, "")); return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : null; }

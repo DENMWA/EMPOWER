@@ -916,7 +916,7 @@ test("official NDIA catalogue rows power date-aware invoice recommendations", as
     source("lib/native-billing.ts"),
     source("lib/native-billing-cloud.ts")
   ]);
-  assert.match(workspace, /Official NDIA catalogue CSV/);
+  assert.match(workspace, /Official NDIS support catalogue/);
   assert.match(workspace, /Invoice recommendations now use this catalogue by service date/);
   assert.match(route, /verifyServerAccess\(request, "admin", "billing", "billing\.manage"\)/);
   assert.match(route, /National Disability Insurance Agency/);
@@ -969,7 +969,7 @@ test("NDIS pricing never presents missing catalogue values as zero-dollar rates"
   assert.match(cloud, /Number\.isFinite\(number\) && number > 0 \? number : null/);
   assert.match(billing, /typeof item\.priceLimit === "number" && item\.priceLimit > 0/);
   assert.match(workspace, /formatPositiveRate/);
-  assert.match(workspace, /no usable positive price/);
+  assert.match(workspace, /No active priced NDIS catalogue/);
   assert.match(route, /price_limit=gt\.0/);
   assert.match(route, /cannot be activated/);
 });
@@ -992,6 +992,23 @@ test("official NDIS pricing updates remain draft until the platform owner publis
   assert.match(migration, /enable row level security/);
   assert.match(migration, /revoke all .* from anon, authenticated/);
   assert.match(vercel, /ndis-pricing-monitor/);
+});
+
+test("official NDIS XLSX catalogues are parsed into reviewed drafts before publication", async () => {
+  const [parser, importer, monitor, workspace] = await Promise.all([
+    source("lib/ndis-catalogue-parser.ts"),
+    source("app/api/billing/import-ndis-catalogue/route.ts"),
+    source("lib/ndis-pricing-monitor.ts"),
+    source("components/billing/NativeBillingWorkspace.tsx")
+  ]);
+  assert.match(parser, /JSZip\.loadAsync/);
+  assert.match(parser, /DOMParser/);
+  assert.match(parser, /maxWorksheetXmlBytes/);
+  assert.match(importer, /\.\(csv\|xlsx\)\$/);
+  assert.match(monitor, /what-support-catalogue/);
+  assert.match(monitor, /automatic_official_ndis_xlsx/);
+  assert.match(monitor, /status: "draft"/);
+  assert.match(workspace, /accept="\.xlsx,\.csv/);
 });
 
 test("marketing attribution is first party, bounded, platform private and Stripe authoritative", async () => {
