@@ -37,10 +37,16 @@ export async function POST(request: Request) {
     candidate && typeof candidate.id === "string" && typeof candidate.code === "string"
       && typeof candidate.price === "number" && Number.isFinite(candidate.price) && candidate.price > 0
   );
-  if (!candidates.length) return NextResponse.json({ error: "No active priced catalogue candidates are available." }, { status: 422 });
+  if (!candidates.length) {
+    await recordMatchEvent(access.gate.organisationId, { outcome: "failure", match_source: "none", failure_category: "no_priced_candidates", candidate_count: 0 });
+    return NextResponse.json({ error: "No active priced catalogue candidates are available." }, { status: 422 });
+  }
 
   const fallback = { candidateId: candidates[0].id, confidence: 0, reason: "Top rules-based catalogue match. Review before authorising.", usedAi: false };
-  if (!apiKey) return NextResponse.json(fallback);
+  if (!apiKey) {
+    await recordSuccess(access.gate.organisationId, candidates, fallback.candidateId, "rules", fallback.confidence, "ai_not_configured");
+    return NextResponse.json(fallback);
+  }
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -66,18 +72,59 @@ export async function POST(request: Request) {
         ]
       })
     });
-    if (!response.ok) return NextResponse.json(fallback);
+    if (!response.ok) {
+      await recordSuccess(access.gate.organisationId, candidates, fallback.candidateId, "rules", fallback.confidence, `ai_http_${response.status}`);
+      return NextResponse.json(fallback);
+    }
     const payload = await response.json();
     const content = payload?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") return NextResponse.json(fallback);
+    if (typeof content !== "string") {
+      await recordSuccess(access.gate.organisationId, candidates, fallback.candidateId, "rules", fallback.confidence, "ai_empty_response");
+      return NextResponse.json(fallback);
+    }
     const parsed = JSON.parse(content) as { candidateId?: unknown; confidence?: unknown; reason?: unknown };
     const candidateId = typeof parsed.candidateId === "string" ? parsed.candidateId : "";
-    if (!candidates.some((candidate) => candidate.id === candidateId)) return NextResponse.json(fallback);
+    if (!candidates.some((candidate) => candidate.id === candidateId)) {
+      await recordSuccess(access.gate.organisationId, candidates, fallback.candidateId, "rules", fallback.confidence, "ai_invalid_candidate");
+      return NextResponse.json(fallback);
+    }
     const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
     const reason = typeof parsed.reason === "string" ? parsed.reason.trim().slice(0, 160) : "AI-ranked catalogue match. Review before authorising.";
     await access.gate.recordUsage();
+    await recordSuccess(access.gate.organisationId, candidates, candidateId, "ai", confidence);
     return NextResponse.json({ candidateId, confidence, reason, usedAi: true, model });
   } catch {
+    await recordSuccess(access.gate.organisationId, candidates, fallback.candidateId, "rules", fallback.confidence, "ai_request_failed");
     return NextResponse.json(fallback);
+  }
+}
+
+async function recordSuccess(organisationId: string, candidates: Candidate[], candidateId: string, source: "ai" | "rules", confidence: number, fallbackCategory?: string) {
+  const selected = candidates.find((candidate) => candidate.id === candidateId);
+  if (!selected) return recordMatchEvent(organisationId, { outcome: "failure", match_source: "none", failure_category: "candidate_not_found", candidate_count: candidates.length });
+  return recordMatchEvent(organisationId, {
+    outcome: "success",
+    match_source: source,
+    failure_category: fallbackCategory || null,
+    selected_support_item_number: selected.code,
+    selected_price: selected.price,
+    confidence,
+    candidate_count: candidates.length
+  });
+}
+
+async function recordMatchEvent(organisationId: string, event: Record<string, unknown>) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || !organisationId) return;
+  try {
+    await fetch(`${url}/rest/v1/ndis_invoice_match_events`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ organisation_id: organisationId, ...event }),
+      cache: "no-store"
+    });
+  } catch {
+    // Telemetry must never interrupt invoicing.
   }
 }

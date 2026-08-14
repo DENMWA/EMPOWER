@@ -19,7 +19,7 @@ import { TrialRunChecklist } from "@/components/trial/TrialRunChecklist";
 import { SystemHealthPanel } from "@/components/platform/SystemHealthPanel";
 import { NdisPricingMonitorPanel } from "@/components/platform/NdisPricingMonitorPanel";
 import { MarketingAttributionPanel } from "@/components/platform/MarketingAttributionPanel";
-import { PlatformVisualIntelligence } from "@/components/platform/PlatformVisualIntelligence";
+import { NdisMatchQualityPanel, PlatformVisualIntelligence } from "@/components/platform/PlatformVisualIntelligence";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary, type PlatformOrganisationStatus } from "@/lib/platform-data";
 import { clearPlatformAccessStatus, getEffectivePlatformStatus, getPlatformAccessOverride, isAccessBlocked, setDemoCurrentOrganisation, setPlatformAccessStatus } from "@/lib/platform-access";
@@ -179,6 +179,7 @@ type LivePlatformOperations = {
   observations: Array<{ organisation_id: string; resource: string; action_name: string; would_block: boolean; observed_at: string }>;
   auditEvents: Array<{ organisation_id: string; actor_id: string; action: string; entity_type: string; created_at: string }>;
   snapshots: Array<{ snapshot_date: string; organisation_id: string; subscription_tier: string; subscription_status: string; platform_access_status: string; users_count: number; clients_count: number; houses_count: number; incidents_count: number; ai_notes_count: number; documents_count: number; invoice_lines_count: number; storage_bytes: number; collected_revenue_cents: number; outstanding_revenue_cents: number; captured_at: string }>;
+  ndisMatchEvents: Array<{ organisation_id: string; outcome: "success" | "failure"; match_source: "ai" | "rules" | "none"; failure_category: string | null; selected_support_item_number: string | null; selected_price: number | null; confidence: number | null; candidate_count: number; occurred_at: string }>;
   availability: Record<string, boolean>;
 };
 
@@ -253,13 +254,13 @@ function LivePlatformDataPending() {
 }
 
 function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeArea: PlatformAreaId; data: LivePlatformSummary; operations: LivePlatformOperations; onRefresh: () => void }) {
-  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} /><SystemHealthPanel /><NdisPricingMonitorPanel /><MarketingAttributionPanel /><LiveUsagePanel data={data} operations={operations} /><SubscriptionPaymentLedger payments={data.payments} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
+  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} ndisMatchEvents={operations.ndisMatchEvents || []} /><SystemHealthPanel /><NdisPricingMonitorPanel /><MarketingAttributionPanel /><LiveUsagePanel data={data} operations={operations} /><SubscriptionPaymentLedger payments={data.payments} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
   if (activeArea === "organisations") return <LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} />;
   if (activeArea === "subscriptions") return <div className="space-y-6"><LiveSubscriptionSummary data={data} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
   if (activeArea === "payments") return <SubscriptionPaymentLedger payments={data.payments} />;
-  if (activeArea === "ndis") return <NdisPricingMonitorPanel />;
+  if (activeArea === "ndis") return <div className="space-y-6"><NdisPricingMonitorPanel /><NdisMatchQualityPanel events={operations.ndisMatchEvents || []} /></div>;
   if (activeArea === "diagnostics") return <SystemHealthPanel />;
-  if (activeArea === "analytics") return <div className="space-y-6"><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} /><LiveUsagePanel data={data} operations={operations} /></div>;
+  if (activeArea === "analytics") return <div className="space-y-6"><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} ndisMatchEvents={operations.ndisMatchEvents || []} /><LiveUsagePanel data={data} operations={operations} /></div>;
   if (activeArea === "marketing") return <MarketingAttributionPanel />;
   if (activeArea === "security") return <LiveSecurityPanel data={data} operations={operations} />;
   if (activeArea === "support") return <LiveSupportPanel data={data} operations={operations} onRefresh={onRefresh} />;

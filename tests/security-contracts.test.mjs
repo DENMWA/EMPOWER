@@ -1236,3 +1236,24 @@ test("platform subscription payments are owner-only, idempotent and risk-aged", 
   assert.match(migration, /enable row level security/);
   assert.match(migration, /revoke all .* from anon, authenticated/);
 });
+
+test("NDIS invoice code and price matching reports privacy-safe success and failure rates", async () => {
+  const [matcher, operations, visual, migration] = await Promise.all([
+    source("app/api/billing/match-ndis-service/route.ts"),
+    source("app/api/platform/operations/route.ts"),
+    source("components/platform/PlatformVisualIntelligence.tsx"),
+    source("supabase/ndis-invoice-match-telemetry.sql")
+  ]);
+  assert.match(matcher, /recordMatchEvent/);
+  assert.match(matcher, /no_priced_candidates/);
+  assert.match(matcher, /selected_support_item_number/);
+  assert.match(matcher, /selected_price/);
+  assert.match(operations, /ndis_invoice_match_events/);
+  assert.match(operations, /ndisMatchEvents/);
+  assert.match(visual, /NDIS invoice matching/);
+  assert.match(visual, /Success rate/);
+  assert.match(visual, /Rules fallback/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /revoke all .* from anon, authenticated/);
+  assert.doesNotMatch(migration, /participant_id|participant_name|service_narrative|note_content|diagnosis/);
+});

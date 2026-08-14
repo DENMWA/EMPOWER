@@ -12,6 +12,7 @@ type Snapshot = { snapshot_date: string; organisation_id: string; subscription_t
 type Usage = { organisation_id: string; active_houses: number };
 type SecurityEvent = { severity: string; occurred_at: string };
 type SupportCase = { status: string; severity: string; created_at: string };
+type NdisMatchEvent = { organisation_id: string; outcome: "success" | "failure"; match_source: "ai" | "rules" | "none"; failure_category: string | null; selected_support_item_number: string | null; selected_price: number | null; confidence: number | null; candidate_count: number; occurred_at: string };
 
 type Props = {
   organisations: Organisation[];
@@ -20,13 +21,14 @@ type Props = {
   usage: Usage[];
   securityEvents: SecurityEvent[];
   supportCases: SupportCase[];
+  ndisMatchEvents: NdisMatchEvent[];
 };
 
 type Detail = { title: string; value: string; comparison: string; facts: Array<[string, string]>; tone?: "green" | "amber" | "red" | "blue" };
 
 const colours = ["#0f766e", "#0369a1", "#059669", "#4f46e5", "#d97706", "#be123c"];
 
-export function PlatformVisualIntelligence({ organisations, payments, snapshots, usage, securityEvents, supportCases }: Props) {
+export function PlatformVisualIntelligence({ organisations, payments, snapshots, usage, securityEvents, supportCases, ndisMatchEvents }: Props) {
   const [detail, setDetail] = useState<Detail>(() => ({ title: "Live platform", value: `${organisations.length} organisations`, comparison: "Select any chart element for exact details.", facts: [["Data", "Production records"], ["Refresh", "Every two minutes"]], tone: "blue" }));
   const latestUsage = useMemo(() => { const map = new Map<string, Usage>(); usage.forEach((row) => { if (!map.has(row.organisation_id)) map.set(row.organisation_id, row); }); return map; }, [usage]);
   const growth = useMemo(() => aggregateSnapshots(snapshots), [snapshots]);
@@ -78,12 +80,38 @@ export function PlatformVisualIntelligence({ organisations, payments, snapshots,
         <ChartPanel title="Support workload" subtitle="Current issue resolution pipeline" icon={BarChart3} className="lg:col-span-2">
           <CategoryBars values={support} onSelect={(item) => setDetail({ title: `${item.label} support cases`, value: String(item.value), comparison: "Customer-reported operational issues", facts: [["Queue", item.label], ["Total cases", String(supportCases.length)]], tone: item.label === "Resolved" || item.label === "Closed" ? "green" : "amber" })} />
         </ChartPanel>
+
+        <NdisMatchQualityPanel events={ndisMatchEvents} onSelect={setDetail} />
       </div>
 
       <aside className="xl:sticky xl:top-36 xl:self-start" aria-live="polite"><Card className="border-teal-200"><p className="text-xs font-bold uppercase tracking-wide text-teal-700">Selected detail</p><h3 className="mt-2 text-xl font-bold text-ink">{detail.title}</h3><p className="mt-4 text-3xl font-bold text-ink">{detail.value}</p><p className="mt-2 text-sm leading-6 text-slate-600">{detail.comparison}</p><dl className="mt-5 divide-y divide-slate-200 border-y border-slate-200">{detail.facts.length ? detail.facts.map(([label, value]) => <div key={`${label}-${value}`} className="grid grid-cols-[1fr_auto] gap-3 py-3 text-sm"><dt className="text-slate-600">{label}</dt><dd className="text-right font-semibold text-ink">{value}</dd></div>) : <div className="py-3 text-sm text-slate-600">No records in this selection.</div>}</dl></Card></aside>
     </div>
   </section>;
 }
+
+export function NdisMatchQualityPanel({ events, onSelect }: { events: NdisMatchEvent[]; onSelect?: (detail: Detail) => void }) {
+  const successes = events.filter((event) => event.outcome === "success");
+  const failures = events.filter((event) => event.outcome === "failure");
+  const aiMatches = successes.filter((event) => event.match_source === "ai").length;
+  const rulesMatches = successes.filter((event) => event.match_source === "rules").length;
+  const successRate = Math.round(successes.length / Math.max(1, events.length) * 100);
+  const values = [
+    { label: "Successful", value: successes.length, colour: "bg-emerald-600" },
+    { label: "Failed", value: failures.length, colour: "bg-red-600" }
+  ];
+  return <ChartPanel title="NDIS invoice matching" subtitle="Code and positive-price application outcomes" icon={BarChart3} className="lg:col-span-2">
+    <div className="mb-5 grid gap-3 sm:grid-cols-4">
+      <Metric label="Success rate" value={`${successRate}%`} />
+      <Metric label="Attempts" value={String(events.length)} />
+      <Metric label="AI matched" value={String(aiMatches)} />
+      <Metric label="Rules fallback" value={String(rulesMatches)} />
+    </div>
+    {events.length ? <CategoryBars values={values} onSelect={(item) => onSelect?.({ title: `NDIS matches: ${item.label.toLowerCase()}`, value: String(item.value), comparison: `${successRate}% overall code and price success rate`, facts: [["AI matched", String(aiMatches)], ["Rules fallback", String(rulesMatches)], ["Failed", String(failures.length)]], tone: item.label === "Successful" ? "green" : "red" })} /> : <EmptyChart text="Matching outcomes appear after an invoicing user requests an NDIS recommendation." />}
+    <p className="mt-4 text-xs text-slate-500">Success requires an existing catalogue code and a positive price. No client or clinical content is collected.</p>
+  </ChartPanel>;
+}
+
+function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-md bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-1 text-2xl font-bold text-ink">{value}</p></div>; }
 
 function ChartPanel({ title, subtitle, icon: Icon, className, children }: { title: string; subtitle: string; icon: typeof BarChart3; className?: string; children: React.ReactNode }) { return <div className={cn("min-w-0 rounded-md border border-slate-200 bg-white p-5 shadow-sm", className)}><div className="mb-5 flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-md bg-teal-50 text-teal-800"><Icon size={18} /></span><div><h3 className="font-bold text-ink">{title}</h3><p className="mt-1 text-sm text-slate-600">{subtitle}</p></div></div>{children}</div>; }
 
