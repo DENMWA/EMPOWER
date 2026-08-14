@@ -1,0 +1,80 @@
+name: NDIS catalogue relay
+
+on:
+  schedule:
+    - cron: "15 19 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ndis-catalogue-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve current official catalogue
+        id: catalogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          page_url="https://www.ndis.gov.au/providers/pricing-and-payments/pricing/what-support-catalogue"
+          curl --fail --location --retry 3 --user-agent "Mozilla/5.0 EmpowerNotes pricing monitor" "$page_url" --output page.html
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          from html.parser import HTMLParser
+          from urllib.parse import urljoin
+
+          base = "https://www.ndis.gov.au/providers/pricing-and-payments/pricing/what-support-catalogue"
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.current = None
+                  self.items = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == "a":
+                      self.current = dict(attrs).get("href")
+              def handle_data(self, data):
+                  if self.current:
+                      self.items.append((self.current, data.strip()))
+              def handle_endtag(self, tag):
+                  if tag == "a":
+                      self.current = None
+
+          parser = Links()
+          parser.feed(open("page.html", encoding="utf-8").read())
+          candidates = [urljoin(base, href) for href, label in parser.items if "support catalogue" in (label + " " + href).lower() and ("xlsx" in href.lower() or "/media/" in href.lower())]
+          if not candidates:
+              raise SystemExit("No official NDIS Support Catalogue link was found.")
+          print(f"url={candidates[0]}")
+          PY
+
+      - name: Download and validate official XLSX
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --referer "https://www.ndis.gov.au/" --user-agent "Mozilla/5.0 EmpowerNotes pricing monitor" "${{ steps.catalogue.outputs.url }}" --output ndis-support-catalogue.xlsx
+          test "$(head -c 2 ndis-support-catalogue.xlsx)" = "PK"
+          test "$(stat -c%s ndis-support-catalogue.xlsx)" -gt 10000
+
+      - name: Relay catalogue to EmpowerNotes
+        env:
+          INGEST_SECRET: ${{ secrets.NDIS_CATALOGUE_INGEST_SECRET }}
+          INGEST_URL: ${{ vars.NDIS_CATALOGUE_INGEST_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$INGEST_SECRET"
+          endpoint="${INGEST_URL:-https://www.empowernotes.org/api/cron/ndis-catalogue-ingest}"
+          month="$(date -u +%m)"
+          year="$(date -u +%Y)"
+          if [ "$month" -lt 7 ]; then year="$((year - 1))"; fi
+          curl --fail-with-body --location --retry 2 \
+            --header "Authorization: Bearer $INGEST_SECRET" \
+            --form "effectiveFrom=${year}-07-01" \
+            --form "file=@ndis-support-catalogue.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
+            "$endpoint"

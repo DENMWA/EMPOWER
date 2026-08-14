@@ -62,6 +62,21 @@ export async function importOfficialNdisPricingUpload(config: DbConfig, file: Fi
   if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) throw new Error("Enter the catalogue effective date.");
   if (file.size > 20 * 1024 * 1024) throw new Error("The catalogue must be smaller than 20 MB.");
   const source = Buffer.from(await file.arrayBuffer());
+  const checksum = sha256(source);
+  const previous = await getMonitor(config);
+  if (previous?.detected_checksum === checksum && (previous.draft_version_id || previous.published_version_id)) {
+    return saveMonitor(config, {
+      checkedAt: new Date().toISOString(),
+      pageChecksum: previous.page_checksum || sha256(Buffer.from(OFFICIAL_PAGE)),
+      status: previous.status || "current",
+      alertStatus: previous.alert_status || "none",
+      detail: "The relayed official catalogue matches the version already held by EmpowerNotes. No duplicate draft was created.",
+      detectedDownloadUrl: OFFICIAL_PAGE,
+      detectedFilename: file.name,
+      detectedChecksum: checksum,
+      draftVersionId: previous.draft_version_id || null
+    });
+  }
   const sourceUrl = `${OFFICIAL_PAGE}#owner-upload`;
   const imported = await importCatalogueDraft(config, source, file.name, sourceUrl, effectiveFrom);
   await createDiff(config, imported.versionId);
@@ -73,7 +88,7 @@ export async function importOfficialNdisPricingUpload(config: DbConfig, file: Fi
     detail: `${imported.itemCount} official price rows imported as a draft from the owner-supplied NDIA catalogue. Review the comparison before publishing.`,
     detectedDownloadUrl: OFFICIAL_PAGE,
     detectedFilename: file.name,
-    detectedChecksum: sha256(source),
+    detectedChecksum: checksum,
     draftVersionId: imported.versionId
   });
 }

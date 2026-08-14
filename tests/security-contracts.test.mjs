@@ -1037,6 +1037,24 @@ test("published NDIS pricing exposes common service fees from the live catalogue
   assert.match(panel, /remote_type/);
 });
 
+test("official NDIS catalogue relay is scheduled, secret protected and checksum idempotent", async () => {
+  const [workflow, endpoint, monitor] = await Promise.all([
+    source(".github/workflows/ndis-catalogue-relay.yml"),
+    source("app/api/cron/ndis-catalogue-ingest/route.ts"),
+    source("lib/ndis-pricing-monitor.ts")
+  ]);
+  assert.match(workflow, /schedule:/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /ndis\.gov\.au\/providers\/pricing-and-payments\/pricing\/what-support-catalogue/);
+  assert.match(workflow, /NDIS_CATALOGUE_INGEST_SECRET/);
+  assert.match(workflow, /head -c 2/);
+  assert.match(endpoint, /timingSafeEqual/);
+  assert.match(endpoint, /NDIS_CATALOGUE_INGEST_SECRET/);
+  assert.match(endpoint, /importOfficialNdisPricingUpload/);
+  assert.match(monitor, /No duplicate draft was created/);
+  assert.match(monitor, /previous\?\.detected_checksum === checksum/);
+});
+
 test("AI NDIS matching is candidate-bound, privacy-minimised and never self-approves", async () => {
   const [route, workspace, guard] = await Promise.all([
     source("app/api/billing/match-ndis-service/route.ts"),
