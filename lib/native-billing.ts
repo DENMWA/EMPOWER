@@ -437,9 +437,12 @@ export function linkCompletedRosterService(input: {
   return { shift, error: "" };
 }
 
-export function reconcileCompletedRosterServices(inputs: Array<{ rosterShift: RosterShift; agreement?: ServiceAgreement; noteRecordId?: string }>) {
-  if (!inputs.length) return { linked: 0, records: getNativeBillingRecords() };
-  const original = getNativeBillingRecords();
+export function reconcileCompletedRosterServices(
+  inputs: Array<{ rosterShift: RosterShift; agreement?: ServiceAgreement; noteRecordId?: string }>,
+  sourceRecords: NativeBillingRecords = getNativeBillingRecords()
+) {
+  if (!inputs.length) return { linked: 0, records: sourceRecords };
+  const original = sourceRecords;
   let linked = 0;
   const shifts = [...original.shifts];
   inputs.forEach(({ rosterShift, agreement, noteRecordId }) => {

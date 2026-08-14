@@ -153,7 +153,7 @@ export function NativeBillingWorkspace() {
         rosterShift,
         agreement: cloudRecords.agreements.find((agreement) => agreement.participantId === rosterShift.participantId && agreement.status === "active"),
         noteRecordId: noteItems.find((note) => note.body.includes(rosterShift.participantName) || note.id.includes(rosterShift.participantId))?.id
-      })));
+      })), cloudRecords);
       setRecords(reconciliation.records);
       if (reconciliation.linked) {
         try {
@@ -535,7 +535,7 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  async function exportInvoice(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
+  async function exportInvoicePdf(invoice: NativeInvoice) {
     setMessage(`Preparing ${invoice.invoiceNumber}...`);
     const response = await fetch("/api/billing/invoice-pdf", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getStoredAccessToken()}` }, body: JSON.stringify({ invoiceId: invoice.id }) });
     if (!response.ok) {
@@ -544,8 +544,12 @@ export function NativeBillingWorkspace() {
       return;
     }
     downloadBlob(`${invoice.invoiceNumber}.pdf`, await response.blob());
+    setMessage(`${invoice.invoiceNumber} downloaded as a secure A4 PDF.`);
+  }
+
+  function exportInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
     downloadCsv(`${invoice.invoiceNumber}.csv`, buildInvoiceCsv(invoice, lines));
-    setMessage(`${invoice.invoiceNumber} downloaded as a secure A4 PDF and CSV.`);
+    setMessage(`${invoice.invoiceNumber} downloaded as CSV.`);
   }
 
   return (
@@ -814,7 +818,7 @@ export function NativeBillingWorkspace() {
               const expectedStaffCount = billingService ? getRatioStaffCount(billingService.staffingRatio) : 0;
               const ratioMismatch = Boolean(expectedStaffCount && expectedStaffCount !== assignedStaffCount);
               const selectedUnit = rateDraft.source === "ndis_catalogue"
-                ? records.supportItems.find((item) => item.id === rateDraft.itemId)?.unitType
+                ? records.supportItems.find((item) => item.id === rateDraft.ndisSupportItemId)?.unitType
                 : rateDraft.source === "service_agreement" ? agreementItem?.unitType : rateDraft.manualUnit;
               const billableQuantity = billingService && selectedUnit ? getBillableQuantity(billingService, selectedUnit) : 0;
               const invoiced = Boolean(billingService && records.invoiceLines.some((line) => line.shiftId === billingService.id && line.approvalStatus !== "needs_correction"));
@@ -968,7 +972,7 @@ export function NativeBillingWorkspace() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" disabled={!Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => setShowInvoicePreview((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:bg-slate-100 disabled:text-slate-400"><Eye size={17} aria-hidden="true" />{showInvoicePreview ? "Hide Preview" : "Preview Invoice"}</button>
             <button type="button" disabled={creatingInvoiceId === "batch" || !Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => void generateHolisticInvoice()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
-              <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Creating invoice..." : `Create Invoice (${Object.values(selectedInvoiceServices).filter(Boolean).length})`}
+              <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Generating invoice..." : `Generate invoice (${Object.values(selectedInvoiceServices).filter(Boolean).length})`}
             </button>
           </div>
         </Card>
@@ -1002,7 +1006,8 @@ export function NativeBillingWorkspace() {
                   </div>
                   {lines.filter((line) => line.exceptionReason).map((line) => <p key={`${line.id}-warning`} className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{line.supportItemNumber}: {line.exceptionReason}</p>)}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => void exportInvoice(invoice, lines)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> Download PDF + CSV</button>
+                    <button type="button" onClick={() => void exportInvoicePdf(invoice)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> Download PDF</button>
+                    <button type="button" onClick={() => exportInvoiceCsv(invoice, lines)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> Download CSV</button>
                     <button type="button" onClick={() => markInvoicePaymentStatus(invoice.id, "paid")} className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700">Mark paid</button>
                   </div>
                 </div>

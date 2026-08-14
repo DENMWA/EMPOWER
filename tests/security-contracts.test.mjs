@@ -747,7 +747,7 @@ test("participant invoices require an approved NDIS, agreement or manual rate", 
   assert.match(workspace, /I authorise/);
   assert.match(workspace, /Include in invoice/);
   assert.match(workspace, /createInvoiceFromServices/);
-  assert.match(workspace, /Create Invoice/);
+  assert.match(workspace, /Generate invoice/);
   assert.match(workspace, /Invoice Workspace/);
   assert.match(workspace, /Create invoices from delivered supports/);
   assert.match(workspace, /Select client/);
@@ -927,6 +927,19 @@ test("official NDIA catalogue rows power date-aware invoice recommendations", as
   assert.match(billing, /item\.timeBand/);
   assert.match(cloud, /state_or_region: item\.stateOrRegion/);
   assert.match(cloud, /remote_type: item\.remoteType/);
+});
+
+test("invoice workspace preserves cloud pricing and exposes explicit generation and exports", async () => {
+  const [workspace, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(workspace, /reconcileCompletedRosterServices\([\s\S]*cloudRecords\)/);
+  assert.match(billing, /sourceRecords: NativeBillingRecords = getNativeBillingRecords\(\)/);
+  assert.match(workspace, /Generate invoice/);
+  assert.match(workspace, /Download PDF/);
+  assert.match(workspace, /Download CSV/);
+  assert.match(workspace, /rateDraft\.ndisSupportItemId\)\?\.unitType/);
 });
 
 test("delivered supports preselect a defensible NDIS code while retaining pricing choice", async () => {
