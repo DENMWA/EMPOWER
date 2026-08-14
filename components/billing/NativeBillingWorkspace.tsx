@@ -36,6 +36,7 @@ import { getTenantDocumentRecords, type StoredDocumentRecord } from "@/lib/docum
 
 type TravelDraft = { odometerStart: string; odometerEnd: string; rate: string; supportItemNumber: string; notes: string };
 type ServiceRateDraft = { source: InvoiceRateSource; itemId: string; ndisSupportItemId: string; manualRate: string; manualUnit: string; approved: boolean };
+type AiPricingMatch = { candidateId: string; confidence: number; reason: string; usedAi: boolean };
 type AgreementDraftItem = {
   id: string;
   supportItemNumber: string;
@@ -86,6 +87,9 @@ export function NativeBillingWorkspace() {
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
   const [serviceRateDrafts, setServiceRateDrafts] = useState<Record<string, ServiceRateDraft>>({});
   const [servicePricingSearches, setServicePricingSearches] = useState<Record<string, string>>({});
+  const [aiPricingMatches, setAiPricingMatches] = useState<Record<string, AiPricingMatch>>({});
+  const [aiMatchingServices, setAiMatchingServices] = useState<Record<string, boolean>>({});
+  const [aiPricingAttempted, setAiPricingAttempted] = useState<Record<string, boolean>>({});
   const [includedTravel, setIncludedTravel] = useState<Record<string, boolean>>({});
   const [travelDrafts, setTravelDrafts] = useState<Record<string, TravelDraft>>({});
   const [vaultAgreements, setVaultAgreements] = useState<StoredDocumentRecord[]>([]);
@@ -131,6 +135,40 @@ export function NativeBillingWorkspace() {
     noteCompleted: Boolean(service.noteRecordId)
   });
   const invoicePreview = getInvoicePreview(records, selectedInvoiceServices, serviceRateDrafts, includedTravel);
+
+  async function rankNdisPricing(service: NativeBillingRecords["shifts"][number]) {
+    if (aiPricingAttempted[service.id] || aiMatchingServices[service.id]) return;
+    const candidates = matchNdisSupportItems(service, records.supportItems, records.pricingVersions).slice(0, 8).map(({ item }) => ({
+      id: item.id,
+      code: item.supportItemNumber,
+      name: item.supportItemName,
+      category: item.supportCategory,
+      unit: item.unitType,
+      timeBand: item.timeBand,
+      region: item.stateOrRegion,
+      remoteType: item.remoteType,
+      price: item.priceLimit || 0
+    })).filter((candidate) => candidate.price > 0);
+    setAiPricingAttempted((current) => ({ ...current, [service.id]: true }));
+    if (!candidates.length) return;
+    setAiMatchingServices((current) => ({ ...current, [service.id]: true }));
+    try {
+      const response = await fetch("/api/billing/match-ndis-service", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredAccessToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service: { supportType: service.supportType, title: service.title, date: service.startTime.slice(0, 10), startTime: service.startTime, endTime: service.endTime, location: service.location, staffingRatio: service.staffingRatio },
+          candidates
+        })
+      });
+      const result = await response.json() as AiPricingMatch & { error?: string };
+      if (!response.ok || !candidates.some((candidate) => candidate.id === result.candidateId)) return;
+      setAiPricingMatches((current) => ({ ...current, [service.id]: result }));
+      setServiceRateDrafts((current) => ({ ...current, [service.id]: { ...getDefaultRateDraft(), source: "ndis_catalogue", itemId: result.candidateId, ndisSupportItemId: result.candidateId, approved: false } }));
+    } finally {
+      setAiMatchingServices((current) => ({ ...current, [service.id]: false }));
+    }
+  }
 
   useEffect(() => {
     async function loadRecords() {
@@ -844,7 +882,10 @@ export function NativeBillingWorkspace() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {billingService ? (
                       <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink">
-                        <input type="checkbox" disabled={invoiced || !invoiceEligibility.allowed} checked={Boolean(selectedInvoiceServices[billingService.id])} onChange={(event) => setSelectedInvoiceServices((current) => ({ ...current, [billingService.id]: event.target.checked }))} />
+                        <input type="checkbox" disabled={invoiced || !invoiceEligibility.allowed} checked={Boolean(selectedInvoiceServices[billingService.id])} onChange={(event) => {
+                          setSelectedInvoiceServices((current) => ({ ...current, [billingService.id]: event.target.checked }));
+                          if (event.target.checked && rateDraft.source === "ndis_catalogue") void rankNdisPricing(billingService);
+                        }} />
                         {invoiced ? "Already invoiced" : "Include in invoice"}
                       </label>
                     ) : <span className="inline-flex min-h-10 items-center rounded-md bg-slate-100 px-3 text-sm font-semibold text-slate-600">Preparing pricing options...</span>}
@@ -858,6 +899,7 @@ export function NativeBillingWorkspace() {
                               ? availableAgreementItems.find((item) => item.supportItemId === rateDraft.ndisSupportItemId) || availableAgreementItems[0]
                               : undefined;
                             setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source, ndisSupportItemId: agreementRate?.supportItemId || rateDraft.ndisSupportItemId, itemId: source === "ndis_catalogue" ? rateDraft.ndisSupportItemId : agreementRate?.id || "" } }));
+                            if (source === "ndis_catalogue") void rankNdisPricing(billingService);
                           }} className={`min-h-10 rounded px-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
                         ))}
                       </div>
@@ -869,6 +911,8 @@ export function NativeBillingWorkspace() {
                           {visibleNdisItems.map((item) => <option key={item.id} value={item.id}>{item.supportItemNumber} - {item.supportItemName} - {formatPositiveRate(item.priceLimit)} / {item.unitType}{ndisMatches.some((match) => match.item.id === item.id) ? " - suggested" : ""}</option>)}
                         </select>
                         {selectedNdisItem ? <span className="font-normal text-teal-800">Suggested from {billingService.supportType}. Confirm before invoicing.</span> : null}
+                        {aiMatchingServices[billingService.id] ? <span className="font-normal text-slate-600" role="status">Checking the closest catalogue match...</span> : null}
+                        {aiPricingMatches[billingService.id] ? <span className="font-normal text-teal-800"><strong>{aiPricingMatches[billingService.id].usedAi ? "AI-ranked suggestion" : "Rules-based suggestion"}</strong>{aiPricingMatches[billingService.id].confidence > 0 ? ` · ${Math.round(aiPricingMatches[billingService.id].confidence * 100)}% confidence` : ""}. {aiPricingMatches[billingService.id].reason} Human authorisation is required.</span> : null}
                         {!activeNdisItems.length ? <span className="font-normal text-amber-800">No active priced NDIS catalogue covers this service date. Import the official XLSX catalogue, review it, then activate it.</span> : null}
                         {activeNdisItems.length && !visibleNdisItems.length ? <span className="font-normal text-amber-800">No active support items match this search.</span> : null}
                       </label>

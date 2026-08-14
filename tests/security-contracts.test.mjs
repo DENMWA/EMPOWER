@@ -1030,6 +1030,25 @@ test("published NDIS pricing exposes common service fees from the live catalogue
   assert.match(panel, /remote_type/);
 });
 
+test("AI NDIS matching is candidate-bound, privacy-minimised and never self-approves", async () => {
+  const [route, workspace, guard] = await Promise.all([
+    source("app/api/billing/match-ndis-service/route.ts"),
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/security/ai-request-guard.ts")
+  ]);
+  assert.match(route, /permission: "billing\.manage"/);
+  assert.match(route, /rateLimitAction: "transcribe_note"/);
+  assert.match(route, /slice\(0, maxCandidates\)/);
+  assert.match(route, /candidates\.some\(\(candidate\) => candidate\.id === candidateId\)/);
+  assert.match(route, /Never create a code, candidate, rate or service fact/);
+  assert.doesNotMatch(route, /participantName|clientName|staffName|progressNote|diagnosis/);
+  assert.match(guard, /match_ndis_service/);
+  assert.match(workspace, /source === "ndis_catalogue"\) void rankNdisPricing/);
+  assert.match(workspace, /approved: false/);
+  assert.match(workspace, /Human authorisation is required/);
+  assert.doesNotMatch(workspace, /service: \{[^}]*participantName/);
+});
+
 test("marketing attribution is first party, bounded, platform private and Stripe authoritative", async () => {
   const [client, attribution, server, events, signup, webhook, migration, layout, panel] = await Promise.all([
     source("lib/marketing/client.ts"), source("lib/marketing/attribution.ts"), source("lib/marketing/server.ts"),
