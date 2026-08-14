@@ -30,6 +30,7 @@ type MembershipRow = {
   access_status?: string;
 };
 type AcceptedInviteRow = { organisation_id: string; email: string };
+type OrganisationAccessRow = { platform_access_status?: string; platform_access_reason?: string | null };
 
 export async function resolveUserAccessContext(request: Request, requested: RequestedScope = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -66,6 +67,14 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
     if (!membership || membership.access_status !== "active") {
       securityEvent("membership_denied", { actorUserId: authUser.id, endpoint: new URL(request.url).pathname, correlationId });
       return denied(403, "Active organisation membership is required.", correlationId);
+    }
+    const requestUrl = new URL(request.url);
+    const isPlatformRecoveryRequest = requestUrl.pathname.startsWith("/api/platform/") || (requestUrl.pathname === "/api/auth/access" && requestUrl.searchParams.get("mode") === "platform");
+    const organisations = await rows<OrganisationAccessRow>(url, headers, `organisations?select=platform_access_status,platform_access_reason&id=eq.${membership.organisation_id}&limit=1`);
+    const platformStatus = organisations[0]?.platform_access_status || "active";
+    if (!isPlatformRecoveryRequest && ["suspended", "locked_review", "cancelled"].includes(platformStatus)) {
+      securityEvent("organisation_access_denied", { actorUserId: authUser.id, endpoint: new URL(request.url).pathname, correlationId });
+      return denied(403, platformStatus === "cancelled" ? "This organisation account is no longer active." : "This organisation account is temporarily unavailable. Contact EmpowerNotes support.", correlationId);
     }
     const authenticatedEmail = authUser.email?.trim().toLowerCase() || "";
     const acceptedInvite = acceptedInvites.find((invite) => invite.organisation_id === membership.organisation_id);
@@ -147,6 +156,15 @@ function denied(status: number, error: string, correlationId: string) {
 
 function securityEvent(event: string, details: { actorUserId: string; endpoint: string; correlationId: string; resourceId?: string }) {
   console.warn(JSON.stringify({ event, ...details, timestamp: new Date().toISOString() }));
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return;
+  void fetch(`${url}/rest/v1/platform_security_events`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ actor_user_id: details.actorUserId || null, event_type: event, severity: event.includes("denied") || event.includes("mismatch") ? "warning" : "info", summary: event.replaceAll("_", " "), endpoint: details.endpoint, correlation_id: details.correlationId, metadata: details.resourceId ? { resource_id: details.resourceId } : {} }),
+    cache: "no-store"
+  }).catch(() => undefined);
 }
 
 function today() { return new Date().toISOString().slice(0, 10); }

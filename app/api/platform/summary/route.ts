@@ -15,6 +15,9 @@ type OrganisationRow = {
   subscription_current_period_end?: string | null;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
+  platform_access_status?: string | null;
+  platform_access_reason?: string | null;
+  platform_access_updated_at?: string | null;
 };
 
 type PaymentRow = {
@@ -42,7 +45,7 @@ export async function GET(request: Request) {
 
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
   const organisationResponse = await fetch(
-    `${url}/rest/v1/organisations?select=id,name,created_at,provider_type,subscription_tier,subscription_status,trial_ends_at,subscription_current_period_end,stripe_customer_id,stripe_subscription_id&order=created_at.desc&limit=100`,
+    `${url}/rest/v1/organisations?select=id,name,created_at,provider_type,subscription_tier,subscription_status,trial_ends_at,subscription_current_period_end,stripe_customer_id,stripe_subscription_id,platform_access_status,platform_access_reason,platform_access_updated_at&order=created_at.desc&limit=100`,
     { headers, cache: "no-store" }
   );
   if (!organisationResponse.ok) return NextResponse.json({ error: "Organisation analytics could not be loaded." }, { status: 502 });
@@ -72,6 +75,9 @@ export async function GET(request: Request) {
       currentPeriodEnd: organisation.subscription_current_period_end || "",
       hasStripeCustomer: Boolean(organisation.stripe_customer_id),
       hasStripeSubscription: Boolean(organisation.stripe_subscription_id),
+      platformAccessStatus: organisation.platform_access_status || "active",
+      platformAccessReason: organisation.platform_access_reason || "",
+      platformAccessUpdatedAt: organisation.platform_access_updated_at || "",
       users,
       clients,
       incidents

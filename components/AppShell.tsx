@@ -12,7 +12,7 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, BookOpenCheck, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut, LifeBuoy } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/incidents", label: "Incidents", icon: ShieldCheck },
   { href: "/documents", label: "Documents", icon: FolderLock },
   { href: "/handover", label: "Handover", icon: BookOpenCheck },
+  { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/signin", label: "Sign in", icon: KeyRound },
   { href: "/signup", label: "Sign up", icon: Sparkles }
 ];
@@ -146,8 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ["Diagnostics", "diagnostics"],
               ["Analytics", "analytics"],
               ["Security", "security"],
-              ["Support", "support"],
-              ["Trial Run", "trial"]
+              ["Support", "support"]
             ].map(([label, hash]) => (
               <Link key={hash} href={`/platform#${hash}`} className="inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-ink">
                 {label}

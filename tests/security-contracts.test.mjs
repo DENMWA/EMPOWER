@@ -64,6 +64,28 @@ test("platform analytics endpoint requires platform-owner verification", async (
   assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 
+test("platform operations are server enforced, audited, and isolated from tenant clients", async () => {
+  const [route, migration, access, dashboard, support] = await Promise.all([
+    source("app/api/platform/operations/route.ts"),
+    source("supabase/platform-operations-console.sql"),
+    source("lib/security/user-access-context.ts"),
+    source("components/platform/PlatformDashboard.tsx"),
+    source("app/api/support/issues/route.ts")
+  ]);
+  assert.match(route, /verifyServerAccess\(request, "platform"\)/);
+  assert.match(route, /platform_access_status/);
+  assert.match(route, /platform_security_events/);
+  assert.match(migration, /platform_access_status in \('active', 'payment_risk', 'suspended', 'locked_review', 'cancelled'\)/);
+  assert.match(migration, /revoke all on public\.platform_security_events from anon, authenticated/);
+  assert.match(migration, /revoke all on public\.platform_support_cases from anon, authenticated/);
+  assert.match(access, /organisation_access_denied/);
+  assert.match(access, /platformStatus/);
+  assert.match(dashboard, /Organisation access updated and audited/);
+  assert.doesNotMatch(dashboard.slice(0, dashboard.indexOf("function PlatformAreaContent")), /setPlatformAccessStatus\(/);
+  assert.match(support, /resolveUserAccessContext\(request\)/);
+  assert.match(support, /organisation_id: resolved\.context\.organisationId/);
+});
+
 test("system health monitoring is owner-only and read-only", async () => {
   const route = await source("app/api/platform/health/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);

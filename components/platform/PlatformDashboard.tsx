@@ -56,6 +56,16 @@ const supportEvents = [
 
 export function PlatformDashboard() {
   const [activeArea, setActiveArea] = useState<PlatformAreaId>("overview");
+
+  useEffect(() => {
+    function syncArea() {
+      const area = window.location.hash.slice(1) as PlatformAreaId;
+      if (consoleAreas.some((item) => item.id === area) && area !== "trial") setActiveArea(area);
+    }
+    syncArea();
+    window.addEventListener("hashchange", syncArea);
+    return () => window.removeEventListener("hashchange", syncArea);
+  }, []);
   const [dataModeChecked, setDataModeChecked] = useState(false);
   const [showDemoData, setShowDemoData] = useState(false);
   const active = consoleAreas.find((area) => area.id === activeArea) ?? consoleAreas[0];
@@ -151,6 +161,9 @@ type LivePlatformSummary = {
     currentPeriodEnd: string;
     hasStripeCustomer: boolean;
     hasStripeSubscription: boolean;
+    platformAccessStatus: string;
+    platformAccessReason: string;
+    platformAccessUpdatedAt: string;
     users: number;
     clients: number;
     incidents: number;
@@ -164,19 +177,53 @@ type LivePlatformSummary = {
   };
 };
 
+type LivePlatformOperations = {
+  generatedAt: string;
+  securityEvents: Array<{ id: string; organisation_id: string; event_type: string; severity: string; summary: string; endpoint: string; occurred_at: string }>;
+  supportCases: Array<{ id: string; organisation_id: string; title: string; category: string; severity: string; status: string; page_path: string; browser: string; deployment_id: string; created_at: string; updated_at: string; resolved_at: string }>;
+  usage: Array<{ organisation_id: string; usage_period_start: string; usage_period_end: string; active_participants: number; active_users: number; active_houses: number; documents_uploaded: number; ai_analysed_notes: number; invoice_lines: number; storage_bytes: number }>;
+  observations: Array<{ organisation_id: string; resource: string; action_name: string; would_block: boolean; observed_at: string }>;
+  auditEvents: Array<{ organisation_id: string; actor_id: string; action: string; entity_type: string; created_at: string }>;
+  availability: Record<string, boolean>;
+};
+
 function LivePlatformDataPending() {
   const [data, setData] = useState<LivePlatformSummary | null>(null);
+  const [operations, setOperations] = useState<LivePlatformOperations | null>(null);
   const [error, setError] = useState("");
+  const [activeArea, setActiveArea] = useState<PlatformAreaId>("overview");
 
   useEffect(() => {
-    fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" })
-      .then(async (response) => {
-        const result = await response.json() as LivePlatformSummary & { error?: string };
-        if (!response.ok) throw new Error(result.error || "Live platform data could not be loaded.");
-        setData(result);
+    Promise.all([
+      fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" }),
+      fetch("/api/platform/operations", { headers: getAuthenticatedApiHeaders(), cache: "no-store" })
+    ])
+      .then(async ([summaryResponse, operationsResponse]) => {
+        const summary = await summaryResponse.json() as LivePlatformSummary & { error?: string };
+        const operational = await operationsResponse.json() as LivePlatformOperations & { error?: string };
+        if (!summaryResponse.ok) throw new Error(summary.error || "Live platform data could not be loaded.");
+        if (!operationsResponse.ok) throw new Error(operational.error || "Platform operations could not be loaded. Run the platform operations migration.");
+        setData(summary);
+        setOperations(operational);
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Live platform data could not be loaded."));
   }, []);
+
+  function refresh() {
+    setData(null);
+    setOperations(null);
+    setError("");
+    Promise.all([
+      fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" }),
+      fetch("/api/platform/operations", { headers: getAuthenticatedApiHeaders(), cache: "no-store" })
+    ]).then(async ([summaryResponse, operationsResponse]) => {
+      const summary = await summaryResponse.json() as LivePlatformSummary & { error?: string };
+      const operational = await operationsResponse.json() as LivePlatformOperations & { error?: string };
+      if (!summaryResponse.ok || !operationsResponse.ok) throw new Error(summary.error || operational.error || "Refresh failed.");
+      setData(summary);
+      setOperations(operational);
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : "Refresh failed."));
+  }
 
   return (
     <>
@@ -186,54 +233,70 @@ function LivePlatformDataPending() {
         description="Private cross-tenant operational counts from the production workspace. Stripe revenue analytics remain separate from clinical and operational data."
         actions={<StatusBadge label="Owner only" tone="red" />}
       />
-      <Section>
+      <Section className="space-y-6">
         {error ? <Card className="border-red-200"><p className="font-semibold text-red-800">{error}</p></Card> : null}
-        {!data && !error ? <Card><p className="font-semibold text-ink">Loading live platform data...</p></Card> : null}
-        {data ? <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} />
-            <PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Stripe subscriptions active" icon={CreditCard} tone="green" />
-            <PlatformMetric label="Free trials" value={data.summary.trialAccounts} detail="Organisations evaluating" icon={CalendarClock} tone="blue" />
-            <PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due organisations" icon={AlertTriangle} tone="amber" />
-          </div>
-          <SystemHealthPanel />
-          <NdisPricingMonitorPanel />
-          <MarketingAttributionPanel />
-          <SubscriptionPaymentLedger payments={data.payments} />
-          <Card>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-sea">Subscriptions</p>
-                <h2 className="mt-1 text-xl font-semibold text-ink">Organisation register</h2>
-              </div>
-              <StatusBadge label={`Updated ${new Date(data.generatedAt).toLocaleString("en-AU")}`} tone="green" />
+        {(!data || !operations) && !error ? <Card><p className="font-semibold text-ink">Loading live platform data...</p></Card> : null}
+        {data && operations ? <>
+          <Card className="p-3">
+            <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Platform console areas">
+              {consoleAreas.filter((area) => area.id !== "trial").map((area) => <button key={area.id} type="button" role="tab" aria-selected={activeArea === area.id} onClick={() => setActiveArea(area.id)} className={cn("min-h-10 shrink-0 rounded-md px-3 text-sm font-semibold", activeArea === area.id ? "bg-teal-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-teal-50")}>{area.title}</button>)}
+              <button type="button" onClick={refresh} className="ml-auto min-h-10 shrink-0 rounded-md border border-slate-300 px-3 text-sm font-semibold text-ink">Refresh</button>
             </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[1040px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Organisation</th><th className="py-3 pr-4">Signed up</th><th className="py-3 pr-4">Type</th><th className="py-3 pr-4">Tier</th><th className="py-3 pr-4">Subscription</th><th className="py-3 pr-4">Trial / renewal</th><th className="py-3 pr-4">Users</th><th className="py-3">Clients</th></tr></thead>
-                <tbody>{data.organisations.map((organisation) => {
-                  const relevantDate = organisation.billingState === "Free trial" ? organisation.trialEndsAt : organisation.currentPeriodEnd;
-                  const tone = organisation.billingState === "Paying" ? "green" : organisation.billingState === "Payment issue" ? "amber" : organisation.billingState === "Inactive" ? "red" : "blue";
-                  return <tr key={organisation.id} className="border-b border-slate-100 align-top">
-                    <td className="py-3 pr-4"><p className="font-semibold text-ink">{organisation.name}</p><p className="mt-1 text-xs text-slate-500">{organisation.hasStripeCustomer ? "Billing profile connected" : "No billing profile"}</p></td>
-                    <td className="py-3 pr-4">{formatPlatformDate(organisation.signedUpAt)}</td>
-                    <td className="py-3 pr-4 capitalize">{organisation.providerType.replaceAll("_", " ")}</td>
-                    <td className="py-3 pr-4 font-semibold capitalize text-ink">{organisation.tier}</td>
-                    <td className="py-3 pr-4"><StatusBadge label={organisation.billingState} tone={tone} /><p className="mt-1 text-xs capitalize text-slate-500">{organisation.status.replaceAll("_", " ")}</p></td>
-                    <td className="py-3 pr-4">{formatPlatformDate(relevantDate)}</td>
-                    <td className="py-3 pr-4">{organisation.users}</td>
-                    <td className="py-3">{organisation.clients}</td>
-                  </tr>;
-                })}</tbody>
-              </table>
-            </div>
-            {!data.organisations.length ? <p className="py-8 text-center text-sm text-slate-600">No organisations have signed up yet.</p> : null}
           </Card>
-        </div> : null}
+          <LivePlatformArea activeArea={activeArea} data={data} operations={operations} onRefresh={refresh} />
+        </> : null}
       </Section>
     </>
   );
 }
+
+function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeArea: PlatformAreaId; data: LivePlatformSummary; operations: LivePlatformOperations; onRefresh: () => void }) {
+  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><SystemHealthPanel /><LiveUsagePanel data={data} operations={operations} /></div>;
+  if (activeArea === "organisations") return <LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} />;
+  if (activeArea === "subscriptions") return <div className="space-y-6"><LiveSubscriptionSummary data={data} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
+  if (activeArea === "payments") return <SubscriptionPaymentLedger payments={data.payments} />;
+  if (activeArea === "diagnostics") return <div className="space-y-6"><SystemHealthPanel /><NdisPricingMonitorPanel /></div>;
+  if (activeArea === "analytics") return <div className="space-y-6"><LiveUsagePanel data={data} operations={operations} /><MarketingAttributionPanel /></div>;
+  if (activeArea === "security") return <LiveSecurityPanel data={data} operations={operations} />;
+  return <LiveSupportPanel data={data} operations={operations} onRefresh={onRefresh} />;
+}
+
+function LiveSubscriptionSummary({ data }: { data: LivePlatformSummary }) {
+  const tiers = ["solo", "practice", "provider", "enterprise"].map((tier) => ({ tier, count: data.organisations.filter((item) => item.tier === tier).length }));
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{tiers.map((item) => <PlatformMetric key={item.tier} label={item.tier[0].toUpperCase() + item.tier.slice(1)} value={item.count} detail="Organisations" icon={ReceiptText} tone={item.tier === "enterprise" ? "green" : "blue"} />)}</div>;
+}
+
+function LiveUsagePanel({ data, operations }: { data: LivePlatformSummary; operations: LivePlatformOperations }) {
+  const latest = new Map<string, LivePlatformOperations["usage"][number]>();
+  operations.usage.forEach((row) => { if (!latest.has(row.organisation_id)) latest.set(row.organisation_id, row); });
+  const aiCalls = [...latest.values()].reduce((sum, row) => sum + Number(row.ai_analysed_notes || 0), 0);
+  const documents = [...latest.values()].reduce((sum, row) => sum + Number(row.documents_uploaded || 0), 0);
+  const invoiceLines = [...latest.values()].reduce((sum, row) => sum + Number(row.invoice_lines || 0), 0);
+  return <Card><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Product usage</p><h2 className="mt-1 text-xl font-semibold text-ink">Latest recorded period</h2></div><StatusBadge label={operations.availability.usage ? "Live" : "Unavailable"} tone={operations.availability.usage ? "green" : "amber"} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="AI-assisted notes" value={aiCalls} detail="No note content exposed" icon={Activity} tone="blue" /><PlatformMetric label="Documents" value={documents} detail="Upload count only" icon={ReceiptText} /><PlatformMetric label="Invoice lines" value={invoiceLines} detail="Usage count" icon={CreditCard} tone="green" /><PlatformMetric label="Limit warnings" value={operations.observations.filter((row) => row.would_block).length} detail="Entitlement observations" icon={AlertTriangle} tone="amber" /></div><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Organisation</th><th className="py-3 pr-4">AI notes</th><th className="py-3 pr-4">Documents</th><th className="py-3 pr-4">Invoices</th><th className="py-3">Storage</th></tr></thead><tbody>{data.organisations.map((org) => { const row = latest.get(org.id); return <tr key={org.id} className="border-b border-slate-100"><td className="py-3 pr-4 font-semibold text-ink">{org.name}</td><td className="py-3 pr-4">{row?.ai_analysed_notes || 0}</td><td className="py-3 pr-4">{row?.documents_uploaded || 0}</td><td className="py-3 pr-4">{row?.invoice_lines || 0}</td><td className="py-3">{formatBytes(row?.storage_bytes || 0)}</td></tr>; })}</tbody></table></div></Card>;
+}
+
+function LiveOrganisationTable({ data, operations, onRefresh, compact = false }: { data: LivePlatformSummary; operations: LivePlatformOperations; onRefresh: () => void; compact?: boolean }) {
+  const [reason, setReason] = useState("Account review requested by platform owner.");
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
+  const latest = new Map<string, LivePlatformOperations["usage"][number]>(); operations.usage.forEach((row) => { if (!latest.has(row.organisation_id)) latest.set(row.organisation_id, row); });
+  async function setAccess(organisationId: string, status: string) { setBusy(organisationId + status); setMessage(""); const response = await fetch("/api/platform/operations", { method: "POST", headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ action: "set_access", organisationId, status, reason }) }); const body = await response.json() as { error?: string }; setBusy(""); if (!response.ok) return setMessage(body.error || "Access update failed."); setMessage("Organisation access updated and audited."); onRefresh(); }
+  return <Card><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Tenant accounts</p><h2 className="mt-1 text-xl font-semibold text-ink">Organisation control</h2></div><StatusBadge label="Production" tone="green" /></div>{!compact ? <label className="mt-4 grid max-w-2xl gap-2 text-sm font-semibold text-slate-700">Reason for access change<input value={reason} onChange={(event) => setReason(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3 font-normal text-ink" /></label> : null}{message ? <p className="mt-3 text-sm font-semibold text-slate-700" role="status">{message}</p> : null}<div className="mt-5 overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4">Organisation</th><th className="py-3 pr-4">Plan</th><th className="py-3 pr-4">Subscription</th><th className="py-3 pr-4">Users</th><th className="py-3 pr-4">Clients</th><th className="py-3 pr-4">Houses</th><th className="py-3 pr-4">Platform access</th>{!compact ? <th className="py-3">Actions</th> : null}</tr></thead><tbody>{data.organisations.map((org) => { const usage = latest.get(org.id); const blocked = ["suspended", "locked_review", "cancelled"].includes(org.platformAccessStatus); return <tr key={org.id} className={cn("border-b border-slate-100 align-top", blocked && "bg-red-50/60")}><td className="py-3 pr-4"><p className="font-semibold text-ink">{org.name}</p><p className="text-xs text-slate-500">{formatPlatformDate(org.signedUpAt)}</p></td><td className="py-3 pr-4 capitalize">{org.tier}</td><td className="py-3 pr-4"><StatusBadge label={org.billingState} tone={org.billingState === "Paying" ? "green" : org.billingState === "Payment issue" ? "amber" : "blue"} /></td><td className="py-3 pr-4">{org.users}</td><td className="py-3 pr-4">{org.clients}</td><td className="py-3 pr-4">{usage?.active_houses || 0}</td><td className="py-3 pr-4"><StatusBadge label={org.platformAccessStatus.replaceAll("_", " ")} tone={blocked ? "red" : org.platformAccessStatus === "payment_risk" ? "amber" : "green"} />{org.platformAccessReason ? <p className="mt-1 max-w-xs text-xs text-slate-600">{org.platformAccessReason}</p> : null}</td>{!compact ? <td className="py-3"><div className="flex flex-wrap gap-2"><button disabled={Boolean(busy)} onClick={() => void setAccess(org.id, "suspended")} className="rounded-md border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-700 disabled:opacity-50">Suspend</button><button disabled={Boolean(busy)} onClick={() => void setAccess(org.id, "payment_risk")} className="rounded-md border border-amber-200 px-2.5 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50">Flag risk</button><button disabled={Boolean(busy)} onClick={() => void setAccess(org.id, "active")} className="rounded-md border border-emerald-200 px-2.5 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">Restore</button></div></td> : null}</tr>; })}</tbody></table></div></Card>;
+}
+
+function LiveSecurityPanel({ data, operations }: { data: LivePlatformSummary; operations: LivePlatformOperations }) {
+  const names = new Map(data.organisations.map((item) => [item.id, item.name]));
+  const events = [...operations.securityEvents, ...operations.auditEvents.map((event) => ({ id: `${event.organisation_id}-${event.created_at}-${event.action}`, organisation_id: event.organisation_id, event_type: event.action, severity: "info", summary: `${event.action.replaceAll("_", " ")} · ${event.entity_type}`, endpoint: "", occurred_at: event.created_at }))].sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 100);
+  return <Card><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Security</p><h2 className="mt-1 text-xl font-semibold text-ink">Access and audit events</h2></div><StatusBadge label="Metadata only" tone="green" /></div><div className="mt-5 space-y-3">{events.map((event) => <div key={event.id} className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-slate-200 p-4"><div><p className="font-semibold capitalize text-ink">{event.event_type.replaceAll("_", " ")}</p><p className="mt-1 text-sm text-slate-700">{event.summary}</p><p className="mt-2 text-xs text-slate-500">{names.get(event.organisation_id) || "Platform"} · {new Date(event.occurred_at).toLocaleString("en-AU")}</p></div><StatusBadge label={event.severity} tone={event.severity === "critical" ? "red" : event.severity === "warning" ? "amber" : "blue"} /></div>)}{!events.length ? <p className="rounded-md bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">No security events recorded.</p> : null}</div></Card>;
+}
+
+function LiveSupportPanel({ data, operations, onRefresh }: { data: LivePlatformSummary; operations: LivePlatformOperations; onRefresh: () => void }) {
+  const names = new Map(data.organisations.map((item) => [item.id, item.name])); const [busy, setBusy] = useState("");
+  async function update(id: string, status: string) { setBusy(id); await fetch("/api/platform/operations", { method: "POST", headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ action: "update_support", supportCaseId: id, supportStatus: status }) }); setBusy(""); onRefresh(); }
+  return <Card><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Support</p><h2 className="mt-1 text-xl font-semibold text-ink">Reported issues</h2></div><StatusBadge label={`${operations.supportCases.filter((item) => !["resolved", "closed"].includes(item.status)).length} open`} tone="amber" /></div><div className="mt-5 space-y-3">{operations.supportCases.map((item) => <div key={item.id} className="rounded-md border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{item.title}</p><p className="mt-1 text-sm text-slate-600">{names.get(item.organisation_id) || "Unassigned organisation"} · {item.category.replaceAll("_", " ")}</p><p className="mt-2 text-xs text-slate-500">{item.page_path || "Page not supplied"} · {new Date(item.created_at).toLocaleString("en-AU")}</p></div><StatusBadge label={item.status} tone={["resolved", "closed"].includes(item.status) ? "green" : item.severity === "critical" ? "red" : "amber"} /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy === item.id} onClick={() => void update(item.id, "investigating")} className="rounded-md border border-sky-200 px-3 py-2 text-xs font-semibold text-sky-800">Investigate</button><button disabled={busy === item.id} onClick={() => void update(item.id, "resolved")} className="rounded-md border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-800">Resolve</button></div></div>)}{!operations.supportCases.length ? <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-600">No support cases have been submitted.</p> : null}</div></Card>;
+}
+
+function formatBytes(bytes: number) { if (!bytes) return "0 MB"; const units = ["B", "KB", "MB", "GB", "TB"]; const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024))); return `${(bytes / 1024 ** index).toFixed(index > 1 ? 1 : 0)} ${units[index]}`; }
 
 function SubscriptionPaymentLedger({ payments }: { payments: LivePlatformSummary["payments"] }) {
   const maxMonthly = Math.max(1, ...payments.monthly.map((item) => item.totalPaidCents));
