@@ -23,6 +23,8 @@ export function NdisPricingMonitorPanel() {
   const [data, setData] = useState<State | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [catalogueFile, setCatalogueFile] = useState<File | null>(null);
+  const [effectiveFrom, setEffectiveFrom] = useState(`${new Date().getFullYear()}-07-01`);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/platform/ndis-pricing", { headers: getAuthenticatedApiHeaders(), cache: "no-store" });
@@ -49,6 +51,26 @@ export function NdisPricingMonitorPanel() {
       await load();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Pricing action failed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function uploadCatalogue() {
+    if (!catalogueFile) return setError("Choose the official NDIS catalogue file first.");
+    setBusy("upload");
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", catalogueFile);
+      form.append("effectiveFrom", effectiveFrom);
+      const response = await fetch("/api/platform/ndis-pricing", { method: "POST", headers: getAuthenticatedApiHeaders(), body: form });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "The catalogue could not be imported.");
+      setCatalogueFile(null);
+      await load();
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "The catalogue could not be imported.");
     } finally {
       setBusy("");
     }
@@ -90,6 +112,11 @@ export function NdisPricingMonitorPanel() {
           <p className="mt-1 text-sm leading-6 text-slate-600">{data?.monitor?.detail || "Run the first official source check."}</p>
           {diff ? <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-slate-700"><span>{diff.changed_price_count} price changes</span><span>{diff.new_items_count} new</span><span>{diff.removed_items_count} removed</span></div> : null}
           {data?.monitor?.detected_download_url ? <a href={data.monitor.detected_download_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-teal-800">Open official file <ExternalLink size={14} /></a> : null}
+          <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4">
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">Official catalogue file<input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(event) => setCatalogueFile(event.target.files?.[0] || null)} className="min-h-11 rounded-md border border-slate-300 bg-white p-2 font-normal" /></label>
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">Effective from<input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
+            <button type="button" onClick={() => void uploadCatalogue()} disabled={Boolean(busy) || !catalogueFile} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-teal-700 bg-white px-4 text-sm font-bold text-teal-900 hover:bg-teal-50 disabled:opacity-50"><UploadCloud size={16} />{busy === "upload" ? "Importing..." : "Import official catalogue"}</button>
+          </div>
           {draft ? <button type="button" onClick={() => void act("publish", draft.id)} disabled={Boolean(busy)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-teal-800 px-4 text-sm font-bold text-white hover:bg-teal-900 disabled:opacity-50">{busy === "publish" ? "Publishing..." : "Publish reviewed version"}</button> : null}
         </div>
       </div>

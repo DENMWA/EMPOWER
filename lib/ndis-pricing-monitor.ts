@@ -28,14 +28,26 @@ export async function checkOfficialNdisPricing(config: DbConfig) {
   const sourceUrl = new URL(preferred);
   if (!ALLOWED_HOSTS.has(sourceUrl.hostname.toLowerCase())) throw new Error("The detected pricing file is not hosted on an approved NDIS domain.");
   const fileResponse = await fetch(sourceUrl, { cache: "no-store", headers: { ...browserHeaders, Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv;q=0.9,*/*;q=0.8", Referer: OFFICIAL_PAGE }, redirect: "follow" });
-  if (!fileResponse.ok) throw new Error(`Official pricing file returned HTTP ${fileResponse.status}.`);
+  if (!fileResponse.ok) {
+    return saveMonitor(config, {
+      checkedAt,
+      pageChecksum,
+      status: "review_required",
+      alertStatus: "open",
+      detail: `The NDIA download blocked the automated check (HTTP ${fileResponse.status}). Download the official catalogue and upload it here for controlled review.`,
+      detectedDownloadUrl: sourceUrl.toString(),
+      detectedFilename: null,
+      detectedChecksum: null,
+      draftVersionId: previous?.draft_version_id || null
+    });
+  }
   const source = Buffer.from(await fileResponse.arrayBuffer());
   const checksum = sha256(source);
   const filename = getOfficialFilename(fileResponse, sourceUrl);
   if (previous?.detected_checksum === checksum && (previous.draft_version_id || previous.published_version_id)) {
     return saveMonitor(config, { checkedAt, pageChecksum, status: previous.status || "current", alertStatus: previous.alert_status || "none", detail: "No new official pricing file detected.", detectedDownloadUrl: sourceUrl.toString(), detectedFilename: filename, detectedChecksum: checksum, draftVersionId: previous.draft_version_id || null });
   }
-  if (!/\.(csv|xlsx)$/i.test(sourceUrl.pathname)) {
+  if (!/\.(csv|xlsx)$/i.test(filename)) {
     return saveMonitor(config, { checkedAt, pageChecksum, status: "review_required", alertStatus: "open", detail: `${filename} is not a supported NDIS catalogue format. Review the official source before publishing.`, detectedDownloadUrl: sourceUrl.toString(), detectedFilename: filename, detectedChecksum: checksum, draftVersionId: null });
   }
 
@@ -43,6 +55,27 @@ export async function checkOfficialNdisPricing(config: DbConfig) {
   const imported = await importCatalogueDraft(config, source, filename, sourceUrl.toString(), effectiveFrom);
   await createDiff(config, imported.versionId);
   return saveMonitor(config, { checkedAt, pageChecksum, status: "draft_ready", alertStatus: "open", detail: `${imported.itemCount} official price rows imported as a draft. Review the comparison before publishing.`, detectedDownloadUrl: sourceUrl.toString(), detectedFilename: filename, detectedChecksum: checksum, draftVersionId: imported.versionId });
+}
+
+export async function importOfficialNdisPricingUpload(config: DbConfig, file: File, effectiveFrom: string) {
+  if (!/\.(csv|xlsx)$/i.test(file.name)) throw new Error("Choose the official NDIS Support Catalogue XLSX or CSV file.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) throw new Error("Enter the catalogue effective date.");
+  if (file.size > 20 * 1024 * 1024) throw new Error("The catalogue must be smaller than 20 MB.");
+  const source = Buffer.from(await file.arrayBuffer());
+  const sourceUrl = `${OFFICIAL_PAGE}#owner-upload`;
+  const imported = await importCatalogueDraft(config, source, file.name, sourceUrl, effectiveFrom);
+  await createDiff(config, imported.versionId);
+  return saveMonitor(config, {
+    checkedAt: new Date().toISOString(),
+    pageChecksum: sha256(Buffer.from(OFFICIAL_PAGE)),
+    status: "draft_ready",
+    alertStatus: "open",
+    detail: `${imported.itemCount} official price rows imported as a draft from the owner-supplied NDIA catalogue. Review the comparison before publishing.`,
+    detectedDownloadUrl: OFFICIAL_PAGE,
+    detectedFilename: file.name,
+    detectedChecksum: sha256(source),
+    draftVersionId: imported.versionId
+  });
 }
 
 export async function publishPlatformNdisPricing(config: DbConfig, versionId: string, userId: string) {

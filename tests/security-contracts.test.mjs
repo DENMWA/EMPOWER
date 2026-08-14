@@ -995,11 +995,13 @@ test("official NDIS pricing updates remain draft until the platform owner publis
 });
 
 test("official NDIS XLSX catalogues are parsed into reviewed drafts before publication", async () => {
-  const [parser, importer, monitor, workspace] = await Promise.all([
+  const [parser, importer, monitor, workspace, platformRoute, platformPanel] = await Promise.all([
     source("lib/ndis-catalogue-parser.ts"),
     source("app/api/billing/import-ndis-catalogue/route.ts"),
     source("lib/ndis-pricing-monitor.ts"),
-    source("components/billing/NativeBillingWorkspace.tsx")
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("app/api/platform/ndis-pricing/route.ts"),
+    source("components/platform/NdisPricingMonitorPanel.tsx")
   ]);
   assert.match(parser, /JSZip\.loadAsync/);
   assert.match(parser, /DOMParser/);
@@ -1012,6 +1014,11 @@ test("official NDIS XLSX catalogues are parsed into reviewed drafts before publi
   assert.match(monitor, /content-disposition/);
   assert.match(monitor, /automatic_official_ndis_xlsx/);
   assert.match(monitor, /status: "draft"/);
+  assert.match(monitor, /importOfficialNdisPricingUpload/);
+  assert.match(monitor, /blocked the automated check/);
+  assert.match(platformRoute, /multipart\/form-data/);
+  assert.match(platformPanel, /Import official catalogue/);
+  assert.match(platformPanel, /Effective from/);
   assert.match(workspace, /accept="\.xlsx,\.csv/);
 });
 
