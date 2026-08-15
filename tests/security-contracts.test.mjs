@@ -812,7 +812,7 @@ test("participant invoices require an approved NDIS, agreement or manual rate", 
   assert.match(workspace, /Create invoices from delivered supports/);
   assert.match(workspace, /Select client/);
   assert.match(workspace, /Delivered services/);
-  assert.match(workspace, /Manage pricing and agreement/);
+  assert.match(workspace, /Billing settings/);
   assert.match(workspace, /clientInvoices\.map/);
   assert.match(workspace, /Billing Exceptions/);
   assert.match(workspace, /Budget Usage/);
@@ -963,6 +963,19 @@ test("invoice actions respond clearly and expose CSV before and after generation
   assert.match(workspace, /setShowInvoiceHistory\(true\)/);
   assert.match(workspace, /open=\{showInvoiceHistory\}/);
   assert.doesNotMatch(workspace, /disabled=\{creatingInvoiceId === "batch" \|\| !Object\.values\(selectedInvoiceServices\)\.some\(Boolean\)\}/);
+});
+
+test("client-first invoicing auto-selects eligible services without weakening evidence or agreement links", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /Eligible, uninvoiced services are selected automatically/);
+  assert.match(workspace, /autoSelectionKey/);
+  assert.match(workspace, /getInvoiceEligibility\(service\.startTime\.slice\(0, 10\), agreement, selectedClient, service\.startTime\)\.allowed/);
+  assert.match(workspace, /line\.shiftId === service\.id && line\.approvalStatus !== "needs_correction"/);
+  assert.match(workspace, /Evidence linked/);
+  assert.match(workspace, /Choose a parsed Document Vault agreement/);
+  assert.match(workspace, /\['ndis_catalogue', 'NDIS guide'\]/);
+  assert.match(workspace, /\['service_agreement', 'Service agreement'\]/);
+  assert.match(workspace, /\['manual', 'Manual entry'\]/);
 });
 
 test("service agreement updates preserve dates and relink eligible uninvoiced services", async () => {

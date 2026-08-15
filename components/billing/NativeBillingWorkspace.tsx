@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Eye, FileDown, Plus, ReceiptText, Save, ShieldAlert } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
@@ -103,6 +103,7 @@ export function NativeBillingWorkspace() {
   const [catalogueFile, setCatalogueFile] = useState<File | null>(null);
   const [catalogueEffectiveFrom, setCatalogueEffectiveFrom] = useState("");
   const [importingCatalogue, setImportingCatalogue] = useState(false);
+  const autoSelectionKey = useRef("");
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -141,6 +142,7 @@ export function NativeBillingWorkspace() {
   });
   const invoicePreview = getInvoicePreview(records, selectedInvoiceServices, serviceRateDrafts, includedTravel);
   const selectedServiceCount = Object.values(selectedInvoiceServices).filter(Boolean).length;
+  const evidenceReviewCount = deliveredServices.filter((service) => !service.noteRecordId || !notes.some((note) => note.id === service.noteRecordId)).length;
 
   async function rankNdisPricing(service: NativeBillingRecords["shifts"][number], requestedPresetId?: string, force = false) {
     if (!force && (aiPricingAttempted[service.id] || aiMatchingServices[service.id])) return;
@@ -273,6 +275,20 @@ export function NativeBillingWorkspace() {
       return changed ? next : current;
     });
   }, [records]);
+
+  useEffect(() => {
+    const key = `${selectedClient?.id || ""}:${invoicePeriodStart}:${invoicePeriodEnd}`;
+    if (!selectedClient || autoSelectionKey.current === key) return;
+    autoSelectionKey.current = key;
+    const selected: Record<string, boolean> = {};
+    deliveredServices.forEach((service) => {
+      const alreadyInvoiced = records.invoiceLines.some((line) => line.shiftId === service.id && line.approvalStatus !== "needs_correction");
+      const agreement = records.agreements.find((item) => item.id === service.serviceAgreementId) || selectedAgreement;
+      const eligible = agreement ? getInvoiceEligibility(service.startTime.slice(0, 10), agreement, selectedClient, service.startTime).allowed : false;
+      if (!alreadyInvoiced && eligible) selected[service.id] = true;
+    });
+    setSelectedInvoiceServices(selected);
+  }, [deliveredServices, invoicePeriodEnd, invoicePeriodStart, records.agreements, records.invoiceLines, selectedAgreement, selectedClient]);
 
   async function importOfficialCatalogue() {
     const token = getStoredAccessToken();
@@ -689,7 +705,7 @@ export function NativeBillingWorkspace() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-end">
           <div>
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Select client
+            <span><span className="mr-2 text-xs font-semibold uppercase text-teal-700">1. Client</span>Select client</span>
             <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3" value={selectedClient?.id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
               {!clients.length ? <option>Add a client first</option> : null}
               {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
@@ -901,11 +917,12 @@ export function NativeBillingWorkspace() {
         <Card className="order-1 xl:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-ink">Delivered services</h2>
-              <p className="mt-1 text-sm text-slate-600">Review delivered hours, choose a price, then create the invoice.</p>
+              <p className="text-xs font-semibold uppercase text-teal-700">2. Billing period</p>
+              <h2 className="mt-1 text-xl font-semibold text-ink">Delivered services</h2>
+              <p className="mt-1 text-sm text-slate-600">Eligible, uninvoiced services are selected automatically.</p>
             </div>
             <button type="button" aria-expanded={showBillingSetup} aria-controls="billing-service-agreement" onClick={toggleBillingSetup} className="min-h-11 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink">
-              {showBillingSetup ? "Hide pricing and agreement" : "Manage pricing and agreement"}
+              {showBillingSetup ? "Close billing settings" : "Billing settings"}
             </button>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -922,6 +939,13 @@ export function NativeBillingWorkspace() {
             <SummaryValue label="Services rendered" value={String(deliveredServices.length)} />
             <SummaryValue label="Hours delivered" value={formatQuantity(deliveredHours)} />
             <SummaryValue label="Client" value={selectedClient?.name || "None selected"} />
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-teal-700">3. Services and pricing</p>
+              <p className="mt-1 text-sm font-semibold text-ink">Confirm the code, rate source and exact price.</p>
+            </div>
+            <StatusBadge label={invoicePreview.reviewCount || evidenceReviewCount ? `${Math.max(invoicePreview.reviewCount, evidenceReviewCount)} action required` : "Ready to review"} tone={invoicePreview.reviewCount || evidenceReviewCount ? "amber" : "green"} />
           </div>
           <div className="mt-4 space-y-3">
             {!invoiceServiceRows.length ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No delivered services were recorded for this client in the selected period.</p> : null}
@@ -1096,7 +1120,8 @@ export function NativeBillingWorkspace() {
             })}
           </div>
           <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
-            <h3 className="font-semibold text-ink">Invoice Summary</h3>
+            <p className="text-xs font-semibold uppercase text-teal-700">4. Review</p>
+            <h3 className="mt-1 font-semibold text-ink">Invoice Summary</h3>
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
               <SummaryValue label="Selected services" value={String(invoicePreview.serviceCount)} />
               <SummaryValue label="Billable quantity" value={formatQuantity(invoicePreview.quantity)} />
