@@ -81,6 +81,7 @@ export function NativeBillingWorkspace() {
   const [message, setMessage] = useState("");
   const [showBillingSetup, setShowBillingSetup] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
@@ -138,6 +139,7 @@ export function NativeBillingWorkspace() {
     noteCompleted: Boolean(service.noteRecordId)
   });
   const invoicePreview = getInvoicePreview(records, selectedInvoiceServices, serviceRateDrafts, includedTravel);
+  const selectedServiceCount = Object.values(selectedInvoiceServices).filter(Boolean).length;
 
   async function rankNdisPricing(service: NativeBillingRecords["shifts"][number], requestedPresetId?: string, force = false) {
     if (!force && (aiPricingAttempted[service.id] || aiMatchingServices[service.id])) return;
@@ -608,6 +610,7 @@ export function NativeBillingWorkspace() {
       await waitForNativeBillingSave();
       setRecords(getNativeBillingRecords());
       setSelectedInvoiceServices({});
+      setShowInvoiceHistory(true);
       setMessage(`${result.invoice.invoiceNumber} created with ${result.lines.length} service line${result.lines.length === 1 ? "" : "s"}.`);
     } catch {
       setRecords(getNativeBillingRecords());
@@ -632,6 +635,30 @@ export function NativeBillingWorkspace() {
   function exportInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
     downloadCsv(`${invoice.invoiceNumber}.csv`, buildInvoiceCsv(invoice, lines));
     setMessage(`${invoice.invoiceNumber} downloaded as CSV.`);
+  }
+
+  function exportInvoicePreviewCsv() {
+    if (!invoicePreview.lines.length) {
+      setMessage("Select at least one delivered service before downloading the invoice CSV.");
+      return;
+    }
+    const rows = [
+      ["Client", "Service date", "NDIS support code", "Quantity", "Unit", "Pricing source", "Amount"],
+      ...invoicePreview.lines.map((line) => [selectedClient?.name || "", line.date, line.code, line.quantity, line.unit, line.source, line.amount]),
+      ["", "", "", "", "", "Subtotal", invoicePreview.subtotal],
+      ["", "", "", "", "", "GST", invoicePreview.gst],
+      ["", "", "", "", "", "Total", invoicePreview.total]
+    ];
+    downloadCsv(`invoice-preview-${new Date().toISOString().slice(0, 10)}.csv`, rows.map((row) => row.map(toCsvCell).join(",")).join("\n"));
+    setMessage("Invoice preview downloaded as CSV. Generate the invoice to create its permanent invoice number and record.");
+  }
+
+  function toggleInvoicePreview() {
+    if (!selectedServiceCount) {
+      setMessage("Select Include in invoice on at least one delivered service first.");
+      return;
+    }
+    setShowInvoicePreview((current) => !current);
   }
 
   return (
@@ -1079,14 +1106,15 @@ export function NativeBillingWorkspace() {
             </div>
           </div> : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" disabled={!Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => setShowInvoicePreview((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:bg-slate-100 disabled:text-slate-400"><Eye size={17} aria-hidden="true" />{showInvoicePreview ? "Hide Preview" : "Preview Invoice"}</button>
-            <button type="button" disabled={creatingInvoiceId === "batch" || !Object.values(selectedInvoiceServices).some(Boolean)} onClick={() => void generateHolisticInvoice()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
-              <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Generating invoice..." : `Generate invoice (${Object.values(selectedInvoiceServices).filter(Boolean).length})`}
+            <button type="button" onClick={toggleInvoicePreview} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400"><Eye size={17} aria-hidden="true" />{showInvoicePreview ? "Hide Preview" : "Preview Invoice"}</button>
+            <button type="button" disabled={creatingInvoiceId === "batch"} onClick={() => void generateHolisticInvoice()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:bg-slate-400">
+              <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Generating invoice..." : `Generate invoice (${selectedServiceCount})`}
             </button>
+            <button type="button" onClick={exportInvoicePreviewCsv} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400"><FileDown size={17} aria-hidden="true" />Download CSV</button>
           </div>
         </Card>
 
-        <details className="order-2 rounded-md border border-slate-200 bg-white p-4 xl:col-span-2">
+        <details open={showInvoiceHistory} onToggle={(event) => setShowInvoiceHistory(event.currentTarget.open)} className="order-2 rounded-md border border-slate-200 bg-white p-4 xl:col-span-2">
           <summary className="cursor-pointer text-xl font-semibold text-ink">Invoice History</summary>
           <div className="mt-4 space-y-3">
             {!clientInvoices.length ? <p className="text-sm text-slate-600">No invoices have been created for this client.</p> : null}
@@ -1241,6 +1269,11 @@ function downloadCsv(filename: string, csv: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function toCsvCell(value: string | number | undefined) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 function downloadBlob(filename: string, blob: Blob) {

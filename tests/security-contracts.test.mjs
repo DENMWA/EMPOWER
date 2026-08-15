@@ -951,6 +951,17 @@ test("invoice pricing requires an explicit exact-price authorisation", async () 
   assert.doesNotMatch(workspace, /disabled=\{source === "service_agreement" && !availableAgreementItems\.length\}/);
 });
 
+test("invoice actions respond clearly and expose CSV before and after generation", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /function toggleInvoicePreview\(\)/);
+  assert.match(workspace, /Select Include in invoice on at least one delivered service first/);
+  assert.match(workspace, /function exportInvoicePreviewCsv\(\)/);
+  assert.match(workspace, /Invoice preview downloaded as CSV/);
+  assert.match(workspace, /setShowInvoiceHistory\(true\)/);
+  assert.match(workspace, /open=\{showInvoiceHistory\}/);
+  assert.doesNotMatch(workspace, /disabled=\{creatingInvoiceId === "batch" \|\| !Object\.values\(selectedInvoiceServices\)\.some\(Boolean\)\}/);
+});
+
 test("invoice workspace renders durable completed services with delivered hours", async () => {
   const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
   assert.match(workspace, /const deliveredServices = selectedClient \? records\.shifts\.filter/);
