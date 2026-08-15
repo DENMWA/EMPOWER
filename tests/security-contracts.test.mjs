@@ -1283,11 +1283,12 @@ test("developer API monitoring separates availability, failures and credential e
 });
 
 test("service agreement extraction recovers modern PDFs and preserves retryable vault records", async () => {
-  const [extractor, route, vault, planParser] = await Promise.all([
+  const [extractor, route, vault, planParser, billing] = await Promise.all([
     source("lib/document-text-extraction.ts"),
     source("app/api/billing/parse-service-agreement/route.ts"),
     source("components/documents/DocumentVault.tsx"),
-    source("app/api/plan-progress/parse/route.ts")
+    source("app/api/plan-progress/parse/route.ts"),
+    source("components/billing/NativeBillingWorkspace.tsx")
   ]);
   assert.match(extractor, /v2\.0\.550/);
   assert.match(extractor, /damaged internal index/);
@@ -1297,4 +1298,9 @@ test("service agreement extraction recovers modern PDFs and preserves retryable 
   assert.match(vault, /Retry rate extraction/);
   assert.match(vault, /parse-service-agreement/);
   assert.match(planParser, /extractPdfText/);
+  assert.match(billing, /toggleBillingSetup/);
+  assert.match(billing, /scrollIntoView/);
+  assert.match(billing, /aria-expanded/);
+  assert.match(billing, /select to retry extraction/);
+  assert.match(billing, /retryVaultAgreement/);
 });

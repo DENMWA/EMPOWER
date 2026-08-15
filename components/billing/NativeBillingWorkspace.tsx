@@ -97,6 +97,7 @@ export function NativeBillingWorkspace() {
   const [vaultAgreements, setVaultAgreements] = useState<StoredDocumentRecord[]>([]);
   const [agreementDraftItems, setAgreementDraftItems] = useState<AgreementDraftItem[]>([]);
   const [agreementSourceFile, setAgreementSourceFile] = useState("");
+  const [extractingAgreementId, setExtractingAgreementId] = useState("");
   const [catalogueFile, setCatalogueFile] = useState<File | null>(null);
   const [catalogueEffectiveFrom, setCatalogueEffectiveFrom] = useState("");
   const [importingCatalogue, setImportingCatalogue] = useState(false);
@@ -373,6 +374,41 @@ export function NativeBillingWorkspace() {
     }
   }
 
+  async function retryVaultAgreement(document: StoredDocumentRecord) {
+    if (extractingAgreementId) return;
+    setExtractingAgreementId(document.id);
+    setMessage("Reading agreed rates from the saved agreement...");
+    try {
+      const response = await fetch("/api/billing/parse-service-agreement", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredAccessToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: document.id })
+      });
+      const result = await response.json() as Record<string, unknown> & { items?: Array<Record<string, unknown>>; error?: string };
+      if (!response.ok) throw new Error(result.error || "Agreement rates could not be extracted.");
+      const refreshed = await getTenantDocumentRecords();
+      setVaultAgreements(refreshed.filter((item) => /service agreement|pricing agreement/i.test(item.type)));
+      loadVaultAgreement({ ...document, billingParseStatus: "ready", billingParsedTerms: result, billingParseError: undefined });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Agreement rates could not be extracted.");
+    } finally {
+      setExtractingAgreementId("");
+    }
+  }
+
+  function toggleBillingSetup() {
+    if (showBillingSetup) {
+      setShowBillingSetup(false);
+      return;
+    }
+    setShowBillingSetup(true);
+    window.setTimeout(() => {
+      const target = document.getElementById("billing-service-agreement");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      target?.focus({ preventScroll: true });
+    }, 50);
+  }
+
   function updateAgreementDraftItem(id: string, patch: Partial<AgreementDraftItem>) {
     setAgreementDraftItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
@@ -645,7 +681,7 @@ export function NativeBillingWorkspace() {
           </div>
         </Card> : null}
 
-        {showBillingSetup ? <Card className="order-4 xl:col-span-2">
+        {showBillingSetup ? <Card id="billing-service-agreement" tabIndex={-1} className="order-4 scroll-mt-28 xl:col-span-2">
           <h2 className="text-xl font-semibold text-ink">2. Service agreement</h2>
           <p className="mt-1 text-sm text-slate-600">Set the agreement, then add its funded rates.</p>
 
@@ -658,14 +694,16 @@ export function NativeBillingWorkspace() {
               <StatusBadge label={agreementDraftItems.length ? "Review required" : "No active draft"} tone={agreementDraftItems.length ? "amber" : "blue"} />
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-              <select className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm" defaultValue="" onChange={(event) => {
+              <select disabled={Boolean(extractingAgreementId)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm disabled:cursor-wait disabled:bg-slate-100" value={extractingAgreementId ? extractingAgreementId : ""} onChange={(event) => {
                 const document = vaultAgreements.find((item) => item.id === event.target.value);
-                if (document) loadVaultAgreement(document);
+                if (!document) return;
+                if (document.billingParseStatus === "ready") loadVaultAgreement(document);
+                else void retryVaultAgreement(document);
               }}>
-                <option value="">Choose a parsed Document Vault agreement</option>
+                <option value="">{extractingAgreementId ? "Reading agreement rates..." : "Choose a parsed Document Vault agreement"}</option>
                 {vaultAgreements.filter((document) => document.participantId === selectedClient?.id).map((document) => (
-                  <option key={document.id} value={document.id} disabled={document.billingParseStatus !== "ready"}>
-                    {document.fileName || document.type} - {document.billingParseStatus === "ready" ? "ready for review" : document.billingParseStatus || "awaiting extraction"}
+                  <option key={document.id} value={document.id}>
+                    {document.fileName || document.type} - {document.billingParseStatus === "ready" ? "ready for review" : document.billingParseStatus === "processing" ? "processing" : "select to retry extraction"}
                   </option>
                 ))}
               </select>
@@ -825,7 +863,7 @@ export function NativeBillingWorkspace() {
               <h2 className="text-xl font-semibold text-ink">Delivered services</h2>
               <p className="mt-1 text-sm text-slate-600">Review delivered hours, choose a price, then create the invoice.</p>
             </div>
-            <button type="button" onClick={() => setShowBillingSetup((current) => !current)} className="min-h-11 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink">
+            <button type="button" aria-expanded={showBillingSetup} aria-controls="billing-service-agreement" onClick={toggleBillingSetup} className="min-h-11 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink">
               {showBillingSetup ? "Hide pricing and agreement" : "Manage pricing and agreement"}
             </button>
           </div>
