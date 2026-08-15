@@ -1281,3 +1281,20 @@ test("developer API monitoring separates availability, failures and credential e
   assert.match(migration, /revoke all .* from anon, authenticated/);
   assert.doesNotMatch(migration, /secret_value|api_key|access_token/);
 });
+
+test("service agreement extraction recovers modern PDFs and preserves retryable vault records", async () => {
+  const [extractor, route, vault, planParser] = await Promise.all([
+    source("lib/document-text-extraction.ts"),
+    source("app/api/billing/parse-service-agreement/route.ts"),
+    source("components/documents/DocumentVault.tsx"),
+    source("app/api/plan-progress/parse/route.ts")
+  ]);
+  assert.match(extractor, /v2\.0\.550/);
+  assert.match(extractor, /damaged internal index/);
+  assert.match(route, /markParseFailed/);
+  assert.match(route, /billing_parse_status: "failed"/);
+  assert.match(route, /documentSaved/);
+  assert.match(vault, /Retry rate extraction/);
+  assert.match(vault, /parse-service-agreement/);
+  assert.match(planParser, /extractPdfText/);
+});

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAiRequest } from "@/lib/security/ai-request-guard";
+import { extractPdfText } from "@/lib/document-text-extraction";
 
 export const runtime = "nodejs";
 
@@ -10,13 +11,15 @@ const maxFileBytes = 10 * 1024 * 1024;
 async function extractText(buffer: Buffer, fileName: string, contentType = "") {
   if (buffer.byteLength > maxFileBytes) throw new Error("The service agreement must be smaller than 10 MB.");
   const extension = fileName.toLowerCase().split(".").pop();
-  if (extension === "pdf") return ((await import("pdf-parse")).default(buffer)).then((result) => result.text || "");
+  if (extension === "pdf") return extractPdfText(buffer);
   if (extension === "docx") return (await import("mammoth")).extractRawText({ buffer }).then((result) => result.value || "");
   if (extension === "txt" || contentType.startsWith("text/")) return buffer.toString("utf8");
   throw new Error("The agreement must be a PDF, DOCX or TXT document.");
 }
 
 export async function POST(request: Request) {
+  let sourceDocumentId = "";
+  let organisationId = "";
   try {
     const access = await guardAiRequest(request, { entitlement: "basicPlanParsing", action: "parse_plan", permission: "service_agreements.manage" });
     if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
 
     const contentType = request.headers.get("content-type") || "";
     let sourceFileName = "service-agreement";
-    let sourceDocumentId = "";
+    organisationId = access.gate.organisationId!;
     let fileBuffer: Buffer;
 
     if (contentType.includes("application/json")) {
@@ -102,6 +105,24 @@ export async function POST(request: Request) {
     await access.gate.recordUsage();
     return NextResponse.json({ ...parsed, sourceFileName, sourceDocumentId, reviewStatus: "pending" });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Agreement extraction failed." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Agreement extraction failed.";
+    if (sourceDocumentId && organisationId) await markParseFailed(sourceDocumentId, organisationId, message);
+    const documentError = /PDF|document|agreement|readable text|password-protected/i.test(message);
+    return NextResponse.json({ error: message, retryable: true, documentSaved: Boolean(sourceDocumentId) }, { status: documentError ? 422 : 500 });
+  }
+}
+
+async function markParseFailed(documentId: string, organisationId: string, message: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return;
+  try {
+    await fetch(`${url}/rest/v1/documents?id=eq.${encodeURIComponent(documentId)}&organisation_id=eq.${encodeURIComponent(organisationId)}`, {
+      method: "PATCH",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ billing_parse_status: "failed", billing_parse_error: message })
+    });
+  } catch {
+    // The uploaded agreement remains available even when status reporting is unavailable.
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAiRequest } from "@/lib/security/ai-request-guard";
+import { extractPdfText } from "@/lib/document-text-extraction";
 
 export const runtime = "nodejs";
 
@@ -49,9 +50,7 @@ async function extractTextFromFile(file: File) {
   }
 
   if (extension === "pdf") {
-    const pdfParse = (await import("pdf-parse")).default;
-    const parsed = await pdfParse(buffer);
-    return parsed.text || "";
+    return extractPdfText(buffer);
   }
 
   if (extension === "docx") {

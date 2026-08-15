@@ -23,6 +23,7 @@ export function DocumentVault({ reviewMode = false }: { reviewMode?: boolean }) 
   const [downloadMessage, setDownloadMessage] = useState("");
   const [canManageProtectedDocuments, setCanManageProtectedDocuments] = useState(false);
   const [reviewingId, setReviewingId] = useState("");
+  const [parsingId, setParsingId] = useState("");
   const allParticipants = useMemo(() => storedClients.length ? storedClients : realMode ? [] : filterByParticipantAccess(participants), [storedClients, realMode]);
   const allDocuments = useMemo(() => (storedDocuments.length ? storedDocuments : realMode ? [] : filterRecordsByParticipantAccess(documents.map((document) => {
     const participant = participants.find((item) => item.id === document.participantId);
@@ -149,6 +150,12 @@ export function DocumentVault({ reviewMode = false }: { reviewMode?: boolean }) 
                       Open private file
                     </button>
                   ) : null}
+                  {canManageProtectedDocuments && hasPrivateFile && /service agreement|pricing agreement/i.test(doc.type) && getBillingParseStatus(doc) !== "ready" ? (
+                    <button type="button" disabled={parsingId === doc.id} onClick={() => retryAgreementExtraction(doc.id)} className="ml-2 mt-3 inline-flex min-h-11 items-center rounded-md border border-teal-300 bg-white px-4 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:cursor-wait disabled:text-slate-400">
+                      {parsingId === doc.id ? "Reading rates..." : "Retry rate extraction"}
+                    </button>
+                  ) : null}
+                  {getBillingParseStatus(doc) === "failed" && getBillingParseError(doc) ? <p className="mt-2 max-w-xl text-sm text-amber-800">{getBillingParseError(doc)}</p> : null}
                   {reviewMode && canManageProtectedDocuments ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button type="button" disabled={reviewingId === doc.id} onClick={() => reviewDocument(doc.id, "verify")} className="inline-flex min-h-10 items-center rounded-md bg-sea px-3 text-sm font-semibold text-white hover:bg-teal-800 disabled:bg-slate-400">
@@ -192,6 +199,28 @@ export function DocumentVault({ reviewMode = false }: { reviewMode?: boolean }) 
     setDownloadMessage(result.saved ? (decision === "verify" ? "Document verified." : "Document returned for changes.") : result.error || "The review decision could not be saved.");
     setReviewingId("");
   }
+
+  async function retryAgreementExtraction(documentId: string) {
+    setParsingId(documentId);
+    setDownloadMessage("Reading agreed rates...");
+    try {
+      const response = await fetch("/api/billing/parse-service-agreement", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredAccessToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId })
+      });
+      const result = await response.json() as { items?: unknown[]; error?: string };
+      setDownloadMessage(response.ok ? `${result.items?.length || 0} agreement rate${result.items?.length === 1 ? "" : "s"} are ready for review in Invoicing.` : result.error || "Rate extraction could not be completed.");
+      if (response.ok) {
+        setStoredDocuments(await getTenantDocumentRecords());
+        window.dispatchEvent(new Event(documentsUpdatedEvent));
+      }
+    } catch {
+      setDownloadMessage("Rate extraction could not be completed. Try again.");
+    } finally {
+      setParsingId("");
+    }
+  }
 }
 
 function getExpiryReminder(expiryDate: string) {
@@ -218,6 +247,16 @@ function getExpiryReminder(expiryDate: string) {
 function getDocumentFileName(document: object) {
   const fileName = "fileName" in document ? document.fileName : undefined;
   return typeof fileName === "string" && fileName.trim() ? fileName : undefined;
+}
+
+function getBillingParseStatus(document: object) {
+  const status = "billingParseStatus" in document ? document.billingParseStatus : undefined;
+  return typeof status === "string" ? status : undefined;
+}
+
+function getBillingParseError(document: object) {
+  const error = "billingParseError" in document ? document.billingParseError : undefined;
+  return typeof error === "string" ? error : undefined;
 }
 
 function getDocumentFilePath(document: object) {
