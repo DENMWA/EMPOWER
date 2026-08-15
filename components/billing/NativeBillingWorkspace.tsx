@@ -104,6 +104,7 @@ export function NativeBillingWorkspace() {
   const [catalogueEffectiveFrom, setCatalogueEffectiveFrom] = useState("");
   const [importingCatalogue, setImportingCatalogue] = useState(false);
   const autoSelectionKey = useRef("");
+  const autoPeriodKey = useRef("");
   const activePricingVersion = useMemo(() => records.pricingVersions.find((version) => version.status === "active" && version.scope === "organisation")
     || records.pricingVersions.find((version) => version.status === "active"), [records.pricingVersions]);
   const draftPricingVersions = records.pricingVersions.filter((version) => version.status === "draft");
@@ -252,6 +253,20 @@ export function NativeBillingWorkspace() {
     setRecipientName(agreement?.invoiceRecipientName || client?.name || "");
     setRecipientEmail(agreement?.invoiceRecipientEmail || "");
   }, [clients, selectedClientId, records.agreements]);
+
+  useEffect(() => {
+    if (!selectedClient) return;
+    const invoicedShiftIds = new Set(records.invoiceLines.filter((line) => line.approvalStatus !== "needs_correction").map((line) => line.shiftId));
+    const uninvoicedDates = records.shifts
+      .filter((service) => service.participantId === selectedClient.id && service.status === "completed" && !invoicedShiftIds.has(service.id))
+      .map((service) => service.startTime.slice(0, 10))
+      .sort();
+    const key = `${selectedClient.id}:${uninvoicedDates.join(",")}`;
+    if (!uninvoicedDates.length || autoPeriodKey.current === key) return;
+    autoPeriodKey.current = key;
+    setInvoicePeriodStart(uninvoicedDates[0]);
+    setInvoicePeriodEnd(uninvoicedDates[uninvoicedDates.length - 1]);
+  }, [records.invoiceLines, records.shifts, selectedClient]);
 
   useEffect(() => {
     const supportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
@@ -932,6 +947,7 @@ export function NativeBillingWorkspace() {
           <div className="mt-3 flex flex-wrap gap-2" aria-label="Billing period presets">
             {([['daily', 'Today'], ['weekly', '7 days'], ['fortnightly', 'Fortnight'], ['monthly', 'This month']] as const).map(([preset, label]) => <button key={preset} type="button" onClick={() => setBillingPeriod(preset)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-800">{label}</button>)}
           </div>
+          <p className="mt-2 text-xs font-semibold text-slate-600">{selectedAgreement ? `${formatBillingFrequency(selectedAgreement.billingFrequency)} agreement cycle` : "Agreement cycle not set"} · Period populated from uninvoiced delivered services.</p>
           <div className={`mt-4 rounded-md border px-3 py-2 text-sm ${activePricingVersion ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
             <span className="font-semibold">NDIS Pricing:</span> {activePricingVersion ? `${activePricingVersion.versionName} · effective ${activePricingVersion.effectiveFrom}` : "No active NDIS pricing version"}
           </div>
@@ -1219,6 +1235,10 @@ export function NativeBillingWorkspace() {
 function formatClientNumber(id: string) {
   const compact = id.replace(/[^a-z0-9]/gi, "").toUpperCase();
   return `CL-${compact.slice(-6).padStart(6, "0")}`;
+}
+
+function formatBillingFrequency(value: string) {
+  return value === "daily" ? "Daily" : value === "weekly" ? "Weekly" : value === "fortnightly" ? "Fortnightly" : value === "monthly" ? "Monthly" : "Custom";
 }
 
 function SummaryValue({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {

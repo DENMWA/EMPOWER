@@ -978,6 +978,16 @@ test("client-first invoicing auto-selects eligible services without weakening ev
   assert.match(workspace, /\['manual', 'Manual entry'\]/);
 });
 
+test("completed uninvoiced services populate the client billing period automatically", async () => {
+  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  assert.match(workspace, /const autoPeriodKey = useRef/);
+  assert.match(workspace, /service\.status === "completed" && !invoicedShiftIds\.has\(service\.id\)/);
+  assert.match(workspace, /setInvoicePeriodStart\(uninvoicedDates\[0\]\)/);
+  assert.match(workspace, /setInvoicePeriodEnd\(uninvoicedDates\[uninvoicedDates\.length - 1\]\)/);
+  assert.match(workspace, /Period populated from uninvoiced delivered services/);
+  assert.match(workspace, /formatBillingFrequency\(selectedAgreement\.billingFrequency\)/);
+});
+
 test("service agreement updates preserve dates and relink eligible uninvoiced services", async () => {
   const [workspace, billing] = await Promise.all([
     source("components/billing/NativeBillingWorkspace.tsx"),
