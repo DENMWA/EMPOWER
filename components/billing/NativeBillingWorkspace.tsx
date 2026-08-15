@@ -396,17 +396,21 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  function toggleBillingSetup() {
-    if (showBillingSetup) {
-      setShowBillingSetup(false);
-      return;
-    }
+  function openBillingSetup() {
     setShowBillingSetup(true);
     window.setTimeout(() => {
       const target = document.getElementById("billing-service-agreement");
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
       target?.focus({ preventScroll: true });
     }, 50);
+  }
+
+  function toggleBillingSetup() {
+    if (showBillingSetup) {
+      setShowBillingSetup(false);
+      return;
+    }
+    openBillingSetup();
   }
 
   function updateAgreementDraftItem(id: string, patch: Partial<AgreementDraftItem>) {
@@ -950,13 +954,18 @@ export function NativeBillingWorkspace() {
                       </label>
                       <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-200 p-1" aria-label="Rate source">
                         {([['ndis_catalogue', 'NDIS guide'], ['service_agreement', 'Service agreement'], ['manual', 'Manual entry']] as const).map(([source, label]) => (
-                          <button key={source} type="button" aria-pressed={rateDraft.source === source} disabled={source === "service_agreement" && !availableAgreementItems.length} onClick={() => {
+                          <button key={source} type="button" aria-pressed={rateDraft.source === source} onClick={() => {
+                            if (source === "service_agreement" && !availableAgreementItems.length) {
+                              setMessage(`No approved service-agreement rates are available for ${selectedClient?.name || "this client"}. Review an uploaded agreement or add an agreed rate below.`);
+                              openBillingSetup();
+                              return;
+                            }
                             const agreementRate = source === "service_agreement"
                               ? availableAgreementItems.find((item) => item.supportItemId === rateDraft.ndisSupportItemId) || availableAgreementItems[0]
                               : undefined;
                             setServiceRateDrafts((current) => ({ ...current, [billingService.id]: { ...getDefaultRateDraft(), source, ndisSupportItemId: agreementRate?.supportItemId || rateDraft.ndisSupportItemId, itemId: source === "ndis_catalogue" ? rateDraft.ndisSupportItemId : agreementRate?.id || "" } }));
                             if (source === "ndis_catalogue") void rankNdisPricing(billingService);
-                          }} className={`min-h-10 rounded px-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}>{label}</button>
+                          }} className={`min-h-10 rounded px-2 text-xs font-semibold sm:text-sm ${rateDraft.source === source ? 'bg-white text-ink shadow-sm' : 'text-slate-600 hover:bg-white/70 hover:text-ink'}`}>{label}</button>
                         ))}
                       </div>
                       <label className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">

@@ -946,6 +946,9 @@ test("invoice pricing requires an explicit exact-price authorisation", async () 
   assert.match(workspace, /!hasValidSelectedRate/);
   assert.doesNotMatch(workspace, /pricing at \$\{selectedLineTotal\.toFixed/);
   assert.match(workspace, /source === "service_agreement" && !availableAgreementItems\.length/);
+  assert.match(workspace, /No approved service-agreement rates are available/);
+  assert.match(workspace, /openBillingSetup\(\)/);
+  assert.doesNotMatch(workspace, /disabled=\{source === "service_agreement" && !availableAgreementItems\.length\}/);
 });
 
 test("invoice workspace renders durable completed services with delivered hours", async () => {
