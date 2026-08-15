@@ -22,6 +22,7 @@ import {
   markInvoicePaymentStatus,
   nativeBillingUpdatedEvent,
   updateSupportShiftTravel,
+  updateServiceAgreement,
   waitForNativeBillingSave,
   type NativeBillingRecords,
   type NativeInvoice,
@@ -240,9 +241,15 @@ export function NativeBillingWorkspace() {
 
   useEffect(() => {
     const client = clients.find((item) => item.id === selectedClientId) || clients[0];
-    setAgreementName(client ? `${client.name} NDIS service agreement` : "");
-    setRecipientName(client?.name || "");
-  }, [clients, selectedClientId]);
+    const agreement = client ? records.agreements.find((item) => item.participantId === client.id && item.status === "active") : undefined;
+    setAgreementName(agreement?.agreementName || (client ? `${client.name} NDIS service agreement` : ""));
+    setAgreementStartDate(agreement?.startDate || new Date().toISOString().slice(0, 10));
+    setAgreementEndDate(agreement?.endDate || "");
+    setBillingFrequency(agreement?.billingFrequency || "fortnightly");
+    setRecipientType(agreement?.invoiceRecipientType || "plan_managed");
+    setRecipientName(agreement?.invoiceRecipientName || client?.name || "");
+    setRecipientEmail(agreement?.invoiceRecipientEmail || "");
+  }, [clients, selectedClientId, records.agreements]);
 
   useEffect(() => {
     const supportItem = supportItems.find((item) => item.id === selectedSupportItemId) || supportItems[0];
@@ -316,7 +323,7 @@ export function NativeBillingWorkspace() {
 
     setSavingAction("agreement");
     setMessage("Saving agreement...");
-    const agreement = createServiceAgreement({
+    const agreementInput = {
       participant: selectedClient,
       agreementName,
       startDate: agreementStartDate,
@@ -327,7 +334,10 @@ export function NativeBillingWorkspace() {
       recipientEmail,
       planManagerName: recipientType === "plan_managed" ? recipientName : "",
       planManagerEmail: recipientType === "plan_managed" ? recipientEmail : ""
-    });
+    };
+    const agreement = selectedAgreement
+      ? updateServiceAgreement(selectedAgreement.id, agreementInput)
+      : createServiceAgreement(agreementInput);
     try {
       await waitForNativeBillingSave();
       setMessage(`${agreement.agreementName} saved for ${selectedClient.name}.`);

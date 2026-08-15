@@ -283,6 +283,44 @@ export function createServiceAgreement(input: {
   return agreement;
 }
 
+export function updateServiceAgreement(
+  agreementId: string,
+  input: Omit<Parameters<typeof createServiceAgreement>[0], "participant"> & { participant: ClientRecord }
+) {
+  const records = getNativeBillingRecords();
+  const existing = records.agreements.find((agreement) => agreement.id === agreementId && agreement.participantId === input.participant.id);
+  if (!existing) return createServiceAgreement(input);
+
+  const agreement: ServiceAgreement = {
+    ...existing,
+    participantName: input.participant.name,
+    agreementName: input.agreementName || `${input.participant.name} service agreement`,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    billingFrequency: input.billingFrequency,
+    invoiceRecipientType: input.recipientType || "plan_managed",
+    invoiceRecipientName: input.recipientName || input.participant.name,
+    invoiceRecipientEmail: input.recipientEmail,
+    planManagerName: input.planManagerName || input.recipientName,
+    planManagerEmail: input.planManagerEmail || input.recipientEmail,
+    status: "active"
+  };
+  const invoicedShiftIds = new Set(records.invoiceLines.map((line) => line.shiftId));
+  const shifts = records.shifts.map((shift) =>
+    shift.participantId === agreement.participantId
+      && !invoicedShiftIds.has(shift.id)
+      && isServiceDateInsideAgreement(shift.startTime.slice(0, 10), agreement)
+      ? { ...shift, serviceAgreementId: agreement.id }
+      : shift
+  );
+  saveNativeBillingRecords({
+    ...records,
+    agreements: records.agreements.map((item) => item.id === agreement.id ? agreement : item),
+    shifts
+  });
+  return agreement;
+}
+
 export function addServiceAgreementItem(input: {
   agreement: ServiceAgreement;
   supportItem: NdisSupportItem;
@@ -447,7 +485,15 @@ export function reconcileCompletedRosterServices(
   const shifts = [...original.shifts];
   inputs.forEach(({ rosterShift, agreement, noteRecordId }) => {
     const index = shifts.findIndex((shift) => shift.id === rosterShift.id || shift.rosterShiftId === rosterShift.id);
-    if (index >= 0) return;
+    if (index >= 0) {
+      const existing = shifts[index];
+      const alreadyInvoiced = original.invoiceLines.some((line) => line.shiftId === existing.id);
+      if (agreement && !alreadyInvoiced && existing.serviceAgreementId !== agreement.id && isServiceDateInsideAgreement(rosterShift.shiftDate, agreement)) {
+        shifts[index] = { ...existing, serviceAgreementId: agreement.id };
+        linked += 1;
+      }
+      return;
+    }
     const assignedStaff = rosterShift.assignedWorkers?.length ? rosterShift.assignedWorkers : [{ id: rosterShift.workerId, name: rosterShift.workerName }];
     shifts.unshift({ id: rosterShift.id, rosterShiftId: rosterShift.id, participantId: rosterShift.participantId, participantName: rosterShift.participantName, staffId: assignedStaff[0]?.id || "", staffName: assignedStaff.map((worker) => worker.name).join(", "), assignedStaffCount: assignedStaff.filter((worker) => worker.id).length, staffingRatio: rosterShift.staffingRatio, serviceAgreementId: agreement?.id || "", title: rosterShift.supportType, supportType: rosterShift.supportType, location: rosterShift.location, startTime: `${rosterShift.shiftDate}T${rosterShift.startTime}:00`, endTime: `${rosterShift.shiftDate}T${rosterShift.endTime}:00`, status: "completed", recurrenceRule: "", noteRecordId, createdAt: new Date().toISOString() });
     linked += 1;

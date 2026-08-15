@@ -931,7 +931,10 @@ test("completed services reconcile automatically before pricing", async () => {
   assert.match(workspace, /Preparing pricing options/);
   assert.doesNotMatch(workspace, /Link service|linkingServiceId|ClipboardCheck/);
   assert.match(billing, /export function reconcileCompletedRosterServices/);
-  assert.match(billing, /if \(index >= 0\) return/);
+  assert.match(billing, /if \(index >= 0\)/);
+  assert.match(billing, /const alreadyInvoiced = original\.invoiceLines\.some/);
+  assert.match(billing, /!alreadyInvoiced/);
+  assert.match(billing, /isServiceDateInsideAgreement\(rosterShift\.shiftDate, agreement\)/);
 });
 
 test("invoice pricing requires an explicit exact-price authorisation", async () => {
@@ -960,6 +963,19 @@ test("invoice actions respond clearly and expose CSV before and after generation
   assert.match(workspace, /setShowInvoiceHistory\(true\)/);
   assert.match(workspace, /open=\{showInvoiceHistory\}/);
   assert.doesNotMatch(workspace, /disabled=\{creatingInvoiceId === "batch" \|\| !Object\.values\(selectedInvoiceServices\)\.some\(Boolean\)\}/);
+});
+
+test("service agreement updates preserve dates and relink eligible uninvoiced services", async () => {
+  const [workspace, billing] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing.ts")
+  ]);
+  assert.match(workspace, /agreement\?\.startDate/);
+  assert.match(workspace, /updateServiceAgreement\(selectedAgreement\.id, agreementInput\)/);
+  assert.match(billing, /export function updateServiceAgreement/);
+  assert.match(billing, /!invoicedShiftIds\.has\(shift\.id\)/);
+  assert.match(billing, /isServiceDateInsideAgreement\(shift\.startTime\.slice\(0, 10\), agreement\)/);
+  assert.match(billing, /existing\.serviceAgreementId !== agreement\.id/);
 });
 
 test("invoice workspace renders durable completed services with delivered hours", async () => {
