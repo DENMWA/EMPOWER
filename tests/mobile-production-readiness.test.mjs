@@ -59,5 +59,8 @@ test("invoice UI is responsive while PDF export is server generated and tenant s
   assert.match(pdf, /Page \$\{index \+ 1\} of \$\{pages\.length\}/);
   assert.match(pdf, /isGstFree/);
   assert.match(pdf, /wrapPdfText/);
+  assert.match(pdf, /TOTAL DUE/);
+  assert.match(pdf, /Generated securely by EmpowerNotes/);
+  assert.match(pdf, /0\.12 0\.55 0\.53/);
   assert.match(pdf, /CreationDate/);
 });

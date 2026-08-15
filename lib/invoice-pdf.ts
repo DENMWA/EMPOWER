@@ -13,42 +13,63 @@ const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 export function createInvoicePdf(invoice: PdfInvoice, lines: PdfLine[], organisation: PdfOrganisation) {
   const pages: string[][] = [[]];
   let y = PAGE_HEIGHT - MARGIN;
-  const add = (text: string, size = 9, bold = false, gap = 14, indent = 0) => {
+  const command = (value: string) => pages[pages.length - 1].push(value);
+  const fill = (x: number, bottom: number, width: number, height: number, colour: string) => command(`q ${colour} rg ${x} ${bottom.toFixed(2)} ${width} ${height.toFixed(2)} re f Q`);
+  const textAt = (text: string, x: number, top: number, size = 9, bold = false, colour = "0.10 0.16 0.20") => command(`q ${colour} rg BT /${bold ? "F2" : "F1"} ${size} Tf ${x} ${top.toFixed(2)} Td (${escapePdf(text)}) Tj ET Q`);
+  const ensureSpace = (height: number) => { if (y < MARGIN + height) { pages.push([]); y = PAGE_HEIGHT - MARGIN; } };
+  const add = (text: string, size = 9, bold = false, gap = 14, indent = 0, colour = "0.10 0.16 0.20") => {
     for (const line of wrapPdfText(text, Math.max(18, Math.floor((CONTENT_WIDTH - indent) / (size * 0.53))))) {
       if (y < MARGIN + 42) { pages.push([]); y = PAGE_HEIGHT - MARGIN; }
-      pages[pages.length - 1].push(`BT /${bold ? "F2" : "F1"} ${size} Tf ${MARGIN + indent} ${y.toFixed(2)} Td (${escapePdf(line)}) Tj ET`);
+      command(`q ${colour} rg BT /${bold ? "F2" : "F1"} ${size} Tf ${MARGIN + indent} ${y.toFixed(2)} Td (${escapePdf(line)}) Tj ET Q`);
       y -= gap;
     }
   };
-  const rule = () => { pages[pages.length - 1].push(`${MARGIN} ${y.toFixed(2)} m ${PAGE_WIDTH - MARGIN} ${y.toFixed(2)} l S`); y -= 14; };
+  const rule = () => { command(`q 0.12 0.55 0.53 RG 0.8 w ${MARGIN} ${y.toFixed(2)} m ${PAGE_WIDTH - MARGIN} ${y.toFixed(2)} l S Q`); y -= 14; };
 
-  add(organisation.organisationName || "Service provider", 16, true, 20);
+  fill(MARGIN, y - 8, CONTENT_WIDTH, 8, "0.12 0.55 0.53");
+  y -= 25;
+  fill(MARGIN, y - 21, 34, 34, "0.07 0.29 0.34");
+  textAt((organisation.organisationName || "Service provider").trim().charAt(0).toUpperCase() || "E", MARGIN + 11, y - 10, 15, true, "1 1 1");
+  add(organisation.organisationName || "Service provider", 16, true, 20, 46, "0.07 0.29 0.34");
   add([organisation.address, organisation.abn && `ABN ${organisation.abn}`, organisation.providerNumber && `NDIS provider ${organisation.providerNumber}`].filter(Boolean).join(" | "), 8, false, 12);
   add([organisation.email, organisation.phone].filter(Boolean).join(" | "), 8, false, 16);
-  add("TAX INVOICE", 18, true, 24);
+  add("TAX INVOICE", 18, true, 24, 0, "0.12 0.55 0.53");
   add(`${invoice.invoiceNumber} | Invoice date ${invoice.invoiceDate} | Due ${invoice.dueDate || "Not set"}`, 9, true, 16);
   rule();
+  fill(MARGIN, y - 62, CONTENT_WIDTH, 72, "0.94 0.98 0.98");
+  y -= 8;
   add(`Participant: ${invoice.participantName}`, 10, true);
   add(`NDIS number: ${invoice.participantNdisNumber || "Not recorded"}`);
   add(`Recipient: ${invoice.recipientName}${invoice.recipientEmail ? ` | ${invoice.recipientEmail}` : ""}`);
   add(`Billing period: ${invoice.billingPeriodStart} to ${invoice.billingPeriodEnd}`, 9, false, 18);
+  y -= 4;
   rule();
 
   lines.forEach((line, index) => {
+    ensureSpace(52);
+    if (index % 2 === 0) fill(MARGIN, y - 24, CONTENT_WIDTH, 34, "0.97 0.98 0.98");
+    y -= 3;
     add(`${index + 1}. ${line.serviceDate} | ${line.supportItemNumber || "Support"}`, 9, true);
     add(`${line.quantity} ${line.unitType} x $${line.rate.toFixed(2)} = $${line.amount.toFixed(2)} | GST: ${line.gstCode || "Not specified"}`, 8, false, 15, 12);
   });
 
   rule();
   const gst = lines.reduce((sum, line) => sum + (isGstFree(line.gstCode) ? 0 : line.amount / 11), 0);
-  add(`Subtotal (GST inclusive where applicable): $${invoice.totalAmount.toFixed(2)}`, 10, true);
-  add(`GST component: $${gst.toFixed(2)}`, 10, true);
-  add(`TOTAL: $${invoice.totalAmount.toFixed(2)}`, 14, true, 22);
-  add(`Payment status: ${invoice.paymentStatus}`);
+  ensureSpace(150);
+  fill(MARGIN, y - 70, CONTENT_WIDTH, 82, "0.07 0.29 0.34");
+  y -= 8;
+  add(`TOTAL DUE  $${invoice.totalAmount.toFixed(2)}`, 15, true, 22, 12, "1 1 1");
+  add(`Subtotal: $${invoice.totalAmount.toFixed(2)}   |   GST component: $${gst.toFixed(2)}`, 9, false, 16, 12, "0.88 0.96 0.95");
+  add(`Payment status: ${invoice.paymentStatus}`, 9, true, 22, 12, "1 1 1");
+  y -= 8;
   add(`Payment terms: ${organisation.paymentTerms || "Payment due within 14 days."}`);
   add(`Payment instructions: ${organisation.paymentInstructions || "Contact the provider for payment instructions."}`);
 
-  pages.forEach((commands, index) => commands.push(`BT /F1 8 Tf ${PAGE_WIDTH - 92} 24 Td (Page ${index + 1} of ${pages.length}) Tj ET`));
+  pages.forEach((commands, index) => {
+    commands.unshift(`q 0.12 0.55 0.53 rg ${MARGIN} ${PAGE_HEIGHT - 26} ${CONTENT_WIDTH} 4 re f Q`);
+    commands.push(`q 0.35 0.43 0.47 rg BT /F1 7 Tf ${MARGIN} 24 Td (Generated securely by EmpowerNotes) Tj ET Q`);
+    commands.push(`q 0.35 0.43 0.47 rg BT /F1 8 Tf ${PAGE_WIDTH - 92} 24 Td (Page ${index + 1} of ${pages.length}) Tj ET Q`);
+  });
   return assemblePdf(pages, invoice.invoiceDate);
 }
 
