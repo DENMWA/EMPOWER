@@ -39,3 +39,24 @@ test("availability writes derive tenant authority in the database", async () => 
   assert.match(sql, /public\.current_user_is_manager\(\)/);
   assert.doesNotMatch(cloud, /organisation_id/);
 });
+
+test("weekly availability map is calendar-synchronised, accessible and responsive", async () => {
+  const [map, panel, page] = await Promise.all([
+    source("components/roster/StaffAvailabilityMap.tsx"),
+    source("components/roster/RosterIntelligencePanel.tsx"),
+    source("components/roster/RosterPage.tsx")
+  ]);
+  assert.match(map, /Weekly coverage map/);
+  assert.match(map, /Preferred/);
+  assert.match(map, /Available/);
+  assert.match(map, /Rostered/);
+  assert.match(map, /Unavailable/);
+  assert.match(map, /Not submitted/);
+  assert.match(map, /aria-pressed=\{active\}/);
+  assert.match(map, /overflow-x-auto/);
+  assert.match(map, /mode === "staff"/);
+  assert.match(map, /mode === "coverage"/);
+  assert.match(map, /mode === "gaps"/);
+  assert.match(panel, /selectedDate=\{selectedDate\}/);
+  assert.match(page, /RosterIntelligencePanel shifts=\{shifts\} selectedDate=\{selectedDate\}/);
+});

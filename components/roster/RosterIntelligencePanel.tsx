@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, Check, Mail, Printer, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui";
+import { StaffAvailabilityMap } from "@/components/roster/StaffAvailabilityMap";
 import { loadStaffAvailability, saveStaffAvailability } from "@/lib/roster-intelligence-cloud";
 import { recommendStaffForShift, type AvailabilityKind, type StaffAvailability } from "@/lib/roster-intelligence";
 import type { RosterShift } from "@/lib/roster";
@@ -11,7 +12,7 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function RosterIntelligencePanel({ shifts, onAssign }: { shifts: RosterShift[]; onAssign: (shiftId: string, worker: { id: string; name: string }) => void }) {
+export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { shifts: RosterShift[]; selectedDate: string; onAssign: (shiftId: string, worker: { id: string; name: string }) => void }) {
   const [staff, setStaff] = useState<StaffRecord[]>([]);
   const [availability, setAvailability] = useState<StaffAvailability[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
@@ -103,6 +104,7 @@ export function RosterIntelligencePanel({ shifts, onAssign }: { shifts: RosterSh
         <p className="mt-4 text-xs leading-5 text-slate-500">Recommendations are advisory. Managers remain responsible for suitability, award conditions, fatigue and final publication.</p>
       </Card>
       <p className="xl:col-span-2 text-sm font-semibold text-slate-600" role="status">{message}</p>
+      <StaffAvailabilityMap staff={staff} availability={availability} shifts={shifts} selectedDate={selectedDate} />
     </div>
   );
 }

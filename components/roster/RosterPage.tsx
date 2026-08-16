@@ -231,7 +231,7 @@ export function RosterPage() {
 
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 
-        <RosterIntelligencePanel shifts={shifts} onAssign={assignRecommendedWorker} />
+        <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} onAssign={assignRecommendedWorker} />
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
