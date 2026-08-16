@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function RosterRoute() {
-  redirect("/admin/scheduling");
+  redirect("/my-roster");
 }

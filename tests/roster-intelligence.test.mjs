@@ -60,3 +60,32 @@ test("weekly availability map is calendar-synchronised, accessible and responsiv
   assert.match(panel, /selectedDate=\{selectedDate\}/);
   assert.match(page, /RosterIntelligencePanel shifts=\{shifts\} selectedDate=\{selectedDate\}/);
 });
+
+test("invited workers receive a private week, fortnight and month roster", async () => {
+  const [page, api, shell, redirect, policy] = await Promise.all([
+    source("components/roster/MyRosterPage.tsx"),
+    source("app/api/roster/me/route.ts"),
+    source("components/AppShell.tsx"),
+    source("app/roster/page.tsx"),
+    source("supabase/worker-personal-roster.sql")
+  ]);
+  assert.match(page, /My Roster/);
+  assert.match(page, /"week"/);
+  assert.match(page, /"fortnight"/);
+  assert.match(page, /"month"/);
+  assert.match(page, /Scheduled hours/);
+  assert.match(page, /Calendar/);
+  assert.match(page, /List/);
+  assert.match(shell, /href: "\/my-roster", label: "My Roster"/);
+  assert.match(redirect, /redirect\("\/my-roster"\)/);
+  assert.match(api, /resolveUserAccessContext\(request\)/);
+  assert.match(api, /context\.userId/);
+  assert.match(api, /context\.email/);
+  assert.doesNotMatch(api, /params\.get\("staff|params\.get\("worker/i);
+  assert.match(policy, /staff_user_id = \(select auth\.uid\(\)\)/);
+  assert.match(policy, /link_shift_assignment_to_auth_user/);
+  assert.match(policy, /invitation\.auth_user_id/);
+  assert.doesNotMatch(policy, /auth\.jwt\(\) ->> 'email'/);
+  assert.match(policy, /managers view organisation shifts workers view assigned shifts/);
+  assert.doesNotMatch(policy, /assigned_to_participant/);
+});

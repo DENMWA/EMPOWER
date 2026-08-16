@@ -63,6 +63,7 @@ export async function POST(request: Request) {
 
   if (invite.staff_invite_id) {
     await patch(url, headers, `staff_invites?id=eq.${invite.staff_invite_id}&organisation_id=eq.${invite.organisation_id}`, { invite_status: "Active" });
+    await patch(url, headers, `shift_staff?staff_invite_id=eq.${invite.staff_invite_id}&organisation_id=eq.${invite.organisation_id}&staff_user_id=is.null`, { staff_user_id: authUser.id });
   }
   for (const houseId of invite.assigned_house_ids || []) {
     const assignmentResponse = await fetch(`${url}/rest/v1/staff_house_assignments`, {

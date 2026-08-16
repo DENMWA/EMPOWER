@@ -240,7 +240,7 @@ export function DashboardOperationalLists() {
             <h2 className="flex items-center gap-2 text-xl font-semibold text-ink"><LockKeyhole size={18} aria-hidden="true" />Admin Roster Snapshot</h2>
             <p className="mt-1 text-sm text-slate-600">Locked shift visibility and status reporting for admin users.</p>
           </div>
-          <Link href="/roster" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-sea px-3 text-sm font-semibold text-white hover:bg-teal-800">
+          <Link href="/admin/scheduling" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-sea px-3 text-sm font-semibold text-white hover:bg-teal-800">
             <CalendarDays size={17} aria-hidden="true" />Open roster
           </Link>
         </div>
