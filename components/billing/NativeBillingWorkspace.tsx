@@ -638,6 +638,7 @@ export function NativeBillingWorkspace() {
       return;
     }
 
+    const pdfWindow = downloadPdf ? openInvoicePdfWindow() : null;
     setCreatingInvoiceId(downloadPdf ? "pdf" : "batch");
     setMessage(downloadPdf ? "Creating your branded invoice PDF..." : "Creating participant invoice draft...");
     const result = createInvoiceFromServices(selections, notes, selectedClient);
@@ -652,9 +653,10 @@ export function NativeBillingWorkspace() {
       setRecords(getNativeBillingRecords());
       setSelectedInvoiceServices({});
       setShowInvoiceHistory(true);
-      if (downloadPdf) await exportInvoicePdf(result.invoice);
+      if (downloadPdf) await exportInvoicePdf(result.invoice, pdfWindow);
       else setMessage(`${result.invoice.invoiceNumber} created with ${result.lines.length} service line${result.lines.length === 1 ? "" : "s"}.`);
     } catch {
+      pdfWindow?.close();
       setRecords(getNativeBillingRecords());
       setMessage("The invoice draft was not saved. Check your billing access and try again.");
     } finally {
@@ -662,9 +664,11 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  async function exportInvoicePdf(invoice: NativeInvoice) {
+  async function exportInvoicePdf(invoice: NativeInvoice, reservedWindow?: Window | null) {
+    const pdfWindow = reservedWindow === undefined ? openInvoicePdfWindow() : reservedWindow;
     const token = getStoredAccessToken();
     if (!token) {
+      pdfWindow?.close();
       setMessage("Sign in again before downloading this invoice PDF.");
       return;
     }
@@ -673,17 +677,20 @@ export function NativeBillingWorkspace() {
       const response = await fetch("/api/billing/invoice-pdf", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ invoiceId: invoice.id }) });
       if (!response.ok) {
         const result = await response.json().catch(() => ({})) as { message?: string; reason?: string };
+        pdfWindow?.close();
         setMessage(result.message || result.reason || `The PDF could not be generated (${response.status}).`);
         return;
       }
       const blob = await response.blob();
       if (!blob.size || !/application\/pdf/i.test(blob.type)) {
+        pdfWindow?.close();
         setMessage("The invoice server returned an invalid PDF. Please retry.");
         return;
       }
-      downloadBlob(`${invoice.invoiceNumber}.pdf`, blob);
-      setMessage(`${invoice.invoiceNumber} downloaded as a secure A4 PDF.`);
+      presentInvoicePdf(`${invoice.invoiceNumber}.pdf`, blob, pdfWindow);
+      setMessage(`${invoice.invoiceNumber} opened as a secure A4 PDF. Use the viewer's download control to save it.`);
     } catch (error) {
+      pdfWindow?.close();
       setMessage(`The PDF download failed. ${getBillingError(error)}`);
     }
   }
@@ -1350,8 +1357,22 @@ function toCsvCell(value: string | number | undefined) {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function downloadBlob(filename: string, blob: Blob) {
+function openInvoicePdfWindow() {
+  const pdfWindow = window.open("", "_blank");
+  if (pdfWindow) {
+    pdfWindow.document.title = "Preparing invoice PDF";
+    pdfWindow.document.body.textContent = "Preparing your secure invoice PDF...";
+  }
+  return pdfWindow;
+}
+
+function presentInvoicePdf(filename: string, blob: Blob, pdfWindow?: Window | null) {
   const url = URL.createObjectURL(blob);
+  if (pdfWindow && !pdfWindow.closed) {
+    pdfWindow.location.replace(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+    return;
+  }
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
