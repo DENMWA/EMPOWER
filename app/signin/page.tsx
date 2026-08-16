@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   description: "Sign in securely to your EmpowerNotes workspace with your email and password.",
   alternates: {
     canonical: "/signin"
-  }
+  },
+  robots: { index: false, follow: false }
 };
 
 export default function SignInPage() {

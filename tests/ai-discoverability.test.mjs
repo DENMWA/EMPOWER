@@ -69,3 +69,27 @@ test("discoverability architecture documents privacy and maintenance", async () 
   assert.match(docs, /MCP evolution/);
   assert.match(docs, /must never import tenant data modules or access Supabase/);
 });
+
+test("SEO keeps public marketing indexable and private workspaces out of search", async () => {
+  const [layout, robots, sitemap, privateMetadata, privateRosterLayout, socialImage, signin] = await Promise.all([
+    source("app/layout.tsx"),
+    source("app/robots.ts"),
+    source("app/sitemap.ts"),
+    source("lib/private-route-metadata.ts"),
+    source("app/my-roster/layout.tsx"),
+    source("app/opengraph-image.tsx"),
+    source("app/signin/page.tsx")
+  ]);
+  assert.match(layout, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
+  for (const route of ["/admin", "/api", "/dashboard", "/documents", "/handover", "/incidents", "/my-roster", "/notes", "/participants", "/platform"]) {
+    assert.match(robots, new RegExp(`"${route.replaceAll("/", "\\/")}`));
+  }
+  assert.doesNotMatch(sitemap, /lastModified: new Date\(\)/);
+  assert.match(privateMetadata, /index: false/);
+  assert.match(privateMetadata, /noimageindex: true/);
+  assert.match(privateRosterLayout, /privateRouteMetadata as metadata/);
+  assert.match(socialImage, /new ImageResponse/);
+  assert.match(socialImage, /1200/);
+  assert.match(socialImage, /630/);
+  assert.match(signin, /robots: \{ index: false, follow: false \}/);
+});

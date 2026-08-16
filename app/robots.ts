@@ -9,17 +9,26 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
+          "/api",
           "/admin",
+          "/audit-packs",
+          "/auth",
           "/dashboard",
           "/documents",
+          "/handover",
           "/incidents",
+          "/my-roster",
           "/notes",
           "/participants",
           "/platform",
-          "/roster"
+          "/reset-password",
+          "/roster",
+          "/support",
+          "/trial"
         ]
       }
     ],
-    sitemap: `${appUrl}/sitemap.xml`
+    sitemap: `${appUrl}/sitemap.xml`,
+    host: appUrl
   };
 }
