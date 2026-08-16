@@ -8,6 +8,7 @@ import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
 import { RosterFilters } from "@/components/roster/RosterFilters";
 import { RosterMonthView } from "@/components/roster/RosterMonthView";
+import { RosterIntelligencePanel } from "@/components/roster/RosterIntelligencePanel";
 import { RosterShiftModal } from "@/components/roster/RosterShiftModal";
 import { RosterStatusReports } from "@/components/roster/RosterStatusReports";
 import { RosterWeekView } from "@/components/roster/RosterWeekView";
@@ -123,6 +124,16 @@ export function RosterPage() {
     return "";
   }
 
+  function assignRecommendedWorker(shiftId: string, worker: { id: string; name: string }) {
+    const updatedShifts = shifts.map((shift) => shift.id === shiftId ? {
+      ...shift,
+      workerId: worker.id,
+      workerName: worker.name,
+      assignedWorkers: [worker]
+    } : shift);
+    updateActive(updatedShifts, shiftId);
+  }
+
   return (
     <>
       <PageHeader
@@ -219,6 +230,8 @@ export function RosterPage() {
         <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} />
 
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
+
+        <RosterIntelligencePanel shifts={shifts} onAssign={assignRecommendedWorker} />
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
