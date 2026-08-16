@@ -17,7 +17,7 @@ export default function OpenGraphImage() {
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ maxWidth: "900px", fontSize: "66px", lineHeight: 1.08, fontWeight: 700 }}>Support records, made clear.</span>
+          <span style={{ maxWidth: "900px", fontSize: "66px", lineHeight: 1.08, fontWeight: 700 }}>Care delivered. Clearly recorded.</span>
           <span style={{ marginTop: "24px", color: "#52646e", fontSize: "27px" }}>Notes / incidents / rosters / invoices</span>
         </div>
       </div>

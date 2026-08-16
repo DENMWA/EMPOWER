@@ -91,7 +91,7 @@ export default function HomePage() {
               Australian disability support software
             </p>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight text-ink sm:text-6xl">
-              Support records, made clear.
+              Care delivered. Clearly recorded.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
               Notes, incidents, rosters and invoices. One workspace.

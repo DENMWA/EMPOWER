@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             <span>
               <span className="block text-[17px] leading-5">{isPlatform ? "EmpowerNotes Platform" : "EmpowerNotes"}</span>
-              <span className="block text-xs font-normal text-slate-500">{isPlatform ? "Owner console" : "Support records, made clear"}</span>
+              <span className="block text-xs font-normal text-slate-500">{isPlatform ? "Owner console" : "Care delivered. Clearly recorded."}</span>
             </span>
           </Link>
           <div className="flex flex-wrap items-center gap-3">
