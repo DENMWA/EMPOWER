@@ -12,7 +12,25 @@ test("roster recommendations remain deterministic, explainable and manager contr
   assert.match(engine, /Availability must be confirmed/);
   assert.doesNotMatch(engine, /OPENAI|fetch\(|generateText|chat\/completions/i);
   assert.match(panel, /Recommendations are advisory/);
-  assert.match(panel, /Print availability form/);
+  assert.match(panel, /AvailabilityDocumentWorkflow/);
+});
+
+test("employee availability PDFs are tenant protected, AI reviewed and manager published", async () => {
+  const [pdfRoute, parser, workflow, pdf] = await Promise.all([
+    source("app/api/roster/availability-form/route.ts"),
+    source("app/api/roster/availability-parse/route.ts"),
+    source("components/roster/AvailabilityDocumentWorkflow.tsx"),
+    source("lib/availability-form-pdf.ts")
+  ]);
+  assert.match(pdfRoute, /verifyServerAccess\(request, "admin", "scheduling", "rostering.manage"\)/);
+  assert.match(pdfRoute, /organisation_id=eq\.\$\{access\.organisationId\}/);
+  assert.match(pdf, /Employee availability form/);
+  assert.match(pdf, /application\/pdf|%PDF-1\.4/);
+  assert.match(parser, /permission: "rostering.manage"/);
+  assert.match(parser, /Do not infer missing times or availability/);
+  assert.match(workflow, /AI extraction has been reviewed/);
+  assert.match(workflow, /Publish availability/);
+  assert.match(workflow, /saveStaffAvailability/);
 });
 
 test("replacement offers are expiring, single-use and omit client information", async () => {

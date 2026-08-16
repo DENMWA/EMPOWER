@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, Check, Mail, Printer, Sparkles } from "lucide-react";
+import { BrainCircuit, Check, Mail, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui";
+import { AvailabilityDocumentWorkflow } from "@/components/roster/AvailabilityDocumentWorkflow";
 import { StaffAvailabilityMap } from "@/components/roster/StaffAvailabilityMap";
 import { loadStaffAvailability, saveStaffAvailability } from "@/lib/roster-intelligence-cloud";
 import { recommendStaffForShift, type AvailabilityKind, type StaffAvailability } from "@/lib/roster-intelligence";
@@ -51,19 +52,6 @@ export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { sh
     setMessage(result.saved ? "Availability saved." : result.error || "Availability could not be saved.");
   }
 
-  function printAvailabilityForm() {
-    const worker = staff.find((item) => item.id === selectedStaffId);
-    if (!worker) return;
-    const rows = weekdays.map((day) => `<tr><td>${day}</td><td></td><td></td><td></td></tr>`).join("");
-    const printWindow = window.open("", "_blank", "width=900,height=700");
-    if (!printWindow) return;
-    printWindow.opener = null;
-    printWindow.document.write(`<!doctype html><html><head><title>Employee availability</title><style>body{font-family:Arial,sans-serif;color:#17212b;padding:36px}h1{color:#087f73}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{border:1px solid #aab5bd;padding:12px;text-align:left}.line{margin-top:44px;border-top:1px solid #17212b;padding-top:8px;width:45%}</style></head><body><h1>EmpowerNotes</h1><h2>Employee availability form</h2><p><strong>Employee:</strong> ${escapeHtml(worker.name)}</p><p>Record recurring availability. This form does not guarantee rostered hours.</p><table><thead><tr><th>Day</th><th>Available from</th><th>Available to</th><th>Unavailable / notes</th></tr></thead><tbody>${rows}</tbody></table><div class="line">Employee signature and date</div><div class="line">Manager received and date</div></body></html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  }
-
   async function sendOffer(recommendation: { staffId: string; staffName: string }) {
     if (!selectedShift) return;
     setOffering(recommendation.staffId);
@@ -83,7 +71,6 @@ export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { sh
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Availability</p><h2 className="mt-1 text-xl font-bold text-ink">Staff availability</h2></div>
-          <button type="button" onClick={printAvailabilityForm} className="grid h-10 w-10 place-items-center rounded-md border border-slate-300 text-slate-700 hover:border-teal-400" aria-label="Print availability form"><Printer size={18} /></button>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">Staff<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3">{staff.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></label>
@@ -103,10 +90,13 @@ export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { sh
         <div className="mt-4 space-y-3">{recommendations.slice(0, 5).map((item) => <div key={item.staffId} className={`rounded-md border p-4 ${item.eligible ? "border-teal-200 bg-teal-50" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{item.staffName}</p><p className="mt-1 text-sm text-slate-600">{item.reasons.join(" · ")}</p>{item.warnings.length ? <p className="mt-2 text-xs font-semibold text-amber-800">Review: {item.warnings.join(" · ")}</p> : null}</div><span className="inline-flex items-center gap-1 text-sm font-bold text-teal-800"><Sparkles size={15} />{item.score}</span></div><div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={!item.eligible} onClick={() => onAssign(selectedShift!.id, { id: item.staffId, name: item.staffName })} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Assign</button><button type="button" disabled={!item.eligible || offering === item.staffId} onClick={() => sendOffer(item)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink disabled:opacity-40"><Mail size={16} />Send Y/N offer</button></div></div>)}</div>
         <p className="mt-4 text-xs leading-5 text-slate-500">Recommendations are advisory. Managers remain responsible for suitability, award conditions, fatigue and final publication.</p>
       </Card>
+      <AvailabilityDocumentWorkflow
+        staffInviteId={selectedStaffId}
+        staffName={staff.find((item) => item.id === selectedStaffId)?.name || ""}
+        onPublished={(records) => setAvailability((current) => [...current, ...records])}
+      />
       <p className="xl:col-span-2 text-sm font-semibold text-slate-600" role="status">{message}</p>
       <StaffAvailabilityMap staff={staff} availability={availability} shifts={shifts} selectedDate={selectedDate} />
     </div>
   );
 }
-
-function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[character] || character); }
