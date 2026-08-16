@@ -955,7 +955,10 @@ test("invoice pricing requires an explicit exact-price authorisation", async () 
 });
 
 test("invoice actions respond clearly and expose CSV before and after generation", async () => {
-  const workspace = await source("components/billing/NativeBillingWorkspace.tsx");
+  const [workspace, cloud] = await Promise.all([
+    source("components/billing/NativeBillingWorkspace.tsx"),
+    source("lib/native-billing-cloud.ts")
+  ]);
   assert.match(workspace, /function toggleInvoicePreview\(\)/);
   assert.match(workspace, /Select Include in invoice on at least one delivered service first/);
   assert.match(workspace, /function exportInvoicePreviewCsv\(\)/);
@@ -970,6 +973,10 @@ test("invoice actions respond clearly and expose CSV before and after generation
   assert.match(workspace, /await exportInvoicePdf\(result\.invoice, pdfWindow\)/);
   assert.match(workspace, /pdfWindow\.location\.replace\(downloadUrl\)/);
   assert.match(workspace, /PDF download started/);
+  assert.match(workspace, /createInvoiceFromServices\(selections, notes, selectedClient, true\)/);
+  assert.match(workspace, /saveNativeInvoiceBundleToCloud\(result\.invoice, result\.lines\)/);
+  assert.match(cloud, /export async function saveNativeInvoiceBundleToCloud/);
+  assert.match(cloud, /invoice_rows: \[toInvoiceCloudRow\(invoice, organisationId, userId\)\]/);
 });
 
 test("client-first invoicing auto-selects eligible services without weakening evidence or agreement links", async () => {

@@ -29,7 +29,7 @@ import {
   type NativeInvoiceLine,
   type InvoiceRateSource
 } from "@/lib/native-billing";
-import { loadTenantNativeBillingRecords } from "@/lib/native-billing-cloud";
+import { loadTenantNativeBillingRecords, saveNativeInvoiceBundleToCloud } from "@/lib/native-billing-cloud";
 import type { RosterShift } from "@/lib/roster";
 import { loadTenantRosterShifts } from "@/lib/roster-cloud";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
@@ -641,7 +641,7 @@ export function NativeBillingWorkspace() {
     const pdfWindow = downloadPdf ? openInvoicePdfWindow() : null;
     setCreatingInvoiceId(downloadPdf ? "pdf" : "batch");
     setMessage(downloadPdf ? "Creating your branded invoice PDF..." : "Creating participant invoice draft...");
-    const result = createInvoiceFromServices(selections, notes, selectedClient);
+    const result = createInvoiceFromServices(selections, notes, selectedClient, true);
     if (result.error || !result.invoice) {
       setCreatingInvoiceId("");
       setMessage(result.error || "The invoice could not be created.");
@@ -649,16 +649,16 @@ export function NativeBillingWorkspace() {
     }
 
     try {
-      await waitForNativeBillingSave();
+      await saveNativeInvoiceBundleToCloud(result.invoice, result.lines);
       setRecords(getNativeBillingRecords());
       setSelectedInvoiceServices({});
       setShowInvoiceHistory(true);
       if (downloadPdf) await exportInvoicePdf(result.invoice, pdfWindow);
       else setMessage(`${result.invoice.invoiceNumber} created with ${result.lines.length} service line${result.lines.length === 1 ? "" : "s"}.`);
-    } catch {
+    } catch (error) {
       pdfWindow?.close();
       setRecords(getNativeBillingRecords());
-      setMessage("The invoice draft was not saved. Check your billing access and try again.");
+      setMessage(`The invoice draft was not saved. ${getBillingError(error)}`);
     } finally {
       setCreatingInvoiceId("");
     }

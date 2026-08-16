@@ -40,6 +40,17 @@ export function waitForNativeBillingCloudSync() {
   return syncQueue;
 }
 
+export async function saveNativeInvoiceBundleToCloud(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
+  const organisationId = await getCurrentOrganisationId();
+  const userId = getCurrentUserId();
+  if (!organisationId || !userId) throw new Error("Sign in again before creating an invoice.");
+  const result = await supabaseRpc("sync_native_invoice_bundle", {
+    invoice_rows: [toInvoiceCloudRow(invoice, organisationId, userId)],
+    invoice_line_rows: lines.map((line) => toInvoiceLineCloudRow(line, organisationId))
+  });
+  if (result.error) throw new Error(result.error);
+}
+
 export async function loadTenantNativeBillingRecords(clients: ClientRecord[], staff: StaffRecord[]) {
   if (typeof window === "undefined" || isPresentationModeEnabled()) return getNativeBillingRecords();
   const organisationId = await getCurrentOrganisationId();
@@ -220,52 +231,8 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     created_by: userId
   })));
 
-  const invoiceRows = records.invoices.map((invoice) => ({
-    id: invoice.id,
-    organisation_id: organisationId,
-    participant_id: invoice.participantId,
-    participant_ndis_number: invoice.participantNdisNumber || null,
-    invoice_number: invoice.invoiceNumber,
-    recipient_name: invoice.recipientName,
-    recipient_email: invoice.recipientEmail || null,
-    billing_period_start: invoice.billingPeriodStart,
-    billing_period_end: invoice.billingPeriodEnd,
-    invoice_date: invoice.invoiceDate,
-    due_date: invoice.dueDate || null,
-    status: invoice.status,
-    payment_status: invoice.paymentStatus,
-    total_amount: invoice.totalAmount,
-    created_by: userId,
-    created_at: invoice.createdAt
-  }));
-
-  const invoiceLineRows = records.invoiceLines.map((line) => ({
-    id: line.id,
-    organisation_id: organisationId,
-    invoice_id: line.invoiceId,
-    shift_id: line.shiftId || null,
-    service_agreement_id: line.serviceAgreementId || null,
-    service_agreement_item_id: line.serviceAgreementItemId || null,
-    participant_id: line.participantId,
-    service_date: line.serviceDate,
-    support_item_number: line.supportItemNumber,
-    support_item_name: line.supportItemName,
-    description: line.description,
-    quantity: line.quantity,
-    unit_type: line.unitType,
-    rate: line.rate,
-    amount: line.amount,
-    gst_code: line.gstCode || null,
-    pricing_version_id: line.pricingVersionId || null,
-    pricing_version_name: line.pricingVersionName,
-    ndis_price_limit_used: line.ndisPriceLimitUsed,
-    agreed_rate_used: line.agreedRateUsed,
-    evidence_status: line.evidenceStatus,
-    price_check_status: line.priceCheckStatus,
-    approval_status: line.approvalStatus,
-    exception_reason: line.exceptionReason || null,
-    note_reference: line.noteReference || null
-  }));
+  const invoiceRows = records.invoices.map((invoice) => toInvoiceCloudRow(invoice, organisationId, userId));
+  const invoiceLineRows = records.invoiceLines.map((line) => toInvoiceLineCloudRow(line, organisationId));
   if (invoiceRows.length || invoiceLineRows.length) {
     operations.push(supabaseRpc("sync_native_invoice_bundle", {
       invoice_rows: invoiceRows,
@@ -277,6 +244,32 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
   window.dispatchEvent(new CustomEvent("empowernotes:native-billing-cloud-status", {
     detail: { ok: true, message: "Billing changes synced to the organisation workspace." }
   }));
+}
+
+function toInvoiceCloudRow(invoice: NativeInvoice, organisationId: string, userId: string) {
+  return {
+    id: invoice.id, organisation_id: organisationId, participant_id: invoice.participantId,
+    participant_ndis_number: invoice.participantNdisNumber || null, invoice_number: invoice.invoiceNumber,
+    recipient_name: invoice.recipientName, recipient_email: invoice.recipientEmail || null,
+    billing_period_start: invoice.billingPeriodStart, billing_period_end: invoice.billingPeriodEnd,
+    invoice_date: invoice.invoiceDate, due_date: invoice.dueDate || null, status: invoice.status,
+    payment_status: invoice.paymentStatus, total_amount: invoice.totalAmount, created_by: userId, created_at: invoice.createdAt
+  };
+}
+
+function toInvoiceLineCloudRow(line: NativeInvoiceLine, organisationId: string) {
+  return {
+    id: line.id, organisation_id: organisationId, invoice_id: line.invoiceId, shift_id: line.shiftId || null,
+    service_agreement_id: line.serviceAgreementId || null, service_agreement_item_id: line.serviceAgreementItemId || null,
+    participant_id: line.participantId, service_date: line.serviceDate, support_item_number: line.supportItemNumber,
+    support_item_name: line.supportItemName, description: line.description, quantity: line.quantity,
+    unit_type: line.unitType, rate: line.rate, amount: line.amount, gst_code: line.gstCode || null,
+    pricing_version_id: line.pricingVersionId || null, pricing_version_name: line.pricingVersionName,
+    ndis_price_limit_used: line.ndisPriceLimitUsed, agreed_rate_used: line.agreedRateUsed,
+    evidence_status: line.evidenceStatus, price_check_status: line.priceCheckStatus,
+    approval_status: line.approvalStatus, exception_reason: line.exceptionReason || null,
+    note_reference: line.noteReference || null
+  };
 }
 
 function pushUpsert(operations: Array<Promise<{ data: unknown; error: string }>>, table: string, rows: CloudRow[]) {

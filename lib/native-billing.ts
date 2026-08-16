@@ -203,6 +203,11 @@ export function saveNativeBillingRecords(records: NativeBillingRecords) {
   return pendingCloudSave;
 }
 
+function saveNativeBillingRecordsLocally(records: NativeBillingRecords) {
+  window.sessionStorage.setItem(tenantStorageKey(storageKey), JSON.stringify(records));
+  window.dispatchEvent(new Event(nativeBillingUpdatedEvent));
+}
+
 export function waitForNativeBillingSave() {
   return pendingCloudSave;
 }
@@ -552,7 +557,8 @@ export function createInvoiceFromShift(shiftId: string, notes: RetainedRecord[],
 export function createInvoiceFromServices(
   selections: InvoiceServiceSelection[],
   notes: RetainedRecord[],
-  client?: ClientRecord
+  client?: ClientRecord,
+  deferCloudSync = false
 ) {
   const records = getNativeBillingRecords();
   if (!selections.length) return { invoice: null, lines: [], error: "Select at least one completed service." };
@@ -714,11 +720,13 @@ export function createInvoiceFromServices(
     createdAt: new Date().toISOString()
   };
 
-  saveNativeBillingRecords({
+  const nextRecords = {
     ...records,
     invoices: [invoice, ...records.invoices],
     invoiceLines: [...lines, ...records.invoiceLines]
-  });
+  };
+  if (deferCloudSync) saveNativeBillingRecordsLocally(nextRecords);
+  else saveNativeBillingRecords(nextRecords);
 
   return { invoice, lines, error: "" };
 }
