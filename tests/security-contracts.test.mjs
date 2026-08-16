@@ -963,6 +963,10 @@ test("invoice actions respond clearly and expose CSV before and after generation
   assert.match(workspace, /setShowInvoiceHistory\(true\)/);
   assert.match(workspace, /open=\{showInvoiceHistory\}/);
   assert.doesNotMatch(workspace, /disabled=\{creatingInvoiceId === "batch" \|\| !Object\.values\(selectedInvoiceServices\)\.some\(Boolean\)\}/);
+  assert.match(workspace, /generateHolisticInvoice\(true\)/);
+  assert.match(workspace, /Generate & download PDF/);
+  assert.match(workspace, /Creating your branded invoice PDF/);
+  assert.match(workspace, /await exportInvoicePdf\(result\.invoice\)/);
 });
 
 test("client-first invoicing auto-selects eligible services without weakening evidence or agreement links", async () => {

@@ -612,7 +612,7 @@ export function NativeBillingWorkspace() {
     }
   }
 
-  async function generateHolisticInvoice() {
+  async function generateHolisticInvoice(downloadPdf = false) {
     const selections = Object.entries(selectedInvoiceServices)
       .filter(([, selected]) => selected)
       .map(([shiftId]) => {
@@ -638,8 +638,8 @@ export function NativeBillingWorkspace() {
       return;
     }
 
-    setCreatingInvoiceId("batch");
-    setMessage("Creating participant invoice draft...");
+    setCreatingInvoiceId(downloadPdf ? "pdf" : "batch");
+    setMessage(downloadPdf ? "Creating your branded invoice PDF..." : "Creating participant invoice draft...");
     const result = createInvoiceFromServices(selections, notes, selectedClient);
     if (result.error || !result.invoice) {
       setCreatingInvoiceId("");
@@ -652,7 +652,8 @@ export function NativeBillingWorkspace() {
       setRecords(getNativeBillingRecords());
       setSelectedInvoiceServices({});
       setShowInvoiceHistory(true);
-      setMessage(`${result.invoice.invoiceNumber} created with ${result.lines.length} service line${result.lines.length === 1 ? "" : "s"}.`);
+      if (downloadPdf) await exportInvoicePdf(result.invoice);
+      else setMessage(`${result.invoice.invoiceNumber} created with ${result.lines.length} service line${result.lines.length === 1 ? "" : "s"}.`);
     } catch {
       setRecords(getNativeBillingRecords());
       setMessage("The invoice draft was not saved. Check your billing access and try again.");
@@ -1156,12 +1157,16 @@ export function NativeBillingWorkspace() {
               {!invoicePreview.lines.length ? <p className="text-sm text-slate-600">Choose delivered services to preview the invoice.</p> : null}
             </div>
           </div> : null}
+          <p className="mt-4 text-xs font-semibold uppercase text-teal-700">5. Create and download</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" onClick={toggleInvoicePreview} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400"><Eye size={17} aria-hidden="true" />{showInvoicePreview ? "Hide Preview" : "Preview Invoice"}</button>
-            <button type="button" disabled={creatingInvoiceId === "batch"} onClick={() => void generateHolisticInvoice()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:bg-slate-400">
+            <button type="button" disabled={Boolean(creatingInvoiceId)} onClick={() => void generateHolisticInvoice(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-sm hover:bg-teal-900 disabled:cursor-wait disabled:bg-slate-400">
+              <FileDown size={17} aria-hidden="true" />{creatingInvoiceId === "pdf" ? "Preparing branded PDF..." : "Generate & download PDF"}
+            </button>
+            <button type="button" disabled={Boolean(creatingInvoiceId)} onClick={() => void generateHolisticInvoice()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:bg-slate-400">
               <ReceiptText size={17} aria-hidden="true" />{creatingInvoiceId === "batch" ? "Generating invoice..." : `Generate invoice (${selectedServiceCount})`}
             </button>
-            <button type="button" onClick={exportInvoicePreviewCsv} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400"><FileDown size={17} aria-hidden="true" />Download CSV</button>
+            <button type="button" onClick={exportInvoicePreviewCsv} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-400"><FileDown size={17} aria-hidden="true" />Export CSV</button>
           </div>
         </Card>
 
