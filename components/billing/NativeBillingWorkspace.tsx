@@ -663,15 +663,29 @@ export function NativeBillingWorkspace() {
   }
 
   async function exportInvoicePdf(invoice: NativeInvoice) {
-    setMessage(`Preparing ${invoice.invoiceNumber}...`);
-    const response = await fetch("/api/billing/invoice-pdf", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getStoredAccessToken()}` }, body: JSON.stringify({ invoiceId: invoice.id }) });
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({})) as { message?: string };
-      setMessage(result.message || "The PDF could not be generated.");
+    const token = getStoredAccessToken();
+    if (!token) {
+      setMessage("Sign in again before downloading this invoice PDF.");
       return;
     }
-    downloadBlob(`${invoice.invoiceNumber}.pdf`, await response.blob());
-    setMessage(`${invoice.invoiceNumber} downloaded as a secure A4 PDF.`);
+    setMessage(`Preparing ${invoice.invoiceNumber}...`);
+    try {
+      const response = await fetch("/api/billing/invoice-pdf", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ invoiceId: invoice.id }) });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { message?: string; reason?: string };
+        setMessage(result.message || result.reason || `The PDF could not be generated (${response.status}).`);
+        return;
+      }
+      const blob = await response.blob();
+      if (!blob.size || !/application\/pdf/i.test(blob.type)) {
+        setMessage("The invoice server returned an invalid PDF. Please retry.");
+        return;
+      }
+      downloadBlob(`${invoice.invoiceNumber}.pdf`, blob);
+      setMessage(`${invoice.invoiceNumber} downloaded as a secure A4 PDF.`);
+    } catch (error) {
+      setMessage(`The PDF download failed. ${getBillingError(error)}`);
+    }
   }
 
   function exportInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
@@ -1341,10 +1355,11 @@ function downloadBlob(filename: string, blob: Blob) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.rel = "noopener";
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 function getBillingError(error: unknown) {

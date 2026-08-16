@@ -127,10 +127,14 @@ function assemblePdf(pages: string[][], invoiceDate: string, logo: PdfImage | nu
 }
 
 function parseInvoiceLogo(dataUrl: string): PdfImage | null {
-  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,([a-z0-9+/=]+)$/i);
-  if (!match) return null;
-  const bytes = Uint8Array.from(Buffer.from(match[2], "base64"));
-  return /jpe?g/i.test(match[1]) ? parseJpeg(bytes) : parsePng(bytes);
+  try {
+    const match = dataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,([a-z0-9+/=]+)$/i);
+    if (!match || match[2].length > 7_000_000) return null;
+    const bytes = Uint8Array.from(Buffer.from(match[2], "base64"));
+    return /jpe?g/i.test(match[1]) ? parseJpeg(bytes) : parsePng(bytes);
+  } catch {
+    return null;
+  }
 }
 
 function parseJpeg(data: Uint8Array): PdfImage | null {
@@ -153,7 +157,7 @@ function parsePng(data: Uint8Array): PdfImage | null {
   const height = view.getUint32(20);
   const bitDepth = data[24];
   const colourType = data[25];
-  if (!width || !height || bitDepth !== 8 || ![2, 6].includes(colourType)) return null;
+  if (!width || !height || width * height > 4_000_000 || bitDepth !== 8 || ![2, 6].includes(colourType)) return null;
   const chunks: Uint8Array[] = [];
   for (let offset = 8; offset + 12 <= data.length;) {
     const length = view.getUint32(offset);
