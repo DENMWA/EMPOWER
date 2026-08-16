@@ -3,6 +3,7 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { MarketingAttribution } from "@/components/marketing/MarketingAttribution";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.empowernotes.org";
 const seoDescription =
@@ -78,6 +79,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <JsonLd data={publicEntityGraph} />
         <MarketingAttribution />
+        <MaintenanceBanner />
         <AppShell>{children}</AppShell>
       </body>
     </html>

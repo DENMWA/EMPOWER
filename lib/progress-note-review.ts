@@ -114,6 +114,6 @@ export async function reviewTenantProgressNote(noteId: string, action: "approve"
     selected_note_id: noteId,
     selected_action: action,
     reviewer_comments: comments.trim() || null
-  });
+  }, { write: true });
   return { savedToCloud: Boolean(result.data && !result.error), status: result.data || "", error: result.error };
 }

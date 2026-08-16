@@ -1,4 +1,5 @@
 import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
+import { maintenanceWriteError } from "@/lib/maintenance";
 
 type SupabaseMethod = "GET" | "POST" | "PATCH";
 
@@ -86,6 +87,8 @@ export async function supabaseRequest<T>(table: string, options: {
   prefer?: string;
 } = {}) {
   if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Cloud workspace is not configured." };
+  const writeError = options.method && options.method !== "GET" ? maintenanceWriteError() : "";
+  if (writeError) return { data: null as T | null, error: writeError };
 
   const token = getStoredAccessToken() || supabaseAnonKey;
   const response = await fetch(`${supabaseUrl}/rest/v1/${table}${options.query ? `?${options.query}` : ""}`, {
@@ -109,8 +112,10 @@ export async function supabaseRequest<T>(table: string, options: {
   return { data: await response.json() as T, error: "" };
 }
 
-export async function supabaseRpc<T>(functionName: string, body: unknown) {
+export async function supabaseRpc<T>(functionName: string, body: unknown, options: { write?: boolean } = {}) {
   if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Cloud workspace is not configured." };
+  const writeError = options.write ? maintenanceWriteError() : "";
+  if (writeError) return { data: null as T | null, error: writeError };
 
   const token = getStoredAccessToken() || supabaseAnonKey;
   const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
@@ -200,13 +205,13 @@ export async function createCurrentUserOrganisation(input: {
     owner_name: input.ownerName,
     owner_email: input.ownerEmail,
     selected_provider_type: input.providerType
-  });
+  }, { write: true });
 
   if (result.data && input.subscriptionTier) {
     const trial = await supabaseRpc<boolean>("configure_initial_organisation_trial", {
       selected_subscription_tier: input.subscriptionTier,
       selected_trial_ends_at: input.trialEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-    });
+    }, { write: true });
 
     // Temporary deployment compatibility for projects where the Phase 3 RPC is not applied yet.
     if (trial.error) {

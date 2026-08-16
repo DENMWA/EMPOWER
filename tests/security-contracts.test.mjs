@@ -1371,3 +1371,22 @@ test("service agreement extraction recovers modern PDFs and preserves retryable 
   assert.match(billing, /select to retry extraction/);
   assert.match(billing, /retryVaultAgreement/);
 });
+
+test("maintenance mode preserves reads while blocking application and storage writes", async () => {
+  const [middleware, maintenance, rest, documents, layout, workflow, runbook] = await Promise.all([
+    source("middleware.ts"), source("lib/maintenance.ts"), source("lib/supabase-rest.ts"),
+    source("lib/document-records.ts"), source("app/layout.tsx"), source(".github/workflows/quality.yml"),
+    source("docs/DATA_PROTECTION_AND_RECOVERY.md")
+  ]);
+  assert.match(maintenance, /NEXT_PUBLIC_READ_ONLY_MAINTENANCE/);
+  assert.match(middleware, /\["GET", "HEAD", "OPTIONS"\]/);
+  assert.match(middleware, /status: 503/);
+  assert.match(middleware, /api\/stripe\/webhook/);
+  assert.match(rest, /options\.method !== "GET"/);
+  assert.match(rest, /options\.write/);
+  assert.match(documents, /maintenanceWriteError/);
+  assert.match(layout, /MaintenanceBanner/);
+  assert.match(workflow, /check:sql-safety/);
+  assert.match(runbook, /Database backups do not restore deleted Storage objects/);
+  assert.match(runbook, /Restore exercise/);
+});

@@ -35,6 +35,9 @@ jobs:
       - name: Security contract tests
         run: npm test
 
+      - name: Reject destructive SQL
+        run: npm run check:sql-safety
+
       - name: Lint
         run: npm run lint
 

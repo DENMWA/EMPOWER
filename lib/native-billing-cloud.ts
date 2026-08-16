@@ -47,7 +47,7 @@ export async function saveNativeInvoiceBundleToCloud(invoice: NativeInvoice, lin
   const result = await supabaseRpc("sync_native_invoice_bundle", {
     invoice_rows: [toInvoiceCloudRow(invoice, organisationId, userId)],
     invoice_line_rows: lines.map((line) => toInvoiceLineCloudRow(line, organisationId))
-  });
+  }, { write: true });
   if (result.error) throw new Error(result.error);
 }
 
@@ -190,7 +190,7 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     operations.push(supabaseRpc("sync_service_agreement_bundle", {
       agreement_rows: agreementRows,
       agreement_item_rows: agreementItemRows
-    }));
+    }, { write: true }));
     await flushOperations(operations);
   }
 
@@ -237,7 +237,7 @@ async function syncNativeBillingRecordsToCloud(records: NativeBillingRecords) {
     operations.push(supabaseRpc("sync_native_invoice_bundle", {
       invoice_rows: invoiceRows,
       invoice_line_rows: invoiceLineRows
-    }));
+    }, { write: true }));
     await flushOperations(operations);
   }
 

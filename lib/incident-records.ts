@@ -136,7 +136,7 @@ export async function reviewIncidentReport(
       escalationAssignedTo: report.escalationAssignedTo || "",
       escalationDueDate: report.escalationDueDate || ""
     }
-  });
+  }, { write: true });
 
   return { savedToCloud: Boolean(result.data && !result.error), status: result.data || "", error: result.error };
 }

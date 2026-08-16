@@ -4,6 +4,7 @@ import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { getCurrentOrganisationId, getCurrentUserId, getSupabaseProjectConfig, supabaseRequest } from "@/lib/supabase-rest";
 import { checkDocumentsPerParticipantLimit } from "@/lib/subscriptions/client-limits";
 import { tenantStorageKey } from "@/lib/tenant-storage";
+import { maintenanceWriteError } from "@/lib/maintenance";
 
 export type StoredDocumentRecord = SupportDocument & {
   clientName: string;
@@ -171,6 +172,8 @@ export function buildDocumentStoragePath(input: { organisationId: string; partic
 }
 
 export async function uploadTenantDocumentFile(file: File, filePath: string, bucket = "participant-documents") {
+  const maintenanceError = maintenanceWriteError();
+  if (maintenanceError) return { uploaded: false, error: maintenanceError };
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { uploaded: false, error: "Cloud workspace is not configured." };
   if (!accessToken) return { uploaded: false, error: "Sign in before uploading files to your workspace." };
@@ -244,6 +247,8 @@ export async function getTenantDocumentPreviewUrl(filePath: string, bucket = "pa
 }
 
 export async function deleteTenantDocumentFile(filePath: string, bucket = "participant-documents") {
+  const maintenanceError = maintenanceWriteError();
+  if (maintenanceError) return { deleted: false, error: maintenanceError };
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey || !accessToken) return { deleted: false, error: "Sign in before deleting private files." };
   const pathError = await validateTenantStoragePath(filePath);

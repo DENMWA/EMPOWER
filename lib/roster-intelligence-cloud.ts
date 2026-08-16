@@ -27,7 +27,7 @@ export async function saveStaffAvailability(record: StaffAvailability) {
     availability_kind: record.kind,
     availability_recurring: record.recurring,
     availability_notes: record.notes
-  });
+  }, { write: true });
   return { saved: Boolean(result.data && !result.error), record: result.data ? record : null, error: result.error || "" };
 }
 

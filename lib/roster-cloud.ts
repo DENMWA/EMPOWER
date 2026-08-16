@@ -115,7 +115,7 @@ export async function saveTenantRosterShift(shift: RosterShift) {
       workerId: worker.id,
       role: "assigned worker"
     }))
-  });
+  }, { write: true });
 
   return {
     savedToCloud: Boolean(result.data && !result.error),
