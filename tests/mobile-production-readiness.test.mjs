@@ -67,7 +67,10 @@ test("invoice UI is responsive while PDF export is server generated and tenant s
   assert.match(route, /profile\.logo_data_url/);
   assert.match(route, /include_in_downloads/);
   assert.match(pdf, /width \* height > 4_000_000/);
-  assert.match(workspace, /window\.setTimeout\(\(\) => URL\.revokeObjectURL\(url\), 30_000\)/);
-  assert.match(workspace, /invalid PDF/);
+  assert.match(route, /createHmac\("sha256"/);
+  assert.match(route, /timingSafeEqual/);
+  assert.match(route, /expiresAt: Date\.now\(\) \+ 60_000/);
+  assert.match(route, /Content-Disposition/);
+  assert.match(workspace, /startInvoicePdfDownload/);
   assert.match(pdf, /CreationDate/);
 });

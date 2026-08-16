@@ -1,20 +1,39 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createInvoicePdf } from "@/lib/invoice-pdf";
 import { verifyServerAccess } from "@/lib/security/server-access";
 
 export const runtime = "nodejs";
 
+type DownloadTicket = { invoiceId: string; organisationId: string; expiresAt: number };
+
 export async function POST(request: Request) {
   const access = await verifyServerAccess(request, "admin", "billing");
   if (!access.allowed) return NextResponse.json({ message: access.reason }, { status: access.status });
   const { invoiceId } = await request.json() as { invoiceId?: string };
   if (!invoiceId) return NextResponse.json({ message: "Select an invoice to export." }, { status: 400 });
+  const signingKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!signingKey) return NextResponse.json({ message: "Secure invoice export is not configured." }, { status: 503 });
+
+  const ticket = signTicket({ invoiceId, organisationId: access.organisationId, expiresAt: Date.now() + 60_000 }, signingKey);
+  return NextResponse.json({ downloadUrl: `/api/billing/invoice-pdf?ticket=${encodeURIComponent(ticket)}` }, { headers: { "Cache-Control": "private, no-store" } });
+}
+
+export async function GET(request: Request) {
+  const signingKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const ticket = new URL(request.url).searchParams.get("ticket") || "";
+  if (!signingKey || !ticket) return NextResponse.json({ message: "This invoice download link is invalid." }, { status: 401 });
+  const payload = verifyTicket(ticket, signingKey);
+  if (!payload) return NextResponse.json({ message: "This invoice download link has expired. Generate it again." }, { status: 401 });
+  return createTenantInvoiceResponse(payload.invoiceId, payload.organisationId);
+}
+
+async function createTenantInvoiceResponse(invoiceId: string, organisationFilter: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return NextResponse.json({ message: "Secure invoice export is not configured." }, { status: 503 });
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
   const query = (table: string, params: URLSearchParams) => fetch(`${url}/rest/v1/${table}?${params}`, { headers, cache: "no-store" });
-  const organisationFilter = access.organisationId;
   const [invoiceResponse, linesResponse, profileResponse] = await Promise.all([
     query("native_invoices", new URLSearchParams({ select: "*", id: `eq.${invoiceId}`, organisation_id: `eq.${organisationFilter}`, limit: "1" })),
     query("native_invoice_lines", new URLSearchParams({ select: "*", invoice_id: `eq.${invoiceId}`, organisation_id: `eq.${organisationFilter}`, order: "service_date.asc,created_at.asc" })),
@@ -48,5 +67,26 @@ export async function POST(request: Request) {
     logoDataUrl: includeOrganisationBranding ? text(profile.logo_data_url) : ""
   });
   const filename = `${text(row.invoice_number).replace(/[^a-z0-9-]+/gi, "-") || "invoice"}.pdf`;
-  return new Response(pdf, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store" } });
+  return new Response(pdf, { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
+}
+
+function signTicket(payload: DownloadTicket, key: string) {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", key).update(encoded).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function verifyTicket(ticket: string, key: string): DownloadTicket | null {
+  const [encoded, signature, extra] = ticket.split(".");
+  if (!encoded || !signature || extra) return null;
+  const expected = createHmac("sha256", key).update(encoded).digest();
+  const received = Buffer.from(signature, "base64url");
+  if (received.length !== expected.length || !timingSafeEqual(received, expected)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as DownloadTicket;
+    if (!payload.invoiceId || !payload.organisationId || !Number.isFinite(payload.expiresAt) || payload.expiresAt < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }

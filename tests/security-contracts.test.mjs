@@ -968,7 +968,8 @@ test("invoice actions respond clearly and expose CSV before and after generation
   assert.match(workspace, /Creating your branded invoice PDF/);
   assert.match(workspace, /const pdfWindow = downloadPdf \? openInvoicePdfWindow\(\) : null/);
   assert.match(workspace, /await exportInvoicePdf\(result\.invoice, pdfWindow\)/);
-  assert.match(workspace, /pdfWindow\.location\.replace\(url\)/);
+  assert.match(workspace, /pdfWindow\.location\.replace\(downloadUrl\)/);
+  assert.match(workspace, /PDF download started/);
 });
 
 test("client-first invoicing auto-selects eligible services without weakening evidence or agreement links", async () => {

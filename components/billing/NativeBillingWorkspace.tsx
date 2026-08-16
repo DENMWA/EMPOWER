@@ -681,14 +681,14 @@ export function NativeBillingWorkspace() {
         setMessage(result.message || result.reason || `The PDF could not be generated (${response.status}).`);
         return;
       }
-      const blob = await response.blob();
-      if (!blob.size || !/application\/pdf/i.test(blob.type)) {
+      const result = await response.json() as { downloadUrl?: string };
+      if (!result.downloadUrl?.startsWith("/api/billing/invoice-pdf?ticket=")) {
         pdfWindow?.close();
-        setMessage("The invoice server returned an invalid PDF. Please retry.");
+        setMessage("The invoice server did not create a secure download link. Please retry.");
         return;
       }
-      presentInvoicePdf(`${invoice.invoiceNumber}.pdf`, blob, pdfWindow);
-      setMessage(`${invoice.invoiceNumber} opened as a secure A4 PDF. Use the viewer's download control to save it.`);
+      startInvoicePdfDownload(result.downloadUrl, pdfWindow);
+      setMessage(`${invoice.invoiceNumber} PDF download started.`);
     } catch (error) {
       pdfWindow?.close();
       setMessage(`The PDF download failed. ${getBillingError(error)}`);
@@ -1366,21 +1366,17 @@ function openInvoicePdfWindow() {
   return pdfWindow;
 }
 
-function presentInvoicePdf(filename: string, blob: Blob, pdfWindow?: Window | null) {
-  const url = URL.createObjectURL(blob);
+function startInvoicePdfDownload(downloadUrl: string, pdfWindow?: Window | null) {
   if (pdfWindow && !pdfWindow.closed) {
-    pdfWindow.location.replace(url);
-    window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+    pdfWindow.location.replace(downloadUrl);
     return;
   }
   const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
+  link.href = downloadUrl;
   link.rel = "noopener";
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 function getBillingError(error: unknown) {
