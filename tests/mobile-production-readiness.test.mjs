@@ -62,5 +62,9 @@ test("invoice UI is responsive while PDF export is server generated and tenant s
   assert.match(pdf, /TOTAL DUE/);
   assert.match(pdf, /Generated securely by EmpowerNotes/);
   assert.match(pdf, /0\.12 0\.55 0\.53/);
+  assert.match(pdf, /parseInvoiceLogo/);
+  assert.match(pdf, /\/XObject << \/Logo/);
+  assert.match(route, /profile\.logo_data_url/);
+  assert.match(route, /include_in_downloads/);
   assert.match(pdf, /CreationDate/);
 });
