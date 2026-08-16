@@ -315,7 +315,7 @@ test("roles determine features while dated house assignments determine participa
   assert.match(clients, /\/api\/admin\/clients/);
   assert.match(clientRoute, /participant_house_assignments/);
   assert.match(clientRoute, /organisation_id: access\.organisationId/);
-  assert.match(roster, /save_roster_shift_with_staff/);
+  assert.match(roster, /save_roster_shift_with_(?:staff|service_location)/);
   assert.match(selector, /All my houses/);
   assert.match(selector, /sessionStorage\.removeItem/);
 });

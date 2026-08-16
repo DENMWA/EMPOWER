@@ -18,6 +18,8 @@ export type RosterShift = {
   startTime: string;
   endTime: string;
   location: string;
+  serviceLocationId?: string;
+  serviceLocationName?: string;
   shiftInstructions: string;
   status: RosterStatus;
   noteRequired: boolean;
@@ -27,6 +29,7 @@ export type RosterShift = {
 
 export type RosterFilters = {
   workerId: string;
+  serviceLocationId: string;
   status: string;
   noteState: string;
 };
@@ -279,13 +282,15 @@ export function getRosterReportSummary(shifts: RosterShift[] = rosterShifts, per
 export function filterRosterShifts(shifts: RosterShift[], filters: RosterFilters) {
   return shifts.filter((shift) => {
     const workerMatches = filters.workerId === "all" || shift.workerId === filters.workerId || Boolean(shift.assignedWorkers?.some((worker) => worker.id === filters.workerId));
+    const locationMatches = filters.serviceLocationId === "all"
+      || (filters.serviceLocationId === "flexible" ? !shift.serviceLocationId : shift.serviceLocationId === filters.serviceLocationId);
     const statusMatches = filters.status === "all" || shift.status === filters.status;
     const noteMatches =
       filters.noteState === "all" ||
       (filters.noteState === "required" && shift.noteRequired && !shift.noteCompleted) ||
       (filters.noteState === "completed" && shift.noteCompleted) ||
       (filters.noteState === "not-required" && !shift.noteRequired);
-    return workerMatches && statusMatches && noteMatches;
+    return workerMatches && locationMatches && statusMatches && noteMatches;
   });
 }
 

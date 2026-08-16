@@ -6,11 +6,13 @@ import { X } from "lucide-react";
 import { createRosterShift, getRosterSelectOptions, type RosterShift } from "@/lib/roster";
 import { getTenantClients } from "@/lib/client-records";
 import { getTenantStaffInvites } from "@/lib/staff-records";
+import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 
 export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => string | void }) {
   const { supportTypes } = getRosterSelectOptions();
   const [participantOptions, setParticipantOptions] = useState<Array<{ id: string; name: string; profilePhotoPath?: string }>>([]);
   const [workerOptions, setWorkerOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [serviceLocations, setServiceLocations] = useState<HouseRecord[]>([]);
   const [participantId, setParticipantId] = useState("");
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
   const [staffingRatio, setStaffingRatio] = useState("1:1");
@@ -18,18 +20,20 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
   const [shiftDate, setShiftDate] = useState(new Date().toISOString().slice(0, 10));
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("11:00");
-  const [location, setLocation] = useState("Community");
+  const [locationChoice, setLocationChoice] = useState("community");
+  const [customLocation, setCustomLocation] = useState("");
   const [shiftInstructions, setShiftInstructions] = useState("Capture support provided, participant response, and any follow-up actions.");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clients, staff]) => {
+    Promise.all([getTenantClients(), getTenantStaffInvites(), getTenantHouses()]).then(([clients, staff, houses]) => {
       const nextParticipants = clients.map(({ id, name, profilePhotoPath }) => ({ id, name, profilePhotoPath }));
       const nextWorkers = staff.map(({ id, name }) => ({ id, name }));
       setParticipantOptions(nextParticipants);
       setParticipantId((current) => nextParticipants.some((item) => item.id === current) ? current : nextParticipants[0]?.id || "");
       setWorkerOptions(nextWorkers);
+      setServiceLocations(houses);
       setSelectedWorkerIds((current) => {
         const valid = current.filter((workerId) => nextWorkers.some((item) => item.id === workerId));
         return valid.length ? valid : nextWorkers[0]?.id ? [nextWorkers[0].id] : [];
@@ -64,6 +68,13 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       setError(`${staffingRatio} support requires ${expectedStaffCount} assigned staff member${expectedStaffCount === 1 ? "" : "s"}.`);
       return;
     }
+    const selectedServiceLocation = locationChoice.startsWith("service:") ? serviceLocations.find((item) => item.id === locationChoice.slice(8)) : undefined;
+    const locationLabels: Record<string, string> = { client_home: "Client home", community: "Community", appointment: "Appointment location", respite: "Respite setting" };
+    const location = selectedServiceLocation ? [selectedServiceLocation.name, selectedServiceLocation.address].filter(Boolean).join(" - ") : locationChoice === "other" ? customLocation.trim() : locationLabels[locationChoice] || "Community";
+    if (!location) {
+      setError("Enter the service address or location.");
+      return;
+    }
     const creationError = onCreate(createRosterShift({
       participantId,
       participantName: participantOptions.find((item) => item.id === participantId)?.name,
@@ -77,6 +88,8 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       startTime,
       endTime,
       location,
+      serviceLocationId: selectedServiceLocation?.id,
+      serviceLocationName: selectedServiceLocation?.name,
       shiftInstructions,
       status: "Scheduled",
       noteRequired: true,
@@ -152,9 +165,17 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
             <input className="min-h-11 rounded-md border border-slate-300 px-3" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
-            Location
-            <input className="min-h-11 rounded-md border border-slate-300 px-3" value={location} onChange={(event) => setLocation(event.target.value)} />
+            Service location
+            <select className="min-h-11 rounded-md border border-slate-300 px-3" value={locationChoice} onChange={(event) => setLocationChoice(event.target.value)}>
+              <option value="client_home">Client home</option>
+              <option value="community">Community</option>
+              <option value="appointment">Appointment location</option>
+              <option value="respite">Respite setting</option>
+              {serviceLocations.length ? <optgroup label="Organisation service locations">{serviceLocations.map((item) => <option key={item.id} value={`service:${item.id}`}>{item.name}{item.address ? ` - ${item.address}` : ""}</option>)}</optgroup> : null}
+              <option value="other">Other location</option>
+            </select>
           </label>
+          {locationChoice === "other" ? <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">Address or location<input className="min-h-11 rounded-md border border-slate-300 px-3" value={customLocation} onChange={(event) => setCustomLocation(event.target.value)} placeholder="Enter the service location" /></label> : null}
           <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
             Shift instructions
             <textarea className="min-h-24 rounded-md border border-slate-300 px-3 py-2" value={shiftInstructions} onChange={(event) => setShiftInstructions(event.target.value)} />

@@ -31,7 +31,7 @@ import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-clou
 export function RosterPage() {
   const [view, setView] = useState<"day" | "week" | "month">("week");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
-  const [filters, setFilters] = useState<RosterFiltersType>({ workerId: "all", status: "all", noteState: "all" });
+  const [filters, setFilters] = useState<RosterFiltersType>({ workerId: "all", serviceLocationId: "all", status: "all", noteState: "all" });
   const [shifts, setShifts] = useState<RosterShift[]>([]);
   const [activeShift, setActiveShift] = useState<RosterShift | null>(null);
   const [creating, setCreating] = useState(false);
@@ -59,6 +59,7 @@ export function RosterPage() {
   const summary = getRosterSummary(shifts);
   const rosterConflicts = shifts.flatMap((shift, index) => getRosterShiftConflicts(shift, shifts.slice(0, index)));
   const rosterWorkers = Array.from(new Map(shifts.flatMap((shift) => getShiftAssignedWorkers(shift)).map((worker) => [worker.id, worker])).values());
+  const rosterLocations = Array.from(new Map(shifts.filter((shift) => shift.serviceLocationId).map((shift) => [shift.serviceLocationId!, { id: shift.serviceLocationId!, name: shift.serviceLocationName || shift.location }])).values());
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
     month: "long",
     year: "numeric",
@@ -227,7 +228,7 @@ export function RosterPage() {
           <div className="mt-3"><EmployeeColourLegend workers={rosterWorkers} /></div>
         </Card>
 
-        <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} />
+        <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} serviceLocations={rosterLocations} />
 
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 

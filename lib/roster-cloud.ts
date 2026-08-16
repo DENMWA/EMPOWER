@@ -10,6 +10,7 @@ type ShiftRow = {
   title: string | null;
   support_type: string | null;
   location: string | null;
+  service_location_id: string | null;
   start_time: string;
   end_time: string;
   status: string;
@@ -41,7 +42,7 @@ export async function loadTenantRosterShifts() {
 
   const [shiftResult, assignmentResult, clients, staff] = await Promise.all([
     supabaseRequest<ShiftRow[]>("support_shifts", {
-      query: "select=id,participant_id,title,support_type,location,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,source_roster_shift_id&order=start_time.asc"
+      query: "select=id,participant_id,title,support_type,location,service_location_id,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,source_roster_shift_id&order=start_time.asc"
     }),
     supabaseRequest<AssignmentRow[]>("shift_staff", {
       query: "select=shift_id,staff_user_id,staff_invite_id"
@@ -85,6 +86,8 @@ export async function loadTenantRosterShifts() {
         startTime: formatSydneyTime(row.start_time),
         endTime: formatSydneyTime(row.end_time),
         location: row.location || "",
+        serviceLocationId: row.service_location_id || undefined,
+        serviceLocationName: row.service_location_id ? row.location || "Service location" : undefined,
         shiftInstructions: row.shift_instructions || "",
         status: statusMap[row.status] || "Scheduled",
         noteRequired: row.note_required,
@@ -97,7 +100,7 @@ export async function loadTenantRosterShifts() {
 }
 
 export async function saveTenantRosterShift(shift: RosterShift) {
-  const result = await supabaseRpc<string>("save_roster_shift_with_staff", {
+  const result = await supabaseRpc<string>("save_roster_shift_with_service_location", {
     roster_shift_id: shift.id,
     roster_participant_id: shift.participantId,
     roster_title: `${shift.participantName} - ${shift.supportType}`,
@@ -114,7 +117,8 @@ export async function saveTenantRosterShift(shift: RosterShift) {
     roster_assignments: (shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }]).map((worker) => ({
       workerId: worker.id,
       role: "assigned worker"
-    }))
+    })),
+    roster_service_location_id: shift.serviceLocationId || null
   }, { write: true });
 
   return {

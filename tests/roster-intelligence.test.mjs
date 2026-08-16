@@ -33,6 +33,27 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
   assert.match(workflow, /saveStaffAvailability/);
 });
 
+test("roster service locations are optional, tenant scoped and filterable", async () => {
+  const [modal, cloud, filters, sql] = await Promise.all([
+    source("components/roster/CreateRosterShiftModal.tsx"),
+    source("lib/roster-cloud.ts"),
+    source("components/roster/RosterFilters.tsx"),
+    source("supabase/optional-roster-service-locations.sql")
+  ]);
+  assert.match(modal, /Client home/);
+  assert.match(modal, /Community/);
+  assert.match(modal, /Appointment location/);
+  assert.match(modal, /Respite setting/);
+  assert.match(modal, /Other location/);
+  assert.match(modal, /getTenantHouses/);
+  assert.match(cloud, /save_roster_shift_with_service_location/);
+  assert.match(filters, /Client home \/ community/);
+  assert.match(sql, /service_location_id text/);
+  assert.match(sql, /roster_service_location_id text default null/);
+  assert.match(sql, /organisation_id = actor_organisation_id/);
+  assert.match(sql, /references public\.service_locations\(organisation_id, id\)/);
+});
+
 test("replacement offers are expiring, single-use and omit client information", async () => {
   const [send, respond, sql] = await Promise.all([
     source("app/api/roster/replacement-offers/route.ts"),
