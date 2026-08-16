@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const publicRoutes = [
     { path: "/", priority: 1 },
     { path: "/features", priority: 0.9 },
+    { path: "/ai-progress-notes", priority: 0.92 },
     { path: "/pricing", priority: 0.85 },
     { path: "/contact", priority: 0.75 },
     { path: "/signup", priority: 0.7 },

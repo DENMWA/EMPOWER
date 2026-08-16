@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { MarketingAttribution } from "@/components/marketing/MarketingAttribution";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.empowernotes.org";
 const seoDescription =
@@ -62,9 +63,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const publicEntityGraph = {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "Organization", "@id": `${appUrl}/#organization`, name: "EmpowerNotes", url: appUrl, areaServed: { "@type": "Country", name: "Australia" } },
+      { "@type": "WebSite", "@id": `${appUrl}/#website`, name: "EmpowerNotes", url: appUrl, inLanguage: "en-AU", publisher: { "@id": `${appUrl}/#organization` } }
+    ]
+  };
   return (
     <html lang="en-AU">
       <body>
+        <JsonLd data={publicEntityGraph} />
         <MarketingAttribution />
         <AppShell>{children}</AppShell>
       </body>

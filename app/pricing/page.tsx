@@ -3,6 +3,8 @@ import { PricingCards } from "@/components/pricing/PricingCards";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
 import { CheckCircle2 } from "lucide-react";
 import { PlanComparison } from "@/components/pricing/PlanComparison";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { plans } from "@/lib/pricing-data";
 
 export const metadata: Metadata = {
   title: "Pricing for Australian NDIS Documentation Software",
@@ -14,8 +16,24 @@ export const metadata: Metadata = {
 };
 
 export default function PricingPage() {
+  const pricingJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "EmpowerNotes",
+    category: "NDIS documentation software",
+    description: metadata.description,
+    offers: plans.map((plan) => ({
+      "@type": "Offer",
+      name: plan.name,
+      url: `https://www.empowernotes.org${plan.href}`,
+      priceCurrency: "AUD",
+      ...(plan.price.startsWith("A$") ? { price: plan.price.replace(/[^0-9.]/g, "") } : {}),
+      category: "Software subscription"
+    }))
+  };
   return (
     <>
+      <JsonLd data={pricingJsonLd} />
       <PageHeader
         eyebrow="Plans"
         title="Choose the right EmpowerNotes plan"

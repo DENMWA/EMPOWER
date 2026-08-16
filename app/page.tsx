@@ -23,7 +23,7 @@ const workflows: Array<{ title: string; detail: string; icon: LucideIcon; href: 
     title: "Document support",
     detail: "Write or dictate clear, professional notes.",
     icon: Mic2,
-    href: "/features#progress-notes"
+    href: "/ai-progress-notes"
   },
   {
     title: "Manage clients",

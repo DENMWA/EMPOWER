@@ -12,6 +12,7 @@ import {
   Users
 } from "lucide-react";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 export const metadata: Metadata = {
   title: "EmpowerNotes Features",
@@ -55,8 +56,15 @@ const featureSections = [
 ] as const;
 
 export default function FeaturesPage() {
+  const featureJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "EmpowerNotes features",
+    itemListElement: featureSections.map((feature, index) => ({ "@type": "ListItem", position: index + 1, name: feature.eyebrow, description: feature.detail, url: `https://www.empowernotes.org/features#${feature.id}` }))
+  };
   return (
     <>
+      <JsonLd data={featureJsonLd} />
       <PageHeader
         eyebrow="Static product preview"
         title="See how EmpowerNotes works"

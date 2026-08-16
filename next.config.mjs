@@ -4,6 +4,9 @@ const contentSecurityPolicy = `default-src 'self'; base-uri 'self'; object-src '
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return [{ source: "/.ai/manifest.json", destination: "/api/public/ai-manifest" }];
+  },
   async redirects() {
     return [{
       source: "/:path*",
