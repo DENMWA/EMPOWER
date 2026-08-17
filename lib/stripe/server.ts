@@ -107,8 +107,8 @@ export function mapStripeStatus(status: string) {
 }
 
 export async function getOrganisationBilling(organisationId: string) {
-  const rows = await supabaseServiceRequest<Array<{ id: string; name: string; contact_email: string | null; stripe_customer_id: string | null; stripe_subscription_id: string | null; subscription_status: string | null; subscription_grace_ends_at: string | null }>>(
-    `organisations?select=id,name,contact_email,stripe_customer_id,stripe_subscription_id,subscription_status,subscription_grace_ends_at&id=eq.${encodeURIComponent(organisationId)}&limit=1`
+  const rows = await supabaseServiceRequest<Array<{ id: string; name: string; contact_email: string | null; stripe_customer_id: string | null; stripe_subscription_id: string | null; subscription_status: string | null; trial_ends_at: string | null; subscription_grace_ends_at: string | null }>>(
+    `organisations?select=id,name,contact_email,stripe_customer_id,stripe_subscription_id,subscription_status,trial_ends_at,subscription_grace_ends_at&id=eq.${encodeURIComponent(organisationId)}&limit=1`
   );
   return rows.data?.[0] || null;
 }

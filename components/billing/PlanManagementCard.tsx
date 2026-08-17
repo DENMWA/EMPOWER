@@ -24,6 +24,9 @@ export function PlanManagementCard() {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("practice");
   const [busyAction, setBusyAction] = useState<"checkout" | "portal" | "">("");
   const [billingMessage, setBillingMessage] = useState("");
+  const trialEndsAt = renewalDate ? new Date(renewalDate) : null;
+  const trialActive = status === "trialing" && Boolean(trialEndsAt && !Number.isNaN(trialEndsAt.getTime()) && trialEndsAt.getTime() > Date.now());
+  const trialDaysRemaining = trialActive && trialEndsAt ? Math.max(1, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86400000)) : 0;
 
   useEffect(() => {
     async function loadPlan() {
@@ -91,6 +94,11 @@ export function PlanManagementCard() {
       </div>
 
       <div className="p-5">
+        {planConfirmed && status === "trialing" ? <div className={`mb-5 rounded-md border p-4 ${trialActive ? "border-sky-200 bg-sky-50" : "border-teal-200 bg-mint"}`}>
+          <p className="text-xs font-bold uppercase tracking-wide text-teal-800">{trialActive ? `${trialDaysRemaining} days remaining` : "Your trial is complete"}</p>
+          <p className="mt-2 font-semibold text-ink">{trialActive ? `Keep exploring ${subscriptionTiers[tier].name}.` : `Keep your ${subscriptionTiers[tier].name} workspace active.`}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{trialActive ? `Card setup opens on ${formatDate(renewalDate)}. Nothing is charged during your free trial.` : "Choose your plan and add a card to continue. Your workspace and records remain in place."}</p>
+        </div> : null}
         <p className="text-sm font-semibold text-ink">Change plan</p>
         <div className="mt-3 grid gap-2">
           {plans.map((plan) => <button key={plan.tier} type="button" onClick={() => setSelectedTier(plan.tier)} aria-pressed={selectedTier === plan.tier} className={`flex min-h-12 items-center justify-between gap-4 rounded-md border px-3 text-left transition ${selectedTier === plan.tier ? `${planAccents[plan.tier].selected} ring-1` : "border-slate-200 bg-white hover:border-teal-300 hover:bg-mist"}`}>
@@ -100,9 +108,9 @@ export function PlanManagementCard() {
         </div>
 
       <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("checkout")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="button" disabled={Boolean(busyAction) || trialActive} onClick={() => openBillingEndpoint("checkout")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           <CreditCard size={16} aria-hidden="true" />
-          {busyAction === "checkout" ? "Opening..." : selectedTier === "enterprise" ? "Contact Enterprise" : selectedTier === tier ? "Renew plan" : "Switch plan"}
+          {busyAction === "checkout" ? "Opening..." : selectedTier === "enterprise" ? "Contact Enterprise" : trialActive ? `Available ${formatDate(renewalDate)}` : status === "trialing" ? `Keep workspace with ${subscriptionTiers[selectedTier].shortName}` : selectedTier === tier ? "Renew plan" : "Switch plan"}
         </button>
         <button type="button" disabled={Boolean(busyAction)} onClick={() => openBillingEndpoint("portal")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
           <ArrowUpRight size={16} aria-hidden="true" />
@@ -112,6 +120,8 @@ export function PlanManagementCard() {
 
       {billingMessage ? <p aria-live="polite" className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">{billingMessage}</p> : null}
       </div>
+
+      <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-600">Visa and Mastercard accepted securely through Stripe.</div>
     </Card>
   );
 }

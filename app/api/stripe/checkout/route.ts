@@ -16,6 +16,10 @@ export async function POST(request: Request) {
 
   const organisation = await getOrganisationBilling(access.organisationId);
   if (!organisation) return NextResponse.json({ error: "The organisation billing profile could not be loaded." }, { status: 503 });
+  const trialEndsAt = organisation.trial_ends_at ? new Date(organisation.trial_ends_at).getTime() : 0;
+  if (organisation.subscription_status === "trialing" && trialEndsAt > Date.now()) {
+    return NextResponse.json({ error: `Your free trial runs until ${new Date(trialEndsAt).toLocaleDateString("en-AU")}. Secure card checkout opens when the trial ends.` }, { status: 409 });
+  }
   if (organisation.stripe_subscription_id && ["active", "trialing", "past_due"].includes(organisation.subscription_status || "")) {
     return NextResponse.json({ error: "This organisation already has a subscription. Use Manage billing to change its plan." }, { status: 409 });
   }
@@ -31,6 +35,8 @@ export async function POST(request: Request) {
     "metadata[tier]": input.tier,
     "subscription_data[metadata][organisation_id]": access.organisationId,
     "subscription_data[metadata][tier]": input.tier,
+    "payment_method_types[0]": "card",
+    payment_method_collection: "always",
     allow_promotion_codes: "true",
     billing_address_collection: "required",
     "tax_id_collection[enabled]": "true"
