@@ -6,7 +6,7 @@ export const publicProductProfile = {
   locale: "en-AU",
   market: "Australia",
   category: "NDIS documentation and provider operations software",
-  summary: "EmpowerNotes helps Australian disability support providers create clear support records, manage incidents and documents, coordinate services, review evidence, and prepare participant invoices.",
+  summary: "EmpowerNotes helps Australian disability support providers create clear support records, manage incidents and documents, coordinate staff rosters and service delivery, review evidence, and prepare participant invoices.",
   audience: ["Independent disability support providers", "NDIS support teams", "Multi-site disability service providers"],
   safety: "Empower AI assists with wording, structure and evidence prompts. It does not replace professional judgement, safeguarding decisions, clinical judgement, legal advice or NDIS compliance obligations."
 } as const;
@@ -15,7 +15,20 @@ export const publicCapabilities = [
   { id: "progress-notes", name: "AI-assisted progress notes", description: "Typed and voice notes can be refined into objective, person-centred records while workers retain control of the final wording.", url: "/ai-progress-notes" },
   { id: "incident-reporting", name: "Incident reporting", description: "Client-specific incident templates support immediate actions, injury mapping, property damage and manager follow-up.", url: "/features#incident-reports" },
   { id: "client-documents", name: "Client document management", description: "Access-controlled client documents, service agreements and expiry reminders remain organised by organisation and client.", url: "/features#client-records" },
-  { id: "rostering", name: "Scheduling and rostering", description: "Administrators coordinate houses, services, clients and assigned staff in a shared calendar.", url: "/features" },
+  {
+    id: "rostering",
+    name: "Integrated scheduling and rostering",
+    description: "Administrators coordinate client-based shifts, staff assignments and optional houses or service locations in shared calendars, while invited workers privately view their own weekly, fortnightly or monthly roster.",
+    url: "/features#rostering",
+    highlights: [
+      "Client-based and optional house or service-location scheduling",
+      "Single-worker and multi-worker shift assignments",
+      "Employee availability forms with reviewed AI-assisted extraction",
+      "Conflict-aware staff recommendations and secure replacement offers",
+      "Private weekly, fortnightly and monthly worker roster views",
+      "Completed-hours reporting and linkage from delivered services to invoicing"
+    ]
+  },
   { id: "invoicing", name: "Participant invoicing", description: "Completed supports can be reviewed against approved NDIS, service-agreement or manual rates before invoice generation.", url: "/features" },
   { id: "reporting", name: "Operational reporting", description: "Authorised managers can review service, incident, documentation and progress patterns.", url: "/features#reporting" }
 ] as const;
@@ -42,14 +55,16 @@ export function getPublicCapabilitiesPayload() {
     capabilities: publicCapabilities.map((item) => ({ ...item, url: `${publicProductProfile.url}${item.url}` })),
     plans: getPublicPlans(),
     dataBoundary: publicDataBoundary,
-    updatedAt: "2026-08-16"
+    updatedAt: "2026-08-17"
   };
 }
 
 export function getLlmsText() {
   const capabilities = publicCapabilities.map((item) => `- [${item.name}](${publicProductProfile.url}${item.url}): ${item.description}`).join("\n");
   const planList = getPublicPlans().map((plan) => `- ${plan.name}: ${plan.price}. ${plan.bestFor}`).join("\n");
-  return `# ${publicProductProfile.name}\n\n> ${publicProductProfile.summary}\n\n## Primary audience\n${publicProductProfile.audience.map((item) => `- ${item}`).join("\n")}\n\n## Capabilities\n${capabilities}\n\n## Plans\n${planList}\n\n## Important limitations\n- ${publicProductProfile.safety}\n- Public AI discovery resources never contain participant, client, staff or organisation records.\n- EmpowerNotes is not an NDIS regulator, clinical service or legal adviser.\n\n## Public resources\n- [Features](${publicProductProfile.url}/features)\n- [AI-assisted progress notes](${publicProductProfile.url}/ai-progress-notes)\n- [Pricing](${publicProductProfile.url}/pricing)\n- [Privacy](${publicProductProfile.url}/legal/privacy)\n- [Terms](${publicProductProfile.url}/legal/terms)\n- [Contact](${publicProductProfile.url}/contact)\n- [OpenAPI](${publicProductProfile.url}/openapi.json)\n- [AI manifest](${publicProductProfile.url}/.ai/manifest.json)\n`;
+  const roster = publicCapabilities.find((item) => item.id === "rostering");
+  const rosterDetails = roster && "highlights" in roster ? roster.highlights.map((item) => `- ${item}`).join("\n") : "";
+  return `# ${publicProductProfile.name}\n\n> ${publicProductProfile.summary}\n\n## Primary audience\n${publicProductProfile.audience.map((item) => `- ${item}`).join("\n")}\n\n## Capabilities\n${capabilities}\n\n## Integrated rostering\n${rosterDetails}\n\nRoster recommendations remain advisory and manager controlled. EmpowerNotes does not perform payroll, award interpretation or autonomous roster publication.\n\n## Plans\n${planList}\n\n## Important limitations\n- ${publicProductProfile.safety}\n- Public AI discovery resources never contain participant, client, staff or organisation records.\n- EmpowerNotes is not an NDIS regulator, clinical service or legal adviser.\n\n## Public resources\n- [Features](${publicProductProfile.url}/features)\n- [AI-assisted progress notes](${publicProductProfile.url}/ai-progress-notes)\n- [Pricing](${publicProductProfile.url}/pricing)\n- [Privacy](${publicProductProfile.url}/legal/privacy)\n- [Terms](${publicProductProfile.url}/legal/terms)\n- [Contact](${publicProductProfile.url}/contact)\n- [OpenAPI](${publicProductProfile.url}/openapi.json)\n- [AI manifest](${publicProductProfile.url}/.ai/manifest.json)\n`;
 }
 
 export function getAiManifest() {

@@ -18,12 +18,15 @@ The discoverability layer gives search engines and AI systems a consistent, publ
 | `/api/public/capabilities` | Versioned public product, capability and plan information |
 | `/api/mcp` | Read-only MCP stub for public product discovery |
 | `/ai-progress-notes` | Source-backed informational landing page for AI-assisted progress notes |
+| `/features#rostering` | Public, privacy-safe description of integrated roster capabilities |
 
 ## Structured data
 
 The root layout publishes `Organization` and `WebSite` entities. The homepage publishes `SoftwareApplication`; features publishes `ItemList`; pricing publishes `Product` and `Offer`; and the AI progress-notes page publishes `SoftwareApplication`, `FAQPage` and `BreadcrumbList`.
 
 Structured data must reflect visible page content. Do not add ratings, reviews, regulatory approval, compliance certification or pricing claims that are not publicly supported.
+
+The public roster description may cover client-based shifts, optional houses and service locations, multi-staff assignments, availability capture, conflict-aware recommendations, secure replacement offers, private worker roster views, completed-hours reporting and delivered-service linkage to invoicing. It must also state that recommendations are advisory and manager controlled. Do not describe EmpowerNotes as payroll, award interpretation or autonomous roster publishing software.
 
 ## Privacy boundary
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
+  CalendarDays,
   CheckCircle2,
   FileText,
   FolderLock,
@@ -16,11 +17,19 @@ import { JsonLd } from "@/components/seo/JsonLd";
 
 export const metadata: Metadata = {
   title: "EmpowerNotes Features",
-  description: "Preview EmpowerNotes progress notes, incident reporting, client records, documents and reporting.",
+  description: "Preview EmpowerNotes progress notes, incident reporting, integrated rostering, client records, documents, invoicing and reporting.",
   alternates: { canonical: "/features" }
 };
 
 const featureSections = [
+  {
+    id: "rostering",
+    eyebrow: "Integrated rostering",
+    title: "Coordinate people, services and locations",
+    detail: "Plan client-based shifts across shared calendars, optional houses and service locations, with staff availability, conflict-aware recommendations, private worker rosters and completed-hours reporting.",
+    icon: CalendarDays,
+    preview: "roster"
+  },
   {
     id: "progress-notes",
     eyebrow: "Progress notes",
@@ -98,7 +107,7 @@ export default function FeaturesPage() {
   );
 }
 
-function StaticPreview({ type }: { type: "note" | "incident" | "clients" | "report" }) {
+function StaticPreview({ type }: { type: "note" | "incident" | "clients" | "roster" | "report" }) {
   if (type === "note") {
     return (
       <PreviewFrame title="Progress note">
@@ -161,6 +170,26 @@ function StaticPreview({ type }: { type: "note" | "incident" | "clients" | "repo
     );
   }
 
+  if (type === "roster") {
+    return (
+      <PreviewFrame title="Roster calendar">
+        <div className="grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
+          {["Mon", "Tue", "Wed"].map((day) => <span key={day} className="rounded-md bg-slate-50 py-2">{day}</span>)}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <RosterPreviewShift time="08:00" service="Personal care" tone="teal" />
+          <RosterPreviewShift time="10:30" service="Community" tone="sky" />
+          <RosterPreviewShift time="14:00" service="In-home support" tone="amber" />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <StatusBadge label="Availability checked" tone="green" />
+          <StatusBadge label="No overlap" tone="blue" />
+          <StatusBadge label="Manager controlled" tone="slate" />
+        </div>
+      </PreviewFrame>
+    );
+  }
+
   return (
     <PreviewFrame title="Reporting overview">
       <div className="grid grid-cols-3 gap-3">
@@ -198,4 +227,9 @@ function PreviewField({ label, value }: { label: string; value: string }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div className="rounded-md bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-bold text-ink">{value}</p></div>;
+}
+
+function RosterPreviewShift({ time, service, tone }: { time: string; service: string; tone: "teal" | "sky" | "amber" }) {
+  const colours = { teal: "border-teal-500 bg-teal-50", sky: "border-sky-500 bg-sky-50", amber: "border-amber-500 bg-amber-50" };
+  return <div className={`min-h-24 rounded-md border-l-4 p-3 ${colours[tone]}`}><p className="text-xs font-bold text-ink">{time}</p><p className="mt-2 text-xs leading-5 text-slate-700">{service}</p></div>;
 }

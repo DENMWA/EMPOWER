@@ -70,6 +70,21 @@ test("discoverability architecture documents privacy and maintenance", async () 
   assert.match(docs, /must never import tenant data modules or access Supabase/);
 });
 
+test("AI discovery accurately describes integrated rostering without exposing workforce data", async () => {
+  const [knowledge, features, docs] = await Promise.all([
+    source("lib/ai-discoverability.ts"),
+    source("app/features/page.tsx"),
+    source("docs/AI_DISCOVERABILITY.md")
+  ]);
+  assert.match(knowledge, /Integrated scheduling and rostering/);
+  assert.match(knowledge, /Private weekly, fortnightly and monthly worker roster views/);
+  assert.match(knowledge, /recommendations remain advisory and manager controlled/);
+  assert.match(features, /id: "rostering"/);
+  assert.match(features, /Availability checked/);
+  assert.match(docs, /Do not describe EmpowerNotes as payroll/);
+  assert.doesNotMatch(knowledge, /participantName|staffInviteId|organisationId|accessToken/);
+});
+
 test("SEO keeps public marketing indexable and private workspaces out of search", async () => {
   const [layout, robots, sitemap, privateMetadata, privateRosterLayout, socialImage, signin] = await Promise.all([
     source("app/layout.tsx"),
