@@ -12,6 +12,7 @@ import {
   ListChecks,
   LockKeyhole,
   ReceiptText,
+  SearchCheck,
   Users
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -19,6 +20,7 @@ import { TrialRunChecklist } from "@/components/trial/TrialRunChecklist";
 import { SystemHealthPanel } from "@/components/platform/SystemHealthPanel";
 import { NdisPricingMonitorPanel } from "@/components/platform/NdisPricingMonitorPanel";
 import { MarketingAttributionPanel } from "@/components/platform/MarketingAttributionPanel";
+import { DiscoverabilityPanel } from "@/components/platform/DiscoverabilityPanel";
 import { NdisMatchQualityPanel, PlatformVisualIntelligence } from "@/components/platform/PlatformVisualIntelligence";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 import { analyticsSignals, diagnosticEvents, paymentSchedule, platformOrganisations, platformSummary, type PlatformOrganisationStatus } from "@/lib/platform-data";
@@ -27,7 +29,7 @@ import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { cn } from "@/lib/utils";
 import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 
-type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "ndis" | "diagnostics" | "analytics" | "marketing" | "security" | "support" | "trial";
+type PlatformAreaId = "overview" | "organisations" | "subscriptions" | "payments" | "ndis" | "diagnostics" | "analytics" | "marketing" | "discoverability" | "security" | "support" | "trial";
 
 const consoleAreas = [
   { id: "overview", title: "Overview", detail: "Owner snapshot for growth, revenue, active users, failed payments, and platform health.", icon: BarChart3, badge: "Home" },
@@ -38,6 +40,7 @@ const consoleAreas = [
   { id: "diagnostics", title: "Diagnostics", detail: "AI failures, upload issues, webhook delays, email reminder failures, and slow workflows.", icon: Activity, badge: "Health" },
   { id: "analytics", title: "Analytics", detail: "Feature adoption, activation, retention, usage trends, and cohort performance.", icon: BarChart3, badge: "Data" },
   { id: "marketing", title: "Marketing", detail: "First-party acquisition, pricing interest, sign-ups, and paid conversion attribution.", icon: BarChart3, badge: "Growth" },
+  { id: "discoverability", title: "Discoverability", detail: "Google performance, AI referrals, crawler activity, public discovery health, and monitored citations.", icon: SearchCheck, badge: "Search + AI" },
   { id: "security", title: "Security", detail: "Admin logins, role changes, exports, deletes, suspicious activity, and support access.", icon: LockKeyhole, badge: "Audit" },
   { id: "support", title: "Support", detail: "Search accounts, inspect recent issues, resend invites, and review account notes.", icon: LifeBuoy, badge: "Ops" },
   { id: "trial", title: "Trial Run", detail: "Internal checklist for product demos, QA walkthroughs, and end-to-end readiness checks.", icon: ListChecks, badge: "Internal" }
@@ -262,6 +265,7 @@ function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeA
   if (activeArea === "diagnostics") return <SystemHealthPanel />;
   if (activeArea === "analytics") return <div className="space-y-6"><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} ndisMatchEvents={operations.ndisMatchEvents || []} /><LiveUsagePanel data={data} operations={operations} /></div>;
   if (activeArea === "marketing") return <MarketingAttributionPanel />;
+  if (activeArea === "discoverability") return <DiscoverabilityPanel />;
   if (activeArea === "security") return <LiveSecurityPanel data={data} operations={operations} />;
   if (activeArea === "support") return <LiveSupportPanel data={data} operations={operations} onRefresh={onRefresh} />;
   return <TrialRunChecklist />;
@@ -420,6 +424,7 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
     );
   }
   if (activeArea === "marketing") return <MarketingAttributionPanel />;
+  if (activeArea === "discoverability") return <DiscoverabilityPanel />;
   if (activeArea === "security") return <PlatformPanel title="Security Audit" badge="Audit" items={securityEvents} />;
   if (activeArea === "trial") return <TrialRunChecklist />;
   return <PlatformPanel title="Support Operations" badge="Ops" items={supportEvents} />;
