@@ -1232,6 +1232,9 @@ test("marketing attribution is first party, bounded, platform private and Stripe
   assert.match(attribution, /google_ads/);
   assert.match(server, /marketingEventNames\.includes/);
   assert.match(server, /allowedMetadata/);
+  assert.match(server, /isConversionEvent\(eventName\)/);
+  assert.match(server, /user_id:\s*null/);
+  assert.match(server, /organisation_id:\s*null/);
   assert.doesNotMatch(server, /participant_name|ndis_number|progress_note|incident_text|medical_condition|support_plan|medication|restrictive_practice|auth_token/);
   assert.match(events, /content-length/);
   assert.match(signup, /resolveUserAccessContext/);
@@ -1240,6 +1243,18 @@ test("marketing attribution is first party, bounded, platform private and Stripe
   assert.match(migration, /revoke all .* from anon,authenticated/g);
   assert.match(layout, /MarketingAttribution/);
   assert.match(panel, /First-party attribution/);
+});
+
+test("OpenAI chat requests disable provider-side response storage", async () => {
+  for (const file of [
+    "app/api/ai/improve-note/route.ts",
+    "app/api/plan-progress/parse/route.ts",
+    "app/api/billing/match-ndis-service/route.ts",
+    "app/api/billing/parse-service-agreement/route.ts",
+    "app/api/roster/availability-parse/route.ts"
+  ]) {
+    assert.match(await source(file), /store:\s*false/, `${file} must disable OpenAI response storage`);
+  }
 });
 
 test("advertising tracking is excluded from authenticated care routes", async () => {

@@ -66,6 +66,9 @@ test("replacement offers are expiring, single-use and omit client information", 
   assert.doesNotMatch(send, /participantName|diagnos|progress.note/i);
   assert.match(respond, /status=eq\.pending/);
   assert.match(respond, /now conflicts with another assignment/);
+  assert.match(respond, /export async function POST/);
+  assert.match(respond, /The roster will not change until you submit/);
+  assert.doesNotMatch(send, /answer=yes|answer=no/);
   assert.match(sql, /token_hash text not null unique/);
   assert.match(sql, /enable row level security/);
   assert.match(sql, /current_user_organisation_id/);

@@ -55,6 +55,7 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(30000),
       body: JSON.stringify({
         model,
+        store: false,
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [

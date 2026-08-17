@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     if (!key) return NextResponse.json({ error: "AI availability extraction is not configured." }, { status: 503 });
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, signal: AbortSignal.timeout(60000),
-      body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-4o-mini", temperature: 0, response_format: { type: "json_object" }, messages: [
+      body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-4o-mini", store: false, temperature: 0, response_format: { type: "json_object" }, messages: [
         { role: "system", content: "Extract employee availability facts only. Return JSON as {\"lines\":[{\"weekday\":0,\"startTime\":\"09:00\",\"endTime\":\"17:00\",\"kind\":\"available\",\"notes\":\"\"}]}. weekday is 0 Sunday through 6 Saturday. kind must be available, preferred, or unavailable. Do not infer missing times or availability. Omit blank days." },
         { role: "user", content: `Availability form text:\n${extracted}` }
       ] })

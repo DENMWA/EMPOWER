@@ -30,13 +30,12 @@ export async function POST(request: NextRequest) {
   });
   if (!inserted[0]?.id) return NextResponse.json({ error: "The replacement offer could not be prepared." }, { status: 502 });
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
-  const yes = `${appUrl}/api/roster/replacement-offers/respond?token=${token}&answer=yes`;
-  const no = `${appUrl}/api/roster/replacement-offers/respond?token=${token}&answer=no`;
+  const reviewUrl = `${appUrl}/api/roster/replacement-offers/respond?token=${token}`;
   const date = new Date(shift.start_time).toLocaleDateString("en-AU", { timeZone: "Australia/Sydney", weekday: "short", day: "numeric", month: "short" });
   const time = new Date(shift.start_time).toLocaleTimeString("en-AU", { timeZone: "Australia/Sydney", hour: "2-digit", minute: "2-digit" });
   const sent = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" }, body: JSON.stringify({
     from: process.env.RESEND_FROM_EMAIL || "EmpowerNotes <notifications@empowernotes.org>", to: [staff.email], subject: "EmpowerNotes shift offer",
-    html: offerHtml(staff.name, `${date} at ${time}`, shift.location || "Service location", yes, no)
+    html: offerHtml(staff.name, `${date} at ${time}`, shift.location || "Service location", reviewUrl, reviewUrl)
   }) });
   const delivery = await safeJson<{ id?: string }>(sent);
   if (!sent.ok || !delivery.id) {

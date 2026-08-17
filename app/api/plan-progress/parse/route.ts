@@ -104,6 +104,7 @@ async function requestChatGptExtraction(messages: ChatMessage[]) {
     signal: AbortSignal.timeout(60000),
     body: JSON.stringify({
       model,
+      store: false,
       temperature: 0.1,
       response_format: { type: "json_object" },
       messages
