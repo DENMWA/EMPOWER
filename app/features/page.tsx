@@ -9,6 +9,7 @@ import {
   FolderLock,
   LineChart,
   Mic2,
+  ReceiptText,
   ShieldCheck,
   Users
 } from "lucide-react";
@@ -53,6 +54,14 @@ const featureSections = [
     detail: "Profiles, houses, agreements, medicals, CHAP documents and allied health reports stay organised by client and authorised staff access.",
     icon: FolderLock,
     preview: "clients"
+  },
+  {
+    id: "invoicing",
+    eyebrow: "Evidence-linked invoicing",
+    title: "Move from delivered support to reviewed invoice",
+    detail: "Completed services enter a client-first workflow where authorised users review evidence, NDIS codes and NDIS, agreement or manual rates before approving invoice generation.",
+    icon: ReceiptText,
+    preview: "invoice"
   },
   {
     id: "reporting",
@@ -107,7 +116,7 @@ export default function FeaturesPage() {
   );
 }
 
-function StaticPreview({ type }: { type: "note" | "incident" | "clients" | "roster" | "report" }) {
+function StaticPreview({ type }: { type: "note" | "incident" | "clients" | "roster" | "invoice" | "report" }) {
   if (type === "note") {
     return (
       <PreviewFrame title="Progress note">
@@ -185,6 +194,26 @@ function StaticPreview({ type }: { type: "note" | "incident" | "clients" | "rost
           <StatusBadge label="Availability checked" tone="green" />
           <StatusBadge label="No overlap" tone="blue" />
           <StatusBadge label="Manager controlled" tone="slate" />
+        </div>
+      </PreviewFrame>
+    );
+  }
+
+  if (type === "invoice") {
+    return (
+      <PreviewFrame title="Invoice workspace">
+        <div className="flex items-center justify-between gap-4 rounded-md border border-slate-200 p-4">
+          <div><p className="font-semibold text-ink">Demo Client</p><p className="mt-1 text-xs text-slate-500">Delivered supports ready for review</p></div>
+          <StatusBadge label="Evidence linked" tone="green" />
+        </div>
+        <div className="mt-3 overflow-hidden rounded-md border border-slate-200">
+          <div className="grid grid-cols-[1fr_auto] gap-3 bg-slate-50 px-4 py-2 text-xs font-bold uppercase text-slate-500"><span>Support item</span><span>Rate review</span></div>
+          <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-4 text-sm"><div><p className="font-semibold text-ink">NDIS support code</p><p className="mt-1 text-xs text-slate-500">Delivered hours and service date linked</p></div><p className="font-semibold text-teal-800">Authorise</p></div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <StatusBadge label="NDIS catalogue" tone="blue" />
+          <StatusBadge label="Agreement rate" tone="slate" />
+          <StatusBadge label="Manual rate" tone="amber" />
         </div>
       </PreviewFrame>
     );

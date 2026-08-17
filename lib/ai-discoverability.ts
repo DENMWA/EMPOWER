@@ -29,7 +29,20 @@ export const publicCapabilities = [
       "Completed-hours reporting and linkage from delivered services to invoicing"
     ]
   },
-  { id: "invoicing", name: "Participant invoicing", description: "Completed supports can be reviewed against approved NDIS, service-agreement or manual rates before invoice generation.", url: "/features" },
+  {
+    id: "invoicing",
+    name: "Evidence-linked participant invoicing",
+    description: "Completed supports flow into a client-first invoice workspace where authorised users review service evidence, NDIS support codes and approved NDIS, service-agreement or manual rates before generating an invoice.",
+    url: "/features#invoicing",
+    highlights: [
+      "Delivered services populate the client invoice workflow",
+      "NDIS support-code and catalogue-rate recommendations remain visible for review",
+      "Service-agreement and authorised manual pricing remain available",
+      "Evidence, agreement periods, staffing ratios and billing exceptions are checked before generation",
+      "Authorised users approve the selected code and exact rate",
+      "Participant-facing invoices exclude staff identities and clinical notes"
+    ]
+  },
   { id: "reporting", name: "Operational reporting", description: "Authorised managers can review service, incident, documentation and progress patterns.", url: "/features#reporting" }
 ] as const;
 
@@ -64,7 +77,9 @@ export function getLlmsText() {
   const planList = getPublicPlans().map((plan) => `- ${plan.name}: ${plan.price}. ${plan.bestFor}`).join("\n");
   const roster = publicCapabilities.find((item) => item.id === "rostering");
   const rosterDetails = roster && "highlights" in roster ? roster.highlights.map((item) => `- ${item}`).join("\n") : "";
-  return `# ${publicProductProfile.name}\n\n> ${publicProductProfile.summary}\n\n## Primary audience\n${publicProductProfile.audience.map((item) => `- ${item}`).join("\n")}\n\n## Capabilities\n${capabilities}\n\n## Integrated rostering\n${rosterDetails}\n\nRoster recommendations remain advisory and manager controlled. EmpowerNotes does not perform payroll, award interpretation or autonomous roster publication.\n\n## Plans\n${planList}\n\n## Important limitations\n- ${publicProductProfile.safety}\n- Public AI discovery resources never contain participant, client, staff or organisation records.\n- EmpowerNotes is not an NDIS regulator, clinical service or legal adviser.\n\n## Public resources\n- [Features](${publicProductProfile.url}/features)\n- [AI-assisted progress notes](${publicProductProfile.url}/ai-progress-notes)\n- [Pricing](${publicProductProfile.url}/pricing)\n- [Privacy](${publicProductProfile.url}/legal/privacy)\n- [Terms](${publicProductProfile.url}/legal/terms)\n- [Contact](${publicProductProfile.url}/contact)\n- [OpenAPI](${publicProductProfile.url}/openapi.json)\n- [AI manifest](${publicProductProfile.url}/.ai/manifest.json)\n`;
+  const invoicing = publicCapabilities.find((item) => item.id === "invoicing");
+  const invoicingDetails = invoicing && "highlights" in invoicing ? invoicing.highlights.map((item) => `- ${item}`).join("\n") : "";
+  return `# ${publicProductProfile.name}\n\n> ${publicProductProfile.summary}\n\n## Primary audience\n${publicProductProfile.audience.map((item) => `- ${item}`).join("\n")}\n\n## Capabilities\n${capabilities}\n\n## Integrated rostering\n${rosterDetails}\n\nRoster recommendations remain advisory and manager controlled. EmpowerNotes does not perform payroll, award interpretation or autonomous roster publication.\n\n## Evidence-linked invoicing\n${invoicingDetails}\n\nEmpowerNotes supports NDIS-aligned evidence and pricing review. It does not submit claims to the NDIA or replace provider verification, plan-manager requirements, accounting advice or NDIS compliance obligations.\n\n## Plans\n${planList}\n\n## Important limitations\n- ${publicProductProfile.safety}\n- Public AI discovery resources never contain participant, client, staff or organisation records.\n- EmpowerNotes is not an NDIS regulator, clinical service or legal adviser.\n\n## Public resources\n- [Features](${publicProductProfile.url}/features)\n- [AI-assisted progress notes](${publicProductProfile.url}/ai-progress-notes)\n- [Pricing](${publicProductProfile.url}/pricing)\n- [Privacy](${publicProductProfile.url}/legal/privacy)\n- [Terms](${publicProductProfile.url}/legal/terms)\n- [Contact](${publicProductProfile.url}/contact)\n- [OpenAPI](${publicProductProfile.url}/openapi.json)\n- [AI manifest](${publicProductProfile.url}/.ai/manifest.json)\n`;
 }
 
 export function getAiManifest() {

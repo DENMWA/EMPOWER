@@ -85,6 +85,20 @@ test("AI discovery accurately describes integrated rostering without exposing wo
   assert.doesNotMatch(knowledge, /participantName|staffInviteId|organisationId|accessToken/);
 });
 
+test("AI discovery describes evidence-linked invoicing with an explicit NDIS review boundary", async () => {
+  const [knowledge, features, docs] = await Promise.all([
+    source("lib/ai-discoverability.ts"),
+    source("app/features/page.tsx"),
+    source("docs/AI_DISCOVERABILITY.md")
+  ]);
+  assert.match(knowledge, /Evidence-linked participant invoicing/);
+  assert.match(knowledge, /Authorised users approve the selected code and exact rate/);
+  assert.match(knowledge, /does not submit claims to the NDIA/);
+  assert.match(features, /id: "invoicing"/);
+  assert.match(features, /Evidence linked/);
+  assert.match(docs, /must not claim that EmpowerNotes determines NDIS compliance/);
+});
+
 test("SEO keeps public marketing indexable and private workspaces out of search", async () => {
   const [layout, robots, sitemap, privateMetadata, privateRosterLayout, socialImage, signin] = await Promise.all([
     source("app/layout.tsx"),

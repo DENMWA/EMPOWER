@@ -19,6 +19,7 @@ The discoverability layer gives search engines and AI systems a consistent, publ
 | `/api/mcp` | Read-only MCP stub for public product discovery |
 | `/ai-progress-notes` | Source-backed informational landing page for AI-assisted progress notes |
 | `/features#rostering` | Public, privacy-safe description of integrated roster capabilities |
+| `/features#invoicing` | Public description of the evidence-linked, client-first invoice workflow |
 
 ## Structured data
 
@@ -27,6 +28,8 @@ The root layout publishes `Organization` and `WebSite` entities. The homepage pu
 Structured data must reflect visible page content. Do not add ratings, reviews, regulatory approval, compliance certification or pricing claims that are not publicly supported.
 
 The public roster description may cover client-based shifts, optional houses and service locations, multi-staff assignments, availability capture, conflict-aware recommendations, secure replacement offers, private worker roster views, completed-hours reporting and delivered-service linkage to invoicing. It must also state that recommendations are advisory and manager controlled. Do not describe EmpowerNotes as payroll, award interpretation or autonomous roster publishing software.
+
+The public invoicing description may cover completed-service reconciliation, evidence linkage, agreement-period checks, staffing ratios, billing exceptions, NDIS catalogue recommendations, service-agreement rates, manual rates, explicit authorisation and invoice exports. It must not claim that EmpowerNotes determines NDIS compliance, submits NDIA claims, guarantees payment or replaces provider and plan-manager review.
 
 ## Privacy boundary
 
