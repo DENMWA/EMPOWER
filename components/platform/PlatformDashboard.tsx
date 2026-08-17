@@ -392,6 +392,7 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
           <PlatformMetric label="MRR" value={platformSummary.monthlyRecurringRevenue} detail={`${platformSummary.annualRecurringRevenue} ARR`} icon={ReceiptText} tone="green" />
           <PlatformMetric label="Failed payments" value={platformSummary.failedPayments} detail={`${platformSummary.aiSpendMonth} AI spend this month`} icon={AlertTriangle} tone="amber" />
         </div>
+        <PresentationKpiScorecard />
         <AccountInsightsPanel />
       </div>
     );
@@ -429,6 +430,26 @@ function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
   if (activeArea === "security") return <PlatformPanel title="Security Audit" badge="Audit" items={securityEvents} />;
   if (activeArea === "trial") return <TrialRunChecklist />;
   return <PlatformPanel title="Support Operations" badge="Ops" items={supportEvents} />;
+}
+
+function PresentationKpiScorecard() {
+  const organisations = platformOrganisations.map((organisation) => ({
+    id: organisation.id,
+    users: organisation.users,
+    clients: organisation.clients
+  }));
+  const usage = platformOrganisations.map((organisation) => ({
+    organisation_id: organisation.id,
+    ai_analysed_notes: organisation.aiCalls,
+    documents_uploaded: organisation.documents,
+    invoice_lines: organisation.status === "Trial" ? 0 : organisation.notesCreated,
+    usage_period_end: "2026-08-17"
+  }));
+  const payments = paymentSchedule.map((payment) => {
+    const amountDueCents = Math.round(Number(payment.amount.replace(/[^0-9.]/g, "")) * 100) || 0;
+    return { amountDueCents, amountPaidCents: payment.status === "Upcoming" ? amountDueCents : 0 };
+  });
+  return <PlatformKpiScorecard organisations={organisations} usage={usage} supportCases={[{ status: "resolved" }, { status: "closed" }, { status: "investigating" }]} payments={payments} payingAccounts={platformOrganisations.filter((organisation) => organisation.status === "Active").length} paymentRisk={platformOrganisations.filter((organisation) => organisation.status === "Payment risk").length} />;
 }
 
 function AccountInsightsPanel() {
