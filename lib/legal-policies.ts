@@ -151,7 +151,7 @@ export const legalPolicies: LegalPolicy[] = [
         bullets: [
           "Organisation-level data separation enforced in the database.",
           "Role-based access and least-privilege permissions.",
-          "Password re-verification for sensitive organisation settings; stronger multi-factor authentication is part of the production security roadmap.",
+          "Multi-factor verification is required for privileged organisation and platform access.",
           "Encryption in transit and security controls provided by contracted hosting services.",
           "Private server-side handling of service credentials and API keys.",
           "Audit logging, monitoring and investigation of suspicious activity."

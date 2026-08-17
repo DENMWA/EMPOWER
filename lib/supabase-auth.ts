@@ -120,6 +120,28 @@ export async function verifyPhoneOtp(phone: string, token: string) {
   return result;
 }
 
+export type MfaFactor = { id: string; status?: string; friendly_name?: string; factor_type?: string };
+
+export async function getMfaFactors() {
+  const result = await authRequest<{ factors?: MfaFactor[] }>("/user", undefined, "GET");
+  return { factors: result.data?.factors || [], error: result.error };
+}
+
+export async function enrollTotpMfa() {
+  return authRequest<{ id: string; totp: { qr_code: string; secret: string; uri: string } }>("/factors", {
+    factor_type: "totp",
+    friendly_name: "EmpowerNotes privileged access"
+  });
+}
+
+export async function verifyTotpMfa(factorId: string, code: string) {
+  const challenge = await authRequest<{ id: string }>(`/factors/${encodeURIComponent(factorId)}/challenge`, {});
+  if (challenge.error || !challenge.data?.id) return { data: null as AuthSession | null, error: challenge.error || "MFA challenge could not be created." };
+  const verified = await authRequest<AuthSession>(`/factors/${encodeURIComponent(factorId)}/verify`, { challenge_id: challenge.data.id, code });
+  if (verified.data?.access_token) saveAuthSession(verified.data);
+  return verified;
+}
+
 export function signOutSupabaseSession() {
   if (typeof window === "undefined") return;
   const userId = getCurrentUserId();

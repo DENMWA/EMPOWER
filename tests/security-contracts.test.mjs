@@ -500,17 +500,33 @@ test("submitted incidents expose an actionable admin escalation workflow", async
   assert.match(records, /IncidentEscalationPriority/);
 });
 
-test("organisation settings require admin role and password step-up verification", async () => {
+test("organisation settings require admin role and aal2 step-up verification", async () => {
   const [page, gate] = await Promise.all([
     source("app/admin/settings/page.tsx"),
     source("components/admin/SettingsSecurityGate.tsx")
   ]);
   assert.match(page, /<AdminGate permission="settings">/);
   assert.match(page, /<SettingsSecurityGate>/);
-  assert.match(gate, /signInWithPassword/);
-  assert.match(gate, /\/api\/auth\/access\?mode=admin/);
-  assert.match(gate, /verificationWindowMs = 15 \* 60 \* 1000/);
-  assert.match(gate, /window\.sessionStorage/);
+  assert.match(gate, /auth\.aal === "aal2"/);
+  assert.match(gate, /\/mfa\?next=/);
+  const serverAccess = await source("lib/security/server-access.ts");
+  const context = await source("lib/security/user-access-context.ts");
+  assert.match(serverAccess, /context\.aal !== "aal2"/);
+  assert.match(context, /readAssuranceLevel/);
+});
+
+test("privileged MFA supports enrollment, challenge and verified continuation", async () => {
+  const [auth, panel, gate] = await Promise.all([
+    source("lib/supabase-auth.ts"),
+    source("components/auth/MfaSecurityPanel.tsx"),
+    source("components/admin/AdminGate.tsx")
+  ]);
+  assert.match(auth, /\/factors/);
+  assert.match(auth, /challenge_id/);
+  assert.match(auth, /verifyTotpMfa/);
+  assert.match(panel, /factor_type === "totp"/);
+  assert.match(panel, /Six-digit code/);
+  assert.match(gate, /result\.requiresMfa/);
 });
 
 test("staff and client lifecycle controls are full-admin only and preserve records", async () => {

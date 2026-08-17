@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const access = await verifyServerAccess(request, mode, permission);
 
   if (!access.allowed) {
-    return NextResponse.json({ allowed: false, reason: access.reason }, { status: access.status });
+    return NextResponse.json({ allowed: false, reason: access.reason, requiresMfa: access.requiresMfa || false }, { status: access.status });
   }
 
   return NextResponse.json({

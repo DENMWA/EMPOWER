@@ -17,6 +17,7 @@ export type UserAccessContext = {
   houseScoped: boolean;
   requestedHouseId: string;
   correlationId: string;
+  aal: "aal1" | "aal2";
 };
 
 type RequestedScope = { organisationId?: string; houseId?: string; participantId?: string };
@@ -130,11 +131,22 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
       accessibleParticipantIds,
       houseScoped: locations.length > 0,
       requestedHouseId: requested.houseId || "",
-      correlationId
+      correlationId,
+      aal: readAssuranceLevel(authorization.slice(7))
     };
     return { context, status: 200, error: "", correlationId };
   } catch {
     return denied(503, "Secure access verification is temporarily unavailable.", correlationId);
+  }
+}
+
+function readAssuranceLevel(token: string): "aal1" | "aal2" {
+  try {
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { aal?: string };
+    return decoded.aal === "aal2" ? "aal2" : "aal1";
+  } catch {
+    return "aal1";
   }
 }
 

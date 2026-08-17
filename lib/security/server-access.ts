@@ -28,12 +28,17 @@ export type ServerAccessResult = {
   permissions: string[];
   adminPermissions: AdminPermission[];
   correlationId: string;
+  requiresMfa?: boolean;
 };
 
 export async function verifyServerAccess(request: Request, mode: AccessMode, requiredPermission?: AdminPermission, requiredFeature?: FeaturePermission): Promise<ServerAccessResult> {
   const resolved = await resolveUserAccessContext(request);
   if (!resolved.context) return denied(resolved.status, resolved.error, resolved.correlationId);
   const context = resolved.context;
+
+  if ((mode === "platform" || ["owner", "admin"].includes(context.role)) && context.aal !== "aal2") {
+    return denied(403, "Multi-factor verification is required for privileged access.", context.correlationId, true);
+  }
 
   if (mode === "admin" && !canAccessAdmin(context.role, context.adminPermissions, requiredPermission)) {
     logDenied(context.userId, request, context.correlationId);
@@ -72,8 +77,8 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
   };
 }
 
-function denied(status: number, reason: string, correlationId = ""): ServerAccessResult {
-  return { allowed: false, status, reason, userId: "", email: "", role: "", organisationId: "", membershipId: "", permissions: [], adminPermissions: [], correlationId };
+function denied(status: number, reason: string, correlationId = "", requiresMfa = false): ServerAccessResult {
+  return { allowed: false, status, reason, userId: "", email: "", role: "", organisationId: "", membershipId: "", permissions: [], adminPermissions: [], correlationId, requiresMfa };
 }
 
 function logDenied(actorUserId: string, request: Request, correlationId: string) {

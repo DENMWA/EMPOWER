@@ -32,8 +32,12 @@ export function AdminGate({ children, permission }: { children: ReactNode; permi
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
-        const result = await response.json() as { allowed?: boolean; reason?: string };
+        const result = await response.json() as { allowed?: boolean; reason?: string; requiresMfa?: boolean };
         if (!result.allowed) {
+          if (result.requiresMfa) {
+            router.replace(`/mfa?next=${encodeURIComponent(window.location.pathname)}`);
+            return;
+          }
           setState("checking");
           router.replace("/dashboard");
           return;
