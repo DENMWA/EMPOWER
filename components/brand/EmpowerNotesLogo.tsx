@@ -35,13 +35,14 @@ function EmpowerNotesMark() {
     <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9">
       <defs>
         <linearGradient id={curveId} x1="7" y1="33" x2="41" y2="19" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#ccfbf1" />
+          <stop stopColor="#e6f2ff" />
+          <stop offset="0.52" stopColor="#5eead4" />
           <stop offset="1" stopColor="#0f766e" />
         </linearGradient>
       </defs>
-      <path d="M12 13h17M12 24h14M12 35h17" stroke="#17212b" strokeWidth="5.2" strokeLinecap="round" />
-      <path d="M12 13v22" stroke="#17212b" strokeWidth="5.2" strokeLinecap="round" />
-      <path d="M30 35V13l7.5 22V13" stroke="#19324d" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 13h17M12 24h14M12 35h17" stroke="#19324d" strokeWidth="5.2" strokeLinecap="round" />
+      <path d="M12 13v22" stroke="#19324d" strokeWidth="5.2" strokeLinecap="round" />
+      <path d="M30 35V13l7.5 22V13" stroke="#0b4f6c" strokeWidth="5.2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M8.5 31.5c9 7.8 18-8.5 31-3.8" fill="none" stroke={`url(#${curveId})`} strokeWidth="4.4" strokeLinecap="round" />
     </svg>
   );
