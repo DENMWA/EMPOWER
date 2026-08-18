@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Check, Home, RefreshCw, UserRound } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
-import { getTenantClients, type ClientRecord } from "@/lib/client-records";
+import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 import { acknowledgeHandover, createHandoverEntry, getRecentHandovers, handoversUpdatedEvent, type HandoverEntry, type HandoverScope } from "@/lib/handover-records";
 
@@ -37,7 +37,11 @@ export function HandoverWorkspace() {
   useEffect(() => {
     void load();
     window.addEventListener(handoversUpdatedEvent, load);
-    return () => window.removeEventListener(handoversUpdatedEvent, load);
+    window.addEventListener(clientsUpdatedEvent, load);
+    return () => {
+      window.removeEventListener(handoversUpdatedEvent, load);
+      window.removeEventListener(clientsUpdatedEvent, load);
+    };
   }, []);
 
   const houseClients = useMemo(() => clients.filter((client) => !houseId || houses.find((house) => house.id === houseId)?.clientIds.includes(client.id) || client.primaryHouseId === houseId), [clients, houseId, houses]);

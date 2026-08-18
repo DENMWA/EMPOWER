@@ -60,6 +60,15 @@ export function addStoredClient(client: ClientRecord) {
   saveStoredClients([...withoutDuplicate, client]);
 }
 
+function mergeClientRecords(cloudClients: ClientRecord[], storedClients: ClientRecord[], includeInactive: boolean) {
+  const merged = new Map<string, ClientRecord>();
+  for (const client of [...cloudClients, ...storedClients]) {
+    if (!includeInactive && client.status === "inactive") continue;
+    merged.set(client.id, client);
+  }
+  return [...merged.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 type SupabaseClientRow = {
   id: string;
   name: string;
@@ -134,14 +143,15 @@ function toClientRecord(row: SupabaseClientRow): ClientRecord {
 
 export async function getTenantClients(includeInactive = false) {
   if (isPresentationModeEnabled()) return [];
+  const storedClients = getStoredClients();
   const result = await supabaseRequest<SupabaseClientRow[]>("participants_or_clients", {
     query: `select=id,name,support_needs,communication_preferences,risk_alerts,colour_scheme_id,goals,assigned_worker_ids,primary_house_id,primary_house_name,service_name,profile_photo_path,ndis_number,preferred_name,date_of_birth,pronouns,address,contact_phone,contact_email,diagnoses,medical_conditions,allergies,medications,behaviour_support_notes,emergency_contacts,key_worker_id,status,deactivated_at,created_at${includeInactive ? "" : "&status=eq.active"}&order=created_at.desc`
   });
 
-  if (!result.data || result.error) return [];
+  if (!result.data || result.error) return mergeClientRecords([], storedClients, includeInactive);
 
   const cloudClients = result.data.map(toClientRecord);
-  return cloudClients;
+  return mergeClientRecords(cloudClients, storedClients, includeInactive);
 }
 
 export async function saveTenantClient(client: ClientRecord) {
