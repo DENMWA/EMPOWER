@@ -83,7 +83,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
         return;
       }
 
-      setMessage("Signed in. Cloud saves are now available for this user.");
+      setMessage("Signed in. Your workspace is ready.");
       const setup = await completePendingOnboarding();
       if (setup.error) {
         setMessage(setup.error);
@@ -123,7 +123,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
           <h2 className="mt-1 text-2xl font-bold text-ink">Sign in</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Secure access to your assigned workspace.</p>
         </div>
-        <StatusBadge label={!configured ? "Cloud saving not configured" : authStatus.signedIn ? "Signed in" : "Sign in required"} tone={!configured ? "red" : authStatus.signedIn ? "blue" : "amber"} />
+        <StatusBadge label={!configured ? "Account setup required" : authStatus.signedIn ? "Signed in" : "Sign in required"} tone={!configured ? "red" : authStatus.signedIn ? "blue" : "amber"} />
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
