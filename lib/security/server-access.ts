@@ -36,7 +36,10 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
   if (!resolved.context) return denied(resolved.status, resolved.error, resolved.correlationId);
   const context = resolved.context;
 
-  if ((mode === "platform" || ["owner", "admin"].includes(context.role)) && context.aal !== "aal2") {
+  const privilegedSession = mode === "platform"
+    || ["owner", "admin", "sole_provider"].includes(context.role)
+    || context.adminPermissions.length > 0;
+  if (privilegedSession && context.aal !== "aal2") {
     return denied(403, "Multi-factor verification is required for privileged access.", context.correlationId, true);
   }
 

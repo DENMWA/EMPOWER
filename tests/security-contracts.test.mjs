@@ -523,7 +523,19 @@ test("organisation settings require admin role and aal2 step-up verification", a
   const serverAccess = await source("lib/security/server-access.ts");
   const context = await source("lib/security/user-access-context.ts");
   assert.match(serverAccess, /context\.aal !== "aal2"/);
+  assert.match(serverAccess, /"sole_provider"/);
+  assert.match(serverAccess, /context\.adminPermissions\.length > 0/);
   assert.match(context, /readAssuranceLevel/);
+});
+
+test("privileged MFA is enforced by restrictive tenant and storage RLS", async () => {
+  const migration = await source("supabase/privileged-mfa-rls.sql");
+  assert.match(migration, /current_session_satisfies_privileged_mfa/);
+  assert.match(migration, /auth\.jwt\(\) ->> 'aal'/);
+  assert.match(migration, /as restrictive for all to authenticated/);
+  assert.match(migration, /on storage\.objects[\s\S]*as restrictive/);
+  assert.match(migration, /admin_permissions/);
+  assert.match(migration, /sole_provider/);
 });
 
 test("privileged MFA supports enrollment, challenge and verified continuation", async () => {
