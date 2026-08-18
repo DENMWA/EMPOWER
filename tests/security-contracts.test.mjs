@@ -58,6 +58,17 @@ test("admin navigation relies on verified server access", async () => {
   assert.match(gate, /\/api\/auth\/access\?mode=admin/);
 });
 
+test("MFA-pending administrators retain a secure Admin entry point", async () => {
+  const [shell, gate, accessRoute] = await Promise.all([
+    source("components/AppShell.tsx"),
+    source("components/admin/AdminGate.tsx"),
+    source("app/api/auth/access/route.ts")
+  ]);
+  assert.match(shell, /result\.allowed \|\| result\.requiresMfa/);
+  assert.match(gate, /router\.replace\(`\/mfa\?next=/);
+  assert.match(accessRoute, /requiresMfa: access\.requiresMfa/);
+});
+
 test("platform analytics endpoint requires platform-owner verification", async () => {
   const route = await source("app/api/platform/summary/route.ts");
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);
