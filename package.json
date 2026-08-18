@@ -8,6 +8,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
+    "test:tenant-live": "node scripts/run-live-tenant-tests.mjs",
+    "test:tenant-live:mutations": "node scripts/run-live-tenant-tests.mjs --mutations",
     "check:sql-safety": "node scripts/check-sql-safety.mjs"
   },
   "dependencies": {

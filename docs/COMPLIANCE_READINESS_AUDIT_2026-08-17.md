@@ -8,11 +8,10 @@ This engineering review assessed the application, API routes, Supabase security 
 
 ## Release blockers
 
-1. **Privileged MFA is not enforced.** Owners, organisation administrators, and the platform owner currently rely on password/email controls. Require a second independent factor for privileged accounts before broad production rollout.
+1. **Privileged MFA live evidence is pending.** Application step-up and restrictive AAL2 RLS are implemented. Apply `supabase/privileged-mfa-rls.sql` to the connected project, enrol disposable privileged identities, and record successful AAL1 denial/AAL2 access checks before broad production rollout.
 2. **Backup and restore evidence is incomplete.** Database backup/PITR settings, encrypted Storage backup, and a successful restore exercise must be recorded. Database backups alone do not restore deleted Storage objects.
 3. **Retention is documented but not automated.** Implement approved retention schedules, legal holds, deletion/de-identification jobs, and auditable exceptions before real participant data reaches scale.
-4. **Live two-tenant regression tests are not configured.** Five tests for cross-organisation rows, storage, organisation switching, suspension, and role downgrade are skipped without dedicated test identities.
-5. **The live incident-report policy set is over-broad.** Legacy organisation-wide SELECT/UPDATE policies bypass newer participant/manager scoping because permissive RLS policies combine with OR. Run `supabase/compliance-hardening-2026-08.sql` after backup and review.
+4. **Live two-tenant regression evidence is pending.** The five tests now have fail-closed project, disposable-data, credential, storage-path, and mutation guards, but still require dedicated test identities and one recorded successful run.
 
 ## High-priority hardening
 
@@ -29,6 +28,8 @@ This engineering review assessed the application, API routes, Supabase security 
 - OpenAI Chat Completions requests explicitly disable provider-side response storage.
 - Product policy wording no longer claims that privileged MFA is already implemented.
 - A controlled Supabase migration removes the known over-broad incident policies, revokes anonymous privileged RPC access, fixes mutable function search paths, and constrains document uploads.
+- The incident-report hardening migration was applied and its policy, function-grant, search-path, bucket, size, and MIME checks were verified.
+- Live two-tenant checks now fail closed unless the exact project, disposable organisations, credentials, file path and mutation intent are confirmed.
 
 ## Controls verified
 
@@ -65,8 +66,8 @@ This engineering review assessed the application, API routes, Supabase security 
 ## Verification result
 
 - TypeScript: passed
-- Automated tests: 103 passed, 5 environment-dependent tests skipped
-- SQL safety: passed for 64 SQL files
+- Automated tests: 113 passed, 5 live environment-dependent tests skipped in the ordinary no-network run
+- SQL safety: passed for 65 SQL files
 - Secret-pattern review: no committed production secret found
 - Dependency advisory scan: unavailable because the npm advisory registry could not be reached
 

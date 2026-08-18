@@ -9,6 +9,7 @@ test-results/
 .env
 .env.*
 !.env.example
+security-fixtures*.json
 
 *.log
 .DS_Store
