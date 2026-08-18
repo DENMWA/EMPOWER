@@ -5,7 +5,7 @@ import { Building2, Check, Home, RefreshCw, UserRound } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
-import { acknowledgeHandover, createHandoverEntry, getRecentHandovers, type HandoverEntry, type HandoverScope } from "@/lib/handover-records";
+import { acknowledgeHandover, createHandoverEntry, getRecentHandovers, handoversUpdatedEvent, type HandoverEntry, type HandoverScope } from "@/lib/handover-records";
 
 const categories = ["participant_update", "incident_follow_up", "appointment", "food_fluid", "operational", "other"];
 const scopes: Array<{ value: HandoverScope; label: string; detail: string; icon: typeof Home }> = [
@@ -34,7 +34,11 @@ export function HandoverWorkspace() {
     setEntries(nextEntries);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    window.addEventListener(handoversUpdatedEvent, load);
+    return () => window.removeEventListener(handoversUpdatedEvent, load);
+  }, []);
 
   const houseClients = useMemo(() => clients.filter((client) => !houseId || houses.find((house) => house.id === houseId)?.clientIds.includes(client.id) || client.primaryHouseId === houseId), [clients, houseId, houses]);
 
@@ -43,7 +47,7 @@ export function HandoverWorkspace() {
     if (scopeType === "house" && !houseId) return setMessage("Choose the house or service for this handover.");
     if (scopeType === "client" && !participantId) return setMessage("Choose the client for this handover.");
     const result = await createHandoverEntry({ scopeType, houseId, participantId, category, priority, summary: summary.trim(), followUpAction: followUpAction.trim() });
-    setMessage(result.saved ? "Handover saved." : result.error);
+    setMessage(result.savedToCloud ? "Handover saved to the workspace." : result.error);
     if (result.saved) { setSummary(""); setFollowUpAction(""); await load(); }
   }
 

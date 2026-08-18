@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, RefreshCw } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getTenantClients } from "@/lib/client-records";
-import { acknowledgeHandover, getRecentHandovers, type HandoverEntry } from "@/lib/handover-records";
+import { acknowledgeHandover, getRecentHandovers, handoversUpdatedEvent, type HandoverEntry } from "@/lib/handover-records";
 import { getTenantHouses } from "@/lib/house-records";
 
 export function DashboardHandoverPanel() {
@@ -29,7 +29,11 @@ export function DashboardHandoverPanel() {
     setLoading(false);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    window.addEventListener(handoversUpdatedEvent, load);
+    return () => window.removeEventListener(handoversUpdatedEvent, load);
+  }, []);
 
   const visibleEntries = useMemo(() => [...entries].sort((left, right) => {
     const priority = { urgent: 0, important: 1, routine: 2 };
