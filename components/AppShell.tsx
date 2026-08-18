@@ -6,13 +6,14 @@ import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
+import { EmpowerNotesLogo } from "@/components/brand/EmpowerNotesLogo";
 import { authSessionChangedEvent, getCurrentAuthStatus, signOutSupabaseSession } from "@/lib/supabase-auth";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
 import { complianceDisclaimer, cn } from "@/lib/utils";
-import { AlertTriangle, BookOpenCheck, CalendarDays, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, SquareTerminal, KeyRound, ChevronRight, Sparkles, LogOut, LifeBuoy } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, CalendarDays, LayoutDashboard, Mic, ShieldCheck, Users, FolderLock, SlidersHorizontal, KeyRound, ChevronRight, Sparkles, LogOut, LifeBuoy } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -117,13 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-ink" aria-label="Open EmpowerNotes dashboard">
-            <span className={cn("grid h-10 w-10 place-items-center rounded-lg text-base font-bold text-white shadow-sm", isPlatform ? "bg-slate-950" : "bg-sea")}>
-              {isPlatform ? <SquareTerminal size={19} aria-hidden="true" /> : "E"}
-            </span>
-            <span>
-              <span className="block text-[17px] leading-5">{isPlatform ? "EmpowerNotes Platform" : "EmpowerNotes"}</span>
-              <span className="block text-xs font-normal text-slate-500">{isPlatform ? "Owner console" : "Care delivered. Clearly recorded."}</span>
-            </span>
+            <EmpowerNotesLogo variant={isPlatform ? "platform" : "app"} tagline={isPlatform ? "Owner console" : "Care delivered. Clearly recorded."} />
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             {isPlatform ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100">Internal platform</span> : null}
