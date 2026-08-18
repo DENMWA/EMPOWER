@@ -19,7 +19,10 @@ export function EmpowerNotesLogo({ variant = "app", tagline, className }: Empowe
         {platform ? <SquareTerminal size={19} aria-hidden="true" /> : <EmpowerNotesMark />}
       </span>
       <span className="min-w-0">
-        <span className="block text-[17px] font-bold leading-5 text-ink">
+        <span className={cn(
+          "block text-[17px] font-bold leading-5",
+          platform ? "text-ink" : "bg-gradient-to-r from-navy via-[#0b4f6c] to-sea bg-clip-text text-transparent"
+        )}>
           {platform ? "EmpowerNotes Platform" : "EmpowerNotes"}
         </span>
         {tagline ? <span className="block text-xs font-normal text-slate-500">{tagline}</span> : null}
