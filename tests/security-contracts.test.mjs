@@ -167,6 +167,7 @@ test("retention scanning is review-first, legal-hold aware and privileged", asyn
   for (const table of ["retention_schedules", "legal_holds", "retention_review_queue", "retention_action_jobs"]) assert.match(migration, new RegExp(`public\\.${table}`));
   assert.match(migration, /enable row level security/);
   assert.match(migration, /prevent_held_retention_job/);
+  assert.match(migration, /seed_organisation_retention_schedules_trigger/);
   assert.match(migration, /current_session_satisfies_privileged_mfa/);
   assert.match(cron, /CRON_SECRET/);
   assert.match(cron, /destructiveActionsExecuted: 0/);
@@ -434,7 +435,7 @@ test("handover communication book supports house, client and operational scopes"
   assert.match(workspace, /Do not include client information/);
   assert.match(workspace, /scopeType === "house" && !houseId/);
   assert.match(workspace, /scopeType === "client" && !participantId/);
-  assert.match(records, /scope_type: input\.scopeType/);
+  assert.match(records, /scope_type:\s*entry\.scopeType/);
 });
 
 test("worker dashboard opens with a house-scoped incoming handover panel", async () => {
