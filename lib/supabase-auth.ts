@@ -134,6 +134,10 @@ export async function enrollTotpMfa() {
   });
 }
 
+export async function removeMfaFactor(factorId: string) {
+  return authRequest<{ id?: string }>(`/factors/${encodeURIComponent(factorId)}`, undefined, "DELETE");
+}
+
 export async function verifyTotpMfa(factorId: string, code: string) {
   const challenge = await authRequest<{ id: string }>(`/factors/${encodeURIComponent(factorId)}/challenge`, {});
   if (challenge.error || !challenge.data?.id) return { data: null as AuthSession | null, error: challenge.error || "MFA challenge could not be created." };
@@ -194,7 +198,7 @@ function saveAuthSession(session: AuthSession) {
   window.dispatchEvent(new Event(authSessionChangedEvent));
 }
 
-async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POST" | "PUT" = "POST") {
+async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POST" | "PUT" | "DELETE" = "POST") {
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Secure sign-in is not configured." };
 

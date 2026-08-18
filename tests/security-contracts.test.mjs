@@ -526,6 +526,9 @@ test("privileged MFA supports enrollment, challenge and verified continuation", 
   assert.match(auth, /verifyTotpMfa/);
   assert.match(panel, /factor_type === "totp"/);
   assert.match(panel, /Six-digit code/);
+  assert.match(panel, /normaliseQrCode/);
+  assert.match(panel, /removeMfaFactor/);
+  assert.match(panel, /Open authenticator app/);
   assert.match(gate, /result\.requiresMfa/);
 });
 
