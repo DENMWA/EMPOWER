@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/platform-metrics",
       "schedule": "45 18 * * *"
+    },
+    {
+      "path": "/api/cron/retention-review",
+      "schedule": "0 19 * * 0"
     }
   ]
 }

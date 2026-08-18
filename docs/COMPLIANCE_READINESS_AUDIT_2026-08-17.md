@@ -10,7 +10,7 @@ This engineering review assessed the application, API routes, Supabase security 
 
 1. **Privileged MFA live evidence is pending.** Application step-up and restrictive AAL2 RLS are implemented. Apply `supabase/privileged-mfa-rls.sql` to the connected project, enrol disposable privileged identities, and record successful AAL1 denial/AAL2 access checks before broad production rollout.
 2. **Backup and restore evidence is incomplete.** Database backup/PITR settings, encrypted Storage backup, and a successful restore exercise must be recorded. Database backups alone do not restore deleted Storage objects.
-3. **Retention is documented but not automated.** Implement approved retention schedules, legal holds, deletion/de-identification jobs, and auditable exceptions before real participant data reaches scale.
+3. **Retention execution evidence is pending.** Organisation-approved schedules, weekly review scanning, legal holds, auditable exceptions and controlled action jobs are implemented. Destructive execution remains intentionally disabled until backup/restore evidence and an approved operating procedure exist.
 4. **Live two-tenant regression evidence is pending.** The five tests now have fail-closed project, disposable-data, credential, storage-path, and mutation guards, but still require dedicated test identities and one recorded successful run.
 
 ## High-priority hardening
@@ -30,6 +30,7 @@ This engineering review assessed the application, API routes, Supabase security 
 - A controlled Supabase migration removes the known over-broad incident policies, revokes anonymous privileged RPC access, fixes mutable function search paths, and constrains document uploads.
 - The incident-report hardening migration was applied and its policy, function-grant, search-path, bucket, size, and MIME checks were verified.
 - Live two-tenant checks now fail closed unless the exact project, disposable organisations, credentials, file path and mutation intent are confirmed.
+- Data lifecycle controls now queue due records for review, enforce legal holds and record approved action jobs without automatically erasing customer data.
 
 ## Controls verified
 
@@ -66,8 +67,8 @@ This engineering review assessed the application, API routes, Supabase security 
 ## Verification result
 
 - TypeScript: passed
-- Automated tests: 113 passed, 5 live environment-dependent tests skipped in the ordinary no-network run
-- SQL safety: passed for 65 SQL files
+- Automated tests: 114 passed, 5 live environment-dependent tests skipped in the ordinary no-network run
+- SQL safety: passed for 66 SQL files
 - Secret-pattern review: no committed production secret found
 - Dependency advisory scan: unavailable because the npm advisory registry could not be reached
 

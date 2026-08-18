@@ -4,6 +4,7 @@ import { PresentationModeCard } from "@/components/admin/PresentationModeCard";
 import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { ProgressIntelligenceSettings } from "@/components/settings/progress/ProgressIntelligenceSettings";
 import { SettingsSecurityGate } from "@/components/admin/SettingsSecurityGate";
+import { DataLifecyclePanel } from "@/components/admin/DataLifecyclePanel";
 import { Building2, FileCheck2, FileLock2, Palette, ShieldCheck, UsersRound } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
 
@@ -31,6 +32,7 @@ export default function AdminSettingsPage() {
           <OrganisationBrandingForm />
           <PresentationModeCard />
           <ProgressIntelligenceSettings />
+          <DataLifecyclePanel />
           {settings.map((item) => (
             <Card key={item.label} className="border-slate-200/80 transition-colors hover:border-teal-200">
               <div className="flex items-start gap-3">

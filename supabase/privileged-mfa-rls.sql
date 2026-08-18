@@ -50,7 +50,8 @@ declare
     'participant_goals', 'goal_evidence', 'handover_entries', 'handover_acknowledgements',
     'support_shifts', 'shift_staff', 'shift_notes', 'shift_cancellations', 'roster_shifts',
     'staff_availability', 'roster_replacement_offers', 'service_agreements', 'service_agreement_items',
-    'native_invoices', 'native_invoice_lines', 'restrictive_practice_authorisations', 'restrictive_practice_uses'
+    'native_invoices', 'native_invoice_lines', 'restrictive_practice_authorisations', 'restrictive_practice_uses',
+    'retention_schedules', 'legal_holds', 'retention_review_queue', 'retention_action_jobs'
   ];
 begin
   foreach target_table in array protected_tables loop

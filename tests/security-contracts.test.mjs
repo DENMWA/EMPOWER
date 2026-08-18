@@ -155,6 +155,30 @@ test("background health monitoring requires a cron secret and isolates incident 
 
 test("document expiry alerts are tenant scoped, deduplicated and cron protected", async()=>{const[route,policy,ui,vercel]=await Promise.all([source("app/api/cron/document-expiry/route.ts"),source("supabase/document-expiry-notifications.sql"),source("components/admin/DocumentExpiryAlerts.tsx"),source("vercel.json")]);assert.match(route,/CRON_SECRET/);assert.match(route,/SUPABASE_SERVICE_ROLE_KEY/);assert.match(route,/RESEND_API_KEY/);assert.match(policy,/unique \(organisation_id, document_id, reminder_stage, expiry_date\)/);assert.match(policy,/enable row level security/);assert.match(policy,/current_user_organisation_id/);assert.match(ui,/Acknowledge/);assert.match(vercel,/api\/cron\/document-expiry/)});
 
+test("retention scanning is review-first, legal-hold aware and privileged", async () => {
+  const [migration, cron, route, panel, vercel, docs] = await Promise.all([
+    source("supabase/data-retention-lifecycle.sql"),
+    source("app/api/cron/retention-review/route.ts"),
+    source("app/api/admin/data-lifecycle/route.ts"),
+    source("components/admin/DataLifecyclePanel.tsx"),
+    source("vercel.json"),
+    source("docs/DATA_RETENTION_LIFECYCLE.md")
+  ]);
+  for (const table of ["retention_schedules", "legal_holds", "retention_review_queue", "retention_action_jobs"]) assert.match(migration, new RegExp(`public\\.${table}`));
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /prevent_held_retention_job/);
+  assert.match(migration, /current_session_satisfies_privileged_mfa/);
+  assert.match(cron, /CRON_SECRET/);
+  assert.match(cron, /destructiveActionsExecuted: 0/);
+  assert.match(route, /verifyServerAccess\(request, "admin", "settings"/);
+  assert.match(route, /fullAdminRoles/);
+  assert.match(route, /An active legal hold blocks this action/);
+  assert.match(panel, /Retention and legal holds/);
+  assert.match(panel, /Approved destructive jobs remain paused/);
+  assert.match(vercel, /api\/cron\/retention-review/);
+  assert.match(docs, /Execution remains disabled/);
+});
+
 test("client writes remain manager and organisation scoped", async () => {
   const policy = await source("supabase/repair-client-rls.sql");
   assert.match(policy, /organisation_id = public\.current_user_organisation_id\(\)/);
