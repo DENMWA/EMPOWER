@@ -5,5 +5,5 @@ import { PageHeader, Section } from "@/components/ui";
 export const metadata: Metadata = { title: "Secure Verification | EmpowerNotes", robots: { index: false, follow: false } };
 
 export default function MfaPage() {
-  return <><PageHeader title="One more secure step" description="Verify privileged access." /><Section><MfaSecurityPanel /></Section></>;
+  return <><PageHeader title="Developer verification" description="Extra protection for the developer console." /><Section><MfaSecurityPanel /></Section></>;
 }

@@ -93,8 +93,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store"
         });
-        const result = await response.json() as { allowed?: boolean; requiresMfa?: boolean };
-        setVerifiedAdmin(Boolean(result.allowed || result.requiresMfa));
+        const result = await response.json() as { allowed?: boolean };
+        setVerifiedAdmin(Boolean(result.allowed));
       } catch {
         setVerifiedAdmin(false);
       }

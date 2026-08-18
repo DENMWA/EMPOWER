@@ -8,7 +8,7 @@ This engineering review assessed the application, API routes, Supabase security 
 
 ## Release blockers
 
-1. **Privileged MFA live evidence is pending.** Application step-up and restrictive AAL2 RLS are implemented. Apply `supabase/privileged-mfa-rls.sql` to the connected project, enrol disposable privileged identities, and record successful AAL1 denial/AAL2 access checks before broad production rollout.
+1. **Organisation access has been simplified.** Client-facing organisation access now relies on password sign-in, role permissions and tenant RLS. Developer-console MFA remains available for platform-owner access, and `supabase/password-only-organisation-access.sql` disables the earlier organisation MFA requirement where that migration was applied.
 2. **Backup and restore evidence is incomplete.** Database backup/PITR settings, encrypted Storage backup, and a successful restore exercise must be recorded. Database backups alone do not restore deleted Storage objects.
 3. **Retention execution evidence is pending.** Organisation-approved schedules, weekly review scanning, legal holds, auditable exceptions and controlled action jobs are implemented. Destructive execution remains intentionally disabled until backup/restore evidence and an approved operating procedure exist.
 4. **Live two-tenant regression evidence is pending.** The five tests now have fail-closed project, disposable-data, credential, storage-path, and mutation guards, but still require dedicated test identities and one recorded successful run.

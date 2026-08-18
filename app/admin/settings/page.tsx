@@ -3,7 +3,6 @@ import { OrganisationBrandingForm } from "@/components/admin/OrganisationBrandin
 import { PresentationModeCard } from "@/components/admin/PresentationModeCard";
 import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { ProgressIntelligenceSettings } from "@/components/settings/progress/ProgressIntelligenceSettings";
-import { SettingsSecurityGate } from "@/components/admin/SettingsSecurityGate";
 import { DataLifecyclePanel } from "@/components/admin/DataLifecyclePanel";
 import { Building2, FileCheck2, FileLock2, Palette, ShieldCheck, UsersRound } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
@@ -20,34 +19,32 @@ const settings = [
 export default function AdminSettingsPage() {
   return (
     <AdminGate permission="settings">
-      <SettingsSecurityGate>
-        <PageHeader
-          eyebrow="Admin settings"
-          title="Organisation settings"
-          description="Manage your organisation identity, security and documentation defaults."
-          actions={<StatusBadge label="Protected" tone="green" />}
-        />
-        <Section className="grid gap-5 md:grid-cols-2">
-          <SupabaseSecurityPanel />
-          <OrganisationBrandingForm />
-          <PresentationModeCard />
-          <ProgressIntelligenceSettings />
-          <DataLifecyclePanel />
-          {settings.map((item) => (
-            <Card key={item.label} className="border-slate-200/80 transition-colors hover:border-teal-200">
-              <div className="flex items-start gap-3">
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md ${item.accent}`}>
-                  <item.icon size={18} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">{item.label}</p>
-                  <p className="mt-1 text-base font-semibold leading-6 text-ink">{item.value}</p>
-                </div>
+      <PageHeader
+        eyebrow="Admin settings"
+        title="Organisation settings"
+        description="Manage your organisation identity, security and documentation defaults."
+        actions={<StatusBadge label="Protected" tone="green" />}
+      />
+      <Section className="grid gap-5 md:grid-cols-2">
+        <SupabaseSecurityPanel />
+        <OrganisationBrandingForm />
+        <PresentationModeCard />
+        <ProgressIntelligenceSettings />
+        <DataLifecyclePanel />
+        {settings.map((item) => (
+          <Card key={item.label} className="border-slate-200/80 transition-colors hover:border-teal-200">
+            <div className="flex items-start gap-3">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md ${item.accent}`}>
+                <item.icon size={18} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-500">{item.label}</p>
+                <p className="mt-1 text-base font-semibold leading-6 text-ink">{item.value}</p>
               </div>
-            </Card>
-          ))}
-        </Section>
-      </SettingsSecurityGate>
+            </div>
+          </Card>
+        ))}
+      </Section>
     </AdminGate>
   );
 }

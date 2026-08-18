@@ -25,7 +25,7 @@ Create `security-fixtures.local.json` in the repository root. This filename is i
 }
 ```
 
-The Org A account must be active and point to Org A. Use a disposable manager role that has no privileged admin permissions, so password sign-in is sufficient for the test while privileged owner/admin accounts continue to require MFA. All Org B identifiers must exist so an empty result proves RLS denial rather than a missing test record. The document must exist in the private `participant-documents` bucket.
+The Org A account must be active and point to Org A. Use a disposable manager role so password sign-in is sufficient for the test while role and tenant checks remain active. All Org B identifiers must exist so an empty result proves RLS denial rather than a missing test record. The document must exist in the private `participant-documents` bucket.
 
 In PowerShell, confirm the exact target project and run the read-only checks:
 

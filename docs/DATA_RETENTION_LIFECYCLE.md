@@ -22,12 +22,12 @@ These are configuration starting points, not legal conclusions. Different docume
 
 ## Privacy boundary
 
-The queue stores identifiers, classes and dates, not note narratives, diagnoses or document contents. It is tenant scoped, restricted to owners/full administrators, protected by privileged MFA, and unavailable to anonymous or ordinary authenticated roles.
+The queue stores identifiers, classes and dates, not note narratives, diagnoses or document contents. It is tenant scoped, restricted to owners/full administrators, protected by password sign-in and role permissions, and unavailable to anonymous or ordinary authenticated roles.
 
 ## Deployment
 
 1. Confirm current database and private Storage backups.
-2. Apply `supabase/data-retention-lifecycle.sql` after the membership and privileged-MFA migrations.
+2. Apply `supabase/data-retention-lifecycle.sql` after the membership hardening migration.
 3. Run Supabase security and performance advisors.
 4. Redeploy so the weekly `/api/cron/retention-review` job is registered.
 5. Approve schedules only after organisational policy review.

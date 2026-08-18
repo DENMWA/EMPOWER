@@ -58,15 +58,17 @@ test("admin navigation relies on verified server access", async () => {
   assert.match(gate, /\/api\/auth\/access\?mode=admin/);
 });
 
-test("MFA-pending administrators retain a secure Admin entry point", async () => {
-  const [shell, gate, accessRoute] = await Promise.all([
+test("organisation administrators use password and role-based access", async () => {
+  const [shell, gate, accessRoute, serverAccess] = await Promise.all([
     source("components/AppShell.tsx"),
     source("components/admin/AdminGate.tsx"),
-    source("app/api/auth/access/route.ts")
+    source("app/api/auth/access/route.ts"),
+    source("lib/security/server-access.ts")
   ]);
-  assert.match(shell, /result\.allowed \|\| result\.requiresMfa/);
-  assert.match(gate, /router\.replace\(`\/mfa\?next=/);
+  assert.match(shell, /result\.allowed/);
+  assert.doesNotMatch(gate, /\/mfa\?next=/);
   assert.match(accessRoute, /requiresMfa: access\.requiresMfa/);
+  assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
 });
 
 test("platform analytics endpoint requires platform-owner verification", async () => {
@@ -536,38 +538,32 @@ test("submitted incidents expose an actionable admin escalation workflow", async
   assert.match(records, /IncidentEscalationPriority/);
 });
 
-test("organisation settings require admin role and aal2 step-up verification", async () => {
-  const [page, gate] = await Promise.all([
-    source("app/admin/settings/page.tsx"),
-    source("components/admin/SettingsSecurityGate.tsx")
-  ]);
+test("organisation settings require admin role and assigned settings permission", async () => {
+  const page = await source("app/admin/settings/page.tsx");
   assert.match(page, /<AdminGate permission="settings">/);
-  assert.match(page, /<SettingsSecurityGate>/);
-  assert.match(gate, /auth\.aal === "aal2"/);
-  assert.match(gate, /\/mfa\?next=/);
+  assert.doesNotMatch(page, /SettingsSecurityGate/);
   const serverAccess = await source("lib/security/server-access.ts");
   const context = await source("lib/security/user-access-context.ts");
-  assert.match(serverAccess, /context\.aal !== "aal2"/);
-  assert.match(serverAccess, /"sole_provider"/);
-  assert.match(serverAccess, /context\.adminPermissions\.length > 0/);
+  assert.match(serverAccess, /canAccessAdmin\(context\.role, context\.adminPermissions, requiredPermission\)/);
+  assert.match(serverAccess, /adminFeatureMap/);
+  assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
   assert.match(context, /readAssuranceLevel/);
 });
 
-test("privileged MFA is enforced by restrictive tenant and storage RLS", async () => {
-  const migration = await source("supabase/privileged-mfa-rls.sql");
+test("password-only organisation access can disable database MFA step-up", async () => {
+  const migration = await source("supabase/password-only-organisation-access.sql");
+  assert.match(migration, /current_user_requires_privileged_mfa/);
+  assert.match(migration, /select false/);
   assert.match(migration, /current_session_satisfies_privileged_mfa/);
-  assert.match(migration, /auth\.jwt\(\) ->> 'aal'/);
-  assert.match(migration, /as restrictive for all to authenticated/);
-  assert.match(migration, /on storage\.objects[\s\S]*as restrictive/);
-  assert.match(migration, /admin_permissions/);
-  assert.match(migration, /sole_provider/);
+  assert.match(migration, /select true/);
+  assert.match(migration, /role permissions and tenant RLS/);
 });
 
-test("privileged MFA supports enrollment, challenge and verified continuation", async () => {
-  const [auth, panel, gate] = await Promise.all([
+test("developer console MFA support remains available for platform access", async () => {
+  const [auth, panel, serverAccess] = await Promise.all([
     source("lib/supabase-auth.ts"),
     source("components/auth/MfaSecurityPanel.tsx"),
-    source("components/admin/AdminGate.tsx")
+    source("lib/security/server-access.ts")
   ]);
   assert.match(auth, /\/factors/);
   assert.match(auth, /challenge_id/);
@@ -577,7 +573,7 @@ test("privileged MFA supports enrollment, challenge and verified continuation", 
   assert.match(panel, /normaliseQrCode/);
   assert.match(panel, /removeMfaFactor/);
   assert.match(panel, /Open authenticator app/);
-  assert.match(gate, /result\.requiresMfa/);
+  assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
 });
 
 test("staff and client lifecycle controls are full-admin only and preserve records", async () => {
