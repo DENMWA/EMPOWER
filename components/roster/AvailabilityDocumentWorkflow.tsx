@@ -40,7 +40,7 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
     const response = await fetch("/api/roster/availability-parse", { method: "POST", headers: auth.headers, body });
     const result = await response.json() as { lines?: ProposedLine[]; error?: string };
     setBusy("");
-    if (!response.ok || !result.lines) return setMessage(result.error || "The PDF could not be read.");
+    if (!response.ok || !result.lines) return setMessage(readUploadError(result.error) || "The PDF could not be read.");
     setLines(result.lines); setMessage("Proposed lines are ready for review.");
   }
 
@@ -69,7 +69,7 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
 
   function finishSessionError(error: string) {
     setBusy("");
-    setMessage(error || "Your sign-in needs refreshing. Sign in again, then upload the availability form.");
+    setMessage(error || "Please sign in again, then upload the availability form.");
   }
 
   return (
@@ -93,17 +93,24 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
 }
 
 async function refreshedAuthHeaders(includeJson = true) {
-  const refreshed = await refreshSupabaseSession();
+  const refreshed = await refreshSupabaseSession({ force: true });
   if (!refreshed.signedIn) {
-    return { headers: null as Record<string, string> | null, error: refreshed.error || "Your sign-in needs refreshing. Sign in again, then upload the availability form." };
+    return { headers: null as Record<string, string> | null, error: refreshed.error || "Please sign in again, then upload the availability form." };
   }
 
   const token = getStoredAccessToken();
-  if (!token) return { headers: null as Record<string, string> | null, error: "Your sign-in needs refreshing. Sign in again, then upload the availability form." };
+  if (!token) return { headers: null as Record<string, string> | null, error: "Please sign in again, then upload the availability form." };
   return {
     headers: includeJson
       ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
       : { Authorization: `Bearer ${token}` },
     error: ""
   };
+}
+
+function readUploadError(error = "") {
+  if (/session is no longer valid|jwt|token|expired/i.test(error)) {
+    return "Please sign in again, then upload the availability form.";
+  }
+  return error;
 }

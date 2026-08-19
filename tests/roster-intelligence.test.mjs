@@ -34,8 +34,9 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
   assert.match(workflow, /Publish availability/);
   assert.match(workflow, /Blank template/);
   assert.match(workflow, /Staff template/);
-  assert.match(workflow, /refreshSupabaseSession/);
-  assert.match(workflow, /Your sign-in needs refreshing/);
+  assert.match(workflow, /refreshSupabaseSession\(\{ force: true \}\)/);
+  assert.match(workflow, /Please sign in again, then upload the availability form/);
+  assert.match(workflow, /readUploadError/);
   assert.match(workflow, /saveStaffAvailability/);
 });
 

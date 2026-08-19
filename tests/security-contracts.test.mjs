@@ -61,6 +61,8 @@ test("stored Supabase sessions refresh instead of dropping workspace access", as
     source("components/AppShell.tsx")
   ]);
   assert.match(auth, /refreshSupabaseSession/);
+  assert.match(auth, /options: \{ force\?: boolean \} = \{\}/);
+  assert.match(auth, /!options\.force/);
   assert.match(auth, /grant_type=refresh_token/);
   assert.match(auth, /refresh_token: session\.refresh_token/);
   assert.doesNotMatch(auth, /decoded\.exp && decoded\.exp \* 1000 <= Date\.now\(\)\)\s*\{\s*signOutSupabaseSession/);

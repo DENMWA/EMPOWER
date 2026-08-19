@@ -71,14 +71,14 @@ export async function signInWithPassword(email: string, password: string) {
   return result;
 }
 
-export async function refreshSupabaseSession() {
+export async function refreshSupabaseSession(options: { force?: boolean } = {}) {
   const session = getStoredAuthSession();
   if (!session?.refresh_token) {
     if (session?.access_token && isTokenExpired(session.access_token)) signOutSupabaseSession();
     return { refreshed: false, signedIn: Boolean(session?.access_token && !isTokenExpired(session.access_token)), error: "" };
   }
 
-  if (session.access_token && !isTokenExpiringSoon(session.access_token)) {
+  if (!options.force && session.access_token && !isTokenExpiringSoon(session.access_token)) {
     return { refreshed: false, signedIn: true, error: "" };
   }
 
