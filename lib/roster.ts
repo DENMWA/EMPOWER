@@ -35,6 +35,7 @@ export type RosterFilters = {
 };
 
 export type RosterReportPeriod = "weekly" | "fortnightly" | "monthly";
+export type RosterPlanningView = "day" | "week" | "fortnight" | "month" | "quarter" | "year";
 
 export type StaffHoursSummary = {
   workerId: string;
@@ -291,6 +292,12 @@ export function getWeekRosterShifts(shifts: RosterShift[] = rosterShifts, select
   return shifts.filter((shift) => dates.includes(shift.shiftDate));
 }
 
+export function getRosterRangeShifts(shifts: RosterShift[] = rosterShifts, selectedDate = today, view: RosterPlanningView = "week") {
+  if (view === "day") return shifts.filter((shift) => shift.shiftDate === selectedDate);
+  const range = getRosterPlanningRange(selectedDate, view);
+  return shifts.filter((shift) => shift.shiftDate >= range.startKey && shift.shiftDate <= range.endKey);
+}
+
 export function getRosterSummary(shifts: RosterShift[] = rosterShifts) {
   const todayShifts = getTodayRosterShifts(shifts);
   return {
@@ -482,7 +489,54 @@ export function getWeekStart(selectedDate: string) {
 
 export function getRosterWeekDays(selectedDate: string) {
   const start = getWeekStart(selectedDate);
-  return Array.from({ length: 7 }, (_, index) => {
+  return getRosterRangeDaysFromStart(start, 7);
+}
+
+export function getRosterFortnightDays(selectedDate: string) {
+  const start = getWeekStart(selectedDate);
+  return getRosterRangeDaysFromStart(start, 14);
+}
+
+export function getRosterPlanningRange(selectedDate: string, view: RosterPlanningView) {
+  const selected = new Date(`${selectedDate}T00:00:00`);
+  const start = view === "month"
+    ? new Date(selected.getFullYear(), selected.getMonth(), 1)
+    : view === "quarter"
+      ? new Date(selected.getFullYear(), Math.floor(selected.getMonth() / 3) * 3, 1)
+      : view === "year"
+        ? new Date(selected.getFullYear(), 0, 1)
+        : getWeekStart(selectedDate);
+  const end = new Date(start);
+
+  if (view === "day") {
+    end.setTime(selected.getTime());
+    start.setTime(selected.getTime());
+  } else if (view === "week") {
+    end.setDate(start.getDate() + 6);
+  } else if (view === "fortnight") {
+    end.setDate(start.getDate() + 13);
+  } else if (view === "month") {
+    end.setMonth(start.getMonth() + 1);
+    end.setDate(0);
+  } else if (view === "quarter") {
+    end.setMonth(start.getMonth() + 3);
+    end.setDate(0);
+  } else {
+    end.setFullYear(start.getFullYear() + 1);
+    end.setDate(0);
+  }
+
+  return {
+    start,
+    end,
+    startKey: dateKey(start),
+    endKey: dateKey(end),
+    label: formatRosterRangeLabel(start, end, view)
+  };
+}
+
+function getRosterRangeDaysFromStart(start: Date, length: number) {
+  return Array.from({ length }, (_, index) => {
     const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
     return {
       date,
@@ -491,6 +545,14 @@ export function getRosterWeekDays(selectedDate: string) {
       shortDate: date.toLocaleDateString("en-AU", { day: "numeric", month: "short" })
     };
   });
+}
+
+function formatRosterRangeLabel(start: Date, end: Date, view: RosterPlanningView) {
+  if (view === "day") return start.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  if (view === "month") return start.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+  if (view === "quarter") return `${start.toLocaleDateString("en-AU", { month: "short" })} - ${end.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}`;
+  if (view === "year") return String(start.getFullYear());
+  return `${start.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
 function getRosterReportRange(period: RosterReportPeriod, selectedDate: string) {

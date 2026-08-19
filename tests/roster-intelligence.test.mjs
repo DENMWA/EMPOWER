@@ -41,7 +41,7 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
 });
 
 test("roster service locations are optional, tenant scoped and filterable", async () => {
-  const [modal, cloud, filters, sql, roster, rest, card, week, month, page] = await Promise.all([
+  const [modal, cloud, filters, sql, roster, rest, card, week, planning, page] = await Promise.all([
     source("components/roster/CreateRosterShiftModal.tsx"),
     source("lib/roster-cloud.ts"),
     source("components/roster/RosterFilters.tsx"),
@@ -50,7 +50,7 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
     source("lib/supabase-rest.ts"),
     source("components/roster/RosterShiftCard.tsx"),
     source("components/roster/RosterWeekView.tsx"),
-    source("components/roster/RosterMonthView.tsx"),
+    source("components/roster/RosterPlanningOverview.tsx"),
     source("components/roster/RosterPage.tsx")
   ]);
   assert.match(modal, /Client home/);
@@ -79,13 +79,21 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(card, /Assigned shift|colour\.label|getRosterCoverageColour/);
   assert.match(week, /getRosterCoverageColour/);
   assert.match(week, /Staff \/ coverage/);
-  assert.match(week, /repeat\(7,minmax\(120px,1fr\)\)/);
+  assert.match(week, /getRosterFortnightDays/);
+  assert.match(week, /repeat\(14,minmax\(120px,1fr\)\)/);
   assert.match(week, /Unassigned \/ vacant/);
   assert.match(week, /\+ Add shift/);
   assert.match(week, /onCreateShift/);
-  assert.match(month, /getRosterCoverageColour/);
+  assert.match(planning, /RosterPlanningOverview/);
+  assert.match(planning, /month"\s*\|\s*"quarter"\s*\|\s*"year"/);
+  assert.match(planning, /getPlanningBuckets/);
   assert.match(page, /replacementShiftId/);
   assert.match(page, /shiftPrefill/);
+  assert.match(page, /planningOffsetWeeks/);
+  assert.match(page, /max="52"/);
+  assert.match(page, /fortnight/);
+  assert.match(page, /quarter/);
+  assert.match(page, /year/);
   assert.match(page, /getTenantStaffInvites/);
   assert.match(page, /Roster coverage colours/);
 });

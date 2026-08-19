@@ -1,7 +1,7 @@
 "use client";
 
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
-import { getRosterCoverageColour, getRosterWeekDays, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
+import { getRosterCoverageColour, getRosterFortnightDays, getRosterWeekDays, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 type RosterRow = {
@@ -12,24 +12,27 @@ type RosterRow = {
 
 export function RosterWeekView({
   selectedDate,
+  span = "week",
   shifts,
   workers,
   onOpenShift,
   onCreateShift
 }: {
   selectedDate: string;
+  span?: "week" | "fortnight";
   shifts: RosterShift[];
   workers: Array<{ id: string; name: string }>;
   onOpenShift: (shift: RosterShift) => void;
   onCreateShift: (input: { shiftDate: string; workerId?: string }) => void;
 }) {
-  const days = getRosterWeekDays(selectedDate);
+  const days = span === "fortnight" ? getRosterFortnightDays(selectedDate) : getRosterWeekDays(selectedDate);
   const rows = getRosterRows(shifts, workers);
+  const dayColumns = span === "fortnight" ? "grid-cols-[180px_repeat(14,minmax(120px,1fr))_80px_90px]" : "grid-cols-[180px_repeat(7,minmax(120px,1fr))_80px_90px]";
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
-      <div className="min-w-[1120px]">
-        <div className="grid grid-cols-[180px_repeat(7,minmax(120px,1fr))_80px_90px] border-b border-slate-200 bg-sky-900 text-white">
+      <div className={cn(span === "fortnight" ? "min-w-[1960px]" : "min-w-[1120px]")}>
+        <div className={cn("grid border-b border-slate-200 bg-sky-900 text-white", dayColumns)}>
           <div className="px-3 py-3 text-sm font-bold">Staff / coverage</div>
           {days.map((day) => (
             <div key={day.dateKey} className="border-l border-sky-700 px-3 py-3 text-center">
@@ -49,7 +52,7 @@ export function RosterWeekView({
           }).length;
 
           return (
-            <div key={row.id} className={cn("grid grid-cols-[180px_repeat(7,minmax(120px,1fr))_80px_90px] border-b border-slate-100", rowIndex % 2 ? "bg-slate-50/60" : "bg-white")}>
+            <div key={row.id} className={cn("grid border-b border-slate-100", dayColumns, rowIndex % 2 ? "bg-slate-50/60" : "bg-white")}>
               <div className="sticky left-0 z-10 border-r border-slate-200 bg-inherit px-3 py-3">
                 <p className="text-sm font-bold text-ink">{row.name}</p>
                 <p className="mt-1 text-xs font-medium text-slate-500">{row.id === "unassigned" ? "Needs allocation" : "Rostered worker"}</p>

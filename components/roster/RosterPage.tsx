@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, ListChecks, LockKeyhole, UserPlus } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, LockKeyhole, UserPlus } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
 import { RosterFilters } from "@/components/roster/RosterFilters";
-import { RosterMonthView } from "@/components/roster/RosterMonthView";
+import { RosterPlanningOverview } from "@/components/roster/RosterPlanningOverview";
 import { RosterIntelligencePanel } from "@/components/roster/RosterIntelligencePanel";
 import { RosterShiftModal } from "@/components/roster/RosterShiftModal";
 import { RosterStatusReports } from "@/components/roster/RosterStatusReports";
@@ -15,9 +15,10 @@ import { RosterWeekView } from "@/components/roster/RosterWeekView";
 import { Card, PageHeader, Section } from "@/components/ui";
 import {
   filterRosterShifts,
+  getRosterPlanningRange,
+  getRosterRangeShifts,
   getRosterShiftConflicts,
   getRosterSummary,
-  getWeekRosterShifts,
   markRosterShiftCompleted,
   markRosterShiftCancelled,
   markRosterShiftNoteCompleted,
@@ -25,6 +26,7 @@ import {
   getShiftAssignedWorkers,
   saveRosterShifts,
   type RosterFilters as RosterFiltersType,
+  type RosterPlanningView,
   type RosterShift
 } from "@/lib/roster";
 import { cn } from "@/lib/utils";
@@ -32,8 +34,9 @@ import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-clou
 import { getTenantStaffInvites } from "@/lib/staff-records";
 
 export function RosterPage() {
-  const [view, setView] = useState<"day" | "week" | "month">("week");
+  const [view, setView] = useState<RosterPlanningView>("week");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [planningOffsetWeeks, setPlanningOffsetWeeks] = useState(0);
   const [filters, setFilters] = useState<RosterFiltersType>({ workerId: "all", serviceLocationId: "all", status: "all", noteState: "all" });
   const [shifts, setShifts] = useState<RosterShift[]>([]);
   const [activeShift, setActiveShift] = useState<RosterShift | null>(null);
@@ -55,11 +58,7 @@ export function RosterPage() {
   }, []);
 
   const visibleShifts = useMemo(() => {
-    const scoped = view === "day"
-      ? shifts.filter((shift) => shift.shiftDate === selectedDate)
-      : view === "week"
-        ? getWeekRosterShifts(shifts, selectedDate)
-        : shifts;
+    const scoped = getRosterRangeShifts(shifts, selectedDate, view);
     return filterRosterShifts(scoped, filters);
   }, [filters, selectedDate, shifts, view]);
 
@@ -68,28 +67,35 @@ export function RosterPage() {
   const rosterWorkers = Array.from(new Map(shifts.flatMap((shift) => getShiftAssignedWorkers(shift)).map((worker) => [worker.id, worker])).values());
   const allRosterWorkers = Array.from(new Map([...staffOptions, ...rosterWorkers].filter((worker) => worker.id).map((worker) => [worker.id, worker])).values());
   const rosterLocations = Array.from(new Map(shifts.filter((shift) => shift.serviceLocationId).map((shift) => [shift.serviceLocationId!, { id: shift.serviceLocationId!, name: shift.serviceLocationName || shift.location }])).values());
-  const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
-    month: "long",
-    year: "numeric",
-    ...(view === "day" ? { day: "numeric", weekday: "long" } : {})
-  });
+  const selectedRange = getRosterPlanningRange(selectedDate, view);
+  const selectedDateLabel = selectedRange.label;
 
   function moveCalendar(direction: -1 | 1) {
     const date = new Date(`${selectedDate}T00:00:00`);
     if (view === "day") date.setDate(date.getDate() + direction);
     if (view === "week") date.setDate(date.getDate() + (7 * direction));
+    if (view === "fortnight") date.setDate(date.getDate() + (14 * direction));
     if (view === "month") date.setMonth(date.getMonth() + direction);
+    if (view === "quarter") date.setMonth(date.getMonth() + (3 * direction));
+    if (view === "year") date.setFullYear(date.getFullYear() + direction);
     setSelectedDate(toDateKey(date));
   }
 
-  function openDay(date: string) {
+  function openWeek(date: string) {
     setSelectedDate(date);
-    setView("day");
+    setView("week");
   }
 
   function openCreateShift(prefill?: { shiftDate?: string; workerIds?: string[] }) {
     setShiftPrefill(prefill);
     setCreating(true);
+  }
+
+  function jumpPlanningOffset(weeks: number) {
+    const today = new Date();
+    today.setDate(today.getDate() + weeks * 7);
+    setPlanningOffsetWeeks(weeks);
+    setSelectedDate(toDateKey(today));
   }
 
   function updateActive(updatedShifts: RosterShift[], shiftId: string) {
@@ -223,22 +229,36 @@ export function RosterPage() {
               </button>
               <h2 className="ml-1 text-xl font-bold text-ink">{selectedDateLabel}</h2>
             </div>
+            <label className="mt-4 grid max-w-2xl gap-2 text-sm font-medium text-slate-700">
+              Planning slider: {planningOffsetWeeks === 0 ? "Current week" : `${planningOffsetWeeks} week${planningOffsetWeeks === 1 ? "" : "s"} ahead`}
+              <input
+                type="range"
+                min="0"
+                max="52"
+                step="1"
+                value={planningOffsetWeeks}
+                onChange={(event) => jumpPlanningOffset(Number(event.target.value))}
+                className="w-full accent-teal-700"
+              />
+            </label>
           </div>
           <div className="flex flex-wrap gap-3">
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Date
               <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" />
             </label>
-            <div className="grid grid-cols-3 rounded-md border border-slate-300 bg-white p-1" aria-label="Roster view">
-              <button type="button" onClick={() => setView("day")} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold", view === "day" ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}>
-                <ListChecks size={17} aria-hidden="true" />Day
-              </button>
-              <button type="button" onClick={() => setView("week")} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold", view === "week" ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}>
-                <LayoutGrid size={17} aria-hidden="true" />Week
-              </button>
-              <button type="button" onClick={() => setView("month")} className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold", view === "month" ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}>
-                <CalendarDays size={17} aria-hidden="true" />Month
-              </button>
+            <div className="grid grid-cols-2 rounded-md border border-slate-300 bg-white p-1 sm:grid-cols-5" aria-label="Roster planning range">
+              {(["week", "fortnight", "month", "quarter", "year"] as const).map((range) => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setView(range)}
+                  className={cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold capitalize", view === range ? "bg-ink text-white" : "text-slate-700 hover:bg-slate-50")}
+                >
+                  {range === "week" ? <LayoutGrid size={17} aria-hidden="true" /> : range === "month" ? <CalendarDays size={17} aria-hidden="true" /> : null}
+                  {range}
+                </button>
+              ))}
             </div>
           </div>
         </Card>
@@ -265,10 +285,10 @@ export function RosterPage() {
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
-        ) : view === "week" ? (
-          <RosterWeekView selectedDate={selectedDate} shifts={visibleShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
+        ) : view === "week" || view === "fortnight" ? (
+          <RosterWeekView selectedDate={selectedDate} span={view} shifts={visibleShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
         ) : (
-          <RosterMonthView selectedDate={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} onSelectDate={openDay} />
+          <RosterPlanningOverview selectedDate={selectedDate} view={view} shifts={visibleShifts} onSelectDate={openWeek} />
         )}
       </Section>
 
