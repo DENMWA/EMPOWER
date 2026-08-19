@@ -6,6 +6,7 @@ import { Card } from "@/components/ui";
 import { saveStaffAvailability } from "@/lib/roster-intelligence-cloud";
 import type { AvailabilityKind, StaffAvailability } from "@/lib/roster-intelligence";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
+import { refreshSupabaseSession } from "@/lib/supabase-auth";
 
 type ProposedLine = { id: string; weekday: number; day: string; startTime: string; endTime: string; kind: AvailabilityKind; notes: string };
 
@@ -19,7 +20,9 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   async function downloadTemplate(templateType: "blank" | "staff") {
     if (templateType === "staff" && !staffInviteId) return setMessage("Choose a staff member first.");
     setBusy("download");
-    const response = await fetch("/api/roster/availability-form", { method: "POST", headers: authHeaders(), body: JSON.stringify({ staffInviteId, templateType }) });
+    const auth = await refreshedAuthHeaders();
+    if (!auth.headers) return finishSessionError(auth.error);
+    const response = await fetch("/api/roster/availability-form", { method: "POST", headers: auth.headers, body: JSON.stringify({ staffInviteId, templateType }) });
     if (!response.ok) return finishError(response, "The PDF could not be generated.");
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -31,8 +34,10 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   async function parseForm() {
     if (!file || !staffInviteId) return setMessage("Choose staff and upload the completed PDF.");
     setBusy("parse"); setConfirmed(false);
+    const auth = await refreshedAuthHeaders(false);
+    if (!auth.headers) return finishSessionError(auth.error);
     const body = new FormData(); body.append("file", file); body.append("staffInviteId", staffInviteId);
-    const response = await fetch("/api/roster/availability-parse", { method: "POST", headers: { Authorization: `Bearer ${getStoredAccessToken() || ""}` }, body });
+    const response = await fetch("/api/roster/availability-parse", { method: "POST", headers: auth.headers, body });
     const result = await response.json() as { lines?: ProposedLine[]; error?: string };
     setBusy("");
     if (!response.ok || !result.lines) return setMessage(result.error || "The PDF could not be read.");
@@ -42,6 +47,8 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   async function publish() {
     if (!confirmed || !lines.length) return setMessage("Confirm the employee supplied or approved these details before publishing.");
     setBusy("publish");
+    const auth = await refreshedAuthHeaders(false);
+    if (!auth.headers) return finishSessionError(auth.error);
     const records = lines.map<StaffAvailability>((line) => ({ id: crypto.randomUUID(), staffInviteId, weekday: line.weekday, specificDate: null, startTime: line.startTime, endTime: line.endTime, kind: line.kind, recurring: true, notes: line.notes }));
     const results = await Promise.all(records.map(saveStaffAvailability));
     const saved = records.filter((_, index) => results[index].saved);
@@ -58,6 +65,11 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   async function finishError(response: Response, fallback: string) {
     const result = await response.json().catch(() => ({})) as { error?: string };
     setBusy(""); setMessage(result.error || fallback);
+  }
+
+  function finishSessionError(error: string) {
+    setBusy("");
+    setMessage(error || "Your sign-in needs refreshing. Sign in again, then upload the availability form.");
   }
 
   return (
@@ -80,4 +92,18 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   );
 }
 
-function authHeaders() { return { Authorization: `Bearer ${getStoredAccessToken() || ""}`, "Content-Type": "application/json" }; }
+async function refreshedAuthHeaders(includeJson = true) {
+  const refreshed = await refreshSupabaseSession();
+  if (!refreshed.signedIn) {
+    return { headers: null as Record<string, string> | null, error: refreshed.error || "Your sign-in needs refreshing. Sign in again, then upload the availability form." };
+  }
+
+  const token = getStoredAccessToken();
+  if (!token) return { headers: null as Record<string, string> | null, error: "Your sign-in needs refreshing. Sign in again, then upload the availability form." };
+  return {
+    headers: includeJson
+      ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      : { Authorization: `Bearer ${token}` },
+    error: ""
+  };
+}
