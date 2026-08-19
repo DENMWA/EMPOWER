@@ -59,12 +59,8 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       return;
     }
     const assignedWorkers = workerOptions.filter((worker) => selectedWorkerIds.includes(worker.id));
-    if (!assignedWorkers.length) {
-      setError("Select at least one staff member for this shift.");
-      return;
-    }
     const expectedStaffCount = Number(staffingRatio.split(":")[0]);
-    if (Number.isFinite(expectedStaffCount) && staffingRatio !== "group" && assignedWorkers.length !== expectedStaffCount) {
+    if (assignedWorkers.length && Number.isFinite(expectedStaffCount) && staffingRatio !== "group" && assignedWorkers.length !== expectedStaffCount) {
       setError(`${staffingRatio} support requires ${expectedStaffCount} assigned staff member${expectedStaffCount === 1 ? "" : "s"}.`);
       return;
     }
@@ -79,8 +75,8 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       participantId,
       participantName: participantOptions.find((item) => item.id === participantId)?.name,
       participantPhotoPath: participantOptions.find((item) => item.id === participantId)?.profilePhotoPath,
-      workerId: assignedWorkers[0].id,
-      workerName: assignedWorkers[0].name,
+      workerId: assignedWorkers[0]?.id || "",
+      workerName: assignedWorkers[0]?.name || "Unassigned",
       assignedWorkers,
       staffingRatio,
       supportType,
@@ -127,7 +123,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
           <fieldset className="grid gap-2 rounded-md border border-slate-200 p-3 sm:col-span-2">
             <legend className="px-1 text-sm font-medium text-slate-700">Assigned staff</legend>
             <div className="grid gap-2 sm:grid-cols-2">
-              {!workerOptions.length ? <p className="text-sm text-slate-600">Add staff before creating a roster shift.</p> : null}
+              {!workerOptions.length ? <p className="text-sm text-slate-600">Add staff before assigning this roster shift, or save it as unassigned.</p> : null}
               {workerOptions.map((worker) => (
                 <label key={worker.id} className="flex min-h-11 items-center gap-2 rounded-md bg-slate-50 px-3 text-sm font-semibold text-slate-700">
                   <input type="checkbox" checked={selectedWorkerIds.includes(worker.id)} onChange={() => toggleWorker(worker.id)} className="h-4 w-4 accent-teal-700" />
@@ -135,6 +131,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
                 </label>
               ))}
             </div>
+            <p className="text-xs leading-5 text-slate-500">Leave staff unticked to place the shift on the roster as unassigned for later allocation.</p>
           </fieldset>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Staffing ratio

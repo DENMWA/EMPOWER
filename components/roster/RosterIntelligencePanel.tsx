@@ -13,7 +13,17 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { shifts: RosterShift[]; selectedDate: string; onAssign: (shiftId: string, worker: { id: string; name: string }) => void }) {
+export function RosterIntelligencePanel({
+  shifts,
+  selectedDate,
+  replacementShiftId,
+  onAssign
+}: {
+  shifts: RosterShift[];
+  selectedDate: string;
+  replacementShiftId?: string;
+  onAssign: (shiftId: string, worker: { id: string; name: string }) => void;
+}) {
   const [staff, setStaff] = useState<StaffRecord[]>([]);
   const [availability, setAvailability] = useState<StaffAvailability[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
@@ -37,6 +47,12 @@ export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { sh
   const candidateShifts = useMemo(() => shifts.filter((shift) => !["Completed", "Note Completed", "No Show"].includes(shift.status)), [shifts]);
   const selectedShift = candidateShifts.find((shift) => shift.id === selectedShiftId) || null;
   const recommendations = selectedShift ? recommendStaffForShift({ shift: selectedShift, staff, availability, shifts }) : [];
+
+  useEffect(() => {
+    if (replacementShiftId && candidateShifts.some((shift) => shift.id === replacementShiftId)) {
+      setSelectedShiftId(replacementShiftId);
+    }
+  }, [candidateShifts, replacementShiftId]);
 
   async function addAvailability() {
     if (!selectedStaffId || endTime <= startTime) {
@@ -85,7 +101,7 @@ export function RosterIntelligencePanel({ shifts, selectedDate, onAssign }: { sh
 
       <Card>
         <div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-md bg-teal-50 text-teal-800"><BrainCircuit size={20} /></span><div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster intelligence</p><h2 className="mt-1 text-xl font-bold text-ink">Coverage recommendations</h2></div></div>
-        <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">Shift<select value={selectedShiftId} onChange={(event) => setSelectedShiftId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3"><option value="">Choose a shift</option>{candidateShifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.shiftDate} · {shift.startTime} · {shift.participantName}</option>)}</select></label>
+        <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">Shift<select value={selectedShiftId} onChange={(event) => setSelectedShiftId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3"><option value="">Choose a shift</option>{candidateShifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.shiftDate} - {shift.startTime} - {shift.participantName}{shift.status === "Cancelled" ? " - cancelled" : !shift.workerId && !shift.assignedWorkers?.length ? " - unassigned" : ""}</option>)}</select></label>
         {!selectedShift ? <p className="mt-4 text-sm text-slate-600">Choose a shift to rank eligible staff.</p> : null}
         <div className="mt-4 space-y-3">{recommendations.slice(0, 5).map((item) => <div key={item.staffId} className={`rounded-md border p-4 ${item.eligible ? "border-teal-200 bg-teal-50" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{item.staffName}</p><p className="mt-1 text-sm text-slate-600">{item.reasons.join(" · ")}</p>{item.warnings.length ? <p className="mt-2 text-xs font-semibold text-amber-800">Review: {item.warnings.join(" · ")}</p> : null}</div><span className="inline-flex items-center gap-1 text-sm font-bold text-teal-800"><Sparkles size={15} />{item.score}</span></div><div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={!item.eligible} onClick={() => onAssign(selectedShift!.id, { id: item.staffId, name: item.staffName })} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Assign</button><button type="button" disabled={!item.eligible || offering === item.staffId} onClick={() => sendOffer(item)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink disabled:opacity-40"><Mail size={16} />Send Y/N offer</button></div></div>)}</div>
         <p className="mt-4 text-xs leading-5 text-slate-500">Recommendations are advisory. Managers remain responsible for suitability, award conditions, fatigue and final publication.</p>

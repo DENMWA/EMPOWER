@@ -3,20 +3,20 @@
 import { FileText, MapPin, UserRound } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
 import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
-import { getEmployeeColourScheme, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
+import { getRosterCoverageColour, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterShiftCard({ shift, onOpen }: { shift: RosterShift; onOpen: (shift: RosterShift) => void }) {
-  const assignedWorkers = getShiftAssignedWorkers(shift);
-  const colour = getEmployeeColourScheme(assignedWorkers[0]?.id || shift.workerId);
+  const colour = getRosterCoverageColour(shift);
 
   return (
     <button
       type="button"
       onClick={() => onOpen(shift)}
       className={cn(
-        "w-full rounded-md border-l-4 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700",
-        colour.border
+        "w-full rounded-md border-l-4 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lift focus:outline focus:outline-2 focus:outline-teal-700",
+        colour.border,
+        colour.softBg
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -28,7 +28,13 @@ export function RosterShiftCard({ shift, onOpen }: { shift: RosterShift; onOpen:
           <p className="mt-1 text-sm font-medium text-slate-700">{shift.supportType}</p>
           </div>
         </div>
-        <RosterStatusBadge status={shift.status} />
+        <div className="flex flex-col items-end gap-2">
+          <RosterStatusBadge status={shift.status} />
+          <span className={cn("inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1 text-xs font-bold", colour.text)}>
+            <span className={cn("h-2 w-2 rounded-full", colour.dot)} aria-hidden="true" />
+            {colour.label}
+          </span>
+        </div>
       </div>
       <div className="mt-4 grid gap-2 text-sm text-slate-600">
         <span className="inline-flex items-start gap-2"><UserRound size={16} className="mt-0.5 shrink-0" aria-hidden="true" /><span><strong className="font-semibold text-slate-700">{getShiftStaffLabel(shift)}</strong>{shift.staffingRatio ? ` (${shift.staffingRatio})` : ""}</span></span>

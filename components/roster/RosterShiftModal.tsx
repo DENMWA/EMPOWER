@@ -1,25 +1,31 @@
 "use client";
 
-import { CheckCircle2, FileCheck2, MapPin, X } from "lucide-react";
+import { CheckCircle2, FileCheck2, MapPin, Send, UserX, X } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
 import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
-import { getEmployeeColourScheme, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
+import { getRosterCoverageColour, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterShiftModal({
   shift,
   onClose,
   onComplete,
-  onNoteCompleted
+  onNoteCompleted,
+  onCancelShift,
+  onMarkVacant,
+  onRequestReplacement
 }: {
   shift: RosterShift | null;
   onClose: () => void;
   onComplete: (shiftId: string) => void;
   onNoteCompleted: (shiftId: string) => void;
+  onCancelShift: (shiftId: string) => void;
+  onMarkVacant: (shiftId: string) => void;
+  onRequestReplacement: (shiftId: string) => void;
 }) {
   if (!shift) return null;
 
-  const colour = getEmployeeColourScheme(shift.workerId);
+  const colour = getRosterCoverageColour(shift);
   const assignedWorkers = getShiftAssignedWorkers(shift);
 
   return (
@@ -31,9 +37,15 @@ export function RosterShiftModal({
             <div className="flex items-start gap-3">
               <PrivateClientPhoto path={shift.participantPhotoPath} alt={`${shift.participantName} profile`} fallback={shift.participantName.split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase()} />
               <div>
-              <RosterStatusBadge status={shift.status} />
-              <h2 id="roster-shift-title" className="mt-3 text-2xl font-bold text-ink">{shift.participantName}</h2>
-              <p className="mt-1 text-sm font-medium text-slate-600">{shift.supportType}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <RosterStatusBadge status={shift.status} />
+                  <span className={cn("inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1 text-xs font-bold", colour.text)}>
+                    <span className={cn("h-2 w-2 rounded-full", colour.dot)} aria-hidden="true" />
+                    {colour.label}
+                  </span>
+                </div>
+                <h2 id="roster-shift-title" className="mt-3 text-2xl font-bold text-ink">{shift.participantName}</h2>
+                <p className="mt-1 text-sm font-medium text-slate-600">{shift.supportType}</p>
               </div>
             </div>
             <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Close shift details">
@@ -67,6 +79,15 @@ export function RosterShiftModal({
           </div>
 
           <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={() => onRequestReplacement(shift.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-900 hover:bg-sky-100">
+              <Send size={18} aria-hidden="true" />Find replacement
+            </button>
+            <button type="button" onClick={() => onMarkVacant(shift.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-950 hover:bg-amber-100">
+              <UserX size={18} aria-hidden="true" />Mark vacant
+            </button>
+            <button type="button" onClick={() => onCancelShift(shift.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-red-300 bg-red-50 px-4 text-sm font-semibold text-red-900 hover:bg-red-100">
+              <X size={18} aria-hidden="true" />Cancel shift
+            </button>
             <button type="button" onClick={() => onComplete(shift.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold text-ink hover:bg-slate-50">
               <CheckCircle2 size={18} aria-hidden="true" />Mark completed
             </button>

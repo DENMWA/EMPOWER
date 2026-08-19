@@ -56,6 +56,42 @@ export type EmployeeColourScheme = {
   dot: string;
 };
 
+export type RosterCoverageColour = {
+  label: string;
+  border: string;
+  bg: string;
+  softBg: string;
+  text: string;
+  dot: string;
+};
+
+const rosterCoverageColours: Record<"assigned" | "unassigned" | "vacant", RosterCoverageColour> = {
+  assigned: {
+    label: "Assigned",
+    border: "border-sky-500",
+    bg: "bg-sky-600",
+    softBg: "bg-sky-50",
+    text: "text-sky-950",
+    dot: "bg-sky-500"
+  },
+  unassigned: {
+    label: "Unassigned",
+    border: "border-amber-400",
+    bg: "bg-amber-500",
+    softBg: "bg-amber-50",
+    text: "text-amber-950",
+    dot: "bg-amber-500"
+  },
+  vacant: {
+    label: "Vacant / cancelled",
+    border: "border-red-500",
+    bg: "bg-red-600",
+    softBg: "bg-red-50",
+    text: "text-red-950",
+    dot: "bg-red-500"
+  }
+};
+
 const employeeColours: Record<string, EmployeeColourScheme> = {
   "support-worker-a": {
     key: "support-worker-a",
@@ -214,6 +250,14 @@ export const rosterShifts: RosterShift[] = [
 
 export function getEmployeeColourScheme(workerId: string) {
   return employeeColours[workerId] ?? employeeColours.default;
+}
+
+export function getRosterCoverageColour(shift: RosterShift) {
+  if (shift.status === "Cancelled" || shift.status === "No Show") return rosterCoverageColours.vacant;
+  if (shift.workerName === "Vacant") return rosterCoverageColours.vacant;
+  const assignedWorkers = getShiftAssignedWorkers(shift).filter((worker) => worker.id && worker.name && worker.name !== "Unassigned");
+  if (!assignedWorkers.length) return rosterCoverageColours.unassigned;
+  return rosterCoverageColours.assigned;
 }
 
 export function getRosterShifts() {
@@ -379,8 +423,9 @@ export type RosterShiftConflict = {
 };
 
 export function getRosterShiftConflicts(candidate: RosterShift, existingShifts: RosterShift[]) {
-  const candidateWorkerIds = new Set(getShiftAssignedWorkers(candidate).map((worker) => worker.id));
+  const candidateWorkerIds = new Set(getShiftAssignedWorkers(candidate).map((worker) => worker.id).filter(Boolean));
   const conflicts: RosterShiftConflict[] = [];
+  if (!candidateWorkerIds.size) return conflicts;
 
   for (const existingShift of existingShifts) {
     if (existingShift.id === candidate.id || existingShift.shiftDate !== candidate.shiftDate) continue;
@@ -411,6 +456,20 @@ export function markRosterShiftCompleted(shifts: RosterShift[], shiftId: string)
 
 export function markRosterShiftNoteCompleted(shifts: RosterShift[], shiftId: string) {
   return shifts.map((shift) => (shift.id === shiftId ? { ...shift, status: "Note Completed" as const, noteCompleted: true } : shift));
+}
+
+export function markRosterShiftCancelled(shifts: RosterShift[], shiftId: string) {
+  return shifts.map((shift) => (shift.id === shiftId ? { ...shift, status: "Cancelled" as const, noteRequired: false } : shift));
+}
+
+export function markRosterShiftVacant(shifts: RosterShift[], shiftId: string) {
+  return shifts.map((shift) => (shift.id === shiftId ? {
+    ...shift,
+    workerId: "",
+    workerName: "Vacant",
+    assignedWorkers: [],
+    status: "Scheduled" as const
+  } : shift));
 }
 
 export function getWeekStart(selectedDate: string) {

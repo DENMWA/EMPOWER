@@ -19,7 +19,9 @@ import {
   getRosterSummary,
   getWeekRosterShifts,
   markRosterShiftCompleted,
+  markRosterShiftCancelled,
   markRosterShiftNoteCompleted,
+  markRosterShiftVacant,
   getShiftAssignedWorkers,
   saveRosterShifts,
   type RosterFilters as RosterFiltersType,
@@ -36,6 +38,7 @@ export function RosterPage() {
   const [activeShift, setActiveShift] = useState<RosterShift | null>(null);
   const [creating, setCreating] = useState(false);
   const [syncMessage, setSyncMessage] = useState("Loading roster from your workspace...");
+  const [replacementShiftId, setReplacementShiftId] = useState("");
 
   useEffect(() => {
     loadTenantRosterShifts().then((result) => {
@@ -130,9 +133,16 @@ export function RosterPage() {
       ...shift,
       workerId: worker.id,
       workerName: worker.name,
-      assignedWorkers: [worker]
+      assignedWorkers: [worker],
+      status: "Scheduled" as const
     } : shift);
     updateActive(updatedShifts, shiftId);
+  }
+
+  function startReplacementWorkflow(shiftId: string) {
+    setReplacementShiftId(shiftId);
+    setActiveShift(null);
+    setSyncMessage("Replacement recommendations are ready below. Review availability before sending requests.");
   }
 
   return (
@@ -228,11 +238,20 @@ export function RosterPage() {
           <div className="mt-3"><EmployeeColourLegend workers={rosterWorkers} /></div>
         </Card>
 
+        <Card>
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster coverage colours</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-950"><span className="h-3 w-3 rounded-full bg-sky-500" aria-hidden="true" />Assigned shift</div>
+            <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950"><span className="h-3 w-3 rounded-full bg-amber-500" aria-hidden="true" />Unassigned shift</div>
+            <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-950"><span className="h-3 w-3 rounded-full bg-red-500" aria-hidden="true" />Vacant or cancelled</div>
+          </div>
+        </Card>
+
         <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} serviceLocations={rosterLocations} />
 
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 
-        <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} onAssign={assignRecommendedWorker} />
+        <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
@@ -248,6 +267,9 @@ export function RosterPage() {
         onClose={() => setActiveShift(null)}
         onComplete={(shiftId) => updateActive(markRosterShiftCompleted(shifts, shiftId), shiftId)}
         onNoteCompleted={(shiftId) => updateActive(markRosterShiftNoteCompleted(shifts, shiftId), shiftId)}
+        onCancelShift={(shiftId) => updateActive(markRosterShiftCancelled(shifts, shiftId), shiftId)}
+        onMarkVacant={(shiftId) => updateActive(markRosterShiftVacant(shifts, shiftId), shiftId)}
+        onRequestReplacement={startReplacementWorkflow}
       />
       <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} />
     </>

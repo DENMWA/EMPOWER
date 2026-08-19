@@ -1,7 +1,7 @@
 "use client";
 
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
-import { getEmployeeColourScheme, getRosterWeekDays, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
+import { getRosterCoverageColour, getRosterWeekDays, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selectedDate: string; shifts: RosterShift[]; onOpenShift: (shift: RosterShift) => void }) {
@@ -20,7 +20,7 @@ export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selected
             <div className="mt-3 space-y-2">
               {dayShifts.length === 0 ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">No shifts</p> : null}
               {dayShifts.map((shift) => {
-                const colour = getEmployeeColourScheme(getShiftAssignedWorkers(shift)[0]?.id || shift.workerId);
+                const colour = getRosterCoverageColour(shift);
                 return (
                   <button
                     key={shift.id}
@@ -29,10 +29,16 @@ export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selected
                     className={cn("w-full rounded-md border-l-4 p-3 text-left transition hover:shadow-md focus:outline focus:outline-2 focus:outline-teal-700", colour.softBg, colour.border)}
                   >
                     <p className="text-xs font-semibold text-slate-600">{shift.startTime} - {shift.endTime}</p>
-                    <p className={cn("mt-1 text-sm font-semibold", colour.text)}>{shift.participantName}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className={cn("h-2 w-2 rounded-full", colour.dot)} aria-hidden="true" />
+                      <p className={cn("text-sm font-semibold", colour.text)}>{shift.participantName}</p>
+                    </div>
                     <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-700">{getShiftStaffLabel(shift)}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-600">{shift.supportType}</p>
-                    <RosterStatusBadge status={shift.status} className="mt-2" />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <RosterStatusBadge status={shift.status} />
+                      <span className={cn("rounded-md bg-white px-2 py-0.5 text-[11px] font-bold", colour.text)}>{colour.label}</span>
+                    </div>
                   </button>
                 );
               })}

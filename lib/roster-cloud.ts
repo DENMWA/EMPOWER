@@ -114,7 +114,7 @@ export async function saveTenantRosterShift(shift: RosterShift) {
     roster_staffing_ratio: shift.staffingRatio || "1:1",
     roster_note_required: shift.noteRequired,
     roster_note_completed: shift.noteCompleted,
-    roster_assignments: (shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }]).map((worker) => ({
+    roster_assignments: (shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }]).filter((worker) => worker.id).map((worker) => ({
       workerId: worker.id,
       role: "assigned worker"
     })),

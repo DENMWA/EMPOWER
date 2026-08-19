@@ -34,13 +34,17 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
 });
 
 test("roster service locations are optional, tenant scoped and filterable", async () => {
-  const [modal, cloud, filters, sql, roster, rest] = await Promise.all([
+  const [modal, cloud, filters, sql, roster, rest, card, week, month, page] = await Promise.all([
     source("components/roster/CreateRosterShiftModal.tsx"),
     source("lib/roster-cloud.ts"),
     source("components/roster/RosterFilters.tsx"),
     source("supabase/optional-roster-service-locations.sql"),
     source("lib/roster.ts"),
-    source("lib/supabase-rest.ts")
+    source("lib/supabase-rest.ts"),
+    source("components/roster/RosterShiftCard.tsx"),
+    source("components/roster/RosterWeekView.tsx"),
+    source("components/roster/RosterMonthView.tsx"),
+    source("components/roster/RosterPage.tsx")
   ]);
   assert.match(modal, /Client home/);
   assert.match(modal, /Community/);
@@ -61,6 +65,23 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(roster, /window\.dispatchEvent\(new Event\(rosterUpdatedEvent\)\)/);
   assert.match(rest, /response\.status === 204/);
   assert.match(rest, /responseText \? JSON\.parse\(responseText\)/);
+  assert.match(roster, /getRosterCoverageColour/);
+  assert.match(roster, /markRosterShiftVacant/);
+  assert.match(roster, /markRosterShiftCancelled/);
+  assert.match(cloud, /filter\(\(worker\) => worker\.id\)/);
+  assert.match(card, /Assigned shift|colour\.label|getRosterCoverageColour/);
+  assert.match(week, /getRosterCoverageColour/);
+  assert.match(month, /getRosterCoverageColour/);
+  assert.match(page, /replacementShiftId/);
+  assert.match(page, /Roster coverage colours/);
+});
+
+test("vacant roster shifts are supported by the database save function", async () => {
+  const sql = await source("supabase/roster-vacant-shifts.sql");
+  assert.match(sql, /save_roster_shift_with_staff/);
+  assert.match(sql, /Roster assignments must be an array/);
+  assert.doesNotMatch(sql, /Assign at least one staff member/);
+  assert.match(sql, /jsonb_array_elements\(coalesce\(roster_assignments, '\[\]'::jsonb\)\)/);
 });
 
 test("replacement offers are expiring, single-use and omit client information", async () => {
