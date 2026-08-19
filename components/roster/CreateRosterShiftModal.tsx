@@ -108,7 +108,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       <form onSubmit={submit} className="w-full max-w-2xl overflow-hidden rounded-md bg-white shadow-lift">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Create shift</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Add roster shift</p>
             <h2 id="create-roster-shift-title" className="mt-1 text-2xl font-bold text-ink">Roster a support shift</h2>
           </div>
           <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Close create shift form">
@@ -177,7 +177,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
           </label>
           {locationChoice === "other" ? <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">Address or location<input className="min-h-11 rounded-md border border-slate-300 px-3" value={customLocation} onChange={(event) => setCustomLocation(event.target.value)} placeholder="Enter the service location" /></label> : null}
           <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
-            Shift instructions
+            Shift particulars and instructions
             <textarea className="min-h-24 rounded-md border border-slate-300 px-3 py-2" value={shiftInstructions} onChange={(event) => setShiftInstructions(event.target.value)} />
           </label>
         </div>
@@ -186,7 +186,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 p-5">
           <button type="button" onClick={onClose} className="min-h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-ink hover:bg-slate-50">Cancel</button>
-          <button type="submit" className="min-h-11 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">Create shift</button>
+          <button type="submit" className="min-h-11 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">Add to roster</button>
         </div>
       </form>
     </div>

@@ -122,7 +122,7 @@ export async function saveTenantRosterShift(shift: RosterShift) {
   }, { write: true });
 
   return {
-    savedToCloud: Boolean(result.data && !result.error),
+    savedToCloud: !result.error,
     error: result.error || ""
   };
 }

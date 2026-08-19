@@ -109,7 +109,10 @@ export async function supabaseRequest<T>(table: string, options: {
 
   if (response.status === 204) return { data: null as T | null, error: "" };
 
-  return { data: await response.json() as T, error: "" };
+  if (response.status === 204) return { data: null as T | null, error: "" };
+
+  const responseText = await response.text();
+  return { data: responseText ? JSON.parse(responseText) as T : null as T | null, error: "" };
 }
 
 export async function supabaseRpc<T>(functionName: string, body: unknown, options: { write?: boolean } = {}) {

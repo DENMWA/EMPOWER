@@ -125,6 +125,7 @@ const thisWeek = addDays(2);
 
 export const rosterStatuses: RosterStatus[] = ["Scheduled", "In Progress", "Completed", "Note Required", "Note Completed", "Cancelled", "No Show"];
 const rosterStorageKey = "empowernotes:roster-shifts";
+export const rosterUpdatedEvent = "empowernotes:roster-updated";
 
 export const rosterShifts: RosterShift[] = [
   {
@@ -233,6 +234,7 @@ export function getStoredRosterShifts() {
 export function saveRosterShifts(shifts: RosterShift[]) {
   if (typeof window === "undefined") return;
   window.sessionStorage.setItem(tenantStorageKey(rosterStorageKey), JSON.stringify(shifts));
+  window.dispatchEvent(new Event(rosterUpdatedEvent));
 }
 
 export function getTodayRosterShifts(shifts: RosterShift[] = rosterShifts) {

@@ -34,24 +34,33 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
 });
 
 test("roster service locations are optional, tenant scoped and filterable", async () => {
-  const [modal, cloud, filters, sql] = await Promise.all([
+  const [modal, cloud, filters, sql, roster, rest] = await Promise.all([
     source("components/roster/CreateRosterShiftModal.tsx"),
     source("lib/roster-cloud.ts"),
     source("components/roster/RosterFilters.tsx"),
-    source("supabase/optional-roster-service-locations.sql")
+    source("supabase/optional-roster-service-locations.sql"),
+    source("lib/roster.ts"),
+    source("lib/supabase-rest.ts")
   ]);
   assert.match(modal, /Client home/);
   assert.match(modal, /Community/);
   assert.match(modal, /Appointment location/);
   assert.match(modal, /Respite setting/);
   assert.match(modal, /Other location/);
+  assert.match(modal, /Shift particulars and instructions/);
+  assert.match(modal, /Add to roster/);
   assert.match(modal, /getTenantHouses/);
   assert.match(cloud, /save_roster_shift_with_service_location/);
+  assert.match(cloud, /savedToCloud: !result\.error/);
   assert.match(filters, /Client home \/ community/);
   assert.match(sql, /service_location_id text/);
   assert.match(sql, /roster_service_location_id text default null/);
   assert.match(sql, /organisation_id = actor_organisation_id/);
   assert.match(sql, /references public\.service_locations\(organisation_id, id\)/);
+  assert.match(roster, /rosterUpdatedEvent/);
+  assert.match(roster, /window\.dispatchEvent\(new Event\(rosterUpdatedEvent\)\)/);
+  assert.match(rest, /response\.status === 204/);
+  assert.match(rest, /responseText \? JSON\.parse\(responseText\)/);
 });
 
 test("replacement offers are expiring, single-use and omit client information", async () => {
