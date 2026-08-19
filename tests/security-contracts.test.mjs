@@ -35,6 +35,14 @@ test("global response hardening remains configured", async () => {
   }
 });
 
+test("password reset uses a direct reset page and hides raw authenticator errors", async () => {
+  const auth = await source("lib/supabase-auth.ts");
+  assert.match(auth, /const redirectTo = appUrl \? `\$\{appUrl\}\/reset-password` : ""/);
+  assert.match(auth, /humaniseAuthError/);
+  assert.match(auth, /This account still has an authenticator requirement attached/);
+  assert.doesNotMatch(auth, /return parsed\.msg \|\| parsed\.message \|\| parsed\.error_description \|\| error/);
+});
+
 test("the public Vercel hostname redirects to the EmpowerNotes domain", async () => {
   const nextConfig = await source("next.config.mjs");
   const layout = await source("app/layout.tsx");

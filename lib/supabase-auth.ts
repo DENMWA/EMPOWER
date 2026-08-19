@@ -77,7 +77,7 @@ export async function sendPasswordResetEmail(email: string) {
   const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
   const browserAppUrl = typeof window === "undefined" ? "" : window.location.origin;
   const appUrl = browserAppUrl || configuredAppUrl;
-  const redirectTo = appUrl ? `${appUrl}/signin` : "";
+  const redirectTo = appUrl ? `${appUrl}/reset-password` : "";
   const path = redirectTo ? `/recover?redirect_to=${encodeURIComponent(redirectTo)}` : "/recover";
   return authRequest<{ message?: string }>(path, { email });
 }
@@ -223,8 +223,15 @@ async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POS
 function getReadableAuthError(error: string) {
   try {
     const parsed = JSON.parse(error) as { msg?: string; message?: string; error_description?: string };
-    return parsed.msg || parsed.message || parsed.error_description || error;
+    return humaniseAuthError(parsed.msg || parsed.message || parsed.error_description || error);
   } catch {
-    return error;
+    return humaniseAuthError(error);
   }
+}
+
+function humaniseAuthError(error: string) {
+  if (/aal2|mfa|totp|authenticator/i.test(error)) {
+    return "This account still has an authenticator requirement attached. Ask the account owner to remove the authenticator factor, then request a new password reset link.";
+  }
+  return error;
 }
