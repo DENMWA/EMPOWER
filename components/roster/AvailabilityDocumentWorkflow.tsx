@@ -16,16 +16,16 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
 
-  async function downloadTemplate() {
-    if (!staffInviteId) return setMessage("Choose a staff member first.");
+  async function downloadTemplate(templateType: "blank" | "staff") {
+    if (templateType === "staff" && !staffInviteId) return setMessage("Choose a staff member first.");
     setBusy("download");
-    const response = await fetch("/api/roster/availability-form", { method: "POST", headers: authHeaders(), body: JSON.stringify({ staffInviteId }) });
+    const response = await fetch("/api/roster/availability-form", { method: "POST", headers: authHeaders(), body: JSON.stringify({ staffInviteId, templateType }) });
     if (!response.ok) return finishError(response, "The PDF could not be generated.");
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url; link.download = `${staffName || "employee"}-availability.pdf`; link.click();
-    URL.revokeObjectURL(url); setBusy(""); setMessage("Availability PDF downloaded.");
+    link.href = url; link.download = `${templateType === "blank" ? "employee" : staffName || "employee"}-availability.pdf`; link.click();
+    URL.revokeObjectURL(url); setBusy(""); setMessage(templateType === "blank" ? "Blank availability template downloaded." : "Staff availability PDF downloaded.");
   }
 
   async function parseForm() {
@@ -63,8 +63,11 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
   return (
     <Card className="xl:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Availability form</p><h2 className="mt-1 text-xl font-bold text-ink">PDF to published availability</h2><p className="mt-1 text-sm text-slate-600">Download, complete, extract and review.</p></div>
-        <button type="button" onClick={downloadTemplate} disabled={!staffInviteId || Boolean(busy)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:opacity-50"><Download size={17} />Download PDF</button>
+        <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Availability templates</p><h2 className="mt-1 text-xl font-bold text-ink">Download, collect and publish staff availability</h2><p className="mt-1 text-sm text-slate-600">Use a blank employee form or a staff-named form, then upload the completed PDF for review.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => downloadTemplate("blank")} disabled={Boolean(busy)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink disabled:opacity-50"><Download size={17} />Blank template</button>
+          <button type="button" onClick={() => downloadTemplate("staff")} disabled={!staffInviteId || Boolean(busy)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white disabled:opacity-50"><Download size={17} />Staff template</button>
+        </div>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
         <label className="grid gap-1 text-sm font-medium text-slate-700">Completed employee form<input type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2" /></label>

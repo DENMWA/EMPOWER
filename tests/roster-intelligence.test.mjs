@@ -24,12 +24,16 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
   ]);
   assert.match(pdfRoute, /verifyServerAccess\(request, "admin", "scheduling", "rostering.manage"\)/);
   assert.match(pdfRoute, /organisation_id=eq\.\$\{access\.organisationId\}/);
+  assert.match(pdfRoute, /templateType/);
+  assert.match(pdfRoute, /blankTemplate/);
   assert.match(pdf, /Employee availability form/);
   assert.match(pdf, /application\/pdf|%PDF-1\.4/);
   assert.match(parser, /permission: "rostering.manage"/);
   assert.match(parser, /Do not infer missing times or availability/);
   assert.match(workflow, /AI extraction has been reviewed/);
   assert.match(workflow, /Publish availability/);
+  assert.match(workflow, /Blank template/);
+  assert.match(workflow, /Staff template/);
   assert.match(workflow, /saveStaffAvailability/);
 });
 
@@ -71,6 +75,9 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(cloud, /filter\(\(worker\) => worker\.id\)/);
   assert.match(card, /Assigned shift|colour\.label|getRosterCoverageColour/);
   assert.match(week, /getRosterCoverageColour/);
+  assert.match(week, /Staff \/ coverage/);
+  assert.match(week, /repeat\(7,minmax\(120px,1fr\)\)/);
+  assert.match(week, /Unassigned \/ vacant/);
   assert.match(month, /getRosterCoverageColour/);
   assert.match(page, /replacementShiftId/);
   assert.match(page, /Roster coverage colours/);
