@@ -29,6 +29,7 @@ import {
 } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-cloud";
+import { getTenantStaffInvites } from "@/lib/staff-records";
 
 export function RosterPage() {
   const [view, setView] = useState<"day" | "week" | "month">("week");
@@ -37,12 +38,15 @@ export function RosterPage() {
   const [shifts, setShifts] = useState<RosterShift[]>([]);
   const [activeShift, setActiveShift] = useState<RosterShift | null>(null);
   const [creating, setCreating] = useState(false);
+  const [shiftPrefill, setShiftPrefill] = useState<{ shiftDate?: string; workerIds?: string[] } | undefined>();
+  const [staffOptions, setStaffOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [syncMessage, setSyncMessage] = useState("Loading roster from your workspace...");
   const [replacementShiftId, setReplacementShiftId] = useState("");
 
   useEffect(() => {
-    loadTenantRosterShifts().then((result) => {
+    Promise.all([loadTenantRosterShifts(), getTenantStaffInvites()]).then(([result, staff]) => {
       setShifts(result.shifts);
+      setStaffOptions(staff.map(({ id, name }) => ({ id, name })));
       setSyncMessage(result.error || "Roster connected to workspace.");
     }).catch(() => {
       setShifts([]);
@@ -62,6 +66,7 @@ export function RosterPage() {
   const summary = getRosterSummary(shifts);
   const rosterConflicts = shifts.flatMap((shift, index) => getRosterShiftConflicts(shift, shifts.slice(0, index)));
   const rosterWorkers = Array.from(new Map(shifts.flatMap((shift) => getShiftAssignedWorkers(shift)).map((worker) => [worker.id, worker])).values());
+  const allRosterWorkers = Array.from(new Map([...staffOptions, ...rosterWorkers].filter((worker) => worker.id).map((worker) => [worker.id, worker])).values());
   const rosterLocations = Array.from(new Map(shifts.filter((shift) => shift.serviceLocationId).map((shift) => [shift.serviceLocationId!, { id: shift.serviceLocationId!, name: shift.serviceLocationName || shift.location }])).values());
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-AU", {
     month: "long",
@@ -80,6 +85,11 @@ export function RosterPage() {
   function openDay(date: string) {
     setSelectedDate(date);
     setView("day");
+  }
+
+  function openCreateShift(prefill?: { shiftDate?: string; workerIds?: string[] }) {
+    setShiftPrefill(prefill);
+    setCreating(true);
   }
 
   function updateActive(updatedShifts: RosterShift[], shiftId: string) {
@@ -156,7 +166,7 @@ export function RosterPage() {
             <Link href="/admin/staff/new" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
               <UserPlus size={18} aria-hidden="true" />Add staff
             </Link>
-            <button type="button" onClick={() => setCreating(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
+            <button type="button" onClick={() => openCreateShift()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
               <CalendarPlus size={18} aria-hidden="true" />Add roster shift
             </button>
           </>
@@ -235,7 +245,7 @@ export function RosterPage() {
 
         <Card>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Worker allocation</p>
-          <div className="mt-3"><EmployeeColourLegend workers={rosterWorkers} /></div>
+          <div className="mt-3"><EmployeeColourLegend workers={allRosterWorkers} /></div>
         </Card>
 
         <Card>
@@ -247,7 +257,7 @@ export function RosterPage() {
           </div>
         </Card>
 
-        <RosterFilters filters={filters} onChange={setFilters} workers={rosterWorkers} serviceLocations={rosterLocations} />
+        <RosterFilters filters={filters} onChange={setFilters} workers={allRosterWorkers} serviceLocations={rosterLocations} />
 
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 
@@ -256,7 +266,7 @@ export function RosterPage() {
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
         ) : view === "week" ? (
-          <RosterWeekView selectedDate={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
+          <RosterWeekView selectedDate={selectedDate} shifts={visibleShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
         ) : (
           <RosterMonthView selectedDate={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} onSelectDate={openDay} />
         )}
@@ -271,7 +281,7 @@ export function RosterPage() {
         onMarkVacant={(shiftId) => updateActive(markRosterShiftVacant(shifts, shiftId), shiftId)}
         onRequestReplacement={startReplacementWorkflow}
       />
-      <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} />
+      <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} prefill={shiftPrefill} />
     </>
   );
 }

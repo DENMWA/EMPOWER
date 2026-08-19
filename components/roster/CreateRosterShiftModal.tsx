@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
 import { createRosterShift, getRosterSelectOptions, type RosterShift } from "@/lib/roster";
@@ -8,8 +8,24 @@ import { getTenantClients } from "@/lib/client-records";
 import { getTenantStaffInvites } from "@/lib/staff-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 
-export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (shift: RosterShift) => string | void }) {
+export type RosterShiftPrefill = {
+  shiftDate?: string;
+  workerIds?: string[];
+};
+
+export function CreateRosterShiftModal({
+  open,
+  onClose,
+  onCreate,
+  prefill
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (shift: RosterShift) => string | void;
+  prefill?: RosterShiftPrefill;
+}) {
   const { supportTypes } = getRosterSelectOptions();
+  const prefillKey = useMemo(() => `${prefill?.shiftDate || ""}:${(prefill?.workerIds || []).join(",")}`, [prefill]);
   const [participantOptions, setParticipantOptions] = useState<Array<{ id: string; name: string; profilePhotoPath?: string }>>([]);
   const [workerOptions, setWorkerOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [serviceLocations, setServiceLocations] = useState<HouseRecord[]>([]);
@@ -27,6 +43,7 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
 
   useEffect(() => {
     if (!open) return;
+    if (prefill?.shiftDate) setShiftDate(prefill.shiftDate);
     Promise.all([getTenantClients(), getTenantStaffInvites(), getTenantHouses()]).then(([clients, staff, houses]) => {
       const nextParticipants = clients.map(({ id, name, profilePhotoPath }) => ({ id, name, profilePhotoPath }));
       const nextWorkers = staff.map(({ id, name }) => ({ id, name }));
@@ -35,11 +52,13 @@ export function CreateRosterShiftModal({ open, onClose, onCreate }: { open: bool
       setWorkerOptions(nextWorkers);
       setServiceLocations(houses);
       setSelectedWorkerIds((current) => {
+        const requested = (prefill?.workerIds || []).filter((workerId) => nextWorkers.some((item) => item.id === workerId));
+        if (requested.length) return requested;
         const valid = current.filter((workerId) => nextWorkers.some((item) => item.id === workerId));
         return valid.length ? valid : nextWorkers[0]?.id ? [nextWorkers[0].id] : [];
       });
     }).catch(() => undefined);
-  }, [open]);
+  }, [open, prefillKey, prefill]);
 
   if (!open) return null;
 

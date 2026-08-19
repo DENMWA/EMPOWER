@@ -78,8 +78,12 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(week, /Staff \/ coverage/);
   assert.match(week, /repeat\(7,minmax\(120px,1fr\)\)/);
   assert.match(week, /Unassigned \/ vacant/);
+  assert.match(week, /\+ Add shift/);
+  assert.match(week, /onCreateShift/);
   assert.match(month, /getRosterCoverageColour/);
   assert.match(page, /replacementShiftId/);
+  assert.match(page, /shiftPrefill/);
+  assert.match(page, /getTenantStaffInvites/);
   assert.match(page, /Roster coverage colours/);
 });
 

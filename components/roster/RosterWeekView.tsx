@@ -10,9 +10,21 @@ type RosterRow = {
   shifts: RosterShift[];
 };
 
-export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selectedDate: string; shifts: RosterShift[]; onOpenShift: (shift: RosterShift) => void }) {
+export function RosterWeekView({
+  selectedDate,
+  shifts,
+  workers,
+  onOpenShift,
+  onCreateShift
+}: {
+  selectedDate: string;
+  shifts: RosterShift[];
+  workers: Array<{ id: string; name: string }>;
+  onOpenShift: (shift: RosterShift) => void;
+  onCreateShift: (input: { shiftDate: string; workerId?: string }) => void;
+}) {
   const days = getRosterWeekDays(selectedDate);
-  const rows = getRosterRows(shifts);
+  const rows = getRosterRows(shifts, workers);
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
@@ -70,9 +82,14 @@ export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selected
                           );
                         })}
                       </div>
-                    ) : (
-                      <p className="rounded-md bg-slate-50 px-2 py-2 text-xs font-medium text-slate-400">Available slot</p>
-                    )}
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => onCreateShift({ shiftDate: day.dateKey, workerId: row.id === "unassigned" ? undefined : row.id })}
+                      className="mt-1.5 w-full rounded-md border border-dashed border-slate-300 bg-white/80 px-2 py-2 text-left text-xs font-bold text-slate-500 transition hover:border-teal-400 hover:bg-teal-50 hover:text-teal-900 focus:outline focus:outline-2 focus:outline-teal-700"
+                    >
+                      + Add shift
+                    </button>
                   </div>
                 );
               })}
@@ -94,8 +111,12 @@ export function RosterWeekView({ selectedDate, shifts, onOpenShift }: { selected
   );
 }
 
-function getRosterRows(shifts: RosterShift[]) {
+function getRosterRows(shifts: RosterShift[], workers: Array<{ id: string; name: string }>) {
   const rows = new Map<string, RosterRow>();
+
+  workers.forEach((worker) => {
+    if (worker.id) rows.set(worker.id, { id: worker.id, name: worker.name, shifts: [] });
+  });
 
   shifts.forEach((shift) => {
     const workers = getShiftAssignedWorkers(shift).filter((worker) => worker.id && worker.name && worker.name !== "Unassigned" && worker.name !== "Vacant");
