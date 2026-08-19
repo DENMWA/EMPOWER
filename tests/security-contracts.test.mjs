@@ -625,6 +625,22 @@ test("staff and client lifecycle controls are full-admin only and preserve recor
   assert.match(migration, /protect_access_lifecycle_fields/);
 });
 
+test("controlled manager admin access syncs to the active membership authority", async () => {
+  const [staffRoute, navigation, home] = await Promise.all([
+    source("app/api/team/staff/route.ts"),
+    source("components/admin/AdminNavigation.tsx"),
+    source("components/admin/AdminHome.tsx")
+  ]);
+  assert.match(staffRoute, /syncActiveStaffMembership/);
+  assert.match(staffRoute, /organisation_memberships\?on_conflict=organisation_id,user_id/);
+  assert.match(staffRoute, /admin_permissions: body\.adminPermissions/);
+  assert.match(staffRoute, /resolveMembershipPermissions\(role, body\.featurePermissions, body\.adminPermissions\)/);
+  assert.match(staffRoute, /users\?select=id,email&email=eq/);
+  assert.doesNotMatch(staffRoute, /users\?select=id,email&id=eq\.\$\{encodeURIComponent\(target\.email\)\}/);
+  assert.match(navigation, /canAccessAdmin\(access\.role, access\.permissions, item\.permission\)/);
+  assert.match(home, /adminPermissionOptions\.filter\(\(option\) => access\.permissions\.includes\(option\.key\)\)/);
+});
+
 test("inactive client billing is limited to services inside the agreement and deactivation boundary", async () => {
   const [billing, workspace, migration] = await Promise.all([
     source("lib/native-billing.ts"),

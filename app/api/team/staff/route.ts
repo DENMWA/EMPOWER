@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { verifyServerAccess } from "@/lib/security/server-access";
 import { normalizeAdminPermissions } from "@/lib/admin-permissions";
 import { fullAdminRoles } from "@/lib/admin-permissions";
-import { normalizeFeaturePermissions } from "@/lib/feature-permissions";
+import { normalizeFeaturePermissions, resolveMembershipPermissions } from "@/lib/feature-permissions";
+import type { UserRole } from "@/lib/sample-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,8 @@ export async function POST(request: Request) {
   const validationError = validateStaff(body, context.role);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
+  const adminPermissions = normalizeAdminPermissions(body.adminPermissions);
+  const featurePermissions = normalizeFeaturePermissions(body.featurePermissions);
   const response = await fetch(`${context.url}/rest/v1/staff_invites?on_conflict=id`, {
     method: "POST",
     headers: { ...context.headers, Prefer: "resolution=merge-duplicates,return=representation" },
@@ -54,16 +57,23 @@ export async function POST(request: Request) {
       assigned_participant_ids: body.assignedParticipantIds || [],
       house_access_mode: body.houseAccessMode === "all" ? "all" : "selected",
       assigned_house_ids: body.assignedHouseIds || [],
-      admin_permissions: normalizeAdminPermissions(body.adminPermissions),
+      admin_permissions: adminPermissions,
       employment_type: body.employmentType || "other",
-      feature_permissions: normalizeFeaturePermissions(body.featurePermissions),
+      feature_permissions: featurePermissions,
       permission_template_key: body.permissionTemplateKey || `${body.role}_default`,
       assignment_start_date: body.assignmentStartDate || null,
       assignment_end_date: body.assignmentEndDate || null
     })
   });
   if (!response.ok) return databaseError(response, "Staff permissions could not be saved.");
-  return NextResponse.json(await response.json());
+  const staffRows = await response.json();
+  const syncResult = await syncActiveStaffMembership(context, {
+    ...body,
+    adminPermissions,
+    featurePermissions
+  });
+  if (!syncResult.ok) return databaseError(syncResult.response, "Staff account permissions could not be updated.");
+  return NextResponse.json(staffRows);
 }
 
 export async function PATCH(request: Request) {
@@ -92,7 +102,7 @@ export async function PATCH(request: Request) {
     body: JSON.stringify({ invite_status: body.inviteStatus })
   });
   if (!response.ok) return databaseError(response, "Staff status could not be updated.");
-  const publicUserResponse = await fetch(`${context.url}/rest/v1/users?select=id,email&id=eq.${encodeURIComponent(target.email)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}&limit=1`, {
+  const publicUserResponse = await fetch(`${context.url}/rest/v1/users?select=id,email&email=eq.${encodeURIComponent(target.email)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}&limit=1`, {
     headers: context.headers,
     cache: "no-store"
   });
@@ -106,6 +116,12 @@ export async function PATCH(request: Request) {
       body: JSON.stringify({ access_status: accessStatus })
     });
     if (!userUpdate.ok) return databaseError(userUpdate, "Staff access status could not be updated.");
+    const membershipUpdate = await fetch(`${context.url}/rest/v1/organisation_memberships?organisation_id=eq.${encodeURIComponent(context.organisationId)}&user_id=eq.${encodeURIComponent(publicUser.id)}`, {
+      method: "PATCH",
+      headers: { ...context.headers, Prefer: "return=minimal" },
+      body: JSON.stringify({ access_status: accessStatus })
+    });
+    if (!membershipUpdate.ok) return databaseError(membershipUpdate, "Staff membership status could not be updated.");
 
     const authUpdate = await fetch(`${context.url}/auth/v1/admin/users/${encodeURIComponent(publicUser.id)}`, {
       method: "PUT",
@@ -134,6 +150,9 @@ type StaffInput = {
   assignmentEndDate?: string | null;
 };
 
+type StaffContext = Awaited<ReturnType<typeof getContext>> & { response: null };
+type StaffSyncResult = { ok: true } | { ok: false; response: Response };
+
 function validateStaff(body: StaffInput, currentRole: string) {
   if (!body.id || !body.name?.trim() || !body.email?.includes("@")) return "Add a valid staff name and email.";
   if (!body.role || !assignableRoles.has(body.role)) return "Select a valid staff role.";
@@ -159,6 +178,64 @@ async function getContext(request: Request) {
     role: access.role,
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" }
   };
+}
+
+async function syncActiveStaffMembership(context: StaffContext, body: StaffInput & { adminPermissions: ReturnType<typeof normalizeAdminPermissions>; featurePermissions: ReturnType<typeof normalizeFeaturePermissions> }): Promise<StaffSyncResult> {
+  const email = body.email?.trim().toLowerCase();
+  const role = body.role as UserRole;
+  if (!email || !body.role || !assignableRoles.has(body.role)) return { ok: true };
+
+  const usersResponse = await fetch(`${context.url}/rest/v1/users?select=id,email&email=eq.${encodeURIComponent(email)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}&limit=1`, {
+    headers: context.headers,
+    cache: "no-store"
+  });
+  if (!usersResponse.ok) return { ok: false, response: usersResponse };
+  const users = await usersResponse.json() as Array<{ id: string; email: string }>;
+  const user = users[0];
+  if (!user) return { ok: true };
+
+  const membershipsResponse = await fetch(`${context.url}/rest/v1/organisation_memberships?select=id&organisation_id=eq.${encodeURIComponent(context.organisationId)}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`, {
+    headers: context.headers,
+    cache: "no-store"
+  });
+  if (!membershipsResponse.ok) return { ok: false, response: membershipsResponse };
+  const memberships = await membershipsResponse.json() as Array<{ id: string }>;
+  if (!memberships[0] && body.inviteStatus !== "Active") return { ok: true };
+
+  const accessStatus = body.inviteStatus === "Suspended" ? "suspended" : "active";
+  const membershipPayload = {
+    organisation_id: context.organisationId,
+    user_id: user.id,
+    role,
+    admin_permissions: body.adminPermissions,
+    employment_type: body.employmentType || "other",
+    feature_permissions: resolveMembershipPermissions(role, body.featurePermissions, body.adminPermissions),
+    permission_template_key: body.permissionTemplateKey || `${body.role}_default`,
+    access_status: accessStatus,
+    updated_at: new Date().toISOString()
+  };
+
+  const membershipResponse = await fetch(`${context.url}/rest/v1/organisation_memberships?on_conflict=organisation_id,user_id`, {
+    method: "POST",
+    headers: { ...context.headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(membershipPayload)
+  });
+  if (!membershipResponse.ok) return { ok: false, response: membershipResponse };
+
+  const userResponse = await fetch(`${context.url}/rest/v1/users?id=eq.${encodeURIComponent(user.id)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}`, {
+    method: "PATCH",
+    headers: { ...context.headers, Prefer: "return=minimal" },
+    body: JSON.stringify({
+      role,
+      admin_permissions: body.adminPermissions,
+      employment_type: body.employmentType || "other",
+      feature_permissions: resolveMembershipPermissions(role, body.featurePermissions, body.adminPermissions),
+      permission_template_key: body.permissionTemplateKey || `${body.role}_default`,
+      access_status: accessStatus
+    })
+  });
+  if (!userResponse.ok) return { ok: false, response: userResponse };
+  return { ok: true };
 }
 
 async function databaseError(response: Response, fallback: string) {
