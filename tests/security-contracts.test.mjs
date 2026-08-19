@@ -43,6 +43,18 @@ test("password reset uses a direct reset page and hides raw authenticator errors
   assert.doesNotMatch(auth, /return parsed\.msg \|\| parsed\.message \|\| parsed\.error_description \|\| error/);
 });
 
+test("signup security-delay responses hand off to the workspace flow", async () => {
+  const [auth, signup] = await Promise.all([
+    source("lib/supabase-auth.ts"),
+    source("components/onboarding/SimpleSignupForm.tsx")
+  ]);
+  assert.match(auth, /const redirectTo = appUrl \? `\$\{appUrl\}\/signin` : ""/);
+  assert.match(signup, /signInWithPassword\(cleanEmail, password\)/);
+  assert.match(signup, /isSignupDelayMessage/);
+  assert.match(signup, /Welcome to your workspace\./);
+  assert.doesNotMatch(signup, /For security purposes/);
+});
+
 test("the public Vercel hostname redirects to the EmpowerNotes domain", async () => {
   const nextConfig = await source("next.config.mjs");
   const layout = await source("app/layout.tsx");

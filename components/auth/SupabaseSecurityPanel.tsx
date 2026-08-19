@@ -67,7 +67,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
           setMessage(setup.error);
           return;
         }
-        setMessage(setup.completed ? "Account confirmed. Your organisation workspace is ready." : "Invitation accepted. You are now signed in to your organisation workspace.");
+        setMessage("Welcome to your workspace.");
         if (redirectAfterSignIn) void continueToRequestedPage();
       });
     }
@@ -83,7 +83,7 @@ export function SupabaseSecurityPanel({ redirectAfterSignIn = false }: { redirec
         return;
       }
 
-      setMessage("Signed in. Your workspace is ready.");
+      setMessage("Welcome to your workspace.");
       const setup = await completePendingOnboarding();
       if (setup.error) {
         setMessage(setup.error);

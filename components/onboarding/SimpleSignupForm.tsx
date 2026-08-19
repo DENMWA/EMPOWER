@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui";
-import { getCurrentAuthStatus, signUpWithPassword } from "@/lib/supabase-auth";
+import { getCurrentAuthStatus, signInWithPassword, signUpWithPassword } from "@/lib/supabase-auth";
 import { completePendingOnboarding, savePendingOnboarding } from "@/lib/pending-onboarding";
 import { setDataMode } from "@/lib/presentation-mode";
 import { setCurrentSubscriptionTier } from "@/lib/subscriptions/browser-tier";
@@ -76,6 +76,26 @@ export function SimpleSignupForm() {
     try {
       const signup = await signUpWithPassword(cleanEmail, password);
       if (signup.error) {
+        if (isSignupDelayMessage(signup.error)) {
+          const signin = await signInWithPassword(cleanEmail, password);
+          if (!signin.error) {
+            const setup = await completePendingOnboarding();
+            if (setup.error) {
+              setMessage(setup.error);
+              return;
+            }
+            setSuccess(true);
+            setMessage("Welcome to your workspace.");
+            setDataMode("real");
+            window.setTimeout(() => window.location.assign(getSafeNextPath(providerType)), 500);
+            return;
+          }
+
+          setSuccess(true);
+          setMessage("Welcome to your workspace. Check your email to continue.");
+          return;
+        }
+
         setMessage(signup.error);
         return;
       }
@@ -87,14 +107,14 @@ export function SimpleSignupForm() {
           return;
         }
         setSuccess(true);
-        setMessage("Your workspace is ready.");
+        setMessage("Welcome to your workspace.");
         setDataMode("real");
         window.setTimeout(() => window.location.assign(getSafeNextPath(providerType)), 500);
         return;
       }
 
       setSuccess(true);
-      setMessage("Check your email to confirm your account. Your workspace setup will continue when you sign in.");
+      setMessage("Welcome to your workspace. Check your email to continue.");
     } finally {
       setBusy(false);
     }
@@ -160,4 +180,8 @@ function Field({ label, value, onChange, type = "text", autoComplete }: { label:
 function getSafeNextPath(providerType: "organisation" | "sole_provider") {
   const next = new URLSearchParams(window.location.search).get("next");
   return next?.startsWith("/") && !next.startsWith("//") ? next : providerType === "sole_provider" ? "/admin" : "/dashboard";
+}
+
+function isSignupDelayMessage(message: string) {
+  return /security purposes|try again|after \d+|rate limit|over_email_send_rate_limit/i.test(message);
 }
