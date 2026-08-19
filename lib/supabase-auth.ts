@@ -3,6 +3,7 @@ import { decodeJwtPayload, getCurrentUserId, getSupabaseProjectConfig, getStored
 type AuthSession = {
   access_token: string;
   refresh_token?: string;
+  expires_in?: number;
   expires_at?: number;
   user?: {
     id: string;
@@ -28,10 +29,7 @@ export function getCurrentAuthStatus() {
 
   try {
     const decoded = decodeJwtPayload<{ sub?: string; email?: string; aal?: string; exp?: number }>(token);
-    if (!decoded.sub || (decoded.exp && decoded.exp * 1000 <= Date.now())) {
-      signOutSupabaseSession();
-      return getDefaultAuthStatus();
-    }
+    if (!decoded.sub || (decoded.exp && decoded.exp * 1000 <= Date.now())) return getDefaultAuthStatus();
     return {
       signedIn: true,
       userId: decoded.sub,
@@ -71,6 +69,30 @@ export async function signInWithPassword(email: string, password: string) {
   });
   if (result.data?.access_token) saveAuthSession(result.data);
   return result;
+}
+
+export async function refreshSupabaseSession() {
+  const session = getStoredAuthSession();
+  if (!session?.refresh_token) {
+    if (session?.access_token && isTokenExpired(session.access_token)) signOutSupabaseSession();
+    return { refreshed: false, signedIn: Boolean(session?.access_token && !isTokenExpired(session.access_token)), error: "" };
+  }
+
+  if (session.access_token && !isTokenExpiringSoon(session.access_token)) {
+    return { refreshed: false, signedIn: true, error: "" };
+  }
+
+  const result = await authRequest<AuthSession>("/token?grant_type=refresh_token", {
+    refresh_token: session.refresh_token
+  }, "POST", { preferAnonAuthorization: true });
+
+  if (result.error || !result.data?.access_token) {
+    signOutSupabaseSession();
+    return { refreshed: false, signedIn: false, error: result.error || "Your session has expired. Sign in again." };
+  }
+
+  saveAuthSession(result.data);
+  return { refreshed: true, signedIn: true, error: "" };
 }
 
 export async function sendPasswordResetEmail(email: string) {
@@ -191,14 +213,21 @@ export function getAuthRedirectError() {
 
 function saveAuthSession(session: AuthSession) {
   if (typeof window === "undefined") return;
+  const expiresAt = session.expires_at || (session.expires_in ? Math.floor(Date.now() / 1000) + session.expires_in : undefined);
   window.localStorage.setItem(getAuthSessionStorageKey(), JSON.stringify({
     ...session,
-    currentSession: session
+    expires_at: expiresAt,
+    currentSession: { ...session, expires_at: expiresAt }
   }));
   window.dispatchEvent(new Event(authSessionChangedEvent));
 }
 
-async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POST" | "PUT" | "DELETE" = "POST") {
+async function authRequest<T>(
+  path: string,
+  body?: unknown,
+  method: "GET" | "POST" | "PUT" | "DELETE" = "POST",
+  options: { preferAnonAuthorization?: boolean } = {}
+) {
   const { supabaseUrl, supabaseAnonKey, accessToken } = getSupabaseProjectConfig();
   if (!supabaseUrl || !supabaseAnonKey) return { data: null as T | null, error: "Secure sign-in is not configured." };
 
@@ -206,7 +235,7 @@ async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POS
     method,
     headers: {
       apikey: supabaseAnonKey,
-      Authorization: `Bearer ${accessToken || supabaseAnonKey}`,
+      Authorization: `Bearer ${options.preferAnonAuthorization ? supabaseAnonKey : accessToken || supabaseAnonKey}`,
       "Content-Type": "application/json"
     },
     body: body ? JSON.stringify(body) : undefined
@@ -218,6 +247,37 @@ async function authRequest<T>(path: string, body?: unknown, method: "GET" | "POS
   }
 
   return { data: await response.json() as T, error: "" };
+}
+
+function getStoredAuthSession() {
+  if (typeof window === "undefined") return null as AuthSession | null;
+
+  try {
+    const raw = window.localStorage.getItem(getAuthSessionStorageKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthSession & { currentSession?: AuthSession };
+    return parsed.currentSession || parsed;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string) {
+  try {
+    const decoded = decodeJwtPayload<{ exp?: number }>(token);
+    return Boolean(decoded.exp && decoded.exp * 1000 <= Date.now());
+  } catch {
+    return true;
+  }
+}
+
+function isTokenExpiringSoon(token: string) {
+  try {
+    const decoded = decodeJwtPayload<{ exp?: number }>(token);
+    return Boolean(decoded.exp && decoded.exp * 1000 <= Date.now() + 60_000);
+  } catch {
+    return true;
+  }
 }
 
 function getReadableAuthError(error: string) {

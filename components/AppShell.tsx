@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
-import { authSessionChangedEvent, getCurrentAuthStatus, signOutSupabaseSession } from "@/lib/supabase-auth";
+import { authSessionChangedEvent, getCurrentAuthStatus, refreshSupabaseSession, signOutSupabaseSession } from "@/lib/supabase-auth";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
@@ -52,13 +52,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     : publicNavItems;
 
   useEffect(() => {
+    let mounted = true;
     const saved = window.localStorage.getItem("empower-accessibility-mode");
     setAccessibilityMode(saved === "true");
     setOrganisationAccess(getDemoOrganisationAccess());
-    const authStatus = getCurrentAuthStatus();
-    setSignedIn(authStatus.signedIn);
-    setAuthChecked(true);
-    setDataMode(authStatus.signedIn ? "real" : "demo");
+
+    async function restoreSession() {
+      await refreshSupabaseSession();
+      if (!mounted) return;
+      const authStatus = getCurrentAuthStatus();
+      setSignedIn(authStatus.signedIn);
+      setAuthChecked(true);
+      setDataMode(authStatus.signedIn ? "real" : "demo");
+    }
+
+    void restoreSession();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {

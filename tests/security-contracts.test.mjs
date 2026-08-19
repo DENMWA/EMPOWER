@@ -55,6 +55,19 @@ test("signup security-delay responses hand off to the workspace flow", async () 
   assert.doesNotMatch(signup, /For security purposes/);
 });
 
+test("stored Supabase sessions refresh instead of dropping workspace access", async () => {
+  const [auth, shell] = await Promise.all([
+    source("lib/supabase-auth.ts"),
+    source("components/AppShell.tsx")
+  ]);
+  assert.match(auth, /refreshSupabaseSession/);
+  assert.match(auth, /grant_type=refresh_token/);
+  assert.match(auth, /refresh_token: session\.refresh_token/);
+  assert.doesNotMatch(auth, /decoded\.exp && decoded\.exp \* 1000 <= Date\.now\(\)\)\s*\{\s*signOutSupabaseSession/);
+  assert.match(shell, /await refreshSupabaseSession\(\)/);
+  assert.match(shell, /setDataMode\(authStatus\.signedIn \? "real" : "demo"\)/);
+});
+
 test("the public Vercel hostname redirects to the EmpowerNotes domain", async () => {
   const nextConfig = await source("next.config.mjs");
   const layout = await source("app/layout.tsx");
