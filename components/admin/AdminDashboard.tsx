@@ -174,9 +174,12 @@ export function AdminDashboard() {
             {workspaces.map((workspace) => {
               const Icon = workspace.icon;
               return (
-                <Card key={workspace.title} className="flex min-h-48 flex-col p-4">
+                <Card key={workspace.title} className="group flex min-h-48 flex-col p-4 transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lift">
                   <span className="grid h-9 w-9 place-items-center rounded-md bg-teal-50 text-teal-800"><Icon size={18} aria-hidden="true" /></span>
-                  <Link href={workspace.href} className="mt-4 font-semibold text-ink hover:text-teal-800">{workspace.title}</Link>
+                  <Link href={workspace.href} className="mt-4 inline-flex min-h-10 items-center justify-between gap-3 rounded-md font-semibold text-ink outline-none group-hover:text-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">
+                    <span>{workspace.title}</span>
+                    <ArrowRight size={15} className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-teal-700" aria-hidden="true" />
+                  </Link>
                   <p className="mt-1 text-sm leading-5 text-slate-600">{workspace.detail}</p>
                   <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-4">
                     {workspace.links.map(([label, href]) => <Link key={label} href={href} className="text-xs font-semibold text-teal-700 hover:text-teal-900">{label}</Link>)}

@@ -119,8 +119,8 @@ export function CreateRosterShiftModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="create-roster-shift-title">
-      <form onSubmit={submit} className="w-full max-w-2xl overflow-hidden rounded-md bg-white shadow-lift">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="create-roster-shift-title">
+      <form onSubmit={submit} className="mx-auto w-full max-w-2xl overflow-hidden rounded-md bg-white shadow-lift">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Add roster shift</p>

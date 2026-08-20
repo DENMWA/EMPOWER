@@ -29,8 +29,8 @@ export function RosterShiftModal({
   const assignedWorkers = getShiftAssignedWorkers(shift);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="roster-shift-title">
-      <div className="w-full max-w-2xl overflow-hidden rounded-md bg-white shadow-lift">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="roster-shift-title">
+      <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-md bg-white shadow-lift">
         <div className={cn("h-2", colour.bg)} />
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
