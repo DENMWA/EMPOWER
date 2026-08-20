@@ -102,6 +102,9 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /keepRosterSheetOpenAfterSave/);
   assert.match(page, /rosterSheetShifts/);
   assert.match(page, /shifts=\{rosterSheetShifts\}/);
+  assert.match(page, /downloadRoster/);
+  assert.match(page, /Download roster/);
+  assert.match(page, /empowernotes-roster-\$\{view\}/);
   assert.doesNotMatch(page, /setView\("day"\)/);
 });
 

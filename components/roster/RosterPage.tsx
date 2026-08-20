@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, LayoutGrid, LockKeyhole, UserPlus } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, LayoutGrid, LockKeyhole, UserPlus } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
@@ -19,6 +19,7 @@ import {
   getRosterRangeShifts,
   getRosterShiftConflicts,
   getRosterSummary,
+  getShiftStaffLabel,
   markRosterShiftCompleted,
   markRosterShiftCancelled,
   markRosterShiftNoteCompleted,
@@ -173,6 +174,37 @@ export function RosterPage() {
     setSyncMessage("Replacement recommendations are ready below. Review availability before sending requests.");
   }
 
+  function downloadRoster() {
+    const rows = rosterSheetShifts
+      .slice()
+      .sort((first, second) => `${first.shiftDate} ${first.startTime}`.localeCompare(`${second.shiftDate} ${second.startTime}`))
+      .map((shift) => [
+        shift.shiftDate,
+        shift.startTime,
+        shift.endTime,
+        shift.participantName,
+        getShiftStaffLabel(shift),
+        shift.staffingRatio || "1:1",
+        shift.supportType,
+        shift.location,
+        shift.status,
+        shift.noteRequired ? (shift.noteCompleted ? "Completed" : "Required") : "Not required",
+        shift.shiftInstructions
+      ]);
+    const csv = [
+      ["Date", "Start", "End", "Client", "Assigned staff", "Ratio", "Support type", "Location", "Status", "Progress note", "Shift instructions"],
+      ...rows
+    ].map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `empowernotes-roster-${view}-${selectedRange.startKey}-to-${selectedRange.endKey}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setSyncMessage(`${selectedDateLabel} roster downloaded.`);
+  }
+
   return (
     <>
       <PageHeader
@@ -243,6 +275,9 @@ export function RosterPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={downloadRoster} className="mt-auto inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
+              <Download size={17} aria-hidden="true" />Download roster
+            </button>
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Date
               <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" />
@@ -363,4 +398,8 @@ function toDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function csvCell(value: string) {
+  return `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
 }
