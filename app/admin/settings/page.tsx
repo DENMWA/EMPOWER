@@ -1,6 +1,7 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { OrganisationBrandingForm } from "@/components/admin/OrganisationBrandingForm";
 import { PresentationModeCard } from "@/components/admin/PresentationModeCard";
+import { RosteringModeSettings } from "@/components/admin/RosteringModeSettings";
 import { SupabaseSecurityPanel } from "@/components/auth/SupabaseSecurityPanel";
 import { ProgressIntelligenceSettings } from "@/components/settings/progress/ProgressIntelligenceSettings";
 import { DataLifecyclePanel } from "@/components/admin/DataLifecyclePanel";
@@ -29,6 +30,7 @@ export default function AdminSettingsPage() {
         <SupabaseSecurityPanel />
         <OrganisationBrandingForm />
         <PresentationModeCard />
+        <RosteringModeSettings />
         <ProgressIntelligenceSettings />
         <DataLifecyclePanel />
         {settings.map((item) => (

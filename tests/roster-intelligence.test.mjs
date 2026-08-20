@@ -193,3 +193,24 @@ test("invited workers receive a private week, fortnight and month roster", async
   assert.match(policy, /managers view organisation shifts workers view assigned shifts/);
   assert.doesNotMatch(policy, /assigned_to_participant/);
 });
+
+test("providers can choose built-in, imported or manual rostering workflows", async () => {
+  const [mode, settings, page, settingsPage] = await Promise.all([
+    source("lib/rostering-mode.ts"),
+    source("components/admin/RosteringModeSettings.tsx"),
+    source("components/roster/RosterPage.tsx"),
+    source("app/admin/settings/page.tsx")
+  ]);
+  assert.match(mode, /"built-in" \| "imported" \| "manual"/);
+  assert.match(mode, /empowernotes:rostering-mode-updated/);
+  assert.match(mode, /Use EmpowerNotes roster/);
+  assert.match(mode, /Import from another roster/);
+  assert.match(mode, /Manual shift details/);
+  assert.match(settings, /rosteringModeOptions\.map/);
+  assert.match(settingsPage, /<RosteringModeSettings \/>/);
+  assert.match(page, /getRosteringMode/);
+  assert.match(page, /Import roster CSV/);
+  assert.match(page, /parseRosterCsv/);
+  assert.match(page, /manual mode/i);
+  assert.match(page, /Add manual shift/);
+});

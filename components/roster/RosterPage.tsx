@@ -13,6 +13,7 @@ import { RosterShiftModal } from "@/components/roster/RosterShiftModal";
 import { RosterStatusReports } from "@/components/roster/RosterStatusReports";
 import { RosterWeekView } from "@/components/roster/RosterWeekView";
 import { Card, PageHeader, Section } from "@/components/ui";
+import { getTenantClients } from "@/lib/client-records";
 import {
   filterRosterShifts,
   getRosterPlanningRange,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-cloud";
+import { getRosteringMode, rosteringModeOptions, type RosteringMode } from "@/lib/rostering-mode";
 import { getTenantStaffInvites, isStaffActiveForRostering } from "@/lib/staff-records";
 
 export function RosterPage() {
@@ -44,19 +46,32 @@ export function RosterPage() {
   const [creating, setCreating] = useState(false);
   const [shiftPrefill, setShiftPrefill] = useState<{ shiftDate?: string; workerIds?: string[] } | undefined>();
   const [staffOptions, setStaffOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [clientOptions, setClientOptions] = useState<Array<{ id: string; name: string; profilePhotoPath?: string }>>([]);
   const [syncMessage, setSyncMessage] = useState("Loading roster from your workspace...");
   const [replacementShiftId, setReplacementShiftId] = useState("");
   const [rosterToolsReady, setRosterToolsReady] = useState(false);
+  const [rosteringMode, setRosteringModeState] = useState<RosteringMode>("built-in");
 
   useEffect(() => {
-    Promise.all([loadTenantRosterShifts(), getTenantStaffInvites()]).then(([result, staff]) => {
+    Promise.all([loadTenantRosterShifts(), getTenantStaffInvites(), getTenantClients()]).then(([result, staff, clients]) => {
       setShifts(result.shifts);
       setStaffOptions(staff.filter(isStaffActiveForRostering).map(({ id, name }) => ({ id, name })));
+      setClientOptions(clients.map(({ id, name, profilePhotoPath }) => ({ id, name, profilePhotoPath })));
       setSyncMessage(result.error || "Roster connected to workspace.");
     }).catch(() => {
       setShifts([]);
       setSyncMessage("The roster could not be loaded from the workspace.");
     });
+  }, []);
+
+  useEffect(() => {
+    function syncRosteringMode() {
+      setRosteringModeState(getRosteringMode());
+    }
+
+    syncRosteringMode();
+    window.addEventListener("empowernotes:rostering-mode-updated", syncRosteringMode);
+    return () => window.removeEventListener("empowernotes:rostering-mode-updated", syncRosteringMode);
   }, []);
 
   useEffect(() => {
@@ -77,6 +92,7 @@ export function RosterPage() {
   const rosterLocations = Array.from(new Map(shifts.filter((shift) => shift.serviceLocationId).map((shift) => [shift.serviceLocationId!, { id: shift.serviceLocationId!, name: shift.serviceLocationName || shift.location }])).values());
   const selectedRange = getRosterPlanningRange(selectedDate, view);
   const selectedDateLabel = selectedRange.label;
+  const rosterModeLabel = rosteringModeOptions.find((option) => option.value === rosteringMode)?.label || "Use EmpowerNotes roster";
 
   function moveCalendar(direction: -1 | 1) {
     const date = new Date(`${selectedDate}T00:00:00`);
@@ -205,20 +221,39 @@ export function RosterPage() {
     setSyncMessage(`${selectedDateLabel} roster downloaded.`);
   }
 
+  async function importRosterCsv(file: File | undefined) {
+    if (!file) return;
+    const text = await file.text();
+    const imported = parseRosterCsv(text, clientOptions, staffOptions);
+    if (!imported.shifts.length) {
+      setSyncMessage(imported.warning || "No roster rows could be imported. Check the CSV headings and try again.");
+      return;
+    }
+    const updated = mergeRosterShifts(shifts, imported.shifts);
+    setShifts(updated);
+    saveRosterShifts(updated);
+    setSyncMessage(`${imported.shifts.length} roster shift${imported.shifts.length === 1 ? "" : "s"} imported. ${imported.warning}`);
+    for (const shift of imported.shifts.filter((item) => item.participantId && item.participantId !== "imported-client")) {
+      void saveTenantRosterShift(shift);
+    }
+  }
+
   return (
     <>
       <PageHeader
         eyebrow="Admin scheduling"
         title="Team scheduling and coverage calendar"
-        description="Add roster shifts with service particulars, assign workers, review coverage, open shift details, and monitor documentation completion from one calendar."
+        description={rosteringMode === "built-in" ? "Add roster shifts with service particulars, assign workers, review coverage, open shift details, and monitor documentation completion from one calendar." : rosteringMode === "imported" ? "Use an external roster, import shifts when needed, and keep notes, billing and reporting aligned in EmpowerNotes." : "Use manual shift details for notes, incidents, billing evidence and reports without running a full roster in EmpowerNotes."}
         actions={
           <>
             <Link href="/admin/staff/new" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
               <UserPlus size={18} aria-hidden="true" />Add staff
             </Link>
-            <button type="button" onClick={() => openCreateShift()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
-              <CalendarPlus size={18} aria-hidden="true" />Add roster shift
-            </button>
+            {rosteringMode !== "imported" ? (
+              <button type="button" onClick={() => openCreateShift()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
+                <CalendarPlus size={18} aria-hidden="true" />{rosteringMode === "manual" ? "Add manual shift" : "Add roster shift"}
+              </button>
+            ) : null}
           </>
         }
       />
@@ -226,6 +261,32 @@ export function RosterPage() {
       <Section className="space-y-6">
         <Card className={syncMessage.toLowerCase().includes("could not") ? "border-red-200 bg-red-50" : "border-sky-100 bg-sky-50"}>
           <p className="text-sm font-semibold text-slate-700">{syncMessage}</p>
+        </Card>
+        <Card className="border-sky-100 bg-white">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sea">Rostering mode</p>
+              <h2 className="mt-1 text-xl font-bold text-ink">{rosterModeLabel}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                {rosteringMode === "built-in"
+                  ? "EmpowerNotes is the active roster source. Use the calendar, staff availability and replacement tools here."
+                  : rosteringMode === "imported"
+                    ? "Keep the provider's existing roster platform as the source of truth, then import shifts here for documentation, reporting and billing evidence."
+                    : "Roster creation is optional. Staff can still document support by entering client, service, date and time details in their records."}
+              </p>
+            </div>
+            <Link href="/admin/settings" className="inline-flex min-h-10 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink hover:border-teal-400">Change mode</Link>
+          </div>
+          {rosteringMode === "imported" ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-teal-100 bg-teal-50 p-3">
+              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white shadow-lift hover:bg-teal-800">
+                <Download size={17} aria-hidden="true" />
+                Import roster CSV
+                <input type="file" accept=".csv,text/csv" className="sr-only" onChange={(event) => { void importRosterCsv(event.target.files?.[0]); event.target.value = ""; }} />
+              </label>
+              <p className="text-sm leading-6 text-teal-950">CSV headings can include date, start, end, client, staff, support type, location, ratio and instructions.</p>
+            </div>
+          ) : null}
         </Card>
         <Card className="border-teal-200 bg-teal-50">
           <div className="flex flex-wrap items-start gap-3">
@@ -329,12 +390,17 @@ export function RosterPage() {
           </div>
         </details>
 
-        {rosterToolsReady ? (
+        {rosteringMode !== "manual" && rosterToolsReady ? (
           <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />
-        ) : (
+        ) : rosteringMode !== "manual" ? (
           <Card>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster intelligence</p>
             <p className="mt-2 text-sm text-slate-600">Preparing availability and replacement insights.</p>
+          </Card>
+        ) : (
+          <Card>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Manual shift details</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Roster intelligence is paused in manual mode. Use progress notes and incident forms to capture service date, time, client and support details.</p>
           </Card>
         )}
 
@@ -402,4 +468,128 @@ function toDateKey(date: Date) {
 
 function csvCell(value: string) {
   return `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
+}
+
+function parseRosterCsv(text: string, clients: Array<{ id: string; name: string; profilePhotoPath?: string }>, staff: Array<{ id: string; name: string }>) {
+  const [headerRow, ...dataRows] = parseCsvRows(text);
+  if (!headerRow?.length) return { shifts: [] as RosterShift[], warning: "The CSV file is empty." };
+  const headers = headerRow.map((value) => normaliseHeading(value));
+  const clientByName = new Map(clients.map((client) => [normaliseLookup(client.name), client]));
+  const staffByName = new Map(staff.map((worker) => [normaliseLookup(worker.name), worker]));
+  const warnings: string[] = [];
+
+  const shifts = dataRows.map((row, index): RosterShift | null => {
+    const value = (...names: string[]) => {
+      const headingIndex = names.map(normaliseHeading).map((name) => headers.indexOf(name)).find((position) => position >= 0);
+      return headingIndex === undefined ? "" : row[headingIndex]?.trim() || "";
+    };
+    const shiftDate = normaliseDate(value("date", "shift date", "service date"));
+    const startTime = normaliseTime(value("start", "start time", "from"));
+    const endTime = normaliseTime(value("end", "finish", "finish time", "to"));
+    const clientName = value("client", "participant", "person", "customer") || "Imported client";
+    const workerName = value("staff", "worker", "employee", "assigned staff") || "Unassigned";
+    const client = clientByName.get(normaliseLookup(clientName));
+    const worker = staffByName.get(normaliseLookup(workerName));
+    if (!shiftDate || !startTime || !endTime) {
+      warnings.push(`Row ${index + 2} missing date or time`);
+      return null;
+    }
+    if (!client) warnings.push(`Row ${index + 2} client not matched`);
+    if (workerName !== "Unassigned" && !worker) warnings.push(`Row ${index + 2} staff not matched`);
+
+    return {
+      id: `imported-${shiftDate}-${startTime}-${normaliseLookup(clientName).replace(/[^a-z0-9]+/g, "-")}-${index}`,
+      participantId: client?.id || "imported-client",
+      participantName: client?.name || clientName,
+      participantPhotoPath: client?.profilePhotoPath,
+      workerId: worker?.id || "",
+      workerName: worker?.name || workerName,
+      assignedWorkers: worker ? [worker] : [],
+      staffingRatio: value("ratio", "staffing ratio") || "1:1",
+      supportType: value("support type", "service", "shift type") || "Imported support",
+      shiftDate,
+      startTime,
+      endTime,
+      location: value("location", "address", "house", "service location") || "Imported location",
+      shiftInstructions: value("instructions", "notes", "shift instructions") || "Imported from external roster.",
+      status: "Scheduled",
+      noteRequired: true,
+      noteCompleted: false
+    };
+  }).filter((shift): shift is RosterShift => Boolean(shift));
+
+  return {
+    shifts,
+    warning: Array.from(new Set(warnings)).slice(0, 4).join("; ")
+  };
+}
+
+function mergeRosterShifts(existing: RosterShift[], imported: RosterShift[]) {
+  const next = new Map(existing.map((shift) => [shift.id, shift]));
+  imported.forEach((shift) => next.set(shift.id, shift));
+  return Array.from(next.values()).sort((first, second) => `${first.shiftDate} ${first.startTime}`.localeCompare(`${second.shiftDate} ${second.startTime}`));
+}
+
+function parseCsvRows(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === "\"" && quoted && next === "\"") {
+      cell += "\"";
+      index += 1;
+    } else if (char === "\"") {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value.trim())) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim())) rows.push(row);
+  return rows;
+}
+
+function normaliseHeading(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function normaliseLookup(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function normaliseDate(value: string) {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const match = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (!match) return "";
+  const [, day, month, rawYear] = match;
+  const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function normaliseTime(value: string) {
+  const trimmed = value.trim().toLowerCase();
+  const match = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return "";
+  let hour = Number(match[1]);
+  const minute = match[2] || "00";
+  const period = match[3];
+  if (period === "pm" && hour < 12) hour += 12;
+  if (period === "am" && hour === 12) hour = 0;
+  if (hour > 23 || Number(minute) > 59) return "";
+  return `${String(hour).padStart(2, "0")}:${minute}`;
 }
