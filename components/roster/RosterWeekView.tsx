@@ -117,6 +117,8 @@ export function RosterWeekView({
 function getRosterRows(shifts: RosterShift[], workers: Array<{ id: string; name: string }>) {
   const rows = new Map<string, RosterRow>();
 
+  rows.set("unassigned", { id: "unassigned", name: "Unassigned / vacant", shifts: [] });
+
   workers.forEach((worker) => {
     if (worker.id) rows.set(worker.id, { id: worker.id, name: worker.name, shifts: [] });
   });

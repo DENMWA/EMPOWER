@@ -81,6 +81,7 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(week, /Staff \/ coverage/);
   assert.match(week, /getRosterFortnightDays/);
   assert.match(week, /repeat\(14,minmax\(120px,1fr\)\)/);
+  assert.match(week, /rows\.set\("unassigned"/);
   assert.match(week, /Unassigned \/ vacant/);
   assert.match(week, /\+ Add shift/);
   assert.match(week, /onCreateShift/);
@@ -99,6 +100,8 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /getTenantStaffInvites/);
   assert.match(page, /Roster coverage colours/);
   assert.match(page, /keepRosterSheetOpenAfterSave/);
+  assert.match(page, /rosterSheetShifts/);
+  assert.match(page, /shifts=\{rosterSheetShifts\}/);
   assert.doesNotMatch(page, /setView\("day"\)/);
 });
 

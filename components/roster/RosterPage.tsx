@@ -67,6 +67,7 @@ export function RosterPage() {
     const scoped = getRosterRangeShifts(shifts, selectedDate, view);
     return filterRosterShifts(scoped, filters);
   }, [filters, selectedDate, shifts, view]);
+  const rosterSheetShifts = useMemo(() => getRosterRangeShifts(shifts, selectedDate, view), [selectedDate, shifts, view]);
 
   const summary = getRosterSummary(shifts);
   const rosterConflicts = shifts.flatMap((shift, index) => getRosterShiftConflicts(shift, shifts.slice(0, index)));
@@ -337,7 +338,7 @@ export function RosterPage() {
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
         ) : view === "week" || view === "fortnight" ? (
-          <RosterWeekView selectedDate={selectedDate} span={view} shifts={visibleShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
+          <RosterWeekView selectedDate={selectedDate} span={view} shifts={rosterSheetShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
         ) : (
           <RosterPlanningOverview selectedDate={selectedDate} view={view} shifts={visibleShifts} onSelectDate={openWeek} />
         )}
