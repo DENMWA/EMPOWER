@@ -273,6 +273,17 @@ export function RosterPage() {
 
         <RosterFilters filters={filters} onChange={setFilters} workers={allRosterWorkers} serviceLocations={rosterLocations} />
 
+        <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
+
+        {rosterToolsReady ? (
+          <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />
+        ) : (
+          <Card>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster intelligence</p>
+            <p className="mt-2 text-sm text-slate-600">Preparing availability and replacement insights.</p>
+          </Card>
+        )}
+
         {view === "week" || view === "fortnight" ? (
           <Card className="border-sky-200 bg-sky-50">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -311,17 +322,6 @@ export function RosterPage() {
           <RosterWeekView selectedDate={selectedDate} span={view} shifts={visibleShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
         ) : (
           <RosterPlanningOverview selectedDate={selectedDate} view={view} shifts={visibleShifts} onSelectDate={openWeek} />
-        )}
-
-        <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
-
-        {rosterToolsReady ? (
-          <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />
-        ) : (
-          <Card>
-            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster intelligence</p>
-            <p className="mt-2 text-sm text-slate-600">Preparing availability and replacement insights.</p>
-          </Card>
         )}
       </Section>
 
