@@ -52,7 +52,7 @@ export async function loadTenantRosterShifts() {
     getTenantStaffInvites()
   ]);
 
-  if (shiftResult.error || assignmentResult.error || !shiftResult.data || !assignmentResult.data) {
+  if (shiftResult.error || !shiftResult.data) {
     return { shifts: [] as RosterShift[], error: "The roster could not be loaded from the workspace." };
   }
 
@@ -60,7 +60,7 @@ export async function loadTenantRosterShifts() {
   const staffNames = new Map(staff.map((worker) => [worker.id, worker.name]));
   const assignmentsByShift = new Map<string, Array<{ id: string; name: string }>>();
 
-  for (const assignment of assignmentResult.data) {
+  for (const assignment of assignmentResult.data || []) {
     const workerId = assignment.staff_invite_id || assignment.staff_user_id || "";
     if (!workerId) continue;
     const workers = assignmentsByShift.get(assignment.shift_id) || [];
@@ -97,7 +97,7 @@ export async function loadTenantRosterShifts() {
     });
 
   saveRosterShifts(shifts);
-  return { shifts, error: "" };
+  return { shifts, error: assignmentResult.error ? "Roster shifts loaded. Staff assignments may need refreshing." : "" };
 }
 
 export async function saveTenantRosterShift(shift: RosterShift) {

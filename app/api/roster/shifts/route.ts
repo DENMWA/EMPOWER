@@ -52,14 +52,17 @@ export async function POST(request: Request) {
   const saved = await upsertShift(url, headers, access, shift);
   if (!saved.ok) return databaseError(saved, "The roster shift could not be saved.");
 
+  const assignmentWarnings: string[] = [];
   const deleted = await fetch(`${url}/rest/v1/shift_staff?organisation_id=eq.${access.organisationId}&shift_id=eq.${encodeURIComponent(shift.id)}`, {
     method: "DELETE",
     headers,
     cache: "no-store"
   });
-  if (!deleted.ok) return databaseError(deleted, "Existing roster assignments could not be refreshed.");
+  if (!deleted.ok) {
+    assignmentWarnings.push(await databaseWarning(deleted, "Existing roster assignments could not be refreshed."));
+  }
 
-  if (staff.length) {
+  if (deleted.ok && staff.length) {
     const assignments = staff.map((worker) => ({
       organisation_id: access.organisationId,
       shift_id: shift.id,
@@ -74,10 +77,24 @@ export async function POST(request: Request) {
       body: JSON.stringify(assignments),
       cache: "no-store"
     });
-    if (!written.ok) return databaseError(written, "Roster staff assignments could not be saved.");
+    if (!written.ok) {
+      const linkedAssignments = assignments.filter((assignment) => assignment.staff_user_id);
+      if (linkedAssignments.length && linkedAssignments.length < assignments.length) {
+        const retry = await fetch(`${url}/rest/v1/shift_staff`, {
+          method: "POST",
+          headers: { ...headers, Prefer: "return=representation" },
+          body: JSON.stringify(linkedAssignments),
+          cache: "no-store"
+        });
+        if (!retry.ok) assignmentWarnings.push(await databaseWarning(retry, "Roster staff assignments could not be saved."));
+        else assignmentWarnings.push("Some invited staff are not linked to signed-in accounts yet.");
+      } else {
+        assignmentWarnings.push(await databaseWarning(written, "Roster staff assignments could not be saved."));
+      }
+    }
   }
 
-  return NextResponse.json({ ok: true, id: shift.id });
+  return NextResponse.json({ ok: true, id: shift.id, warning: assignmentWarnings.filter(Boolean).join(" ") });
 }
 
 type StaffInviteRow = { id: string; name: string; email: string; invite_status: string };
@@ -133,6 +150,12 @@ async function databaseError(response: Response, fallback: string) {
   const detail = await response.text();
   console.error(fallback, response.status, detail);
   return NextResponse.json({ error: fallback }, { status: 502 });
+}
+
+async function databaseWarning(response: Response, fallback: string) {
+  const detail = await response.text();
+  console.warn(fallback, response.status, detail);
+  return fallback;
 }
 
 function toSydneyIso(dateKey: string, time: string) {
