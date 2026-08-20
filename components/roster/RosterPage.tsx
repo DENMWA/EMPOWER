@@ -135,9 +135,8 @@ export function RosterPage() {
     const updatedShifts = [...shifts, shift];
     setShifts(updatedShifts);
     saveRosterShifts(updatedShifts);
-    setSelectedDate(shift.shiftDate);
-    setView("day");
-    setActiveShift(shift);
+    keepRosterSheetOpenAfterSave(shift);
+    setActiveShift(null);
     setSyncMessage("Saving new shift...");
     void saveTenantRosterShift(shift).then((result) => {
       if (!result.savedToCloud) {
@@ -148,6 +147,12 @@ export function RosterPage() {
       setSyncMessage(result.savedToCloud ? "New shift saved to workspace." : result.error || "New shift could not be saved.");
     });
     return "";
+  }
+
+  function keepRosterSheetOpenAfterSave(shift: RosterShift) {
+    if (shift.shiftDate < selectedRange.startKey || shift.shiftDate > selectedRange.endKey) {
+      setSelectedDate(shift.shiftDate);
+    }
   }
 
   function assignRecommendedWorker(shiftId: string, worker: { id: string; name: string }) {

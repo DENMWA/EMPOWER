@@ -98,6 +98,8 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /year/);
   assert.match(page, /getTenantStaffInvites/);
   assert.match(page, /Roster coverage colours/);
+  assert.match(page, /keepRosterSheetOpenAfterSave/);
+  assert.doesNotMatch(page, /setView\("day"\)/);
 });
 
 test("vacant roster shifts are supported by the database save function", async () => {
