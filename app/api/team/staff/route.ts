@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const assignableRoles = new Set(["support_worker", "team_leader", "house_manager", "case_manager", "service_manager", "operations_manager", "finance_officer", "admin", "owner", "sole_provider"]);
-const inviteStatuses = new Set(["Invite sent", "Draft", "Active", "Suspended"]);
+const inviteStatuses = new Set(["Invite sent", "Draft", "Active", "On leave", "Resigned", "Terminated", "Suspended"]);
+const blockedInviteStatuses = new Set(["Resigned", "Terminated", "Suspended"]);
 
 export async function GET(request: Request) {
   const context = await getContext(request);
@@ -109,7 +110,7 @@ export async function PATCH(request: Request) {
   const publicUsers = publicUserResponse.ok ? await publicUserResponse.json() as Array<{ id: string; email: string }> : [];
   const publicUser = publicUsers[0];
   if (publicUser) {
-    const accessStatus = body.inviteStatus === "Suspended" ? "suspended" : "active";
+    const accessStatus = blockedInviteStatuses.has(body.inviteStatus) ? "suspended" : "active";
     const userUpdate = await fetch(`${context.url}/rest/v1/users?id=eq.${encodeURIComponent(publicUser.id)}&organisation_id=eq.${encodeURIComponent(context.organisationId)}`, {
       method: "PATCH",
       headers: { ...context.headers, Prefer: "return=minimal" },
@@ -126,7 +127,7 @@ export async function PATCH(request: Request) {
     const authUpdate = await fetch(`${context.url}/auth/v1/admin/users/${encodeURIComponent(publicUser.id)}`, {
       method: "PUT",
       headers: context.headers,
-      body: JSON.stringify({ ban_duration: body.inviteStatus === "Suspended" ? "876000h" : "none" })
+      body: JSON.stringify({ ban_duration: blockedInviteStatuses.has(body.inviteStatus) ? "876000h" : "none" })
     });
     if (!authUpdate.ok) return databaseError(authUpdate, "Staff authentication access could not be updated.");
   }
@@ -202,7 +203,7 @@ async function syncActiveStaffMembership(context: StaffContext, body: StaffInput
   const memberships = await membershipsResponse.json() as Array<{ id: string }>;
   if (!memberships[0] && body.inviteStatus !== "Active") return { ok: true };
 
-  const accessStatus = body.inviteStatus === "Suspended" ? "suspended" : "active";
+  const accessStatus = body.inviteStatus && blockedInviteStatuses.has(body.inviteStatus) ? "suspended" : "active";
   const membershipPayload = {
     organisation_id: context.organisationId,
     user_id: user.id,

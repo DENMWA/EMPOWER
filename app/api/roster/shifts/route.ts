@@ -14,6 +14,7 @@ const allowedStatuses: Record<RosterStatus, string> = {
   Cancelled: "cancelled",
   "No Show": "no_show"
 };
+const unavailableStaffStatuses = new Set(["on leave", "resigned", "terminated", "suspended"]);
 
 export async function POST(request: Request) {
   const access = await verifyServerAccess(request, "admin", "scheduling", "rostering.manage");
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     ? await rows<StaffInviteRow>(url, headers, `staff_invites?select=id,name,email,invite_status&id=in.(${assignedWorkers.map((worker) => encodeURIComponent(worker.id)).join(",")})&organisation_id=eq.${access.organisationId}`)
     : [];
   const staffById = new Map(staff.map((worker) => [worker.id, worker]));
-  const unavailable = assignedWorkers.find((worker) => !staffById.has(worker.id) || staffById.get(worker.id)?.invite_status.toLowerCase() === "suspended");
+  const unavailable = assignedWorkers.find((worker) => !staffById.has(worker.id) || unavailableStaffStatuses.has(staffById.get(worker.id)?.invite_status.toLowerCase() || ""));
   if (unavailable) return NextResponse.json({ error: "One assigned staff member is unavailable in this organisation." }, { status: 404 });
 
   const linkedUsers = staff.length

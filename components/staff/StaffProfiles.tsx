@@ -6,7 +6,7 @@ import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
-import { getTenantStaffInvites, isStaffAssignedToClient, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
+import { inactiveStaffStatuses, getTenantStaffInvites, isStaffAssignedToClient, staffUpdatedEvent, type StaffRecord } from "@/lib/staff-records";
 
 type StaffProfileRecord = StaffUser | StaffRecord;
 type StaffProfileStatus = StaffRecord["inviteStatus"] | "Active";
@@ -82,7 +82,7 @@ export function StaffProfiles() {
                   <p className="text-sm text-slate-600">{user.roleLabel} - {user.email}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <StatusBadge label={inviteStatus} tone={inviteStatus === "Active" ? "green" : inviteStatus === "Suspended" ? "red" : "amber"} />
+                  <StatusBadge label={inviteStatus} tone={inviteStatus === "Active" ? "green" : inactiveStaffStatuses.has(inviteStatus) ? "red" : "amber"} />
                   <StatusBadge label={`Quality ${latestQualityScore}%`} tone={latestQualityScore >= 75 ? "green" : "amber"} />
                 </div>
               </div>
@@ -90,7 +90,7 @@ export function StaffProfiles() {
               <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                 <p><span className="font-semibold text-slate-700">House/service access:</span> {houseAccessMode === "all" ? "All houses/services" : assignedHouses.map((house) => house.name).join(", ") || "No house assigned"}</p>
                 <p><span className="font-semibold text-slate-700">Assigned clients:</span> {assignedClients.map((client) => client.name).join(", ") || "No clients assigned"}</p>
-                <p><span className="font-semibold text-slate-700">Testing note:</span> Voice use, approval history, and documentation quality will populate as workers save records.</p>
+                <p><span className="font-semibold text-slate-700">Lifecycle:</span> {inactiveStaffStatuses.has(inviteStatus) ? "Not available for new roster assignments. Historical records remain retained." : "Available according to assigned role and current roster permissions."}</p>
               </div>
             </div>
           );
@@ -112,5 +112,5 @@ function getInviteStatus(user: StaffProfileRecord): StaffProfileStatus {
 }
 
 function isStaffProfileStatus(value: unknown): value is StaffProfileStatus {
-  return value === "Invite sent" || value === "Draft" || value === "Active" || value === "Suspended";
+  return value === "Invite sent" || value === "Draft" || value === "Active" || value === "On leave" || value === "Resigned" || value === "Terminated" || value === "Suspended";
 }

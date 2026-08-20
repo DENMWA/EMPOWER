@@ -31,7 +31,7 @@ import {
 } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-cloud";
-import { getTenantStaffInvites } from "@/lib/staff-records";
+import { getTenantStaffInvites, isStaffActiveForRostering } from "@/lib/staff-records";
 
 export function RosterPage() {
   const [view, setView] = useState<RosterPlanningView>("week");
@@ -50,7 +50,7 @@ export function RosterPage() {
   useEffect(() => {
     Promise.all([loadTenantRosterShifts(), getTenantStaffInvites()]).then(([result, staff]) => {
       setShifts(result.shifts);
-      setStaffOptions(staff.map(({ id, name }) => ({ id, name })));
+      setStaffOptions(staff.filter(isStaffActiveForRostering).map(({ id, name }) => ({ id, name })));
       setSyncMessage(result.error || "Roster connected to workspace.");
     }).catch(() => {
       setShifts([]);
@@ -257,23 +257,36 @@ export function RosterPage() {
           </div>
         </Card>
 
-        <Card>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Worker allocation</p>
-          <div className="mt-3"><EmployeeColourLegend workers={allRosterWorkers} /></div>
-        </Card>
+        <details className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+          <summary className="cursor-pointer list-none">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster controls</p>
+                <h2 className="mt-1 text-lg font-bold text-ink">Filters, legend and reports</h2>
+              </div>
+              <span className="rounded-md bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">Open</span>
+            </div>
+          </summary>
+          <div className="mt-5 space-y-4">
+            <Card className="border-slate-200 shadow-none">
+              <p className="text-sm font-semibold uppercase tracking-wide text-sea">Worker allocation</p>
+              <div className="mt-3"><EmployeeColourLegend workers={allRosterWorkers} /></div>
+            </Card>
 
-        <Card>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster coverage colours</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <div className="flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-950"><span className="h-3 w-3 rounded-full bg-sky-500" aria-hidden="true" />Assigned shift</div>
-            <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950"><span className="h-3 w-3 rounded-full bg-amber-500" aria-hidden="true" />Unassigned shift</div>
-            <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-950"><span className="h-3 w-3 rounded-full bg-red-500" aria-hidden="true" />Vacant or cancelled</div>
+            <Card className="border-slate-200 shadow-none">
+              <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster coverage colours</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <div className="flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-950"><span className="h-3 w-3 rounded-full bg-sky-500" aria-hidden="true" />Assigned shift</div>
+                <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950"><span className="h-3 w-3 rounded-full bg-amber-500" aria-hidden="true" />Unassigned shift</div>
+                <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-950"><span className="h-3 w-3 rounded-full bg-red-500" aria-hidden="true" />Vacant or cancelled</div>
+              </div>
+            </Card>
+
+            <RosterFilters filters={filters} onChange={setFilters} workers={allRosterWorkers} serviceLocations={rosterLocations} />
+
+            <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
           </div>
-        </Card>
-
-        <RosterFilters filters={filters} onChange={setFilters} workers={allRosterWorkers} serviceLocations={rosterLocations} />
-
-        <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
+        </details>
 
         {rosterToolsReady ? (
           <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />

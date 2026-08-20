@@ -5,7 +5,7 @@ import { Card, StatusBadge } from "@/components/ui";
 import { participants, users, type StaffUser } from "@/lib/sample-data";
 import { clientsUpdatedEvent, getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getTenantHouses, housesUpdatedEvent, type HouseRecord } from "@/lib/house-records";
-import { getTenantStaffInvites, isStaffAssignedToClient, staffUpdatedEvent, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
+import { inactiveStaffStatuses, getTenantStaffInvites, isStaffAssignedToClient, staffUpdatedEvent, updateTenantStaffInviteStatus, type StaffRecord } from "@/lib/staff-records";
 import { isRealModeEnabled } from "@/lib/presentation-mode";
 import { accessChangedEvent, currentUserStorageKey, setCurrentAppUser } from "@/lib/user-access";
 import { Eye, MoreHorizontal, Power, RotateCcw } from "lucide-react";
@@ -18,6 +18,7 @@ const inviteStatus: Record<string, { label: string; tone: "green" | "amber" | "b
   "service-manager-a": { label: "Active", tone: "green" },
   "team-lead-a": { label: "Invite sent", tone: "amber" }
 };
+const lifecycleStatuses: StaffRecord["inviteStatus"][] = ["Active", "On leave", "Resigned", "Terminated", "Suspended"];
 
 type TeamMember = StaffUser & { inviteStatus?: StaffRecord["inviteStatus"] };
 
@@ -59,7 +60,7 @@ export function TeamMembersTable() {
   async function changeStaffStatus(user: TeamMember, nextStatus: StaffRecord["inviteStatus"]) {
     const result = await updateTenantStaffInviteStatus(user.id, nextStatus);
     setStoredStaff((current) => current.map((staff) => staff.id === user.id ? { ...staff, inviteStatus: nextStatus } : staff));
-    if (nextStatus === "Suspended") {
+    if (inactiveStaffStatuses.has(nextStatus)) {
       try {
         const currentUser = JSON.parse(window.localStorage.getItem(currentUserStorageKey) || "null") as TeamMember | null;
         if (currentUser?.id === user.id) {
@@ -120,11 +121,11 @@ export function TeamMembersTable() {
               const latestQualityScore = user.qualityTrend[user.qualityTrend.length - 1] ?? 0;
               const storedStatus = user.inviteStatus;
               const status = storedStatus
-                ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : storedStatus === "Suspended" ? "red" as const : "amber" as const }
+                ? { label: storedStatus, tone: storedStatus === "Active" ? "green" as const : inactiveStaffStatuses.has(storedStatus) ? "red" as const : "amber" as const }
                 : inviteStatus[user.id] ?? { label: "Pending", tone: "amber" as const };
-              const canSuspend = Boolean(canControlLifecycle && user.role !== "owner" && storedStatus && storedStatus !== "Suspended");
-              const canReactivate = Boolean(canControlLifecycle && user.role !== "owner" && storedStatus === "Suspended");
-              const canPreview = storedStatus !== "Suspended";
+              const canChangeLifecycle = Boolean(canControlLifecycle && user.role !== "owner" && storedStatus);
+              const canReactivate = Boolean(canChangeLifecycle && storedStatus && inactiveStaffStatuses.has(storedStatus));
+              const canPreview = !storedStatus || !inactiveStaffStatuses.has(storedStatus);
               return (
                 <tr key={user.id} className="border-b border-slate-100 align-top">
                   <td className="py-4 pr-4">
@@ -166,7 +167,17 @@ export function TeamMembersTable() {
                   </td>
                   <td className="py-4 pr-4"><StatusBadge label={status.label} tone={status.tone} /></td>
                   <td className="py-4 pr-4">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {canChangeLifecycle ? (
+                        <select
+                          value={storedStatus}
+                          onChange={(event) => changeStaffStatus(user, event.target.value as StaffRecord["inviteStatus"])}
+                          className="h-10 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700"
+                          aria-label={`Change lifecycle status for ${user.name}`}
+                        >
+                          {lifecycleStatuses.map((statusOption) => <option key={statusOption} value={statusOption}>{statusOption}</option>)}
+                        </select>
+                      ) : null}
                       <button
                         type="button"
                         disabled={!canPreview}
@@ -183,7 +194,7 @@ export function TeamMembersTable() {
                       <a href="/admin/staff/new" className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label={`Manage ${user.name}`}>
                         <MoreHorizontal size={18} aria-hidden="true" />
                       </a>
-                      {canSuspend ? (
+                      {canChangeLifecycle && storedStatus && !inactiveStaffStatuses.has(storedStatus) ? (
                         <button
                           type="button"
                           onClick={() => changeStaffStatus(user, "Suspended")}

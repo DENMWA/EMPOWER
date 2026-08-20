@@ -7,7 +7,7 @@ import type { AdminPermission } from "@/lib/admin-permissions";
 import type { EmploymentType, FeaturePermission } from "@/lib/feature-permissions";
 
 export type StaffRecord = StaffUser & {
-  inviteStatus: "Invite sent" | "Draft" | "Active" | "Suspended";
+  inviteStatus: "Invite sent" | "Draft" | "Active" | "On leave" | "Resigned" | "Terminated" | "Suspended";
   createdAt: string;
   adminPermissions?: AdminPermission[];
   authUserId?: string;
@@ -16,6 +16,12 @@ export type StaffRecord = StaffUser & {
   assignmentStartDate?: string;
   assignmentEndDate?: string;
 };
+
+export const inactiveStaffStatuses = new Set<StaffRecord["inviteStatus"]>(["On leave", "Resigned", "Terminated", "Suspended"]);
+
+export function isStaffActiveForRostering(staff: Pick<StaffRecord, "inviteStatus">) {
+  return staff.inviteStatus === "Active";
+}
 
 const staffStorageKey = "empowernotes:staff";
 export const staffUpdatedEvent = "empowernotes:staff-updated";

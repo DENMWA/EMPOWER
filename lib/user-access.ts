@@ -10,7 +10,7 @@ export const accessChangedEvent = "empowernotes:access-updated";
 export const adminRoles: UserRole[] = ["owner", "admin", "sole_provider"];
 
 function isSuspendedUser(user: StaffUser) {
-  return (user as StaffUser & { inviteStatus?: string }).inviteStatus === "Suspended";
+  return ["On leave", "Resigned", "Terminated", "Suspended"].includes((user as StaffUser & { inviteStatus?: string }).inviteStatus || "");
 }
 
 export function canAccessAdmin(role: UserRole) {

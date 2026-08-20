@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import { X } from "lucide-react";
 import { createRosterShift, getRosterSelectOptions, type RosterShift } from "@/lib/roster";
 import { getTenantClients } from "@/lib/client-records";
-import { getTenantStaffInvites } from "@/lib/staff-records";
+import { getTenantStaffInvites, isStaffActiveForRostering } from "@/lib/staff-records";
 import { getTenantHouses, type HouseRecord } from "@/lib/house-records";
 
 export type RosterShiftPrefill = {
@@ -46,7 +46,7 @@ export function CreateRosterShiftModal({
     if (prefill?.shiftDate) setShiftDate(prefill.shiftDate);
     Promise.all([getTenantClients(), getTenantStaffInvites(), getTenantHouses()]).then(([clients, staff, houses]) => {
       const nextParticipants = clients.map(({ id, name, profilePhotoPath }) => ({ id, name, profilePhotoPath }));
-      const nextWorkers = staff.map(({ id, name }) => ({ id, name }));
+      const nextWorkers = staff.filter(isStaffActiveForRostering).map(({ id, name }) => ({ id, name }));
       setParticipantOptions(nextParticipants);
       setParticipantId((current) => nextParticipants.some((item) => item.id === current) ? current : nextParticipants[0]?.id || "");
       setWorkerOptions(nextWorkers);
