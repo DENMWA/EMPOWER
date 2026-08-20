@@ -90,6 +90,8 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /replacementShiftId/);
   assert.match(page, /shiftPrefill/);
   assert.match(page, /planningOffsetWeeks/);
+  assert.match(page, /Roster sheet navigator/);
+  assert.match(page, /Move calendar roster by week/);
   assert.match(page, /max="52"/);
   assert.match(page, /fortnight/);
   assert.match(page, /quarter/);

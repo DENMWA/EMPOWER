@@ -229,18 +229,6 @@ export function RosterPage() {
               </button>
               <h2 className="ml-1 text-xl font-bold text-ink">{selectedDateLabel}</h2>
             </div>
-            <label className="mt-4 grid max-w-2xl gap-2 text-sm font-medium text-slate-700">
-              Planning slider: {planningOffsetWeeks === 0 ? "Current week" : `${planningOffsetWeeks} week${planningOffsetWeeks === 1 ? "" : "s"} ahead`}
-              <input
-                type="range"
-                min="0"
-                max="52"
-                step="1"
-                value={planningOffsetWeeks}
-                onChange={(event) => jumpPlanningOffset(Number(event.target.value))}
-                className="w-full accent-teal-700"
-              />
-            </label>
           </div>
           <div className="flex flex-wrap gap-3">
             <label className="grid gap-1 text-sm font-medium text-slate-700">
@@ -282,6 +270,38 @@ export function RosterPage() {
         <RosterStatusReports shifts={shifts} selectedDate={selectedDate} />
 
         <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />
+
+        {view === "week" || view === "fortnight" ? (
+          <Card className="border-sky-200 bg-sky-50">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-sky-800">Roster sheet navigator</p>
+                <h2 className="mt-1 text-xl font-bold text-ink">{view === "week" ? "Move calendar roster by week" : "Move calendar roster by fortnight"}</h2>
+                <label className="mt-3 grid max-w-3xl gap-2 text-sm font-medium text-slate-700">
+                  {planningOffsetWeeks === 0 ? "Current roster week" : `${planningOffsetWeeks} week${planningOffsetWeeks === 1 ? "" : "s"} ahead`}
+                  <input
+                    type="range"
+                    min="0"
+                    max="52"
+                    step={view === "fortnight" ? "2" : "1"}
+                    value={planningOffsetWeeks}
+                    onChange={(event) => jumpPlanningOffset(Number(event.target.value))}
+                    className="w-full accent-teal-700"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => jumpPlanningOffset(0)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-400">Current week</button>
+                <button type="button" onClick={() => moveCalendar(-1)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-400">
+                  <ChevronLeft size={16} aria-hidden="true" />Previous
+                </button>
+                <button type="button" onClick={() => moveCalendar(1)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-400">
+                  Next<ChevronRight size={16} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </Card>
+        ) : null}
 
         {view === "day" ? (
           <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
