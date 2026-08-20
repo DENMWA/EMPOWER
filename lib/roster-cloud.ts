@@ -3,6 +3,7 @@ import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { saveRosterShifts, type RosterShift, type RosterStatus } from "@/lib/roster";
 import { getTenantStaffInvites } from "@/lib/staff-records";
 import { supabaseRequest, supabaseRpc } from "@/lib/supabase-rest";
+import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 
 type ShiftRow = {
   id: string;
@@ -100,6 +101,9 @@ export async function loadTenantRosterShifts() {
 }
 
 export async function saveTenantRosterShift(shift: RosterShift) {
+  const apiResult = await saveRosterShiftViaApi(shift);
+  if (apiResult.savedToCloud || apiResult.error !== "api_unavailable") return apiResult;
+
   const result = await supabaseRpc<string>("save_roster_shift_with_service_location", {
     roster_shift_id: shift.id,
     roster_participant_id: shift.participantId,
@@ -125,6 +129,22 @@ export async function saveTenantRosterShift(shift: RosterShift) {
     savedToCloud: !result.error,
     error: result.error || ""
   };
+}
+
+async function saveRosterShiftViaApi(shift: RosterShift) {
+  try {
+    const response = await fetch("/api/roster/shifts", {
+      method: "POST",
+      headers: getAuthenticatedApiHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(shift),
+      cache: "no-store"
+    });
+    const result = await response.json().catch(() => ({})) as { error?: string };
+    if (!response.ok) return { savedToCloud: false, error: result.error || "New shift could not be saved." };
+    return { savedToCloud: true, error: "" };
+  } catch {
+    return { savedToCloud: false, error: "api_unavailable" };
+  }
 }
 
 function formatSydneyDate(value: string) {
