@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlanCatalogueEntry } from "@/lib/subscriptions/catalog";
 import { resolveServerSubscriptionContext } from "@/lib/subscriptions/server-context";
-import { adminPermissionOptions, normalizeAdminPermissions } from "@/lib/admin-permissions";
+import { adminPermissionOptions, delegatedManagerRoles, fullAdminRoles, normalizeAdminPermissions } from "@/lib/admin-permissions";
 import { verifyServerAccess } from "@/lib/security/server-access";
 import { normalizeFeaturePermissions, resolveMembershipPermissions } from "@/lib/feature-permissions";
 import type { UserRole } from "@/lib/sample-data";
@@ -59,13 +59,15 @@ export async function POST(request: NextRequest) {
   const email = body.email?.trim().toLowerCase() || "";
   const role = body.role?.trim() || "support_worker";
   const roleLabel = body.roleLabel?.trim() || "Team member";
-  const permissions = normalizeAdminPermissions(body.adminPermissions);
+  const requestedAdminPermissions = normalizeAdminPermissions(body.adminPermissions);
   const featureOverrides = normalizeFeaturePermissions(body.featurePermissions);
   const employmentType = employmentTypes.has(body.employmentType || "") ? body.employmentType : "other";
   const assignmentStartDate = body.assignmentStartDate || new Date().toISOString().slice(0, 10);
   const assignmentEndDate = body.assignmentEndDate || null;
   if (!body.staffId || !name || !emailPattern.test(email)) return invitationError("validation", "Add a valid staff name and email.", 400);
   if (!assignableRoles.has(role)) return invitationError("validation", "Select a valid organisation role.", 400);
+  const canHoldAdminFunctions = fullAdminRoles.has(role) || delegatedManagerRoles.has(role);
+  const permissions = canHoldAdminFunctions ? requestedAdminPermissions : [];
   const featurePermissions = resolveMembershipPermissions(role as UserRole, featureOverrides, permissions);
   if (assignmentEndDate && assignmentEndDate < assignmentStartDate) return invitationError("validation", "The house assignment end date must be on or after its start date.", 400);
   if (role === "admin" && !["owner", "admin", "sole_provider"].includes(access.role)) {

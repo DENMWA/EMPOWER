@@ -196,7 +196,7 @@ export function DashboardOperationalLists() {
           ) : null}
           {riskQueue.map((note) => {
             return (
-              <div key={note.id} className="rounded-md border border-slate-200 bg-slate-50/60 p-4">
+              <Link key={note.id} href={`/admin/reviews#note-${encodeURIComponent(note.id)}`} className="block rounded-md border border-slate-200 bg-slate-50/60 p-4 transition hover:border-teal-300 hover:bg-teal-50/40">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-ink">{note.title}</h3>
                   <StatusBadge label={note.status} tone={note.status === "Approved" ? "green" : "amber"} />
@@ -206,7 +206,7 @@ export function DashboardOperationalLists() {
                   {note.missingDetails.map((item) => <StatusBadge key={item} label={item} tone="amber" />)}
                   {note.riskyWordingFlags.map((item) => <StatusBadge key={item} label={`Risky wording: ${item}`} tone="red" />)}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

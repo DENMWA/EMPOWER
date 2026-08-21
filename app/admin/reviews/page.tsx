@@ -73,7 +73,7 @@ export default function AdminReviewsPage() {
             const locked = note.status === "Locked";
             const saving = savingId === note.id;
             return (
-              <Card key={note.id}>
+              <Card key={note.id} id={`note-${note.id}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-500">{note.staffName} · {new Date(note.supportDate).toLocaleDateString("en-AU")}</p>

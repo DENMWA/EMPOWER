@@ -189,6 +189,9 @@ test("invited workers receive a private week, fortnight and month roster", async
   assert.match(api, /resolveUserAccessContext\(request\)/);
   assert.match(api, /context\.userId/);
   assert.match(api, /context\.email/);
+  assert.match(api, /organisation_invites\?select=staff_invite_id/);
+  assert.match(api, /auth_user_id=eq\.\$\{context\.userId\}/);
+  assert.match(api, /status=eq\.accepted/);
   assert.doesNotMatch(api, /params\.get\("staff|params\.get\("worker/i);
   assert.match(policy, /staff_user_id = \(select auth\.uid\(\)\)/);
   assert.match(policy, /link_shift_assignment_to_auth_user/);

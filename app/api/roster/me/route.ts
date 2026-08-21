@@ -5,6 +5,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type AssignmentRow = { shift_id: string; staff_user_id: string | null; staff_invite_id: string | null };
+type InviteIdentityRow = { id: string };
+type AcceptedInviteIdentityRow = { staff_invite_id: string | null };
 type ShiftRow = {
   id: string; participant_id: string; title: string | null; support_type: string | null; location: string | null;
   start_time: string; end_time: string; status: string; shift_instructions: string | null; staffing_ratio: string | null;
@@ -28,8 +30,14 @@ export async function GET(request: Request) {
 
   const context = resolved.context;
   const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
-  const invitePath = `staff_invites?select=id&organisation_id=eq.${context.organisationId}&email=ilike.${encodeURIComponent(context.email)}&invite_status=neq.Suspended`;
-  const inviteIds = (await getRows<{ id: string }>(url, headers, invitePath)).map((row) => row.id);
+  const emailInviteRows = context.email
+    ? await getRows<InviteIdentityRow>(url, headers, `staff_invites?select=id&organisation_id=eq.${context.organisationId}&email=ilike.${encodeURIComponent(context.email)}&invite_status=neq.Suspended`)
+    : [];
+  const acceptedInviteRows = await getRows<AcceptedInviteIdentityRow>(url, headers, `organisation_invites?select=staff_invite_id&organisation_id=eq.${context.organisationId}&auth_user_id=eq.${context.userId}&status=eq.accepted`);
+  const inviteIds = [...new Set([
+    ...emailInviteRows.map((row) => row.id),
+    ...acceptedInviteRows.map((row) => row.staff_invite_id || "").filter(Boolean)
+  ])];
   const identityFilters = [`staff_user_id.eq.${context.userId}`, ...inviteIds.map((id) => `staff_invite_id.eq.${id}`)];
   const assignments = await getRows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${context.organisationId}&or=(${identityFilters.join(",")})`);
   const shiftIds = [...new Set(assignments.map((row) => row.shift_id))];

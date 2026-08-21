@@ -104,7 +104,7 @@ export function AdminDashboard() {
 
   const attentionItems = [
     { label: "Staff roster conflicts", count: conflicts.length, href: "/admin/scheduling", action: "Resolve conflicts", urgent: true },
-    { label: "Completed shifts missing notes", count: rosterSummary.completedNeedingNotes, href: "/admin/scheduling", action: "Review shifts", urgent: true },
+    { label: "Completed shifts missing notes", count: rosterSummary.completedNeedingNotes, href: "/admin/reviews", action: "Review notes", urgent: true },
     { label: "Notes needing review", count: notesNeedingReview, href: "/admin/reviews", action: "Review notes" },
     { label: "Incident escalations", count: incidentsAwaitingAction, href: "/admin/incidents", action: "Action incidents", urgent: true },
     { label: "Rendered services ready", count: servicesReady, href: "/admin/billing", action: "Prepare invoices" },

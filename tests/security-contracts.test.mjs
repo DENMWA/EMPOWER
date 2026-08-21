@@ -306,6 +306,8 @@ test("organisation invitations deliver before activating tenant membership", asy
   assert.match(inviteRoute, /verifyServerAccess\(request, "admin", "team", "staff\.invite"\)/);
   assert.match(inviteRoute, /const emailPattern/);
   assert.match(inviteRoute, /role_escalation/);
+  assert.match(inviteRoute, /canHoldAdminFunctions/);
+  assert.match(inviteRoute, /canHoldAdminFunctions \? requestedAdminPermissions : \[\]/);
   assert.match(inviteRoute, /organisation_memberships\?select=id&organisation_id=eq\.\$\{access\.organisationId\}/);
   assert.match(inviteRoute, /type: "invite", email, redirect_to: redirectTo/);
   assert.match(inviteRoute, /type: "magiclink", email, redirect_to: redirectTo/);
@@ -789,10 +791,12 @@ test("submitted progress notes create traceable pending goal evidence without cl
 });
 
 test("staff dashboard hides management surfaces unless server access is verified", async () => {
-  const [dashboard, roleAware, shell] = await Promise.all([
+  const [dashboard, roleAware, shell, cards, reviews] = await Promise.all([
     source("app/dashboard/page.tsx"),
     source("components/dashboard/RoleAwareDashboard.tsx"),
-    source("components/AppShell.tsx")
+    source("components/AppShell.tsx"),
+    source("components/dashboard/DashboardCards.tsx"),
+    source("app/admin/reviews/page.tsx")
   ]);
   assert.match(dashboard, /<RoleAwareDashboard/);
   assert.doesNotMatch(dashboard, /ManagerDashboardCards|DashboardOperationalLists|StaffProfiles/);
@@ -802,6 +806,8 @@ test("staff dashboard hides management surfaces unless server access is verified
   assert.match(roleAware, /can\("shift_verification"\)/);
   assert.match(roleAware, /can\("billing"\)/);
   assert.match(shell, /item\.href !== "\/admin" \|\| verifiedAdmin/);
+  assert.match(cards, /\/admin\/reviews#note-\$\{encodeURIComponent\(note\.id\)\}/);
+  assert.match(reviews, /id=\{`note-\$\{note\.id\}`\}/);
 });
 
 test("workers can access only assigned-client direct-care documents", async () => {
