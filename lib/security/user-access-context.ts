@@ -5,6 +5,7 @@ import type { UserRole } from "@/lib/sample-data";
 export type UserAccessContext = {
   userId: string;
   email: string;
+  name: string;
   organisationId: string;
   membershipId: string;
   membershipStatus: "active";
@@ -32,6 +33,7 @@ type MembershipRow = {
 };
 type AcceptedInviteRow = { organisation_id: string; email: string };
 type OrganisationAccessRow = { platform_access_status?: string; platform_access_reason?: string | null };
+type UserProfileRow = { organisation_id?: string; name?: string | null; email?: string | null };
 
 export async function resolveUserAccessContext(request: Request, requested: RequestedScope = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,7 +51,7 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
 
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
     const [profiles, memberships, acceptedInvites] = await Promise.all([
-      rows<{ organisation_id?: string }>(url, headers, `users?select=organisation_id&id=eq.${authUser.id}&limit=1`),
+      rows<UserProfileRow>(url, headers, `users?select=organisation_id,name,email&id=eq.${authUser.id}&limit=1`),
       rows<MembershipRow>(url, headers, `organisation_memberships?select=id,organisation_id,role,employment_type,feature_permissions,admin_permissions,access_status&user_id=eq.${authUser.id}`),
       rows<AcceptedInviteRow>(url, headers, `organisation_invites?select=organisation_id,email&auth_user_id=eq.${authUser.id}&status=eq.accepted`)
     ]);
@@ -120,6 +122,7 @@ export async function resolveUserAccessContext(request: Request, requested: Requ
     const context: UserAccessContext = {
       userId: authUser.id,
       email: authUser.email || "",
+      name: cleanDisplayName(profiles[0]?.name) || displayNameFromEmail(authUser.email || ""),
       organisationId,
       membershipId: membership.id,
       membershipStatus: "active",
@@ -180,3 +183,12 @@ function securityEvent(event: string, details: { actorUserId: string; endpoint: 
 }
 
 function today() { return new Date().toISOString().slice(0, 10); }
+
+function cleanDisplayName(value: unknown) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, 80) : "";
+}
+
+function displayNameFromEmail(email: string) {
+  const local = email.split("@")[0] || "Team member";
+  return local.split(/[._-]+/).filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ") || "Team member";
+}

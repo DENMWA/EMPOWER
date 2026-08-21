@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     organisationId: access.organisationId,
     membershipId: access.membershipId,
     email: access.email,
+    name: access.name,
     permissions: access.permissions,
     adminPermissions: access.adminPermissions
   });

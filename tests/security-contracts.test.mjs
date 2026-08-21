@@ -10,7 +10,10 @@ test("privileged server access delegates to active organisation membership autho
   const [access, resolver] = await Promise.all([source("lib/security/server-access.ts"), source("lib/security/user-access-context.ts")]);
   assert.match(access, /resolveUserAccessContext\(request\)/);
   assert.match(access, /canAccessAdmin\(context\.role, context\.adminPermissions, requiredPermission\)/);
+  assert.match(access, /name: context\.name/);
   assert.doesNotMatch(access, /users\?select=role,organisation_id/);
+  assert.match(resolver, /users\?select=organisation_id,name,email/);
+  assert.match(resolver, /name: cleanDisplayName\(profiles\[0\]\?\.name\) \|\| displayNameFromEmail/);
   assert.match(resolver, /organisation_memberships\?select=id,organisation_id,role/);
   assert.match(resolver, /membership\.access_status !== "active"/);
   assert.doesNotMatch(resolver, /legacyProfiles|available\[0\]/);
@@ -87,6 +90,8 @@ test("admin navigation relies on verified server access", async () => {
   ]);
 
   assert.match(shell, /item\.href !== "\/admin" \|\| verifiedAdmin/);
+  assert.match(shell, /\/api\/access\/context/);
+  assert.match(shell, /aria-label=\{`Signed in as \$\{displayName\}`\}/);
   assert.doesNotMatch(shell, /canAccessAdmin\(currentUser\.role\)/);
   assert.match(shell, /pathname\.startsWith\("\/admin"\).*verifiedAdmin/);
   assert.match(gate, /router\.replace\("\/dashboard"\)/);
@@ -100,7 +105,8 @@ test("organisation administrators use password and role-based access", async () 
     source("app/api/auth/access/route.ts"),
     source("lib/security/server-access.ts")
   ]);
-  assert.match(shell, /result\.allowed/);
+  assert.match(shell, /admin\.allowed/);
+  assert.match(accessRoute, /name: access\.name/);
   assert.doesNotMatch(gate, /\/mfa\?next=/);
   assert.match(accessRoute, /requiresMfa: access\.requiresMfa/);
   assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);

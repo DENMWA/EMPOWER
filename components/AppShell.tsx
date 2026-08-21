@@ -8,7 +8,7 @@ import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus, refreshSupabaseSession, signOutSupabaseSession } from "@/lib/supabase-auth";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
-import { getStoredAccessToken } from "@/lib/supabase-rest";
+import { activeOrganisationUpdatedEvent, getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
 import { complianceDisclaimer, cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [organisationAccess, setOrganisationAccess] = useState<ReturnType<typeof getDemoOrganisationAccess> | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [verifiedAdmin, setVerifiedAdmin] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
@@ -78,7 +79,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setSignedIn(authStatus.signedIn);
       setAuthChecked(true);
       setDataMode(authStatus.signedIn ? "real" : "demo");
-      if (!authStatus.signedIn) setVerifiedAdmin(false);
+      if (!authStatus.signedIn) {
+        setVerifiedAdmin(false);
+        setDisplayName("");
+      }
     }
 
     window.addEventListener(authSessionChangedEvent, syncAuth);
@@ -93,6 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     async function verifyAdminNavigation() {
       if (!signedIn) {
         setVerifiedAdmin(false);
+        setDisplayName("");
         return;
       }
 
@@ -100,18 +105,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (!token) return;
 
       try {
-        const response = await fetch("/api/auth/access?mode=admin", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store"
-        });
-        const result = await response.json() as { allowed?: boolean };
-        setVerifiedAdmin(Boolean(result.allowed));
+        const [contextResponse, adminResponse] = await Promise.all([
+          fetch("/api/access/context", {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store"
+          }),
+          fetch("/api/auth/access?mode=admin", {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store"
+          })
+        ]);
+        const context = await contextResponse.json() as { ok?: boolean; name?: string; email?: string };
+        const admin = await adminResponse.json() as { allowed?: boolean };
+        setDisplayName(context.ok ? context.name?.trim() || displayNameFromEmail(context.email || "") : "");
+        setVerifiedAdmin(Boolean(admin.allowed));
       } catch {
         setVerifiedAdmin(false);
       }
     }
 
     void verifyAdminNavigation();
+    window.addEventListener(authSessionChangedEvent, verifyAdminNavigation);
+    window.addEventListener(activeOrganisationUpdatedEvent, verifyAdminNavigation);
+    return () => {
+      window.removeEventListener(authSessionChangedEvent, verifyAdminNavigation);
+      window.removeEventListener(activeOrganisationUpdatedEvent, verifyAdminNavigation);
+    };
   }, [signedIn]);
 
   useEffect(() => {
@@ -141,6 +160,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {!signedIn && !isPlatform ? <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-teal-100">Product preview</span> : null}
             <AccessibilityToggle enabled={accessibilityMode} onChange={setAccessibilityMode} />
             {signedIn && !isPlatform ? <WorkspaceSwitcher /> : null}
+            {signedIn && displayName ? (
+              <span className="inline-flex min-h-10 items-center rounded-md border border-teal-100 bg-teal-50 px-3 text-sm font-semibold text-teal-900" aria-label={`Signed in as ${displayName}`}>
+                {displayName}
+              </span>
+            ) : null}
             {signedIn ? (
               <button type="button" onClick={signOut} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-red-300 hover:text-red-700" aria-label="Sign out of EmpowerNotes">
                 <LogOut size={17} aria-hidden="true" />
@@ -257,4 +281,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </footer>
     </div>
   );
+}
+
+function displayNameFromEmail(email: string) {
+  const local = email.split("@")[0] || "";
+  return local.split(/[._-]+/).filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ") || "Team member";
 }

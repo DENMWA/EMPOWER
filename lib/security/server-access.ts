@@ -22,6 +22,7 @@ export type ServerAccessResult = {
   reason: string;
   userId: string;
   email: string;
+  name: string;
   role: string;
   organisationId: string;
   membershipId: string;
@@ -68,6 +69,7 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
     reason: "",
     userId: context.userId,
     email: context.email,
+    name: context.name,
     role: context.role,
     organisationId: context.organisationId,
     membershipId: context.membershipId,
@@ -78,7 +80,7 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
 }
 
 function denied(status: number, reason: string, correlationId = "", requiresMfa = false): ServerAccessResult {
-  return { allowed: false, status, reason, userId: "", email: "", role: "", organisationId: "", membershipId: "", permissions: [], adminPermissions: [], correlationId, requiresMfa };
+  return { allowed: false, status, reason, userId: "", email: "", name: "", role: "", organisationId: "", membershipId: "", permissions: [], adminPermissions: [], correlationId, requiresMfa };
 }
 
 function logDenied(actorUserId: string, request: Request, correlationId: string) {
