@@ -20,6 +20,7 @@ import {
   getRosterRangeShifts,
   getRosterShiftConflicts,
   getRosterSummary,
+  getRosterCoverageColour,
   getShiftStaffLabel,
   markRosterShiftCompleted,
   markRosterShiftCancelled,
@@ -194,31 +195,15 @@ export function RosterPage() {
     const rows = rosterSheetShifts
       .slice()
       .sort((first, second) => `${first.shiftDate} ${first.startTime}`.localeCompare(`${second.shiftDate} ${second.startTime}`))
-      .map((shift) => [
-        shift.shiftDate,
-        shift.startTime,
-        shift.endTime,
-        shift.participantName,
-        getShiftStaffLabel(shift),
-        shift.staffingRatio || "1:1",
-        shift.supportType,
-        shift.location,
-        shift.status,
-        shift.noteRequired ? (shift.noteCompleted ? "Completed" : "Required") : "Not required",
-        shift.shiftInstructions
-      ]);
-    const csv = [
-      ["Date", "Start", "End", "Client", "Assigned staff", "Ratio", "Support type", "Location", "Status", "Progress note", "Shift instructions"],
-      ...rows
-    ].map((row) => row.map(csvCell).join(",")).join("\r\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `empowernotes-roster-${view}-${selectedRange.startKey}-to-${selectedRange.endKey}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setSyncMessage(`${selectedDateLabel} roster downloaded.`);
+      .map((shift) => ({ shift, colour: getRosterPdfColour(shift) }));
+    const printed = printRosterPdf({
+      title: "EmpowerNotes roster",
+      filename: `empowernotes-roster-${view}-${selectedRange.startKey}-to-${selectedRange.endKey}.pdf`,
+      period: selectedDateLabel,
+      mode: rosterModeLabel,
+      rows
+    });
+    setSyncMessage(printed ? `${selectedDateLabel} roster PDF is ready to save.` : "Roster PDF could not open. Check browser pop-up or print settings.");
   }
 
   async function importRosterCsv(file: File | undefined) {
@@ -337,7 +322,7 @@ export function RosterPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={downloadRoster} className="mt-auto inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
-              <Download size={17} aria-hidden="true" />Download roster
+              <Download size={17} aria-hidden="true" />Download PDF roster
             </button>
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Date
@@ -466,10 +451,6 @@ function toDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function csvCell(value: string) {
-  return `"${String(value ?? "").replace(/"/g, "\"\"")}"`;
-}
-
 function parseRosterCsv(text: string, clients: Array<{ id: string; name: string; profilePhotoPath?: string }>, staff: Array<{ id: string; name: string }>) {
   const [headerRow, ...dataRows] = parseCsvRows(text);
   if (!headerRow?.length) return { shifts: [] as RosterShift[], warning: "The CSV file is empty." };
@@ -592,4 +573,145 @@ function normaliseTime(value: string) {
   if (period === "am" && hour === 12) hour = 0;
   if (hour > 23 || Number(minute) > 59) return "";
   return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function getRosterPdfColour(shift: RosterShift) {
+  const coverage = getRosterCoverageColour(shift);
+  if (coverage.label === "Vacant / cancelled") {
+    return { label: coverage.label, border: "#dc2626", background: "#fef2f2", pill: "#dc2626", text: "#7f1d1d" };
+  }
+  if (coverage.label === "Unassigned") {
+    return { label: coverage.label, border: "#f59e0b", background: "#fffbeb", pill: "#f59e0b", text: "#78350f" };
+  }
+  return { label: coverage.label, border: "#0284c7", background: "#eff6ff", pill: "#0284c7", text: "#0c4a6e" };
+}
+
+function printRosterPdf({ title, filename, period, mode, rows }: {
+  title: string;
+  filename: string;
+  period: string;
+  mode: string;
+  rows: Array<{ shift: RosterShift; colour: ReturnType<typeof getRosterPdfColour> }>;
+}) {
+  const generatedAt = new Date().toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" });
+  const rowHtml = rows.length ? rows.map(({ shift, colour }) => `
+    <tr style="border-left: 6px solid ${colour.border}; background: ${colour.background}; color: ${colour.text};">
+      <td><strong>${escapeRosterHtml(formatRosterDate(shift.shiftDate))}</strong><span>${escapeRosterHtml(`${shift.startTime} - ${shift.endTime}`)}</span></td>
+      <td><strong>${escapeRosterHtml(shift.participantName)}</strong><span>${escapeRosterHtml(shift.location)}</span></td>
+      <td><strong>${escapeRosterHtml(getShiftStaffLabel(shift))}</strong><span>${escapeRosterHtml(shift.staffingRatio || "1:1")}</span></td>
+      <td><strong>${escapeRosterHtml(shift.supportType)}</strong><span>${escapeRosterHtml(shift.shiftInstructions || "No additional instructions recorded.")}</span></td>
+      <td><span class="status" style="background: ${colour.pill};">${escapeRosterHtml(colour.label)}</span><span>${escapeRosterHtml(shift.noteRequired ? (shift.noteCompleted ? "Note completed" : "Note required") : "Note not required")}</span></td>
+    </tr>
+  `).join("") : `<tr><td colspan="5" class="empty">No roster shifts are recorded for this period.</td></tr>`;
+  const documentHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeRosterHtml(filenameWithoutExtension(filename))}</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #102a33; font-family: Arial, Helvetica, sans-serif; }
+    main { min-height: 100vh; padding: 24px; background: #ffffff; }
+    header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 4px solid #1f8a86; padding-bottom: 16px; }
+    h1 { margin: 0; color: #073b44; font-size: 28px; letter-spacing: 0; }
+    .subtitle { margin: 8px 0 0; color: #475569; font-size: 13px; line-height: 1.5; }
+    .meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+    .meta div { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; }
+    .meta span, td span { display: block; color: #475569; font-size: 11px; line-height: 1.45; margin-top: 4px; }
+    .meta strong { display: block; font-size: 13px; color: #102a33; }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 7px 10px; font-size: 12px; font-weight: 700; }
+    .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+    th { color: #475569; font-size: 11px; text-transform: uppercase; text-align: left; padding: 0 10px 4px; letter-spacing: .04em; }
+    td { padding: 12px 10px; vertical-align: top; border-top: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe; font-size: 12px; line-height: 1.4; }
+    td:first-child { border-radius: 8px 0 0 8px; border-left: 1px solid #dbeafe; }
+    td:last-child { border-radius: 0 8px 8px 0; border-right: 1px solid #dbeafe; }
+    td strong { display: block; color: inherit; font-size: 13px; }
+    .status { display: inline-flex; border-radius: 999px; color: white; font-size: 11px; font-weight: 800; padding: 6px 8px; margin-bottom: 4px; }
+    .empty { text-align: center; color: #475569; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; padding: 26px; }
+    footer { margin-top: 16px; color: #64748b; font-size: 10px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    @media print { body { background: #ffffff; } main { padding: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>${escapeRosterHtml(title)}</h1>
+        <p class="subtitle">Colour-coded roster export for manager review, staff allocation, vacancies and shift documentation.</p>
+      </div>
+      <div class="subtitle"><strong>Generated</strong><br />${escapeRosterHtml(generatedAt)}</div>
+    </header>
+    <section class="meta">
+      <div><span>Period</span><strong>${escapeRosterHtml(period)}</strong></div>
+      <div><span>Roster source</span><strong>${escapeRosterHtml(mode)}</strong></div>
+      <div><span>Total shifts</span><strong>${rows.length}</strong></div>
+    </section>
+    <section class="legend" aria-label="Roster colour legend">
+      <span style="background:#eff6ff;color:#0c4a6e;"><i class="dot" style="background:#0284c7;"></i>Assigned shift</span>
+      <span style="background:#fffbeb;color:#78350f;"><i class="dot" style="background:#f59e0b;"></i>Unassigned shift</span>
+      <span style="background:#fef2f2;color:#7f1d1d;"><i class="dot" style="background:#dc2626;"></i>Vacant or cancelled</span>
+    </section>
+    <table>
+      <thead><tr><th>Date / time</th><th>Client / location</th><th>Staff / ratio</th><th>Support details</th><th>Status</th></tr></thead>
+      <tbody>${rowHtml}</tbody>
+    </table>
+    <footer>Generated by EmpowerNotes. Confirm all roster details against the provider record before payroll, billing, audit or external sharing.</footer>
+  </main>
+</body>
+</html>`;
+  return printRosterHtml(filename, documentHtml);
+}
+
+function printRosterHtml(filename: string, content: string) {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.position = "fixed";
+  frame.style.width = "1px";
+  frame.style.height = "1px";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.border = "0";
+  frame.style.opacity = "0";
+  document.body.appendChild(frame);
+
+  const printWindow = frame.contentWindow;
+  const printDocument = frame.contentDocument;
+  if (!printWindow || !printDocument) {
+    frame.remove();
+    return false;
+  }
+
+  printDocument.open();
+  printDocument.write(content.replace(/<title>.*?<\/title>/, `<title>${escapeRosterHtml(filenameWithoutExtension(filename))}</title>`));
+  printDocument.close();
+  const cleanup = () => window.setTimeout(() => frame.remove(), 500);
+  printWindow.addEventListener("afterprint", cleanup, { once: true });
+  window.setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+    window.setTimeout(cleanup, 60_000);
+  }, 500);
+  return true;
+}
+
+function formatRosterDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+
+function filenameWithoutExtension(filename: string) {
+  return filename.replace(/\.[a-z0-9]+$/i, "");
+}
+
+function escapeRosterHtml(value: string | number) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
