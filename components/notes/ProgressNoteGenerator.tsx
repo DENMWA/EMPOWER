@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Camera, CheckCircle2, Trash2 } from "lucide-react";
+import { AppointmentComposer } from "@/components/appointments/AppointmentComposer";
 import { BodyMap, type BodyMarker, type BodyView } from "@/components/incidents/IncidentReportForm";
 import { ProgressNoteWritingPad } from "@/components/notes/ProgressNoteWritingPad";
 import { ClientIdentity } from "@/components/participants/PrivateClientPhoto";
@@ -305,6 +306,7 @@ export function ProgressNoteGenerator() {
   const isBowelCare = supportType === "Bowel care";
   const isPersonalCare = supportType === "Personal care";
   const showMealsAndFluidLog = supportType === "Meals and fluid log";
+  const showAppointmentCard = supportType === "Appointment support";
   const isFocusedCareLog = isBowelCare || isPersonalCare || showMealsAndFluidLog;
   const recordNarrative = isBowelCare ? formatBowelCareSummary() : isPersonalCare ? formatPersonalCareSummary() : showMealsAndFluidLog ? formatMealsAndFluidSummary() : roughNote;
   const quality = scoreNoteQuality(recordNarrative, participantGoals.length > 0);
@@ -636,6 +638,11 @@ export function ProgressNoteGenerator() {
           </div>
         </div>
         {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
+        {showAppointmentCard ? (
+          <div className="mt-5">
+            <AppointmentComposer mode="worker" initialParticipantId={selectedParticipantId} initialHouseId={selectedHouseId} compact />
+          </div>
+        ) : null}
         {availableGoals.length && !isFocusedCareLog ? (
           <fieldset className="mt-4 rounded-md border border-slate-200 bg-white p-4">
             <legend className="px-1 text-sm font-semibold text-ink">Goals relevant to this note</legend>

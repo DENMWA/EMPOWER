@@ -483,12 +483,41 @@ test("handover communication book supports house, client and operational scopes"
   assert.match(records, /scope_type:\s*entry\.scopeType/);
 });
 
+test("client appointments can be added by workers, reviewed by admin and shown as reminders", async () => {
+  const [records, composer, reminders, notes, dashboard, admin, migration] = await Promise.all([
+    source("lib/appointment-records.ts"),
+    source("components/appointments/AppointmentComposer.tsx"),
+    source("components/appointments/AppointmentRemindersPanel.tsx"),
+    source("components/notes/ProgressNoteGenerator.tsx"),
+    source("components/dashboard/RoleAwareDashboard.tsx"),
+    source("components/admin/AdminDashboard.tsx"),
+    source("supabase/client-appointments.sql")
+  ]);
+  assert.match(records, /AppointmentStatus = "Needs admin review" \| "Confirmed" \| "Completed" \| "Cancelled"/);
+  assert.match(records, /getAppointmentReminderStage/);
+  assert.match(records, /overdue-follow-up/);
+  assert.match(composer, /mode: "worker" \| "admin"/);
+  assert.match(composer, /Needs review by default/);
+  assert.match(composer, /Save appointment/);
+  assert.match(reminders, /Appointments will appear here one week before they are due/);
+  assert.match(notes, /supportType === "Appointment support"/);
+  assert.match(notes, /AppointmentComposer mode="worker"/);
+  assert.match(dashboard, /AppointmentRemindersPanel/);
+  assert.match(admin, /AppointmentComposer mode="admin"/);
+  assert.match(admin, /Appointments and follow-ups/);
+  assert.match(migration, /create table if not exists public\.client_appointments/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /private\.current_user_can_access_participant\(participant_id, appointment_date\)/);
+  assert.match(migration, /created_by = \(select auth\.uid\(\)\)/);
+});
+
 test("worker dashboard opens with a house-scoped incoming handover panel", async () => {
   const [dashboard, panel] = await Promise.all([
     source("components/dashboard/RoleAwareDashboard.tsx"),
     source("components/dashboard/DashboardHandoverPanel.tsx")
   ]);
   assert.match(dashboard, /xl:grid-cols-\[minmax\(0,1fr\)_360px\]/);
+  assert.match(dashboard, /<AppointmentRemindersPanel \/>/);
   assert.match(dashboard, /<DashboardHandoverPanel \/>/);
   assert.match(panel, /getRecentHandovers\(24\)/);
   assert.match(panel, /Number\(left\.acknowledged\) - Number\(right\.acknowledged\)/);

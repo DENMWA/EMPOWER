@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ManagerApprovalPanel } from "@/components/approvals/ManagerApprovalPanel";
+import { AppointmentRemindersPanel } from "@/components/appointments/AppointmentRemindersPanel";
 import { DashboardOperationalLists, ManagerDashboardCards, WorkerDashboardCards } from "@/components/dashboard/DashboardCards";
 import { InvoiceReadinessPanel } from "@/components/invoicing/InvoiceReadinessPanel";
 import { StaffProfiles } from "@/components/staff/StaffProfiles";
@@ -52,7 +53,10 @@ export function RoleAwareDashboard() {
             </div>
           ) : null}
         </div>
-        <DashboardHandoverPanel />
+        <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
+          <AppointmentRemindersPanel />
+          <DashboardHandoverPanel />
+        </div>
       </div>
     </>
   );

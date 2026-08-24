@@ -13,7 +13,10 @@ import {
   UserPlus,
   Users
 } from "lucide-react";
+import { AppointmentComposer } from "@/components/appointments/AppointmentComposer";
+import { AppointmentRemindersPanel } from "@/components/appointments/AppointmentRemindersPanel";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
+import { appointmentsUpdatedEvent, getAppointmentReminderStage, getTenantAppointments, type ClientAppointment } from "@/lib/appointment-records";
 import { getTenantClients, type ClientRecord } from "@/lib/client-records";
 import { getNativeBillingRecords, type NativeBillingRecords } from "@/lib/native-billing";
 import { getRosterShiftConflicts, getRosterSummary, type RosterShift } from "@/lib/roster";
@@ -72,27 +75,35 @@ export function AdminDashboard() {
   const [billing, setBilling] = useState<NativeBillingRecords>(emptyBilling);
   const [notesNeedingReview, setNotesNeedingReview] = useState(0);
   const [incidentsAwaitingAction, setIncidentsAwaitingAction] = useState(0);
+  const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
 
   useEffect(() => {
-    Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clientRecords, staffRecords]) => {
-      setClients(clientRecords);
-      setStaff(staffRecords);
-    }).catch(() => undefined);
-    loadTenantRosterShifts().then((result) => setShifts(result.shifts)).catch(() => setShifts([]));
-    setBilling(getNativeBillingRecords());
-    getTenantRetainedRecords("progress-note").then((records) => {
-      setNotesNeedingReview(records.filter((record) => {
-        try {
-          const note = JSON.parse(record.body) as { status?: string; score?: number; missingDetails?: unknown[] };
-          return note.status === "Needs Review" || (typeof note.score === "number" && note.score < 80) || Boolean(note.missingDetails?.length);
-        } catch {
-          return false;
-        }
-      }).length);
-    }).catch(() => setNotesNeedingReview(0));
-    getSavedIncidentReports()
-      .then((records) => setIncidentsAwaitingAction(records.filter(({ report }) => report.status === "Submitted" || report.status === "Needs Review").length))
-      .catch(() => setIncidentsAwaitingAction(0));
+    function loadAdminWorkspace() {
+      Promise.all([getTenantClients(), getTenantStaffInvites()]).then(([clientRecords, staffRecords]) => {
+        setClients(clientRecords);
+        setStaff(staffRecords);
+      }).catch(() => undefined);
+      loadTenantRosterShifts().then((result) => setShifts(result.shifts)).catch(() => setShifts([]));
+      getTenantAppointments().then(setAppointments).catch(() => setAppointments([]));
+      setBilling(getNativeBillingRecords());
+      getTenantRetainedRecords("progress-note").then((records) => {
+        setNotesNeedingReview(records.filter((record) => {
+          try {
+            const note = JSON.parse(record.body) as { status?: string; score?: number; missingDetails?: unknown[] };
+            return note.status === "Needs Review" || (typeof note.score === "number" && note.score < 80) || Boolean(note.missingDetails?.length);
+          } catch {
+            return false;
+          }
+        }).length);
+      }).catch(() => setNotesNeedingReview(0));
+      getSavedIncidentReports()
+        .then((records) => setIncidentsAwaitingAction(records.filter(({ report }) => report.status === "Submitted" || report.status === "Needs Review").length))
+        .catch(() => setIncidentsAwaitingAction(0));
+    }
+
+    loadAdminWorkspace();
+    window.addEventListener(appointmentsUpdatedEvent, loadAdminWorkspace);
+    return () => window.removeEventListener(appointmentsUpdatedEvent, loadAdminWorkspace);
   }, []);
 
   const rosterSummary = getRosterSummary(shifts);
@@ -101,12 +112,16 @@ export function AdminDashboard() {
     service.status === "completed" && !billing.invoiceLines.some((line) => line.shiftId === service.id && line.approvalStatus !== "needs_correction")
   ).length;
   const invoicesNeedingReview = billing.invoices.filter((invoice) => invoice.status === "review_required" || invoice.paymentStatus === "overdue").length;
+  const appointmentsNeedingAttention = appointments.filter((appointment) =>
+    appointment.status === "Needs admin review" || getAppointmentReminderStage(appointment) !== "later"
+  ).length;
 
   const attentionItems = [
     { label: "Staff roster conflicts", count: conflicts.length, href: "/admin/scheduling", action: "Resolve conflicts", urgent: true },
     { label: "Completed shifts missing notes", count: rosterSummary.completedNeedingNotes, href: "/admin/reviews", action: "Review notes", urgent: true },
     { label: "Notes needing review", count: notesNeedingReview, href: "/admin/reviews", action: "Review notes" },
     { label: "Incident escalations", count: incidentsAwaitingAction, href: "/admin/incidents", action: "Action incidents", urgent: true },
+    { label: "Appointments and follow-ups", count: appointmentsNeedingAttention, href: "#admin-appointments", action: "Review appointments" },
     { label: "Rendered services ready", count: servicesReady, href: "/admin/billing", action: "Prepare invoices" },
     { label: "Invoices needing attention", count: invoicesNeedingReview, href: "/admin/billing", action: "Review invoices", urgent: true }
   ].filter((item) => item.count > 0);
@@ -166,6 +181,11 @@ export function AdminDashboard() {
               <QuickAction href="/admin/billing" icon={ReceiptText} label="Open invoicing" />
             </div>
           </Card>
+        </div>
+
+        <div id="admin-appointments" className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <AppointmentComposer mode="admin" onSaved={() => getTenantAppointments().then(setAppointments).catch(() => setAppointments([]))} />
+          <AppointmentRemindersPanel title="Appointment reminders" subtitle="Upcoming client appointments, worker-created bookings and follow-ups." adminView limit={6} />
         </div>
 
         <div>
