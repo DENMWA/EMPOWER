@@ -986,7 +986,11 @@ test("customer invoices expose support codes without staff identities or clinica
     source("lib/native-billing.ts")
   ]);
   assert.doesNotMatch(pdf, /supportItemName|description|staffName|noteReference/);
+  assert.match(pdf, /formatInvoiceDate/);
+  assert.match(pdf, /Service date \$\{formatInvoiceDate\(line\.serviceDate\)\}/);
   assert.doesNotMatch(workspace.slice(workspace.indexOf('<h2 className="text-xl font-semibold text-ink">4. Invoices'), workspace.indexOf("function StatusPanel")), /line\.description|line\.supportItemName/);
+  assert.match(workspace, /formatInvoiceDisplayDate/);
+  assert.match(workspace, /Invoice date \{formatInvoiceDisplayDate\(invoice\.invoiceDate\)\}/);
   const csvSection = billing.slice(billing.indexOf("export function buildInvoiceCsv"), billing.indexOf("export function getEmptyBillingRecords"));
   assert.doesNotMatch(csvSection, /staffName|noteReference|line\.description|line\.supportItemName/);
 });

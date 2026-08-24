@@ -1203,19 +1203,21 @@ export function NativeBillingWorkspace() {
                     <p className="font-semibold text-ink">{invoice.invoiceNumber} - ${invoice.totalAmount}</p>
                     <StatusBadge label={`${invoice.status} / ${invoice.paymentStatus}`} tone={invoice.status === "review_required" ? "amber" : invoice.paymentStatus === "paid" ? "green" : "blue"} />
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">{invoice.participantName} · {invoice.billingPeriodStart} to {invoice.billingPeriodEnd} · {lines.length} line{lines.length === 1 ? "" : "s"}</p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {invoice.participantName} · Invoice date {formatInvoiceDisplayDate(invoice.invoiceDate)} · Due {formatInvoiceDisplayDate(invoice.dueDate)} · Period {formatInvoiceDisplayDate(invoice.billingPeriodStart)} to {formatInvoiceDisplayDate(invoice.billingPeriodEnd)} · {lines.length} line{lines.length === 1 ? "" : "s"}
+                  </p>
                   <div className="mt-3 hidden overflow-x-auto rounded-md border border-slate-200 md:block">
                     <table className="min-w-full text-left text-sm">
                       <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Support</th><th className="px-3 py-2">Quantity</th><th className="px-3 py-2">Rate</th><th className="px-3 py-2">Amount</th></tr></thead>
                       <tbody>
-                        {lines.map((line) => <tr key={line.id} className="border-t border-slate-200"><td className="px-3 py-2">{line.serviceDate}</td><td className="px-3 py-2 font-semibold text-ink">{line.supportItemNumber}</td><td className="px-3 py-2">{line.quantity} {line.unitType}</td><td className="px-3 py-2">${line.rate.toFixed(2)}</td><td className="px-3 py-2 font-semibold text-ink">${line.amount.toFixed(2)}</td></tr>)}
+                        {lines.map((line) => <tr key={line.id} className="border-t border-slate-200"><td className="px-3 py-2">{formatInvoiceDisplayDate(line.serviceDate)}</td><td className="px-3 py-2 font-semibold text-ink">{line.supportItemNumber}</td><td className="px-3 py-2">{line.quantity} {line.unitType}</td><td className="px-3 py-2">${line.rate.toFixed(2)}</td><td className="px-3 py-2 font-semibold text-ink">${line.amount.toFixed(2)}</td></tr>)}
                       </tbody>
                     </table>
                   </div>
                   <div className="mt-3 grid gap-2 md:hidden">
                     {lines.map((line) => <div key={`${line.id}-mobile`} className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
                       <div className="flex items-start justify-between gap-3"><p className="min-w-0 break-words font-semibold text-ink">{line.supportItemNumber || "Support"}</p><p className="shrink-0 font-bold text-ink">${line.amount.toFixed(2)}</p></div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600"><span>{line.serviceDate}</span><span>{line.quantity} {line.unitType} x ${line.rate.toFixed(2)}</span><span>GST: {line.gstCode || "Not specified"}</span></div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600"><span>Service date {formatInvoiceDisplayDate(line.serviceDate)}</span><span>{line.quantity} {line.unitType} x ${line.rate.toFixed(2)}</span><span>GST: {line.gstCode || "Not specified"}</span></div>
                     </div>)}
                   </div>
                   {lines.filter((line) => line.exceptionReason).map((line) => <p key={`${line.id}-warning`} className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{line.supportItemNumber}: {line.exceptionReason}</p>)}
@@ -1449,6 +1451,13 @@ function getRatioStaffCount(ratio?: string) {
 
 function formatServiceHours(start: string, end: string) {
   return Math.max(0, Math.round(((new Date(end).getTime() - new Date(start).getTime()) / 3_600_000) * 100) / 100);
+}
+
+function formatInvoiceDisplayDate(value: string) {
+  if (!value) return "Not set";
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function formatServiceTime(value: string) {

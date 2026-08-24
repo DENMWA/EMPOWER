@@ -43,14 +43,14 @@ export function createInvoicePdf(invoice: PdfInvoice, lines: PdfLine[], organisa
   add([organisation.address, organisation.abn && `ABN ${organisation.abn}`, organisation.providerNumber && `NDIS provider ${organisation.providerNumber}`].filter(Boolean).join(" | "), 8, false, 12);
   add([organisation.email, organisation.phone].filter(Boolean).join(" | "), 8, false, 16);
   add("TAX INVOICE", 18, true, 24, 0, "0.12 0.55 0.53");
-  add(`${invoice.invoiceNumber} | Invoice date ${invoice.invoiceDate} | Due ${invoice.dueDate || "Not set"}`, 9, true, 16);
+  add(`${invoice.invoiceNumber} | Invoice date ${formatInvoiceDate(invoice.invoiceDate)} | Due ${formatInvoiceDate(invoice.dueDate)}`, 9, true, 16);
   rule();
   fill(MARGIN, y - 62, CONTENT_WIDTH, 72, "0.94 0.98 0.98");
   y -= 8;
   add(`Participant: ${invoice.participantName}`, 10, true);
   add(`NDIS number: ${invoice.participantNdisNumber || "Not recorded"}`);
   add(`Recipient: ${invoice.recipientName}${invoice.recipientEmail ? ` | ${invoice.recipientEmail}` : ""}`);
-  add(`Billing period: ${invoice.billingPeriodStart} to ${invoice.billingPeriodEnd}`, 9, false, 18);
+  add(`Billing period: ${formatInvoiceDate(invoice.billingPeriodStart)} to ${formatInvoiceDate(invoice.billingPeriodEnd)}`, 9, false, 18);
   y -= 4;
   rule();
 
@@ -58,7 +58,7 @@ export function createInvoicePdf(invoice: PdfInvoice, lines: PdfLine[], organisa
     ensureSpace(52);
     if (index % 2 === 0) fill(MARGIN, y - 24, CONTENT_WIDTH, 34, "0.97 0.98 0.98");
     y -= 3;
-    add(`${index + 1}. ${line.serviceDate} | ${line.supportItemNumber || "Support"}`, 9, true);
+    add(`${index + 1}. Service date ${formatInvoiceDate(line.serviceDate)} | ${line.supportItemNumber || "Support"}`, 9, true);
     add(`${line.quantity} ${line.unitType} x $${line.rate.toFixed(2)} = $${line.amount.toFixed(2)} | GST: ${line.gstCode || "Not specified"}`, 8, false, 15, 12);
   });
 
@@ -205,6 +205,12 @@ function paeth(left: number, up: number, upperLeft: number) {
 function bytesToHex(data: Uint8Array) { return Array.from(data, (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 
 function isGstFree(code: string) { return !code || /free|gst-free|g-free|n-t/i.test(code); }
+function formatInvoiceDate(value: string) {
+  if (!value) return "Not set";
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+}
 function sanitisePdfText(value: string) { return value.normalize("NFKD").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim(); }
 function escapePdf(value: string) { return sanitisePdfText(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)"); }
 import { deflateSync, inflateSync } from "node:zlib";
