@@ -1,7 +1,7 @@
 "use client";
 
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
-import { getRosterCoverageColour, getRosterFortnightDays, getRosterWeekDays, getShiftAssignedWorkers, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
+import { getRosterCoverageColour, getRosterFortnightDays, getRosterWeekDays, getShiftAssignedWorkers, getShiftDurationHours, getShiftStaffLabel, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 type RosterRow = {
@@ -27,7 +27,12 @@ export function RosterWeekView({
 }) {
   const days = span === "fortnight" ? getRosterFortnightDays(selectedDate) : getRosterWeekDays(selectedDate);
   const rows = getRosterRows(shifts, workers);
-  const dayColumns = span === "fortnight" ? "grid-cols-[180px_repeat(14,minmax(120px,1fr))_80px_90px]" : "grid-cols-[180px_repeat(7,minmax(120px,1fr))_80px_90px]";
+  const dayColumns = span === "fortnight" ? "grid-cols-[180px_repeat(14,minmax(120px,1fr))_80px_80px_90px]" : "grid-cols-[180px_repeat(7,minmax(120px,1fr))_80px_80px_90px]";
+  const dayTotals = days.map((day) => ({
+    dateKey: day.dateKey,
+    hours: getShiftHours(shifts.filter((shift) => shift.shiftDate === day.dateKey))
+  }));
+  const periodHours = getShiftHours(shifts);
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
@@ -41,11 +46,13 @@ export function RosterWeekView({
             </div>
           ))}
           <div className="border-l border-sky-700 px-3 py-3 text-center text-sm font-bold">Shifts</div>
+          <div className="border-l border-sky-700 px-3 py-3 text-center text-sm font-bold">Hours</div>
           <div className="border-l border-sky-700 px-3 py-3 text-center text-sm font-bold">Vacant</div>
         </div>
 
         {rows.length ? rows.map((row, rowIndex) => {
           const rowActiveShifts = row.shifts.filter((shift) => shift.status !== "Cancelled" && shift.status !== "No Show").length;
+          const rowHours = getShiftHours(row.shifts);
           const rowVacantShifts = row.shifts.filter((shift) => {
             const colour = getRosterCoverageColour(shift);
             return colour.label === "Vacant / cancelled" || colour.label === "Unassigned";
@@ -80,6 +87,7 @@ export function RosterWeekView({
                               </span>
                               <span className="mt-1 block truncate font-semibold text-slate-800">{shift.participantName}</span>
                               <span className="mt-0.5 block truncate text-slate-600">{shift.supportType}</span>
+                              <span className="mt-0.5 block text-slate-600">{formatHours(getShiftDurationHours(shift.startTime, shift.endTime))}</span>
                               <span className="mt-1 inline-flex"><RosterStatusBadge status={shift.status} /></span>
                             </button>
                           );
@@ -98,10 +106,28 @@ export function RosterWeekView({
               })}
 
               <div className="grid place-items-center border-r border-slate-100 px-2 py-3 text-lg font-bold text-ink">{rowActiveShifts}</div>
+              <div className="grid place-items-center border-r border-slate-100 px-2 py-3 text-lg font-bold text-teal-800">{formatHours(rowHours)}</div>
               <div className={cn("grid place-items-center px-2 py-3 text-lg font-bold", rowVacantShifts ? "text-red-700" : "text-slate-500")}>{rowVacantShifts}</div>
             </div>
           );
-        }) : (
+        }) : null}
+
+        {rows.length ? (
+          <div className={cn("grid border-t-2 border-sky-900 bg-slate-100", dayColumns)}>
+            <div className="sticky left-0 z-10 border-r border-slate-300 bg-slate-100 px-3 py-3">
+              <p className="text-sm font-bold text-ink">Total hours</p>
+              <p className="mt-1 text-xs font-medium text-slate-600">{span === "fortnight" ? "Fortnight roster total" : "Weekly roster total"}</p>
+            </div>
+            {dayTotals.map((day) => (
+              <div key={`total-${day.dateKey}`} className="grid place-items-center border-r border-slate-300 px-2 py-3 text-sm font-bold text-teal-900">
+                {formatHours(day.hours)}
+              </div>
+            ))}
+            <div className="grid place-items-center border-r border-slate-300 px-2 py-3 text-sm font-bold text-slate-700">{shifts.length}</div>
+            <div className="grid place-items-center border-r border-slate-300 px-2 py-3 text-lg font-black text-teal-900">{formatHours(periodHours)}</div>
+            <div className="grid place-items-center px-2 py-3 text-sm font-bold text-slate-700">-</div>
+          </div>
+        ) : (
           <div className="grid min-h-40 place-items-center text-center">
             <div>
               <h2 className="text-xl font-semibold text-ink">No roster shifts this week</h2>
@@ -144,4 +170,14 @@ function getRosterRows(shifts: RosterShift[], workers: Array<{ id: string; name:
     if (b.id === "unassigned") return 1;
     return a.name.localeCompare(b.name);
   });
+}
+
+function getShiftHours(shifts: RosterShift[]) {
+  return Math.round(shifts
+    .filter((shift) => shift.status !== "Cancelled" && shift.status !== "No Show")
+    .reduce((total, shift) => total + getShiftDurationHours(shift.startTime, shift.endTime), 0) * 100) / 100;
+}
+
+function formatHours(hours: number) {
+  return `${hours.toFixed(hours % 1 === 0 ? 0 : 1)}h`;
 }

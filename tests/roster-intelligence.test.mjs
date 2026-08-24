@@ -78,7 +78,11 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(cloud, /filter\(\(worker\) => worker\.id\)/);
   assert.match(card, /Assigned shift|colour\.label|getRosterCoverageColour/);
   assert.match(week, /getRosterCoverageColour/);
+  assert.match(week, /getShiftDurationHours/);
   assert.match(week, /Staff \/ coverage/);
+  assert.match(week, /Hours/);
+  assert.match(week, /Total hours/);
+  assert.match(week, /Weekly roster total/);
   assert.match(week, /getRosterFortnightDays/);
   assert.match(week, /repeat\(14,minmax\(120px,1fr\)\)/);
   assert.match(week, /rows\.set\("unassigned"/);
@@ -106,6 +110,8 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /Download PDF roster/);
   assert.match(page, /empowernotes-roster-\$\{view\}.*\.pdf/);
   assert.match(page, /printRosterPdf/);
+  assert.match(page, /Total shifts \/ hours/);
+  assert.match(page, /Roster period total/);
   assert.match(page, /Assigned shift/);
   assert.match(page, /Unassigned shift/);
   assert.match(page, /Vacant or cancelled/);
