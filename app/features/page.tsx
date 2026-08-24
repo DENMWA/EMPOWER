@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PageHeader, Section, StatusBadge } from "@/components/ui";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { getPublicSeoPage } from "@/lib/public-seo-pages";
 
 export const metadata: Metadata = {
   title: "EmpowerNotes Features",
@@ -73,12 +74,21 @@ const featureSections = [
   }
 ] as const;
 
+const featureSlugById: Record<(typeof featureSections)[number]["id"], string> = {
+  rostering: "rostering",
+  "progress-notes": "progress-notes",
+  "incident-reports": "incident-reporting",
+  "client-records": "client-records",
+  invoicing: "billing",
+  reporting: "audit-reporting"
+};
+
 export default function FeaturesPage() {
   const featureJsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "EmpowerNotes features",
-    itemListElement: featureSections.map((feature, index) => ({ "@type": "ListItem", position: index + 1, name: feature.eyebrow, description: feature.detail, url: `https://www.empowernotes.org/features#${feature.id}` }))
+    itemListElement: featureSections.map((feature, index) => ({ "@type": "ListItem", position: index + 1, name: feature.eyebrow, description: feature.detail, url: `https://www.empowernotes.org/features/${featureSlugById[feature.id]}` }))
   };
   return (
     <>
@@ -102,8 +112,8 @@ export default function FeaturesPage() {
                   <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-teal-700">{feature.eyebrow}</p>
                   <h2 className="mt-2 text-3xl font-bold leading-tight text-ink">{feature.title}</h2>
                   <p className="mt-4 max-w-xl leading-7 text-slate-600">{feature.detail}</p>
-                  <Link href="/signup" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-700 hover:text-teal-900">
-                    Create your workspace <ArrowRight size={16} aria-hidden="true" />
+                  <Link href={`/features/${featureSlugById[feature.id]}`} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-700 hover:text-teal-900">
+                    Learn more about {getPublicSeoPage(featureSlugById[feature.id])?.title.toLowerCase() || feature.eyebrow.toLowerCase()} <ArrowRight size={16} aria-hidden="true" />
                   </Link>
                 </div>
                 <StaticPreview type={feature.preview} />
