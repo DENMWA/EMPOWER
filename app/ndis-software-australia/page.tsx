@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, ClipboardList, FileCheck2, FolderLock, ReceiptText, ShieldCheck } from "lucide-react";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { ButtonLink, PageHeader, Section, StatusBadge } from "@/components/ui";
+import { publicLandingPages } from "@/lib/public-landing-pages";
 import { ndisOperationsPage, publicSeoPages } from "@/lib/public-seo-pages";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.empowernotes.org";
@@ -105,6 +106,21 @@ export default function NdisSoftwareAustraliaPage() {
             <p>Many providers search for one problem at a time: progress notes, incident reports, staff rosters, service agreements, appointment reminders or NDIS invoices.</p>
             <p>EmpowerNotes should be discovered across all of those searches because the product is now an operational system. Each workflow stays connected to the client, house or service, staff access and manager review.</p>
             <p>The public pages describe the product clearly while private workspaces, client records and staff data remain outside search indexing.</p>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-soft">
+          <p className="text-sm font-bold uppercase tracking-[0.12em] text-teal-700">Popular NDIS searches</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {publicLandingPages.map((page) => (
+              <Link key={page.slug} href={`/${page.slug}`} className="flex min-h-16 items-center justify-between gap-3 rounded-md border border-slate-200 px-4 py-3 hover:border-teal-300 hover:bg-teal-50/40">
+                <div>
+                  <p className="font-semibold text-ink">{page.metaTitle}</p>
+                  <p className="mt-1 text-sm text-slate-600">{page.description}</p>
+                </div>
+                <ArrowRight size={17} className="shrink-0 text-teal-700" aria-hidden="true" />
+              </Link>
+            ))}
           </div>
         </section>
 

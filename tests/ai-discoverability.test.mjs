@@ -43,11 +43,12 @@ test("the MCP stub is read-only and limited to public product knowledge", async 
 });
 
 test("marketing pages expose source-backed structured data and AI progress-note depth", async () => {
-  const [layout, home, features, pricing, progress, sitemap, config, accessBoundary, seoData, featureSlugPage, operationsPage] = await Promise.all([
+  const [layout, home, features, pricing, progress, sitemap, config, accessBoundary, seoData, landingData, landingComponent, featureSlugPage, operationsPage] = await Promise.all([
     source("app/layout.tsx"), source("app/page.tsx"), source("app/features/page.tsx"),
     source("app/pricing/page.tsx"), source("app/ai-progress-notes/page.tsx"),
     source("app/sitemap.ts"), source("next.config.mjs"), source("components/auth/DemoAccessBoundary.tsx"),
-    source("lib/public-seo-pages.ts"), source("app/features/[slug]/page.tsx"), source("app/ndis-software-australia/page.tsx")
+    source("lib/public-seo-pages.ts"), source("lib/public-landing-pages.ts"), source("components/seo/PublicLandingPage.tsx"),
+    source("app/features/[slug]/page.tsx"), source("app/ndis-software-australia/page.tsx")
   ]);
   assert.match(layout, /"@type": "Organization"/);
   assert.match(layout, /"@type": "WebSite"/);
@@ -62,20 +63,26 @@ test("marketing pages expose source-backed structured data and AI progress-note 
   assert.match(progress, /What remains human/);
   assert.match(sitemap, /\/ai-progress-notes/);
   assert.match(sitemap, /\/ndis-software-australia/);
+  assert.match(sitemap, /publicLandingPages\.map/);
   assert.match(sitemap, /publicSeoPages\.map/);
   assert.match(seoData, /NDIS provider operations software/);
   assert.match(seoData, /NDIS rostering software/);
   assert.match(seoData, /service agreement expiry reminders/);
+  assert.match(landingData, /NDIS record keeping app/);
+  assert.match(landingData, /NDIS audit preparation software/);
+  assert.match(landingComponent, /FAQPage/);
   assert.match(featureSlugPage, /generateStaticParams/);
   assert.match(featureSlugPage, /FAQPage/);
   assert.match(operationsPage, /More than a note taker/);
+  assert.match(operationsPage, /Popular NDIS searches/);
   assert.match(config, /source: "\/\.ai\/manifest\.json"/);
   assert.match(accessBoundary, /"\/ai-progress-notes"/);
 });
 
 test("wide-angle SEO pages position EmpowerNotes as an operational system", async () => {
-  const [seoData, knowledge, sitemap] = await Promise.all([
+  const [seoData, landingData, knowledge, sitemap] = await Promise.all([
     source("lib/public-seo-pages.ts"),
+    source("lib/public-landing-pages.ts"),
     source("lib/ai-discoverability.ts"),
     source("app/sitemap.ts")
   ]);
@@ -89,11 +96,24 @@ test("wide-angle SEO pages position EmpowerNotes as an operational system", asyn
   ]) {
     assert.match(seoData, new RegExp(phrase));
   }
+  for (const phrase of [
+    "NDIS Record Keeping Software",
+    "NDIS Support Worker Notes App",
+    "NDIS Evidence Collection Tool",
+    "NDIS Compliance Documentation Software",
+    "NDIS Rostering and Billing Software",
+    "Support Coordination Documentation Software"
+  ]) {
+    assert.match(landingData, new RegExp(phrase));
+  }
   assert.match(knowledge, /Search-focused public pages/);
   assert.match(knowledge, /NDIS Operations Software Australia/);
+  assert.match(knowledge, /landingPages = publicLandingPages\.map/);
   assert.match(knowledge, /Client appointments and reminders/);
+  assert.match(sitemap, /\/\$\{page\.slug\}/);
   assert.match(sitemap, /\/features\/\$\{page\.slug\}/);
   assert.doesNotMatch(seoData, /participantName|access_token|service_role/i);
+  assert.doesNotMatch(landingData, /participantName|access_token|service_role/i);
 });
 
 test("discoverability architecture documents privacy and maintenance", async () => {
