@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { loadTenantRosterShifts, saveTenantRosterShift } from "@/lib/roster-cloud";
 import { getRosteringMode, rosteringModeOptions, type RosteringMode } from "@/lib/rostering-mode";
 import { getTenantStaffInvites, isStaffActiveForRostering } from "@/lib/staff-records";
+import { defaultOrganisationProfile, getTenantOrganisationProfile, type OrganisationProfile } from "@/lib/organisation-profile";
 
 export function RosterPage() {
   const [view, setView] = useState<RosterPlanningView>("week");
@@ -53,6 +54,7 @@ export function RosterPage() {
   const [replacementShiftId, setReplacementShiftId] = useState("");
   const [rosterToolsReady, setRosterToolsReady] = useState(false);
   const [rosteringMode, setRosteringModeState] = useState<RosteringMode>("built-in");
+  const [organisationProfile, setOrganisationProfile] = useState<OrganisationProfile>(defaultOrganisationProfile);
 
   useEffect(() => {
     Promise.all([loadTenantRosterShifts(), getTenantStaffInvites(), getTenantClients()]).then(([result, staff, clients]) => {
@@ -64,6 +66,10 @@ export function RosterPage() {
       setShifts([]);
       setSyncMessage("The roster could not be loaded from the workspace.");
     });
+  }, []);
+
+  useEffect(() => {
+    getTenantOrganisationProfile().then(setOrganisationProfile).catch(() => setOrganisationProfile(defaultOrganisationProfile));
   }, []);
 
   useEffect(() => {
@@ -197,9 +203,11 @@ export function RosterPage() {
       .slice()
       .sort((first, second) => `${first.shiftDate} ${first.startTime}`.localeCompare(`${second.shiftDate} ${second.startTime}`))
       .map((shift) => ({ shift, colour: getRosterPdfColour(shift) }));
+    const organisationName = organisationProfile.organisationName || "Organisation";
     const printed = printRosterPdf({
-      title: "EmpowerNotes roster",
-      filename: `empowernotes-roster-${view}-${selectedRange.startKey}-to-${selectedRange.endKey}.pdf`,
+      title: `${organisationName} roster`,
+      filename: `${slugifyFilename(organisationName)}-roster-${view}-${selectedRange.startKey}-to-${selectedRange.endKey}.pdf`,
+      organisationProfile,
       period: selectedDateLabel,
       mode: rosterModeLabel,
       rows
@@ -587,14 +595,29 @@ function getRosterPdfColour(shift: RosterShift) {
   return { label: coverage.label, border: "#0284c7", background: "#eff6ff", pill: "#0284c7", text: "#0c4a6e" };
 }
 
-function printRosterPdf({ title, filename, period, mode, rows }: {
+function printRosterPdf({ title, filename, organisationProfile, period, mode, rows }: {
   title: string;
   filename: string;
+  organisationProfile: OrganisationProfile;
   period: string;
   mode: string;
   rows: Array<{ shift: RosterShift; colour: ReturnType<typeof getRosterPdfColour> }>;
 }) {
   const generatedAt = new Date().toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" });
+  const organisationName = organisationProfile.organisationName || "Organisation";
+  const showBranding = organisationProfile.includeInDownloads;
+  const logo = showBranding && organisationProfile.logoDataUrl
+    ? `<img src="${escapeRosterHtml(organisationProfile.logoDataUrl)}" alt="${escapeRosterHtml(organisationName)} logo" class="logo" />`
+    : "";
+  const organisationDetails = [
+    organisationName,
+    organisationProfile.abn ? `ABN: ${organisationProfile.abn}` : "",
+    organisationProfile.providerNumber ? `NDIS provider number: ${organisationProfile.providerNumber}` : "",
+    organisationProfile.phone ? `Phone: ${organisationProfile.phone}` : "",
+    organisationProfile.email ? `Email: ${organisationProfile.email}` : "",
+    organisationProfile.website ? `Website: ${organisationProfile.website}` : "",
+    organisationProfile.address ? `Address: ${organisationProfile.address}` : ""
+  ].filter(Boolean);
   const totalHours = getRosterPdfHours(rows.map((row) => row.shift));
   const rowHtml = rows.length ? rows.map(({ shift, colour }) => `
     <tr style="border-left: 6px solid ${colour.border}; background: ${colour.background}; color: ${colour.text};">
@@ -618,8 +641,12 @@ function printRosterPdf({ title, filename, period, mode, rows }: {
     main { min-height: 100vh; padding: 24px; background: #ffffff; }
     header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 4px solid #1f8a86; padding-bottom: 16px; }
     h1 { margin: 0; color: #073b44; font-size: 28px; letter-spacing: 0; }
+    .brand { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 14px; }
+    .brand-details { color: #334155; font-size: 12px; line-height: 1.55; }
+    .brand-name { color: #073b44; font-size: 16px; font-weight: 800; }
+    .logo { max-width: 180px; max-height: 72px; object-fit: contain; }
     .subtitle { margin: 8px 0 0; color: #475569; font-size: 13px; line-height: 1.5; }
-    .meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+    .meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
     .meta div { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; }
     .meta span, td span { display: block; color: #475569; font-size: 11px; line-height: 1.45; margin-top: 4px; }
     .meta strong { display: block; font-size: 13px; color: #102a33; }
@@ -641,6 +668,7 @@ function printRosterPdf({ title, filename, period, mode, rows }: {
 </head>
 <body>
   <main>
+    ${showBranding ? `<section class="brand"><div class="brand-details">${organisationDetails.map((item, index) => index === 0 ? `<div class="brand-name">${escapeRosterHtml(item)}</div>` : escapeRosterHtml(item)).join("<br />")}</div>${logo}</section>` : `<section class="brand"><div class="brand-details"><div class="brand-name">${escapeRosterHtml(organisationName)}</div></div></section>`}
     <header>
       <div>
         <h1>${escapeRosterHtml(title)}</h1>
@@ -649,6 +677,7 @@ function printRosterPdf({ title, filename, period, mode, rows }: {
       <div class="subtitle"><strong>Generated</strong><br />${escapeRosterHtml(generatedAt)}</div>
     </header>
     <section class="meta">
+      <div><span>Organisation</span><strong>${escapeRosterHtml(organisationName)}</strong></div>
       <div><span>Period</span><strong>${escapeRosterHtml(period)}</strong></div>
       <div><span>Roster source</span><strong>${escapeRosterHtml(mode)}</strong></div>
       <div><span>Total shifts / hours</span><strong>${rows.length} shifts · ${escapeRosterHtml(formatRosterPdfHours(totalHours))}</strong></div>
@@ -720,6 +749,10 @@ function formatRosterPdfHours(hours: number) {
 
 function filenameWithoutExtension(filename: string) {
   return filename.replace(/\.[a-z0-9]+$/i, "");
+}
+
+function slugifyFilename(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "organisation";
 }
 
 function escapeRosterHtml(value: string | number) {
