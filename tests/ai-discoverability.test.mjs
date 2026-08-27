@@ -174,9 +174,14 @@ test("SEO keeps public marketing indexable and private workspaces out of search"
     source("app/signin/page.tsx")
   ]);
   assert.match(layout, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
+  assert.match(layout, /Australian NDIS Operations Software/);
   for (const route of ["/admin", "/api", "/dashboard", "/documents", "/handover", "/incidents", "/my-roster", "/notes", "/participants", "/platform"]) {
     assert.match(robots, new RegExp(`"${route.replaceAll("/", "\\/")}`));
   }
+  assert.match(robots, /OAI-SearchBot/);
+  assert.match(robots, /ChatGPT-User/);
+  assert.match(robots, /PerplexityBot/);
+  assert.match(robots, /GPTBot/);
   assert.doesNotMatch(sitemap, /lastModified: new Date\(\)/);
   assert.match(privateMetadata, /index: false/);
   assert.match(privateMetadata, /noimageindex: true/);

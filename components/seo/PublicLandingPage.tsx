@@ -104,7 +104,7 @@ export function PublicLandingPage({ page }: PublicLandingPageProps) {
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-teal-800">
                 <Search size={17} aria-hidden="true" />
-                Search intent
+                Built for
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {page.searchIntents.map((intent) => <StatusBadge key={intent} label={intent} tone="blue" />)}

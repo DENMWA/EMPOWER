@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   applicationName: "EmpowerNotes",
   title: {
-    default: "EmpowerNotes | Australian NDIS Documentation Software",
+    default: "EmpowerNotes | Australian NDIS Operations Software",
     template: "%s | EmpowerNotes"
   },
   description: seoDescription,
@@ -46,12 +46,12 @@ export const metadata: Metadata = {
     locale: "en_AU",
     url: "/",
     siteName: "EmpowerNotes",
-    title: "EmpowerNotes | Australian NDIS Documentation Software",
+    title: "EmpowerNotes | Australian NDIS Operations Software",
     description: seoDescription
   },
   twitter: {
     card: "summary_large_image",
-    title: "EmpowerNotes | Australian NDIS Documentation Software",
+    title: "EmpowerNotes | Australian NDIS Operations Software",
     description: seoDescription
   },
   robots: {
