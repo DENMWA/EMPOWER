@@ -9,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/", priority: 1 },
     { path: "/features", priority: 0.9 },
     { path: "/ndis-software-australia", priority: 0.93 },
+    { path: "/ndis-documentation-health-check", priority: 0.95 },
     ...publicLandingPages.map((page) => ({ path: `/${page.slug}`, priority: 0.86 })),
     ...publicSeoPages.map((page) => ({ path: `/features/${page.slug}`, priority: 0.84 })),
     { path: "/ai-progress-notes", priority: 0.92 },

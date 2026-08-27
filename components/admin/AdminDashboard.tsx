@@ -117,22 +117,55 @@ export function AdminDashboard() {
   ).length;
 
   const attentionItems = [
-    { label: "Staff roster conflicts", count: conflicts.length, href: "/admin/scheduling", action: "Resolve conflicts", urgent: true },
-    { label: "Completed shifts missing notes", count: rosterSummary.completedNeedingNotes, href: "/admin/reviews", action: "Review notes", urgent: true },
-    { label: "Notes needing review", count: notesNeedingReview, href: "/admin/reviews", action: "Review notes" },
-    { label: "Incident escalations", count: incidentsAwaitingAction, href: "/admin/incidents", action: "Action incidents", urgent: true },
-    { label: "Appointments and follow-ups", count: appointmentsNeedingAttention, href: "#admin-appointments", action: "Review appointments" },
-    { label: "Rendered services ready", count: servicesReady, href: "/admin/billing", action: "Prepare invoices" },
-    { label: "Invoices needing attention", count: invoicesNeedingReview, href: "/admin/billing", action: "Review invoices", urgent: true }
+    {
+      label: "Roster coverage",
+      detail: conflicts.length ? `${conflicts.length} conflict${conflicts.length === 1 ? "" : "s"} to resolve` : "Roster running cleanly",
+      count: conflicts.length,
+      href: "/admin/scheduling",
+      action: "Open roster",
+      urgent: true
+    },
+    {
+      label: "Notes review",
+      detail: `${rosterSummary.completedNeedingNotes} missing, ${notesNeedingReview} needing review`,
+      count: rosterSummary.completedNeedingNotes + notesNeedingReview,
+      href: "/admin/reviews",
+      action: "Review notes",
+      urgent: rosterSummary.completedNeedingNotes > 0
+    },
+    {
+      label: "Incident review",
+      detail: incidentsAwaitingAction ? `${incidentsAwaitingAction} waiting for manager action` : "No incident escalation waiting",
+      count: incidentsAwaitingAction,
+      href: "/admin/incidents",
+      action: "Open incidents",
+      urgent: true
+    },
+    {
+      label: "Appointments",
+      detail: appointmentsNeedingAttention ? `${appointmentsNeedingAttention} reminder or follow-up due` : "No appointment follow-up due",
+      count: appointmentsNeedingAttention,
+      href: "#admin-appointments",
+      action: "View appointments"
+    },
+    {
+      label: "Billing",
+      detail: `${servicesReady} ready to invoice, ${invoicesNeedingReview} needing attention`,
+      count: servicesReady + invoicesNeedingReview,
+      href: "/admin/billing",
+      action: "Open billing",
+      urgent: invoicesNeedingReview > 0
+    }
   ].filter((item) => item.count > 0);
+  const topPriority = attentionItems.some((item) => item.urgent) ? "Manager attention required" : "All clear";
 
   return (
     <>
       <PageHeader
         eyebrow="Admin today"
-        title="What needs your attention"
-        description="Priority work, in order."
-        actions={<StatusBadge label={attentionItems.length ? `${attentionItems.length} action areas` : "All clear"} tone={attentionItems.length ? "amber" : "green"} />}
+        title="Admin workspace"
+        description="A cleaner view of the work that needs action."
+        actions={<StatusBadge label={attentionItems.length ? topPriority : "All clear"} tone={attentionItems.length ? "amber" : "green"} />}
       />
 
       <Section className="space-y-7">
@@ -147,17 +180,21 @@ export function AdminDashboard() {
           <Card className="p-0">
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-ink">Needs attention</h2>
+                <h2 className="text-lg font-semibold text-ink">Manager attention</h2>
+                <p className="mt-1 text-sm text-slate-600">One action list for notes, incidents, roster and billing.</p>
               </div>
               {attentionItems.length ? <AlertTriangle size={20} className="text-amber-700" aria-hidden="true" /> : <CheckCircle2 size={20} className="text-emerald-700" aria-hidden="true" />}
             </div>
             {attentionItems.length ? (
               <div className="divide-y divide-slate-100">
                 {attentionItems.map((item) => (
-                  <Link key={item.label} href={item.href} className="group flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-slate-50">
+                  <Link key={item.label} href={item.href} className="group grid min-h-16 gap-3 px-5 py-3 hover:bg-slate-50 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className={cn("grid h-8 min-w-8 place-items-center rounded-md text-sm font-bold", item.urgent ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800")}>{item.count}</span>
-                      <p className="truncate text-sm font-semibold text-ink">{item.label}</p>
+                      <span className={cn("grid h-9 min-w-9 place-items-center rounded-md text-sm font-bold", item.urgent ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800")}>{item.count}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-ink">{item.label}</span>
+                        <span className="block truncate text-sm text-slate-600">{item.detail}</span>
+                      </span>
                     </div>
                     <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-teal-700">{item.action}<ArrowRight size={15} aria-hidden="true" /></span>
                   </Link>

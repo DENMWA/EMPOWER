@@ -43,9 +43,10 @@ test("the MCP stub is read-only and limited to public product knowledge", async 
 });
 
 test("marketing pages expose source-backed structured data and AI progress-note depth", async () => {
-  const [layout, home, features, pricing, progress, sitemap, config, accessBoundary, seoData, landingData, landingComponent, featureSlugPage, operationsPage] = await Promise.all([
+  const [layout, home, features, pricing, progress, healthCheck, healthCheckComponent, sitemap, config, accessBoundary, seoData, landingData, landingComponent, featureSlugPage, operationsPage] = await Promise.all([
     source("app/layout.tsx"), source("app/page.tsx"), source("app/features/page.tsx"),
     source("app/pricing/page.tsx"), source("app/ai-progress-notes/page.tsx"),
+    source("app/ndis-documentation-health-check/page.tsx"), source("components/marketing/DocumentationHealthCheck.tsx"),
     source("app/sitemap.ts"), source("next.config.mjs"), source("components/auth/DemoAccessBoundary.tsx"),
     source("lib/public-seo-pages.ts"), source("lib/public-landing-pages.ts"), source("components/seo/PublicLandingPage.tsx"),
     source("app/features/[slug]/page.tsx"), source("app/ndis-software-australia/page.tsx")
@@ -54,6 +55,7 @@ test("marketing pages expose source-backed structured data and AI progress-note 
   assert.match(layout, /"@type": "WebSite"/);
   assert.match(layout, /NDIS operations software Australia/);
   assert.match(home, /"@type": "SoftwareApplication"/);
+  assert.match(home, /Free health check/);
   assert.match(features, /"@type": "ItemList"/);
   assert.match(features, /rostering: "rostering"/);
   assert.match(features, /href=\{`\/features\/\$\{featureSlugById\[feature\.id\]\}`\}/);
@@ -61,8 +63,13 @@ test("marketing pages expose source-backed structured data and AI progress-note 
   assert.match(progress, /"@type": "FAQPage"/);
   assert.match(progress, /Clear records\. Original facts\. Human control\./);
   assert.match(progress, /What remains human/);
+  assert.match(healthCheck, /Free NDIS Documentation Health Check/);
+  assert.match(healthCheck, /"@type": "WebApplication"/);
+  assert.match(healthCheckComponent, /Readiness score/);
+  assert.match(healthCheckComponent, /Download result/);
   assert.match(sitemap, /\/ai-progress-notes/);
   assert.match(sitemap, /\/ndis-software-australia/);
+  assert.match(sitemap, /\/ndis-documentation-health-check/);
   assert.match(sitemap, /publicLandingPages\.map/);
   assert.match(sitemap, /publicSeoPages\.map/);
   assert.match(seoData, /NDIS provider operations software/);
@@ -108,6 +115,8 @@ test("wide-angle SEO pages position EmpowerNotes as an operational system", asyn
   }
   assert.match(knowledge, /Search-focused public pages/);
   assert.match(knowledge, /NDIS Operations Software Australia/);
+  assert.match(knowledge, /Free NDIS Documentation Health Check/);
+  assert.match(knowledge, /documentation-health-check/);
   assert.match(knowledge, /landingPages = publicLandingPages\.map/);
   assert.match(knowledge, /Client appointments and reminders/);
   assert.match(sitemap, /\/\$\{page\.slug\}/);

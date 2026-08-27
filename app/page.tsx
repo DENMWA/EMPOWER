@@ -98,6 +98,7 @@ export default function HomePage() {
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <ButtonLink href="/signup">Start free trial</ButtonLink>
+              <ButtonLink href="/ndis-documentation-health-check" variant="secondary">Free health check</ButtonLink>
               <ButtonLink href="/contact" variant="secondary">Book a demo</ButtonLink>
             </div>
             <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-600">
@@ -187,6 +188,19 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+      </Section>
+
+      <Section>
+        <Link href="/ndis-documentation-health-check" className="group grid gap-5 rounded-md border border-teal-200 bg-teal-50 p-6 shadow-soft transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-lift lg:grid-cols-[1fr_auto] lg:items-center lg:p-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-sea">Free NDIS documentation health check</p>
+            <h2 className="mt-2 text-3xl font-bold text-ink">See how audit-ready a sample record looks.</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">Paste a de-identified progress note, incident report, evidence summary or billing record and get a practical readiness score.</p>
+          </div>
+          <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white">
+            Check a sample <ArrowRight size={16} className="transition group-hover:translate-x-1" aria-hidden="true" />
+          </span>
+        </Link>
       </Section>
 
       <Section>
