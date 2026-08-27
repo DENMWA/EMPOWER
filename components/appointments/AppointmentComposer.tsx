@@ -117,80 +117,90 @@ export function AppointmentComposer({ mode, initialParticipantId = "", initialHo
     updatedAt: ""
   }) : "";
 
+  const inputClass = compact
+    ? "mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+    : "mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm";
+  const textAreaClass = compact
+    ? "mt-1.5 min-h-20 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 shadow-sm"
+    : "mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 shadow-sm";
+
   return (
-    <Card className={compact ? "border-sky-100 bg-sky-50/40 p-4" : "border-sky-100"}>
+    <Card className={compact ? "border-sky-100 bg-white p-4 shadow-none" : "border-sky-100"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">{mode === "admin" ? "Admin appointment" : "Appointment support"}</p>
-          <h2 className={compact ? "mt-1 text-xl font-bold text-ink" : "mt-1 text-2xl font-bold text-ink"}>{mode === "admin" ? "Add or confirm appointment" : "Add appointment and reminder"}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Save the appointment once, then the reminder appears as the date approaches.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-sea">{mode === "admin" ? "Admin appointment" : "Appointment support"}</p>
+          <h2 className={compact ? "mt-1 text-lg font-bold text-ink" : "mt-1 text-2xl font-bold text-ink"}>{mode === "admin" ? "Add or confirm appointment" : "Add appointment and reminder"}</h2>
+          <p className={compact ? "mt-1 max-w-2xl text-xs leading-5 text-slate-600" : "mt-2 max-w-3xl text-sm leading-6 text-slate-600"}>Save the appointment once, then the reminder appears as the date approaches.</p>
         </div>
         <StatusBadge label={mode === "admin" ? "Admin can edit all" : "Needs review by default"} tone={mode === "admin" ? "green" : "amber"} />
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className={compact ? "mt-4 grid gap-3 sm:grid-cols-2" : "mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4"}>
         <label className="text-sm font-semibold text-slate-700">
           Client
-          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedClient?.id || ""} onChange={(event) => setParticipantId(event.target.value)}>
+          <select className={inputClass} value={selectedClient?.id || ""} onChange={(event) => setParticipantId(event.target.value)}>
             {!clients.length ? <option value="">No clients available</option> : null}
             {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
           House/service
-          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={selectedHouse?.id || ""} onChange={(event) => setHouseId(event.target.value)}>
+          <select className={inputClass} value={selectedHouse?.id || ""} onChange={(event) => setHouseId(event.target.value)}>
             {!availableHouses.length ? <option value="">No house assigned</option> : null}
             {availableHouses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Appointment type
-          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={appointmentType} onChange={(event) => setAppointmentType(event.target.value)}>
+          <select className={inputClass} value={appointmentType} onChange={(event) => setAppointmentType(event.target.value)}>
             {appointmentTypes.map((type) => <option key={type}>{type}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Status
-          <select className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={status} onChange={(event) => setStatus(event.target.value as AppointmentStatus)} disabled={mode === "worker"}>
+          <select className={inputClass} value={status} onChange={(event) => setStatus(event.target.value as AppointmentStatus)} disabled={mode === "worker"}>
             {appointmentStatuses.map((item) => <option key={item}>{item}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Date
-          <input type="date" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={appointmentDate} onChange={(event) => setAppointmentDate(event.target.value)} />
+          <input type="date" className={inputClass} value={appointmentDate} onChange={(event) => setAppointmentDate(event.target.value)} />
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Time
-          <input type="time" className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={appointmentTime} onChange={(event) => setAppointmentTime(event.target.value)} />
+          <input type="time" className={inputClass} value={appointmentTime} onChange={(event) => setAppointmentTime(event.target.value)} />
         </label>
         <label className="text-sm font-semibold text-slate-700 xl:col-span-2">
           Location or telehealth
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Clinic, address, or video link" />
+          <input className={inputClass} value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Clinic, address, or video link" />
         </label>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <details className={compact ? "mt-3 rounded-md border border-slate-200 bg-slate-50 p-3" : "mt-4 rounded-md border border-slate-200 bg-white p-3"} open={!compact}>
+        <summary className="cursor-pointer text-sm font-semibold text-ink">{compact ? "More appointment details" : "Appointment details"}</summary>
+        <div className={compact ? "mt-3 grid gap-3 md:grid-cols-2" : "grid gap-4 md:grid-cols-2"}>
         <label className="text-sm font-semibold text-slate-700">
           Transport/support required
-          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 shadow-sm" value={supportRequired} onChange={(event) => setSupportRequired(event.target.value)} placeholder="Transport, documents, communication support, behaviour support plan, medication list..." />
+          <textarea className={textAreaClass} value={supportRequired} onChange={(event) => setSupportRequired(event.target.value)} placeholder="Transport, documents, communication support, behaviour support plan, medication list..." />
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Reason / notes
-          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 shadow-sm" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why the appointment was arranged and what staff need to know." />
+          <textarea className={textAreaClass} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why the appointment was arranged and what staff need to know." />
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Arranged by
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={arrangedBy} onChange={(event) => setArrangedBy(event.target.value)} />
+          <input className={inputClass} value={arrangedBy} onChange={(event) => setArrangedBy(event.target.value)} />
         </label>
         <label className="text-sm font-semibold text-slate-700">
           Attending staff / support person
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={attendingStaff} onChange={(event) => setAttendingStaff(event.target.value)} placeholder="Staff member, family, advocate, or to be confirmed" />
+          <input className={inputClass} value={attendingStaff} onChange={(event) => setAttendingStaff(event.target.value)} placeholder="Staff member, family, advocate, or to be confirmed" />
         </label>
         <label className="text-sm font-semibold text-slate-700 md:col-span-2">
           Follow-up required after appointment
-          <input className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 shadow-sm" value={followUpRequired} onChange={(event) => setFollowUpRequired(event.target.value)} placeholder="Outcome note, medication change, document upload, next booking..." />
+          <input className={inputClass} value={followUpRequired} onChange={(event) => setFollowUpRequired(event.target.value)} placeholder="Outcome note, medication change, document upload, next booking..." />
         </label>
-      </div>
+        </div>
+      </details>
 
       <details className="mt-4 rounded-md border border-slate-200 bg-white p-3">
         <summary className="cursor-pointer text-sm font-semibold text-ink">Preview appointment note</summary>

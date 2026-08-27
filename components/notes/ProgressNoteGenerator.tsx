@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Camera, CheckCircle2, Trash2 } from "lucide-react";
+import { CalendarPlus, Camera, CheckCircle2, Trash2, X } from "lucide-react";
 import { AppointmentComposer } from "@/components/appointments/AppointmentComposer";
 import { BodyMap, type BodyMarker, type BodyView } from "@/components/incidents/IncidentReportForm";
 import { ProgressNoteWritingPad } from "@/components/notes/ProgressNoteWritingPad";
@@ -296,6 +296,7 @@ export function ProgressNoteGenerator() {
   const [personalCareMarkers, setPersonalCareMarkers] = useState<BodyMarker[]>([]);
   const [mealAndFluidLog, setMealAndFluidLog] = useState<MealAndFluidEntry[]>(initialMealAndFluidLog);
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport>(initialMonthlyReport);
+  const [appointmentComposerOpen, setAppointmentComposerOpen] = useState(false);
   const accessibleHouses = houses;
   const baseParticipants = useMemo<NoteClient[]>(() => storedClients.length ? storedClients : realMode ? [] : participants, [storedClients, realMode]);
   const selectedParticipant = baseParticipants.find((participant) => participant.id === selectedParticipantId) ?? baseParticipants[0];
@@ -639,8 +640,15 @@ export function ProgressNoteGenerator() {
         </div>
         {selectedParticipant ? <ClientIdentity client={selectedParticipant} detail={[selectedHouse?.name, selectedHouse?.serviceType].filter(Boolean).join(" - ")} className="mt-4 rounded-md border border-slate-200 bg-white p-3" /> : null}
         {showAppointmentCard ? (
-          <div className="mt-5">
-            <AppointmentComposer mode="worker" initialParticipantId={selectedParticipantId} initialHouseId={selectedHouseId} compact />
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 p-3">
+            <div>
+              <p className="text-sm font-bold text-ink">Appointment reminder</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Add the appointment in a quick panel, then continue this progress note from the same place.</p>
+            </div>
+            <button type="button" onClick={() => setAppointmentComposerOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-sea px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800">
+              <CalendarPlus size={16} aria-hidden="true" />
+              Add appointment
+            </button>
           </div>
         ) : null}
         {availableGoals.length && !isFocusedCareLog ? (
@@ -893,6 +901,25 @@ export function ProgressNoteGenerator() {
           <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">This client needs a house/service assignment before the shift note can be saved. Ask an authorised team leader to update the client profile.</p>
         )}
       </Card>
+
+      {showAppointmentCard && appointmentComposerOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-3 py-6" role="dialog" aria-modal="true" aria-label="Add appointment reminder">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lift">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-teal-700">Quick appointment</p>
+                <h2 className="text-lg font-bold text-ink">Add appointment and reminder</h2>
+              </div>
+              <button type="button" onClick={() => setAppointmentComposerOpen(false)} className="grid h-10 w-10 place-items-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-teal-400" aria-label="Close appointment panel">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="p-4">
+              <AppointmentComposer mode="worker" initialParticipantId={selectedParticipantId} initialHouseId={selectedHouseId} compact onSaved={() => setAppointmentComposerOpen(false)} />
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showMonthlyReport ? (
         <Card className="border-sky-100">
           <div className="flex flex-wrap items-start justify-between gap-3">
