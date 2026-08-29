@@ -71,6 +71,19 @@ export async function signInWithPassword(email: string, password: string) {
   return result;
 }
 
+export async function sendMagicLinkSignIn(email: string, redirectPath = "/dashboard") {
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  const browserAppUrl = typeof window === "undefined" ? "" : window.location.origin;
+  const appUrl = browserAppUrl || configuredAppUrl;
+  const safeRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//") ? redirectPath : "/dashboard";
+  const redirectTo = appUrl ? `${appUrl}${safeRedirectPath}` : "";
+  const path = redirectTo ? `/otp?redirect_to=${encodeURIComponent(redirectTo)}` : "/otp";
+  return authRequest<{ message?: string }>(path, {
+    email,
+    create_user: false
+  }, "POST", { preferAnonAuthorization: true });
+}
+
 export async function refreshSupabaseSession(options: { force?: boolean } = {}) {
   const session = getStoredAuthSession();
   if (!session?.refresh_token) {

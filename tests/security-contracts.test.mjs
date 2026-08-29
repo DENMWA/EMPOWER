@@ -109,7 +109,8 @@ test("organisation administrators use password and role-based access", async () 
   assert.match(accessRoute, /name: access\.name/);
   assert.doesNotMatch(gate, /\/mfa\?next=/);
   assert.match(accessRoute, /requiresMfa: access\.requiresMfa/);
-  assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
+  assert.match(serverAccess, /PLATFORM_OWNER_EMAILS/);
+  assert.doesNotMatch(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
 });
 
 test("platform analytics endpoint requires platform-owner verification", async () => {
@@ -504,7 +505,7 @@ test("client appointments can be added by workers, reviewed by admin and shown a
   assert.match(notes, /AppointmentComposer mode="worker"/);
   assert.match(dashboard, /AppointmentRemindersPanel/);
   assert.match(admin, /AppointmentComposer mode="admin"/);
-  assert.match(admin, /Appointments and follow-ups/);
+  assert.match(admin, /Appointments/);
   assert.match(migration, /create table if not exists public\.client_appointments/);
   assert.match(migration, /enable row level security/);
   assert.match(migration, /private\.current_user_can_access_participant\(participant_id, appointment_date\)/);
@@ -606,7 +607,7 @@ test("submitted incidents expose an actionable admin escalation workflow", async
   assert.match(queue, /Assigned manager/);
   assert.match(queue, /Required actions/);
   assert.match(queue, /escalationDueDate/);
-  assert.match(dashboard, /Incident escalations/);
+  assert.match(dashboard, /Incident review/);
   assert.match(records, /IncidentEscalationPriority/);
 });
 
@@ -618,7 +619,8 @@ test("organisation settings require admin role and assigned settings permission"
   const context = await source("lib/security/user-access-context.ts");
   assert.match(serverAccess, /canAccessAdmin\(context\.role, context\.adminPermissions, requiredPermission\)/);
   assert.match(serverAccess, /adminFeatureMap/);
-  assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
+  assert.match(serverAccess, /PLATFORM_OWNER_EMAILS/);
+  assert.doesNotMatch(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
   assert.match(context, /readAssuranceLevel/);
 });
 
@@ -631,12 +633,21 @@ test("password-only organisation access can disable database MFA step-up", async
   assert.match(migration, /role permissions and tenant RLS/);
 });
 
-test("developer console MFA support remains available for platform access", async () => {
-  const [auth, panel, serverAccess] = await Promise.all([
+test("developer console email-link access remains owner restricted, with MFA support available separately", async () => {
+  const [auth, panel, serverAccess, platformSignIn, platformGate] = await Promise.all([
     source("lib/supabase-auth.ts"),
     source("components/auth/MfaSecurityPanel.tsx"),
-    source("lib/security/server-access.ts")
+    source("lib/security/server-access.ts"),
+    source("components/platform/PlatformEmailSignIn.tsx"),
+    source("components/platform/PlatformGate.tsx")
   ]);
+  assert.match(auth, /sendMagicLinkSignIn/);
+  assert.match(auth, /\/otp\?redirect_to=/);
+  assert.match(platformSignIn, /Send sign-in link/);
+  assert.match(platformSignIn, /consumeAuthRedirectSession/);
+  assert.match(platformGate, /\/platform\/signin\?next=\/platform/);
+  assert.match(serverAccess, /PLATFORM_OWNER_EMAILS/);
+  assert.doesNotMatch(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
   assert.match(auth, /\/factors/);
   assert.match(auth, /challenge_id/);
   assert.match(auth, /verifyTotpMfa/);
@@ -645,7 +656,6 @@ test("developer console MFA support remains available for platform access", asyn
   assert.match(panel, /normaliseQrCode/);
   assert.match(panel, /removeMfaFactor/);
   assert.match(panel, /Open authenticator app/);
-  assert.match(serverAccess, /mode === "platform" && context\.aal !== "aal2"/);
 });
 
 test("staff and client lifecycle controls are full-admin only and preserve records", async () => {

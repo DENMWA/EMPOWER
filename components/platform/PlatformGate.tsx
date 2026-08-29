@@ -55,8 +55,8 @@ export function PlatformGate({ children }: { children: ReactNode }) {
           </span>
           <h2 className="mt-4 text-xl font-semibold text-ink">Verified owner account required</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
-          <Link href="/signin?next=/platform" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift hover:bg-slate-800">
-            Sign in securely
+          <Link href="/platform/signin?next=/platform" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-lift hover:bg-slate-800">
+            Send email sign-in link
           </Link>
         </Card>
       </Section>

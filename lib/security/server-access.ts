@@ -37,10 +37,6 @@ export async function verifyServerAccess(request: Request, mode: AccessMode, req
   if (!resolved.context) return denied(resolved.status, resolved.error, resolved.correlationId);
   const context = resolved.context;
 
-  if (mode === "platform" && context.aal !== "aal2") {
-    return denied(403, "Additional verification is required for developer console access.", context.correlationId, true);
-  }
-
   if (mode === "admin" && !canAccessAdmin(context.role, context.adminPermissions, requiredPermission)) {
     logDenied(context.userId, request, context.correlationId);
     return denied(403, requiredPermission ? "This admin function has not been assigned to your account." : "Administrator access is required.", context.correlationId);
