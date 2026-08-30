@@ -11,7 +11,8 @@ const rows = [
   ["Team rostering", ...plans.map((plan) => planCatalogue[plan.tier].billing.teamScheduling ? "Yes" : "No")],
   ["Houses/services", ...plans.map((plan) => formatLimit(planCatalogue[plan.tier].limits.houses))],
   ["Active clients", ...plans.map((plan) => formatLimit(planCatalogue[plan.tier].limits.activeParticipants))],
-  ["Users", ...plans.map((plan) => formatLimit(planCatalogue[plan.tier].limits.users))]
+  ["Active users included", ...plans.map((plan) => formatLimit(planCatalogue[plan.tier].limits.users))],
+  ["Extra active users", ...plans.map((plan) => plan.selfService ? "A$9.99/user/month" : "Tailored")]
 ];
 
 export function PlanComparison() {

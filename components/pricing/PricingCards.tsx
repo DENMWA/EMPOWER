@@ -12,11 +12,16 @@ export function PricingCards() {
             <h2 className="text-xl font-bold text-ink">{plan.name.replace("EmpowerNotes ", "")}</h2>
             {plan.highlighted ? <StatusBadge label="Popular" tone="green" /> : null}
           </div>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{plan.audience}</p>
           <p className="mt-3 text-3xl font-bold text-sea">{plan.price.replace("/month", "")}</p>
           <p className="mt-1 text-sm font-semibold text-slate-500">{plan.selfService ? "per month" : "Tailored agreement"}</p>
+          <div className="mt-4 rounded-md border border-teal-100 bg-mint px-3 py-2">
+            <p className="text-sm font-bold text-teal-950">{plan.userLimit}</p>
+            <p className="mt-1 text-xs font-semibold text-teal-800">{plan.stepUp}</p>
+          </div>
           <p className="mt-4 min-h-24 text-sm leading-6 text-slate-700">{plan.bestFor}</p>
           <ul className="mt-4 space-y-3 text-sm text-slate-700">
-            {plan.features.slice(0, 5).map((feature) => (
+            {plan.features.map((feature) => (
               <li key={feature} className="flex gap-2">
                 <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" aria-hidden="true" />
                 <span>{feature}</span>

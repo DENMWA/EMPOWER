@@ -60,6 +60,7 @@ test("marketing pages expose source-backed structured data and AI progress-note 
   assert.match(features, /rostering: "rostering"/);
   assert.match(features, /href=\{`\/features\/\$\{featureSlugById\[feature\.id\]\}`\}/);
   assert.match(pricing, /"@type": "Product"/);
+  assert.match(pricing, /Additional active users/);
   assert.match(progress, /"@type": "FAQPage"/);
   assert.match(progress, /Clear records\. Original facts\. Human control\./);
   assert.match(progress, /What remains human/);
@@ -84,6 +85,25 @@ test("marketing pages expose source-backed structured data and AI progress-note 
   assert.match(operationsPage, /Popular NDIS searches/);
   assert.match(config, /source: "\/\.ai\/manifest\.json"/);
   assert.match(accessBoundary, /"\/ai-progress-notes"/);
+});
+
+test("pricing tiers show clear active-user step-ups", async () => {
+  const [pricingData, cards, comparison, entitlements] = await Promise.all([
+    source("lib/pricing-data.ts"),
+    source("components/pricing/PricingCards.tsx"),
+    source("components/pricing/PlanComparison.tsx"),
+    source("lib/subscriptions/entitlements.ts")
+  ]);
+  assert.match(pricingData, /userLimit: "1 active user"/);
+  assert.match(pricingData, /userLimit: "Up to 5 active users"/);
+  assert.match(pricingData, /userLimit: "Up to 20 active users"/);
+  assert.match(pricingData, /stepUp: "Most popular"/);
+  assert.match(cards, /plan\.userLimit/);
+  assert.match(cards, /plan\.stepUp/);
+  assert.match(comparison, /Active users included/);
+  assert.match(comparison, /A\$9\.99\/user\/month/);
+  assert.match(entitlements, /maxUsers: 5/);
+  assert.match(entitlements, /maxUsers: 20/);
 });
 
 test("wide-angle SEO pages position EmpowerNotes as an operational system", async () => {

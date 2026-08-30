@@ -61,6 +61,15 @@ export default function PricingPage() {
         </div>
       </Section>
       <Section><PricingCards /></Section>
+      <Section>
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-soft">
+          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Simple team sizing</p>
+          <h2 className="mt-2 text-2xl font-bold text-ink">Pay for active staff, not archived records.</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+            Additional active users on self-service plans are A$9.99 per user/month. Inactive staff can remain in the record without counting toward the active user allowance.
+          </p>
+        </div>
+      </Section>
       <Section><PlanComparison /></Section>
       <Section>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-6">

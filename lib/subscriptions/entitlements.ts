@@ -71,12 +71,12 @@ const solo: PlanToProgressEntitlements = {
 };
 
 const practice: PlanToProgressEntitlements = {
-  ...solo, maxActiveParticipants: 50, maxUsers: 10, maxDocumentsPerParticipant: 5, maxAiAnalysedNotesPerMonth: 2000, maxStorageBytes: 20 * 1024 * 1024 * 1024, maxApprovalStages: 2,
+  ...solo, maxActiveParticipants: 50, maxUsers: 5, maxDocumentsPerParticipant: 5, maxAiAnalysedNotesPerMonth: 2000, maxStorageBytes: 20 * 1024 * 1024 * 1024, maxApprovalStages: 2,
   riskExtraction: true, evidenceStrengthScoring: true, contradictionDetection: true, evidenceGapAlerts: true, longitudinalAnalysis: true, advancedCharts: true, brandedReports: true, managerVerification: true
 };
 
 const provider: PlanToProgressEntitlements = {
-  ...practice, maxActiveParticipants: 300, maxUsers: 50, maxDocumentsPerParticipant: null, maxAiAnalysedNotesPerMonth: 10000, maxStorageBytes: 250 * 1024 * 1024 * 1024, maxApprovalStages: 4,
+  ...practice, maxActiveParticipants: 300, maxUsers: 20, maxDocumentsPerParticipant: null, maxAiAnalysedNotesPerMonth: 10000, maxStorageBytes: 250 * 1024 * 1024 * 1024, maxApprovalStages: 4,
   multiDocumentParsing: true, automatedDocumentSync: false, paragraphLevelTraceability: true, conflictDetection: true, customBaselineTemplates: true, customProgressScales: true, customEvidenceRules: true,
   cohortAnalytics: true, configurableDashboards: true, customReportBuilder: true, scheduledReports: true, sharePointIntegration: false, outlookIntegration: false, googleDriveIntegration: false,
   multiStageApproval: true, customAiRules: true, organisationPolicyIntelligence: true, customDocumentTypes: true

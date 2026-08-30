@@ -5,8 +5,11 @@ export type Plan = {
   name: string;
   shortName: string;
   price: string;
+  userLimit: string;
+  audience: string;
   bestFor: string;
   features: string[];
+  stepUp: string;
   cta: string;
   href: string;
   highlighted?: boolean;
@@ -19,8 +22,11 @@ export const plans: Plan[] = [
     name: "EmpowerNotes Solo",
     shortName: "Solo",
     price: "A$49.99/month",
-    bestFor: "For independent providers who need audit-ready notes, participant records, plan parsing, and basic progress evidence.",
-    features: ["1 user", "Up to 10 active participants", "AI notes and voice documentation", "Plan parsing and goal extraction", "Goal-linked notes", "Self-reviewed baselines", "Basic progress charts", "Participant progress reports"],
+    userLimit: "1 active user",
+    audience: "Independent providers",
+    bestFor: "For independent providers who need clean notes, client records, documents, incidents and basic billing readiness.",
+    features: ["AI progress notes", "Incident reports", "Client profiles", "Document uploads", "Basic billing readiness", "PDF downloads"],
+    stepUp: "Start lean",
     cta: "Start Solo",
     href: "/signup?plan=solo",
     selfService: true
@@ -30,8 +36,11 @@ export const plans: Plan[] = [
     name: "EmpowerNotes Practice",
     shortName: "Practice",
     price: "A$129.99/month",
-    bestFor: "For small support teams and practices that need manager review, staff oversight, and stronger participant progress evidence.",
-    features: ["10 users included", "Up to 50 active participants", "Manager review workflow", "Evidence-strength scoring", "Staff documentation oversight", "Goal evidence alerts", "Branded reports", "Support-level trends"],
+    userLimit: "Up to 5 active users",
+    audience: "Small support teams",
+    bestFor: "For small teams that need shared records, staff invitations, manager review, rostering and branded reports.",
+    features: ["Everything in Solo", "Staff invitations", "Manager note review", "Team roster", "Staff sign on/off", "Document expiry reminders"],
+    stepUp: "Most popular",
     cta: "Start Practice",
     href: "/signup?plan=practice",
     highlighted: true,
@@ -42,8 +51,11 @@ export const plans: Plan[] = [
     name: "EmpowerNotes Provider",
     shortName: "Provider",
     price: "A$299.99/month",
-    bestFor: "For growing providers that need standardised documentation, custom workflows, service reporting, and operational control.",
-    features: ["Multi-team operations", "Custom workflows and templates", "Multi-document participant intelligence", "Custom progress scales", "Organisation dashboards", "Scheduled reports", "Advanced budget forecasting", "Multi-location support"],
+    userLimit: "Up to 20 active users",
+    audience: "Growing organisations",
+    bestFor: "For growing providers managing multiple workers, clients, houses, reporting, invoicing and operational governance.",
+    features: ["Everything in Practice", "Multi-house rostering", "Advanced incident oversight", "Billing readiness dashboard", "Comparative charts", "Plan-to-progress intelligence"],
+    stepUp: "Scale teams",
     cta: "Start Provider",
     href: "/signup?plan=provider",
     selfService: true
@@ -53,8 +65,11 @@ export const plans: Plan[] = [
     name: "EmpowerNotes Enterprise",
     shortName: "Enterprise",
     price: "Custom",
-    bestFor: "For large and multi-site organisations requiring tailored governance, implementation support, security controls, and organisation-wide intelligence.",
-    features: ["Structured implementation", "Organisation-wide outcomes analytics", "Executive dashboards", "Role-based governance", "Board-ready reporting", "Custom governance configuration", "White-label options", "Dedicated implementation support"],
+    userLimit: "Custom users",
+    audience: "Multi-site governance",
+    bestFor: "For larger or multi-site providers needing tailored roles, onboarding, governance, analytics and reporting control.",
+    features: ["Custom onboarding", "Custom roles and permissions", "Multi-site reporting", "Advanced analytics", "Priority support", "Tailored governance setup"],
+    stepUp: "Tailored",
     cta: "Contact Enterprise Sales",
     href: "/contact",
     selfService: false
@@ -69,7 +84,7 @@ export const selfServicePlans = plans.filter((plan) => plan.selfService);
 
 export const foundingOffer = {
   name: "Founding Provider Offer",
-  price: "A$129.99/month for up to 10 users",
+  price: "A$129.99/month for up to 5 users",
   lockIn: "Locked for 12 months",
-  features: ["Practice-style team setup", "Guided voice notes", "Manager approvals", "Incident assistant", "Audit pack generator", "Document Vault", "AI Evidence Reader", "Up to 10 active users"]
+  features: ["Practice-style team setup", "Guided voice notes", "Manager approvals", "Incident assistant", "Audit pack generator", "Document Vault", "AI Evidence Reader", "Up to 5 active users"]
 };
