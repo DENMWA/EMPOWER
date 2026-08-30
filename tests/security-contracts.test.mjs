@@ -485,22 +485,31 @@ test("handover communication book supports house, client and operational scopes"
 });
 
 test("client appointments can be added by workers, reviewed by admin and shown as reminders", async () => {
-  const [records, composer, reminders, notes, dashboard, admin, migration] = await Promise.all([
+  const [records, composer, reminders, notes, dashboard, admin, migration, compactMigration] = await Promise.all([
     source("lib/appointment-records.ts"),
     source("components/appointments/AppointmentComposer.tsx"),
     source("components/appointments/AppointmentRemindersPanel.tsx"),
     source("components/notes/ProgressNoteGenerator.tsx"),
     source("components/dashboard/RoleAwareDashboard.tsx"),
     source("components/admin/AdminDashboard.tsx"),
-    source("supabase/client-appointments.sql")
+    source("supabase/client-appointments.sql"),
+    source("supabase/appointment-completed-review-footprint.sql")
   ]);
   assert.match(records, /AppointmentStatus = "Needs admin review" \| "Confirmed" \| "Completed" \| "Cancelled"/);
   assert.match(records, /getAppointmentReminderStage/);
   assert.match(records, /overdue-follow-up/);
+  assert.match(records, /isCompletedReviewedAppointment/);
+  assert.match(records, /admin_reviewed_at/);
   assert.match(composer, /mode: "worker" \| "admin"/);
   assert.match(composer, /Needs review by default/);
+  assert.match(composer, /Outcome notes/);
+  assert.match(composer, /Admin review note/);
+  assert.match(composer, /compactAfterReview/);
   assert.match(composer, /Save appointment/);
   assert.match(reminders, /Appointments will appear here one week before they are due/);
+  assert.match(reminders, /Completed appointment/);
+  assert.match(reminders, /Open details/);
+  assert.match(reminders, /Saved with a smaller footprint/);
   assert.match(notes, /supportType === "Appointment support"/);
   assert.match(notes, /AppointmentComposer mode="worker"/);
   assert.match(dashboard, /AppointmentRemindersPanel/);
@@ -510,6 +519,8 @@ test("client appointments can be added by workers, reviewed by admin and shown a
   assert.match(migration, /enable row level security/);
   assert.match(migration, /private\.current_user_can_access_participant\(participant_id, appointment_date\)/);
   assert.match(migration, /created_by = \(select auth\.uid\(\)\)/);
+  assert.match(compactMigration, /admin_reviewed_at/);
+  assert.match(compactMigration, /compact_after_review/);
 });
 
 test("worker dashboard opens with a house-scoped incoming handover panel", async () => {

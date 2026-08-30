@@ -21,6 +21,9 @@ export type ClientAppointment = {
   followUpRequired: string;
   outcomeNotes: string;
   status: AppointmentStatus;
+  adminReviewedAt?: string;
+  adminReviewNote?: string;
+  compactAfterReview?: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +46,9 @@ type AppointmentRow = {
   follow_up_required: string | null;
   outcome_notes: string | null;
   status: AppointmentStatus;
+  admin_reviewed_at?: string | null;
+  admin_review_note?: string | null;
+  compact_after_review?: boolean | null;
   created_by: string | null;
   created_at: string;
   updated_at: string | null;
@@ -117,14 +123,20 @@ export function appointmentSummary(appointment: ClientAppointment) {
     `Attending: ${appointment.attendingStaff || "Not recorded"}`,
     `Reason: ${appointment.reason || "Not recorded"}`,
     `Follow-up: ${appointment.followUpRequired || "Not recorded"}`,
+    `Outcome: ${appointment.outcomeNotes || "Not recorded"}`,
+    `Review: ${appointment.adminReviewNote || "Not recorded"}`,
     `Status: ${appointment.status}`
   ].join("\n");
+}
+
+export function isCompletedReviewedAppointment(appointment: Pick<ClientAppointment, "status" | "adminReviewedAt" | "adminReviewNote" | "compactAfterReview">) {
+  return appointment.status === "Completed" && (appointment.compactAfterReview || Boolean(appointment.adminReviewedAt || appointment.adminReviewNote?.trim()));
 }
 
 export async function getTenantAppointments() {
   const local = getLocalAppointments();
   const result = await supabaseRequest<AppointmentRow[]>("client_appointments", {
-    query: "select=id,participant_id,participant_name,house_id,house_name,appointment_type,appointment_date,appointment_time,location,support_required,arranged_by,attending_staff,reason,follow_up_required,outcome_notes,status,created_by,created_at,updated_at&order=appointment_date.asc,appointment_time.asc"
+    query: "select=id,participant_id,participant_name,house_id,house_name,appointment_type,appointment_date,appointment_time,location,support_required,arranged_by,attending_staff,reason,follow_up_required,outcome_notes,status,admin_reviewed_at,admin_review_note,compact_after_review,created_by,created_at,updated_at&order=appointment_date.asc,appointment_time.asc"
   });
   const cloud = (result.data || []).map(fromRow);
   return mergeAppointments(cloud, local);
@@ -204,6 +216,9 @@ function fromRow(row: AppointmentRow): ClientAppointment {
     followUpRequired: row.follow_up_required || "",
     outcomeNotes: row.outcome_notes || "",
     status: row.status,
+    adminReviewedAt: row.admin_reviewed_at || undefined,
+    adminReviewNote: row.admin_review_note || undefined,
+    compactAfterReview: Boolean(row.compact_after_review),
     createdBy: row.created_by || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at
@@ -229,6 +244,9 @@ function toRow(appointment: ClientAppointment, organisationId: string, userId: s
     follow_up_required: appointment.followUpRequired || null,
     outcome_notes: appointment.outcomeNotes || null,
     status: appointment.status,
+    admin_reviewed_at: appointment.adminReviewedAt || null,
+    admin_review_note: appointment.adminReviewNote || null,
+    compact_after_review: Boolean(appointment.compactAfterReview),
     created_by: appointment.createdBy || userId,
     updated_at: appointment.updatedAt
   };

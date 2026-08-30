@@ -31,6 +31,8 @@ export function AppointmentComposer({ mode, initialParticipantId = "", initialHo
   const [attendingStaff, setAttendingStaff] = useState("");
   const [reason, setReason] = useState("");
   const [followUpRequired, setFollowUpRequired] = useState("");
+  const [outcomeNotes, setOutcomeNotes] = useState("");
+  const [adminReviewNote, setAdminReviewNote] = useState("");
   const [status, setStatus] = useState<AppointmentStatus>(mode === "admin" ? "Confirmed" : "Needs admin review");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -84,8 +86,11 @@ export function AppointmentComposer({ mode, initialParticipantId = "", initialHo
       attendingStaff,
       reason,
       followUpRequired,
-      outcomeNotes: "",
-      status
+      outcomeNotes,
+      status,
+      adminReviewedAt: mode === "admin" && status === "Completed" ? new Date().toISOString() : undefined,
+      adminReviewNote: mode === "admin" && status === "Completed" ? adminReviewNote : undefined,
+      compactAfterReview: mode === "admin" && status === "Completed"
     });
     setMessage(result.savedToCloud ? "Appointment saved to the workspace." : result.error || "Appointment saved on this device.");
     if (result.saved) {
@@ -110,8 +115,11 @@ export function AppointmentComposer({ mode, initialParticipantId = "", initialHo
     attendingStaff,
     reason,
     followUpRequired,
-    outcomeNotes: "",
+    outcomeNotes,
     status,
+    adminReviewedAt: mode === "admin" && status === "Completed" ? new Date().toISOString() : undefined,
+    adminReviewNote: mode === "admin" && status === "Completed" ? adminReviewNote : undefined,
+    compactAfterReview: mode === "admin" && status === "Completed",
     createdBy: "",
     createdAt: "",
     updatedAt: ""
@@ -199,6 +207,18 @@ export function AppointmentComposer({ mode, initialParticipantId = "", initialHo
           Follow-up required after appointment
           <input className={inputClass} value={followUpRequired} onChange={(event) => setFollowUpRequired(event.target.value)} placeholder="Outcome note, medication change, document upload, next booking..." />
         </label>
+        {mode === "admin" && status === "Completed" ? (
+          <>
+            <label className="text-sm font-semibold text-slate-700">
+              Outcome notes
+              <textarea className={textAreaClass} value={outcomeNotes} onChange={(event) => setOutcomeNotes(event.target.value)} placeholder="What happened, key outcome, documents received, or follow-up arranged." />
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Admin review note
+              <textarea className={textAreaClass} value={adminReviewNote} onChange={(event) => setAdminReviewNote(event.target.value)} placeholder="Manager review, closure decision, or next action confirmed." />
+            </label>
+          </>
+        ) : null}
         </div>
       </details>
 

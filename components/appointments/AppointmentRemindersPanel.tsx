@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, RefreshCw } from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import {
   appointmentsUpdatedEvent,
@@ -11,6 +11,7 @@ import {
   getAppointmentReminderStage,
   getReminderTone,
   getTenantAppointments,
+  isCompletedReviewedAppointment,
   type ClientAppointment
 } from "@/lib/appointment-records";
 
@@ -28,6 +29,7 @@ export function AppointmentRemindersPanel({
   adminView = false
 }: AppointmentRemindersPanelProps) {
   const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
+  const [openAppointmentIds, setOpenAppointmentIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -82,23 +84,40 @@ export function AppointmentRemindersPanel({
             <p className="mt-1 text-sm text-slate-600">Appointments will appear here one week before they are due.</p>
           </div>
         ) : null}
-        {reminderItems.map(({ appointment, stage }) => (
-          <article key={appointment.id} className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="font-semibold text-ink">{appointment.participantName}</p>
-                <p className="mt-1 text-sm text-slate-600">{appointment.appointmentType} · {getAppointmentReminderLabel(appointment)}</p>
+        {reminderItems.map(({ appointment, stage }) => {
+          const isReviewed = isCompletedReviewedAppointment(appointment);
+          const compactCompleted = isReviewed && !openAppointmentIds[appointment.id];
+          return (
+            <article key={appointment.id} className={compactCompleted ? "rounded-md border border-emerald-200 bg-emerald-50 p-3" : "rounded-md border border-slate-200 bg-white p-3 shadow-sm"}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-ink">{appointment.participantName}</p>
+                  <p className="mt-1 text-sm text-slate-600">{appointment.appointmentType} - {getAppointmentReminderLabel(appointment)}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge label={compactCompleted ? "Completed appointment" : appointment.status} tone={appointment.status === "Needs admin review" ? "amber" : appointment.status === "Completed" ? "green" : getReminderTone(stage)} />
+                  {isReviewed ? (
+                    <button type="button" onClick={() => setOpenAppointmentIds((current) => ({ ...current, [appointment.id]: !current[appointment.id] }))} className="min-h-8 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 hover:border-teal-400">
+                      {openAppointmentIds[appointment.id] ? "Close" : "Open details"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
-              <StatusBadge label={appointment.status} tone={appointment.status === "Needs admin review" ? "amber" : appointment.status === "Completed" ? "green" : getReminderTone(stage)} />
-            </div>
-            <dl className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-              <div><dt className="font-semibold text-slate-700">House/service</dt><dd>{appointment.houseName || "Not selected"}</dd></div>
-              <div><dt className="font-semibold text-slate-700">Date</dt><dd>{formatAppointmentDate(appointment.appointmentDate)}{appointment.appointmentTime ? ` at ${appointment.appointmentTime}` : ""}</dd></div>
-              <div><dt className="font-semibold text-slate-700">Location</dt><dd>{appointment.location || "Not recorded"}</dd></div>
-              <div><dt className="font-semibold text-slate-700">Follow-up</dt><dd>{appointment.followUpRequired || "Outcome note after appointment"}</dd></div>
-            </dl>
-          </article>
-        ))}
+              {compactCompleted ? (
+                <p className="mt-2 text-xs font-semibold text-emerald-900">Saved with a smaller footprint. Details remain available when reopened.</p>
+              ) : (
+                <dl className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                  <div><dt className="font-semibold text-slate-700">House/service</dt><dd>{appointment.houseName || "Not selected"}</dd></div>
+                  <div><dt className="font-semibold text-slate-700">Date</dt><dd>{formatAppointmentDate(appointment.appointmentDate)}{appointment.appointmentTime ? ` at ${appointment.appointmentTime}` : ""}</dd></div>
+                  <div><dt className="font-semibold text-slate-700">Location</dt><dd>{appointment.location || "Not recorded"}</dd></div>
+                  <div><dt className="font-semibold text-slate-700">Follow-up</dt><dd>{appointment.followUpRequired || "Outcome note after appointment"}</dd></div>
+                  {appointment.outcomeNotes ? <div><dt className="font-semibold text-slate-700">Outcome</dt><dd>{appointment.outcomeNotes}</dd></div> : null}
+                  {appointment.adminReviewNote ? <div><dt className="font-semibold text-slate-700">Review</dt><dd>{appointment.adminReviewNote}</dd></div> : null}
+                </dl>
+              )}
+            </article>
+          );
+        })}
       </div>
       <Link href="/notes/new" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-teal-300 bg-teal-50 px-4 text-sm font-semibold text-teal-900">
         Add appointment from progress notes <ArrowRight size={16} aria-hidden="true" />
