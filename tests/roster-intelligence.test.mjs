@@ -103,6 +103,9 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /year/);
   assert.match(page, /getTenantStaffInvites/);
   assert.match(page, /Roster coverage colours/);
+  assert.match(page, /ActiveStaffPanel/);
+  assert.match(page, /Active staff/);
+  assert.match(page, /staff=\{staffOptions\}/);
   assert.match(page, /keepRosterSheetOpenAfterSave/);
   assert.match(page, /rosterSheetShifts/);
   assert.match(page, /shifts=\{rosterSheetShifts\}/);
