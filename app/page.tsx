@@ -181,6 +181,10 @@ export default function HomePage() {
               </div>
               <p className="mt-6 text-2xl font-bold text-sea">{plan.price.replace("/month", "")}</p>
               <p className="mt-1 text-xs font-semibold text-slate-500">{plan.selfService ? "per month" : "Tailored agreement"}</p>
+              <div className="mt-4 rounded-md border border-teal-100 bg-mint px-3 py-2">
+                <p className="text-sm font-bold text-teal-950">{plan.userLimit}</p>
+                <p className="mt-1 text-xs font-semibold text-teal-800">{plan.stepUp}</p>
+              </div>
               <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
                 <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${plan.featured ? "bg-teal-50 text-teal-800" : "bg-slate-50 text-slate-700"}`}>{plan.cue}</span>
                 <ArrowRight size={17} className="text-teal-800 transition group-hover:translate-x-1" aria-hidden="true" />

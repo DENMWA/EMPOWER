@@ -56,6 +56,8 @@ test("marketing pages expose source-backed structured data and AI progress-note 
   assert.match(layout, /NDIS operations software Australia/);
   assert.match(home, /"@type": "SoftwareApplication"/);
   assert.match(home, /Free health check/);
+  assert.match(home, /plan\.userLimit/);
+  assert.match(home, /plan\.stepUp/);
   assert.match(features, /"@type": "ItemList"/);
   assert.match(features, /rostering: "rostering"/);
   assert.match(features, /href=\{`\/features\/\$\{featureSlugById\[feature\.id\]\}`\}/);
