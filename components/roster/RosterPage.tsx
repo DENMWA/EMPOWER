@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, LayoutGrid, LockKeyhole, UserPlus, UsersRound } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, LayoutGrid, LockKeyhole, UserPlus } from "lucide-react";
 import { CreateRosterShiftModal } from "@/components/roster/CreateRosterShiftModal";
 import { EmployeeColourLegend } from "@/components/roster/EmployeeColourLegend";
 import { RosterDayView } from "@/components/roster/RosterDayView";
@@ -431,22 +431,13 @@ export function RosterPage() {
           </Card>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <ActiveStaffPanel
-            staff={staffOptions}
-            shifts={rosterSheetShifts}
-            onCreateShift={(workerId) => openCreateShift({ shiftDate: selectedDate, workerIds: workerId ? [workerId] : [] })}
-          />
-          <div className="min-w-0">
-            {view === "day" ? (
-              <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
-            ) : view === "week" || view === "fortnight" ? (
-              <RosterWeekView selectedDate={selectedDate} span={view} shifts={rosterSheetShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
-            ) : (
-              <RosterPlanningOverview selectedDate={selectedDate} view={view} shifts={visibleShifts} onSelectDate={openWeek} />
-            )}
-          </div>
-        </div>
+        {view === "day" ? (
+          <RosterDayView date={selectedDate} shifts={visibleShifts} onOpenShift={setActiveShift} />
+        ) : view === "week" || view === "fortnight" ? (
+          <RosterWeekView selectedDate={selectedDate} span={view} shifts={rosterSheetShifts} workers={allRosterWorkers} onOpenShift={setActiveShift} onCreateShift={({ shiftDate, workerId }) => openCreateShift({ shiftDate, workerIds: workerId ? [workerId] : [] })} />
+        ) : (
+          <RosterPlanningOverview selectedDate={selectedDate} view={view} shifts={visibleShifts} onSelectDate={openWeek} />
+        )}
       </Section>
 
       <RosterShiftModal
@@ -461,50 +452,6 @@ export function RosterPage() {
       />
       <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} prefill={shiftPrefill} />
     </>
-  );
-}
-
-function ActiveStaffPanel({ staff, shifts, onCreateShift }: {
-  staff: Array<{ id: string; name: string }>;
-  shifts: RosterShift[];
-  onCreateShift: (workerId: string) => void;
-}) {
-  return (
-    <aside className="rounded-md border border-slate-200 bg-white p-4 shadow-soft xl:sticky xl:top-4 xl:self-start" aria-label="Active staff">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-sea">Active staff</p>
-          <h2 className="mt-1 text-lg font-bold text-ink">{staff.length} available</h2>
-        </div>
-        <span className="grid h-10 w-10 place-items-center rounded-md bg-mint text-teal-900">
-          <UsersRound size={19} aria-hidden="true" />
-        </span>
-      </div>
-      <div className="mt-4 space-y-2">
-        {staff.length ? staff.map((worker) => {
-          const workerShifts = shifts.filter((shift) => getShiftAssignedWorkers(shift).some((assigned) => assigned.id === worker.id));
-          const hours = workerShifts.reduce((total, shift) => total + getShiftDurationHours(shift.startTime, shift.endTime), 0);
-          return (
-            <div key={worker.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-semibold text-ink">{worker.name}</p>
-                  <p className="mt-1 text-xs text-slate-600">{workerShifts.length} shift{workerShifts.length === 1 ? "" : "s"} - {hours.toFixed(hours % 1 === 0 ? 0 : 1)}h</p>
-                </div>
-                <button type="button" onClick={() => onCreateShift(worker.id)} className="min-h-8 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 hover:border-teal-400">
-                  Add
-                </button>
-              </div>
-            </div>
-          );
-        }) : (
-          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-ink">No active staff yet.</p>
-            <p className="mt-1 text-xs leading-5 text-slate-600">Add active staff before assigning shifts.</p>
-          </div>
-        )}
-      </div>
-    </aside>
   );
 }
 
