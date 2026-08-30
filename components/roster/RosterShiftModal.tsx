@@ -3,7 +3,7 @@
 import { CheckCircle2, FileCheck2, MapPin, Send, UserX, X } from "lucide-react";
 import { RosterStatusBadge } from "@/components/roster/RosterStatusBadge";
 import { PrivateClientPhoto } from "@/components/participants/PrivateClientPhoto";
-import { getRosterCoverageColour, getShiftAssignedWorkers, type RosterShift } from "@/lib/roster";
+import { getActualShiftHours, getRosterCoverageColour, getShiftAssignedWorkers, getShiftSignOffStatus, type RosterShift } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
 export function RosterShiftModal({
@@ -13,6 +13,7 @@ export function RosterShiftModal({
   onNoteCompleted,
   onCancelShift,
   onMarkVacant,
+  onApproveSignOff,
   onRequestReplacement
 }: {
   shift: RosterShift | null;
@@ -21,12 +22,14 @@ export function RosterShiftModal({
   onNoteCompleted: (shiftId: string) => void;
   onCancelShift: (shiftId: string) => void;
   onMarkVacant: (shiftId: string) => void;
+  onApproveSignOff: (shiftId: string) => void;
   onRequestReplacement: (shiftId: string) => void;
 }) {
   if (!shift) return null;
 
   const colour = getRosterCoverageColour(shift);
   const assignedWorkers = getShiftAssignedWorkers(shift);
+  const signOffStatus = getShiftSignOffStatus(shift);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="roster-shift-title">
@@ -76,9 +79,24 @@ export function RosterShiftModal({
               <p className="font-semibold">Documentation tracking</p>
               <p className="mt-1">{shift.noteRequired ? (shift.noteCompleted ? "Progress note has been completed for this shift." : "Progress note is required after this shift.") : "Progress note is not required for this shift."}</p>
             </div>
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold text-ink">Shift sign-off</p>
+                <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{signOffStatus}</span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <p><span className="font-semibold text-slate-900">Scheduled:</span> {shift.startTime} - {shift.endTime}</p>
+                <p><span className="font-semibold text-slate-900">Actual:</span> {shift.actualStartTime || "Not started"}{shift.actualEndTime ? ` - ${shift.actualEndTime}` : ""}</p>
+              </div>
+              {shift.actualStartTime && shift.actualEndTime ? <p className="mt-2 text-sm font-semibold text-slate-700">Actual hours: {getActualShiftHours(shift).toFixed(1)}h</p> : null}
+              {shift.shiftSignOffNote ? <p className="mt-2 text-sm text-slate-700">{shift.shiftSignOffNote}</p> : null}
+            </div>
           </div>
 
           <div className="mt-6 flex flex-wrap justify-end gap-3">
+            {signOffStatus === "Finished" ? <button type="button" onClick={() => onApproveSignOff(shift.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
+              <CheckCircle2 size={18} aria-hidden="true" />Approve actual hours
+            </button> : null}
             <button type="button" onClick={() => onRequestReplacement(shift.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-900 hover:bg-sky-100">
               <Send size={18} aria-hidden="true" />Find replacement
             </button>

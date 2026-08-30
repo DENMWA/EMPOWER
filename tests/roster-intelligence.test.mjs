@@ -108,7 +108,7 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /shifts=\{rosterSheetShifts\}/);
   assert.match(page, /downloadRoster/);
   assert.match(page, /Download PDF roster/);
-  assert.match(page, /empowernotes-roster-\$\{view\}.*\.pdf/);
+  assert.match(page, /slugifyFilename\(organisationName\).*roster-\$\{view\}.*\.pdf/);
   assert.match(page, /printRosterPdf/);
   assert.match(page, /Total shifts \/ hours/);
   assert.match(page, /Roster period total/);
@@ -205,6 +205,38 @@ test("invited workers receive a private week, fortnight and month roster", async
   assert.doesNotMatch(policy, /auth\.jwt\(\) ->> 'email'/);
   assert.match(policy, /managers view organisation shifts workers view assigned shifts/);
   assert.doesNotMatch(policy, /assigned_to_participant/);
+});
+
+test("assigned workers can sign on and off rostered shifts for manager approval", async () => {
+  const [roster, myRoster, signOffRoute, adminModal, adminPage, cloud, meRoute, sql] = await Promise.all([
+    source("lib/roster.ts"),
+    source("components/roster/MyRosterPage.tsx"),
+    source("app/api/roster/signoff/route.ts"),
+    source("components/roster/RosterShiftModal.tsx"),
+    source("components/roster/RosterPage.tsx"),
+    source("lib/roster-cloud.ts"),
+    source("app/api/roster/me/route.ts"),
+    source("supabase/roster-shift-signoff.sql")
+  ]);
+  assert.match(roster, /ShiftSignOffStatus/);
+  assert.match(roster, /startRosterShift/);
+  assert.match(roster, /finishRosterShift/);
+  assert.match(roster, /approveRosterShift/);
+  assert.match(myRoster, /Start shift/);
+  assert.match(myRoster, /Finish shift/);
+  assert.match(myRoster, /Brief handover or sign-off note/);
+  assert.match(signOffRoute, /resolveUserAccessContext\(request\)/);
+  assert.match(signOffRoute, /This shift is not assigned to your roster/);
+  assert.match(signOffRoute, /shift_staff\?select=shift_id,staff_user_id,staff_invite_id/);
+  assert.match(signOffRoute, /actual_start_time/);
+  assert.match(signOffRoute, /actual_end_time/);
+  assert.match(adminModal, /Shift sign-off/);
+  assert.match(adminModal, /Approve actual hours/);
+  assert.match(adminPage, /approveRosterShift/);
+  assert.match(cloud, /shift_signoff_status/);
+  assert.match(meRoute, /shift_signoff_note/);
+  assert.match(sql, /shift_signoff_status/);
+  assert.match(sql, /support_shifts_signoff_status_check/);
 });
 
 test("providers can choose built-in, imported or manual rostering workflows", async () => {

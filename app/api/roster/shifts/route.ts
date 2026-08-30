@@ -15,6 +15,12 @@ const allowedStatuses: Record<RosterStatus, string> = {
   "No Show": "no_show"
 };
 const unavailableStaffStatuses = new Set(["on leave", "resigned", "terminated", "suspended"]);
+const signOffStatuses = {
+  "Not started": "not_started",
+  Started: "started",
+  Finished: "finished",
+  Approved: "approved"
+} as const;
 
 export async function POST(request: Request) {
   const access = await verifyServerAccess(request, "admin", "scheduling", "rostering.manage");
@@ -130,6 +136,13 @@ async function upsertShift(url: string, headers: Record<string, string>, access:
       staffing_ratio: shift.staffingRatio || "1:1",
       note_required: shift.noteRequired,
       note_completed: shift.noteCompleted,
+      actual_start_time: shift.actualStartTime ? toSydneyIso(shift.shiftDate, shift.actualStartTime) : null,
+      actual_end_time: shift.actualEndTime ? toSydneyIso(shift.shiftDate, shift.actualEndTime) : null,
+      shift_signoff_status: shift.shiftSignOffStatus ? signOffStatuses[shift.shiftSignOffStatus] : null,
+      shift_signoff_note: shift.shiftSignOffNote || null,
+      shift_signed_off_by: shift.shiftSignedOffBy || null,
+      shift_approved_at: shift.shiftApprovedAt || null,
+      shift_approved_by: shift.shiftSignOffStatus === "Approved" ? access.userId : shift.shiftApprovedBy || null,
       created_by: access.userId,
       updated_by: access.userId,
       updated_at: new Date().toISOString()

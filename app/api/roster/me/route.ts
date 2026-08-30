@@ -11,6 +11,7 @@ type ShiftRow = {
   id: string; participant_id: string; title: string | null; support_type: string | null; location: string | null;
   start_time: string; end_time: string; status: string; shift_instructions: string | null; staffing_ratio: string | null;
   note_required: boolean; note_completed: boolean;
+  actual_start_time: string | null; actual_end_time: string | null; shift_signoff_status: string | null; shift_signoff_note: string | null;
 };
 
 export async function GET(request: Request) {
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
   // This avoids dropping early shifts when daylight-saving changes the local UTC offset.
   const fromIso = `${addDays(from, -1)}T00:00:00Z`;
   const toIso = `${addDays(to, 2)}T00:00:00Z`;
-  const candidateShifts = await getRows<ShiftRow>(url, headers, `support_shifts?select=id,participant_id,title,support_type,location,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed&organisation_id=eq.${context.organisationId}&id=in.(${shiftIds.join(",")})&start_time=gte.${encodeURIComponent(fromIso)}&start_time=lt.${encodeURIComponent(toIso)}&order=start_time.asc`);
+  const candidateShifts = await getRows<ShiftRow>(url, headers, `support_shifts?select=id,participant_id,title,support_type,location,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,actual_start_time,actual_end_time,shift_signoff_status,shift_signoff_note&organisation_id=eq.${context.organisationId}&id=in.(${shiftIds.join(",")})&start_time=gte.${encodeURIComponent(fromIso)}&start_time=lt.${encodeURIComponent(toIso)}&order=start_time.asc`);
   const shifts = candidateShifts.filter((row) => {
     const shiftDate = sydneyPart(row.start_time, "date");
     return shiftDate >= from && shiftDate <= to;
@@ -73,7 +74,11 @@ export async function GET(request: Request) {
       staffingRatio: row.staffing_ratio || "1:1",
       status: normaliseStatus(row.status),
       noteRequired: row.note_required,
-      noteCompleted: row.note_completed
+      noteCompleted: row.note_completed,
+      actualStartTime: row.actual_start_time ? sydneyPart(row.actual_start_time, "time") : undefined,
+      actualEndTime: row.actual_end_time ? sydneyPart(row.actual_end_time, "time") : undefined,
+      shiftSignOffStatus: normaliseSignOffStatus(row.shift_signoff_status),
+      shiftSignOffNote: row.shift_signoff_note || undefined
     }))
   });
 }
@@ -89,3 +94,4 @@ function daysBetween(from: string, to: string) { return Math.round((Date.parse(`
 function addDays(value: string, amount: number) { const date = new Date(`${value}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + amount); return date.toISOString().slice(0, 10); }
 function sydneyPart(value: string, part: "date" | "time") { return new Intl.DateTimeFormat(part === "date" ? "en-CA" : "en-AU", part === "date" ? { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" } : { timeZone: "Australia/Sydney", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value)); }
 function normaliseStatus(value: string) { return value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "); }
+function normaliseSignOffStatus(value: string | null) { if (value === "started") return "Started"; if (value === "finished") return "Finished"; if (value === "approved") return "Approved"; return undefined; }

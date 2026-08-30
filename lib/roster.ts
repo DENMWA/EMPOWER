@@ -3,6 +3,7 @@ import { isPresentationModeEnabled } from "@/lib/presentation-mode";
 import { tenantStorageKey } from "@/lib/tenant-storage";
 
 export type RosterStatus = "Scheduled" | "In Progress" | "Completed" | "Note Required" | "Note Completed" | "Cancelled" | "No Show";
+export type ShiftSignOffStatus = "Not started" | "Started" | "Finished" | "Approved";
 
 export type RosterShift = {
   id: string;
@@ -25,6 +26,13 @@ export type RosterShift = {
   noteRequired: boolean;
   noteCompleted: boolean;
   progressNoteId?: string;
+  actualStartTime?: string;
+  actualEndTime?: string;
+  shiftSignOffStatus?: ShiftSignOffStatus;
+  shiftSignOffNote?: string;
+  shiftSignedOffBy?: string;
+  shiftApprovedAt?: string;
+  shiftApprovedBy?: string;
 };
 
 export type RosterFilters = {
@@ -411,6 +419,17 @@ export function getShiftDurationHours(startTime: string, endTime: string) {
   return Math.round(Math.max(0, end - start) / 60 * 100) / 100;
 }
 
+export function getActualShiftHours(shift: Pick<RosterShift, "actualStartTime" | "actualEndTime" | "startTime" | "endTime">) {
+  return getShiftDurationHours(shift.actualStartTime || shift.startTime, shift.actualEndTime || shift.endTime);
+}
+
+export function getShiftSignOffStatus(shift: Pick<RosterShift, "actualStartTime" | "actualEndTime" | "shiftSignOffStatus">): ShiftSignOffStatus {
+  if (shift.shiftSignOffStatus) return shift.shiftSignOffStatus;
+  if (shift.actualStartTime && shift.actualEndTime) return "Finished";
+  if (shift.actualStartTime) return "Started";
+  return "Not started";
+}
+
 export function getShiftAssignedWorkers(shift: RosterShift) {
   return shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }];
 }
@@ -459,6 +478,33 @@ export function updateRosterShiftStatus(shifts: RosterShift[], shiftId: string, 
 
 export function markRosterShiftCompleted(shifts: RosterShift[], shiftId: string) {
   return updateRosterShiftStatus(shifts, shiftId, "Completed");
+}
+
+export function startRosterShift(shifts: RosterShift[], shiftId: string, actualStartTime = currentSydneyTime()) {
+  return shifts.map((shift) => (shift.id === shiftId ? {
+    ...shift,
+    status: "In Progress" as const,
+    actualStartTime,
+    shiftSignOffStatus: "Started" as const
+  } : shift));
+}
+
+export function finishRosterShift(shifts: RosterShift[], shiftId: string, note = "", actualEndTime = currentSydneyTime()) {
+  return shifts.map((shift) => (shift.id === shiftId ? {
+    ...shift,
+    status: "Completed" as const,
+    actualEndTime,
+    shiftSignOffNote: note.trim(),
+    shiftSignOffStatus: "Finished" as const
+  } : shift));
+}
+
+export function approveRosterShift(shifts: RosterShift[], shiftId: string) {
+  return shifts.map((shift) => (shift.id === shiftId ? {
+    ...shift,
+    shiftSignOffStatus: "Approved" as const,
+    shiftApprovedAt: new Date().toISOString()
+  } : shift));
 }
 
 export function markRosterShiftNoteCompleted(shifts: RosterShift[], shiftId: string) {
@@ -576,6 +622,15 @@ function getRosterReportRange(period: RosterReportPeriod, selectedDate: string) 
   };
 
   return { start, end, label: labels[period] };
+}
+
+function currentSydneyTime() {
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Sydney",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).format(new Date());
 }
 
 export function getRosterSelectOptions() {

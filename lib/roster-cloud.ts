@@ -20,6 +20,13 @@ type ShiftRow = {
   note_required: boolean;
   note_completed: boolean;
   source_roster_shift_id: string | null;
+  actual_start_time: string | null;
+  actual_end_time: string | null;
+  shift_signoff_status: string | null;
+  shift_signoff_note: string | null;
+  shift_signed_off_by: string | null;
+  shift_approved_at: string | null;
+  shift_approved_by: string | null;
 };
 
 type AssignmentRow = {
@@ -43,7 +50,7 @@ export async function loadTenantRosterShifts() {
 
   const [shiftResult, assignmentResult, clients, staff] = await Promise.all([
     supabaseRequest<ShiftRow[]>("support_shifts", {
-      query: "select=id,participant_id,title,support_type,location,service_location_id,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,source_roster_shift_id&order=start_time.asc"
+      query: "select=id,participant_id,title,support_type,location,service_location_id,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,source_roster_shift_id,actual_start_time,actual_end_time,shift_signoff_status,shift_signoff_note,shift_signed_off_by,shift_approved_at,shift_approved_by&order=start_time.asc"
     }),
     supabaseRequest<AssignmentRow[]>("shift_staff", {
       query: "select=shift_id,staff_user_id,staff_invite_id"
@@ -92,7 +99,14 @@ export async function loadTenantRosterShifts() {
         shiftInstructions: row.shift_instructions || "",
         status: statusMap[row.status] || "Scheduled",
         noteRequired: row.note_required,
-        noteCompleted: row.note_completed
+        noteCompleted: row.note_completed,
+        actualStartTime: row.actual_start_time ? formatSydneyTime(row.actual_start_time) : undefined,
+        actualEndTime: row.actual_end_time ? formatSydneyTime(row.actual_end_time) : undefined,
+        shiftSignOffStatus: normaliseSignOffStatus(row.shift_signoff_status),
+        shiftSignOffNote: row.shift_signoff_note || undefined,
+        shiftSignedOffBy: row.shift_signed_off_by || undefined,
+        shiftApprovedAt: row.shift_approved_at || undefined,
+        shiftApprovedBy: row.shift_approved_by || undefined
       };
     });
 
@@ -163,4 +177,11 @@ function formatSydneyTime(value: string) {
     minute: "2-digit",
     hourCycle: "h23"
   }).format(new Date(value));
+}
+
+function normaliseSignOffStatus(value: string | null) {
+  if (value === "started") return "Started" as const;
+  if (value === "finished") return "Finished" as const;
+  if (value === "approved") return "Approved" as const;
+  return undefined;
 }

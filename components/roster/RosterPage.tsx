@@ -23,6 +23,7 @@ import {
   getRosterCoverageColour,
   getShiftDurationHours,
   getShiftStaffLabel,
+  approveRosterShift,
   markRosterShiftCompleted,
   markRosterShiftCancelled,
   markRosterShiftNoteCompleted,
@@ -446,6 +447,7 @@ export function RosterPage() {
         onNoteCompleted={(shiftId) => updateActive(markRosterShiftNoteCompleted(shifts, shiftId), shiftId)}
         onCancelShift={(shiftId) => updateActive(markRosterShiftCancelled(shifts, shiftId), shiftId)}
         onMarkVacant={(shiftId) => updateActive(markRosterShiftVacant(shifts, shiftId), shiftId)}
+        onApproveSignOff={(shiftId) => updateActive(approveRosterShift(shifts, shiftId), shiftId)}
         onRequestReplacement={startReplacementWorkflow}
       />
       <CreateRosterShiftModal open={creating} onClose={() => setCreating(false)} onCreate={addShiftToCalendar} prefill={shiftPrefill} />
