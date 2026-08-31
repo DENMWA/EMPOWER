@@ -1428,6 +1428,7 @@ test("marketing attribution is first party, bounded, platform private and Stripe
 test("OpenAI chat requests disable provider-side response storage", async () => {
   for (const file of [
     "app/api/ai/improve-note/route.ts",
+    "app/api/ask-empower/route.ts",
     "app/api/plan-progress/parse/route.ts",
     "app/api/billing/match-ndis-service/route.ts",
     "app/api/billing/parse-service-agreement/route.ts",
@@ -1435,6 +1436,27 @@ test("OpenAI chat requests disable provider-side response storage", async () => 
   ]) {
     assert.match(await source(file), /store:\s*false/, `${file} must disable OpenAI response storage`);
   }
+});
+
+test("Ask Empower is signed-in, system-aware and app-scoped only", async () => {
+  const [route, knowledge, widget, shell] = await Promise.all([
+    source("app/api/ask-empower/route.ts"),
+    source("lib/ask-empower-knowledge.ts"),
+    source("components/ask-empower/AskEmpowerWidget.tsx"),
+    source("components/AppShell.tsx")
+  ]);
+  assert.match(route, /resolveUserAccessContext\(request\)/);
+  assert.match(knowledge, /I can only help with EmpowerNotes features/);
+  assert.match(route, /store:\s*false/);
+  assert.match(route, /Do not provide clinical advice, legal advice, financial advice/);
+  assert.match(route, /Do not claim access to private records/);
+  assert.match(route, /isAskEmpowerQuestionInScope/);
+  assert.match(knowledge, /Ask Empower is an in-app assistant/);
+  assert.match(knowledge, /outsideScopeTerms/);
+  assert.match(widget, /Ask Empower/);
+  assert.match(widget, /bottom-5 right-5/);
+  assert.match(widget, /\/api\/ask-empower/);
+  assert.match(shell, /signedIn \? <AskEmpowerWidget \/> : null/);
 });
 
 test("advertising tracking is excluded from authenticated care routes", async () => {

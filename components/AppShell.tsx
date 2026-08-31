@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessibilityToggle } from "@/components/accessibility/AccessibilityToggle";
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
+import { AskEmpowerWidget } from "@/components/ask-empower/AskEmpowerWidget";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus, refreshSupabaseSession, signOutSupabaseSession } from "@/lib/supabase-auth";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
@@ -279,6 +280,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </footer>
+      {!isPlatform && signedIn ? <AskEmpowerWidget /> : null}
     </div>
   );
 }
