@@ -114,9 +114,17 @@ test("organisation administrators use password and role-based access", async () 
 });
 
 test("platform analytics endpoint requires platform-owner verification", async () => {
-  const route = await source("app/api/platform/summary/route.ts");
+  const [route, dashboard] = await Promise.all([
+    source("app/api/platform/summary/route.ts"),
+    source("components/platform/PlatformDashboard.tsx")
+  ]);
   assert.match(route, /verifyServerAccess\(request, "platform"\)/);
   assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(route, /created_at/);
+  assert.match(dashboard, /New providers/);
+  assert.match(dashboard, /Registered in the last 30 days/);
+  assert.match(dashboard, /New provider/);
+  assert.match(dashboard, /registrationAgeLabel/);
 });
 
 test("platform operations are server enforced, audited, and isolated from tenant clients", async () => {
