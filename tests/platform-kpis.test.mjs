@@ -14,6 +14,13 @@ test("EmpowerNotes platform KPIs use explainable live metadata",async()=>{
   assert.match(panel,/Internal benchmark/);
   assert.doesNotMatch(panel,/participantName|progressNote|diagnosis|incidentDetails/);
   assert.match(dashboard,/PlatformKpiScorecard organisations=\{data\.organisations\}/);
+  assert.match(dashboard,/Monthly growth KPI/);
+  assert.match(dashboard,/Target: 2 new paying providers each month/);
+  assert.match(dashboard,/New registrations/);
+  assert.match(dashboard,/New paying/);
+  assert.match(dashboard,/Trial to paid/);
+  assert.match(dashboard,/30-day retained/);
+  assert.match(dashboard,/first paid provider recorded this month/);
   assert.match(dashboard,/<PresentationKpiScorecard \/>/);
   assert.match(dashboard,/function PresentationKpiScorecard\(\)/);
 });

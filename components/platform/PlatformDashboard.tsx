@@ -258,7 +258,7 @@ function LivePlatformDataPending() {
 }
 
 function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeArea: PlatformAreaId; data: LivePlatformSummary; operations: LivePlatformOperations; onRefresh: () => void }) {
-  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><PlatformKpiScorecard organisations={data.organisations} usage={operations.usage} supportCases={operations.supportCases} payments={data.payments.ledger} payingAccounts={data.summary.payingAccounts} paymentRisk={data.summary.paymentRisk} /><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} ndisMatchEvents={operations.ndisMatchEvents || []} /><SystemHealthPanel /><NdisPricingMonitorPanel /><MarketingAttributionPanel /><LiveUsagePanel data={data} operations={operations} /><SubscriptionPaymentLedger payments={data.payments} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
+  if (activeArea === "overview") return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} /><PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" /><PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" /><PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" /></div><LiveMonthlyGrowthKpis data={data} /><PlatformKpiScorecard organisations={data.organisations} usage={operations.usage} supportCases={operations.supportCases} payments={data.payments.ledger} payingAccounts={data.summary.payingAccounts} paymentRisk={data.summary.paymentRisk} /><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} ndisMatchEvents={operations.ndisMatchEvents || []} /><SystemHealthPanel /><NdisPricingMonitorPanel /><MarketingAttributionPanel /><LiveUsagePanel data={data} operations={operations} /><SubscriptionPaymentLedger payments={data.payments} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
   if (activeArea === "organisations") return <LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} />;
   if (activeArea === "subscriptions") return <div className="space-y-6"><LiveSubscriptionSummary data={data} /><LiveOrganisationTable data={data} operations={operations} onRefresh={onRefresh} compact /></div>;
   if (activeArea === "payments") return <SubscriptionPaymentLedger payments={data.payments} />;
@@ -275,6 +275,74 @@ function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeA
 function LiveSubscriptionSummary({ data }: { data: LivePlatformSummary }) {
   const tiers = ["solo", "practice", "provider", "enterprise"].map((tier) => ({ tier, count: data.organisations.filter((item) => item.tier === tier).length }));
   return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{tiers.map((item) => <PlatformMetric key={item.tier} label={item.tier[0].toUpperCase() + item.tier.slice(1)} value={item.count} detail="Organisations" icon={ReceiptText} tone={item.tier === "enterprise" ? "green" : "blue"} />)}</div>;
+}
+
+function LiveMonthlyGrowthKpis({ data }: { data: LivePlatformSummary }) {
+  const currentMonth = monthKey(new Date());
+  const previousMonth = previousMonthKey(currentMonth);
+  const monthlyTarget = 2;
+  const thisMonthRegistrations = data.organisations.filter((org) => monthKey(org.signedUpAt) === currentMonth);
+  const previousMonthRegistrations = data.organisations.filter((org) => monthKey(org.signedUpAt) === previousMonth);
+  const activatedThisMonth = thisMonthRegistrations.filter((org) => org.users > 0 && org.clients > 0);
+  const firstPaidMonth = new Map<string, string>();
+  data.payments.ledger.filter((entry) => entry.status === "paid").forEach((entry) => {
+    const paidMonth = monthKey(entry.date);
+    const existing = firstPaidMonth.get(entry.organisationId);
+    if (paidMonth && (!existing || paidMonth < existing)) firstPaidMonth.set(entry.organisationId, paidMonth);
+  });
+  const newPayingProviderIds = new Set([...firstPaidMonth.entries()].filter(([, paidMonth]) => paidMonth === currentMonth).map(([organisationId]) => organisationId));
+  const newPayingProviders = data.organisations.filter((org) => newPayingProviderIds.has(org.id));
+  const mrrAddedCents = data.payments.ledger
+    .filter((entry) => entry.status === "paid" && newPayingProviderIds.has(entry.organisationId) && monthKey(entry.date) === currentMonth)
+    .reduce((total, entry) => total + Number(entry.amountPaidCents || 0), 0);
+  const conversionRate = thisMonthRegistrations.length ? Math.round((newPayingProviders.length / thisMonthRegistrations.length) * 100) : 0;
+  const registrationChange = thisMonthRegistrations.length - previousMonthRegistrations.length;
+  const retainedWindow = data.organisations.filter((org) => {
+    const age = daysSince(org.signedUpAt);
+    return age >= 30 && age <= 60;
+  });
+  const retainedThirtyDay = retainedWindow.filter((org) => org.billingState === "Paying" || org.users > 0 || org.clients > 0);
+  const retainedRate = retainedWindow.length ? Math.round((retainedThirtyDay.length / retainedWindow.length) * 100) : 0;
+  const targetProgress = Math.min(100, Math.round((newPayingProviders.length / monthlyTarget) * 100));
+
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="border-b border-teal-900 bg-slate-950 px-5 py-5 text-white">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-teal-200">Monthly growth KPI</p>
+            <h2 className="mt-2 text-2xl font-bold">Target: 2 new paying providers each month</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Measures the full path from new registration to activated workspace and first paid subscription.</p>
+          </div>
+          <StatusBadge label={newPayingProviders.length >= monthlyTarget ? "On target" : `${monthlyTarget - newPayingProviders.length} to go`} tone={newPayingProviders.length >= monthlyTarget ? "green" : "amber"} />
+        </div>
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15">
+          <div className="h-full rounded-full bg-teal-300" style={{ width: `${targetProgress}%` }} />
+        </div>
+      </div>
+      <div className="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-6">
+        <PlanFact label="New registrations" value={`${thisMonthRegistrations.length}`} />
+        <PlanFact label="Activated" value={`${activatedThisMonth.length}`} />
+        <PlanFact label="New paying" value={`${newPayingProviders.length} / ${monthlyTarget}`} />
+        <PlanFact label="Trial to paid" value={`${conversionRate}%`} />
+        <PlanFact label="MRR added" value={formatAud(mrrAddedCents)} />
+        <PlanFact label="30-day retained" value={retainedWindow.length ? `${retainedRate}%` : "Pending"} />
+      </div>
+      <div className="grid gap-4 p-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-ink">Monthly comparison</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">This month has {thisMonthRegistrations.length} provider registrations, {Math.abs(registrationChange)} {registrationChange >= 0 ? "more" : "fewer"} than last month.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Best early health signal: a provider registers, adds a client, adds a user, then reaches first payment.</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-white p-4">
+          <p className="text-sm font-semibold text-ink">New paying providers</p>
+          <div className="mt-3 space-y-2">
+            {newPayingProviders.length ? newPayingProviders.map((org) => <div key={org.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm"><span className="font-semibold text-emerald-950">{org.name}</span><span className="text-xs font-semibold capitalize text-emerald-700">{org.tier} | {formatPlatformDate(org.signedUpAt)}</span></div>) : <p className="rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">No first paid provider recorded this month yet.</p>}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function LiveUsagePanel({ data, operations }: { data: LivePlatformSummary; operations: LivePlatformOperations }) {
@@ -377,6 +445,18 @@ function formatMonth(value: string) {
   return new Date(`${value}-01T00:00:00`).toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
 }
 
+function monthKey(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 7);
+}
+
+function previousMonthKey(value: string) {
+  const date = new Date(`${value}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMonth(date.getMonth() - 1);
+  return date.toISOString().slice(0, 7);
+}
+
 function formatPlatformDate(value: string) {
   if (!value) return "Not set";
   const date = new Date(value);
@@ -402,6 +482,15 @@ function registrationAgeLabel(value: string) {
   if (days === 0) return "Registered today";
   if (days === 1) return "1 day since registration";
   return `${days} days since registration`;
+}
+
+function PlanFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-white p-4">
+      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
 }
 
 function PlatformAreaContent({ activeArea }: { activeArea: PlatformAreaId }) {
