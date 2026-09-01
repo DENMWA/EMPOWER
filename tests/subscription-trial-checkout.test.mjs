@@ -28,6 +28,7 @@ test("plan checkout starts only after the 14-day free trial", async () => {
   assert.match(statusRoute, /canManageBilling/);
   assert.match(prompt, /Proceed to payment/);
   assert.match(prompt, /\/api\/subscription\/status/);
-  assert.match(prompt, /Your organisation admin can update payment/);
+  assert.match(prompt, /!status\.canManageBilling/);
+  assert.doesNotMatch(prompt, /Your organisation admin can update payment/);
   assert.match(shell, /<SubscriptionPaymentPrompt signedIn=\{signedIn\} isPlatform=\{isPlatform\} \/>/);
 });
