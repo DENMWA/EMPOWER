@@ -8,6 +8,7 @@ import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { AskEmpowerWidget } from "@/components/ask-empower/AskEmpowerWidget";
 import { DemoAccessBoundary } from "@/components/auth/DemoAccessBoundary";
 import { authSessionChangedEvent, getCurrentAuthStatus, refreshSupabaseSession, signOutSupabaseSession } from "@/lib/supabase-auth";
+import { SubscriptionPaymentPrompt } from "@/components/subscription/SubscriptionPaymentPrompt";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { activeOrganisationUpdatedEvent, getStoredAccessToken } from "@/lib/supabase-rest";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
@@ -242,6 +243,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         {!isPlatform && pathname.startsWith("/admin") && hasWorkspaceAccess && verifiedAdmin ? <AdminNavigation /> : null}
       </header>
+      <SubscriptionPaymentPrompt signedIn={signedIn} isPlatform={isPlatform} />
       <main>
         <DemoAccessBoundary pathname={pathname} signedIn={hasWorkspaceAccess} authChecked={authChecked}>
           {!isPlatform && organisationAccess && isAccessBlocked(organisationAccess.status) ? (
