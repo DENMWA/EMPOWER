@@ -19,6 +19,8 @@ test("plan checkout starts only after the 14-day free trial", async () => {
   assert.match(checkout, /organisation\.subscription_status === "trialing" && trialEndsAt > Date\.now\(\)/);
   assert.match(checkout, /payment_method_types\[0\]/);
   assert.match(checkout, /payment_method_collection: "always"/);
+  assert.match(checkout, /success_url: `\$\{appUrl\}\/dashboard\?subscription=active`/);
+  assert.match(checkout, /cancel_url: `\$\{appUrl\}\/admin\/billing\?checkout=cancelled`/);
   assert.match(plan, /Nothing is charged during your free trial/);
   assert.match(plan, /Your workspace and records remain in place/);
   assert.match(plan, /Visa and Mastercard accepted securely through Stripe/);
