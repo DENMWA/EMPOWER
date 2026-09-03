@@ -1460,6 +1460,11 @@ test("Ask Empower is signed-in, system-aware and app-scoped only", async () => {
   assert.match(route, /Billing answers must explain EmpowerNotes plan and account steps only/);
   assert.match(route, /Do not claim access to private records/);
   assert.match(route, /isAskEmpowerQuestionInScope/);
+  assert.match(route, /answerDirectAskEmpowerQuestion/);
+  assert.match(route, /how does empowernotes work/);
+  assert.match(route, /Your workspace is on the \$\{tier\} plan/);
+  assert.match(route, /Frontline workers do not see plan or payment controls/);
+  assert.match(route, /organisations\?select=subscription_tier,subscription_status,trial_ends_at/);
   assert.match(knowledge, /Ask Empower is an in-app assistant/);
   assert.match(knowledge, /14-day free trial/);
   assert.match(knowledge, /Solo is A\$49\.99\/month for 1 active user/);

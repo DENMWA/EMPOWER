@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { askEmpowerKnowledge, askEmpowerRefusal, isAskEmpowerQuestionInScope } from "@/lib/ask-empower-knowledge";
-import { resolveUserAccessContext } from "@/lib/security/user-access-context";
+import { resolveUserAccessContext, type UserAccessContext } from "@/lib/security/user-access-context";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +33,12 @@ export async function POST(request: NextRequest) {
   if (question.length > maxQuestionChars) return NextResponse.json({ error: "Keep Ask Empower questions under 1,000 characters." }, { status: 413 });
   if (!isAskEmpowerQuestionInScope(`${question} ${path}`)) return NextResponse.json({ answer: askEmpowerRefusal, refused: true });
 
+  const directAnswer = await answerDirectAskEmpowerQuestion(question, access.context);
+  if (directAnswer) return NextResponse.json({ answer: directAnswer, source: "system-aware" });
+
   if (!openAiApiKey) {
     return NextResponse.json({
-      answer: localAnswer(question),
+      answer: localAnswer(question, access.context),
       source: "local-fallback"
     });
   }
@@ -77,17 +80,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ answer: localAnswer(question), source: "local-fallback" });
+      return NextResponse.json({ answer: localAnswer(question, access.context), source: "local-fallback" });
     }
 
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content;
-    const answer = typeof content === "string" && content.trim() ? content.trim() : localAnswer(question);
+    const answer = typeof content === "string" && content.trim() ? content.trim() : localAnswer(question, access.context);
     const refused = answer === askEmpowerRefusal;
 
     return NextResponse.json({ answer, refused, source: "openai-chat", model });
   } catch {
-    return NextResponse.json({ answer: localAnswer(question), source: "local-fallback" });
+    return NextResponse.json({ answer: localAnswer(question, access.context), source: "local-fallback" });
   }
 }
 
@@ -96,9 +99,38 @@ function cleanPath(path: string) {
   return path.slice(0, 120);
 }
 
-function localAnswer(question: string) {
+async function answerDirectAskEmpowerQuestion(question: string, context: UserAccessContext) {
+  const normalized = question.toLowerCase().replace(/\s+/g, " ").trim();
+  if (normalized.includes("how does empowernotes work") || normalized.includes("how does empower notes work") || normalized.includes("what does empowernotes do")) {
+    return "EmpowerNotes brings client records, progress notes, rosters, incidents, documents, reports and billing evidence into one workspace. Workers record care, incidents, appointments and shift details. Admin users manage clients, staff, houses, reviews, reports, rostering, invoicing and plan settings.";
+  }
+  if ((normalized.includes("current plan") || normalized.includes("my plan") || normalized.includes("what plan")) && !normalized.includes("pricing")) {
+    if (!canDiscussPlanDetails(context)) {
+      return "Your organisation plan is managed by authorised admin users. If Admin is available to you, open Admin, then Plan & billing. Frontline workers do not see plan or payment controls.";
+    }
+    const plan = await getOrganisationPlan(context.organisationId);
+    if (plan) {
+      const tier = formatPlanTier(plan.subscription_tier);
+      const status = plan.subscription_status ? ` The subscription status is ${plan.subscription_status.replaceAll("_", " ")}.` : "";
+      const trial = plan.trial_ends_at ? ` Trial ends ${new Date(plan.trial_ends_at).toLocaleDateString("en-AU")}.` : "";
+      return `Your workspace is on the ${tier} plan.${status}${trial} Open Admin, then Plan & billing for the full details.`;
+    }
+    return "Open Admin, then Plan & billing to view your current EmpowerNotes plan, trial status and billing options.";
+  }
+  return "";
+}
+
+function localAnswer(question: string, context?: UserAccessContext) {
   const normalized = question.toLowerCase();
   if (!isAskEmpowerQuestionInScope(question)) return askEmpowerRefusal;
+  if (normalized.includes("how does empowernotes work") || normalized.includes("how does empower notes work") || normalized.includes("what does empowernotes do")) {
+    return "EmpowerNotes brings client records, progress notes, rosters, incidents, documents, reports and billing evidence into one workspace. Workers document support. Admin users manage people, reviews, reporting, rostering, invoicing and plan settings.";
+  }
+  if ((normalized.includes("current plan") || normalized.includes("my plan") || normalized.includes("what plan")) && !normalized.includes("pricing")) {
+    return context && !canDiscussPlanDetails(context)
+      ? "Your organisation plan is managed by authorised admin users. Frontline workers do not see plan or payment controls."
+      : "Open Admin, then Plan & billing to view your current EmpowerNotes plan, trial status and billing options.";
+  }
   if (normalized.includes("roster") || normalized.includes("shift")) {
     return "Open Admin, then Scheduling to manage rosters. Workers use My Roster to see assigned shifts, sign in, sign off and view their own shift details.";
   }
@@ -124,4 +156,32 @@ function localAnswer(question: string) {
     return "Ask Empower can answer EmpowerNotes FAQs about setup, plans, billing, staff invites, roles, rosters, notes, incidents, documents, appointments, downloads and admin access.";
   }
   return "Ask Empower can guide you around EmpowerNotes. Try asking about notes, rosters, incidents, documents, plans, billing, appointments, admin access or client setup.";
+}
+
+function canDiscussPlanDetails(context: UserAccessContext) {
+  return ["owner", "admin", "sole_provider"].includes(context.role) || context.adminPermissions.includes("billing") || context.permissions.includes("billing.view");
+}
+
+type OrganisationPlanRow = {
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  trial_ends_at?: string | null;
+};
+
+async function getOrganisationPlan(organisationId: string): Promise<OrganisationPlanRow | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  const response = await fetch(`${url}/rest/v1/organisations?select=subscription_tier,subscription_status,trial_ends_at&id=eq.${encodeURIComponent(organisationId)}&limit=1`, {
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    cache: "no-store"
+  });
+  if (!response.ok) return null;
+  const rows = await response.json() as OrganisationPlanRow[];
+  return rows[0] || null;
+}
+
+function formatPlanTier(tier?: string | null) {
+  if (!tier) return "selected";
+  return tier.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
