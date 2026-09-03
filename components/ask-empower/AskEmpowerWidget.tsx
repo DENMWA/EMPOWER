@@ -14,7 +14,7 @@ type Message = {
 const welcomeMessage: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Hi, I am Ask Empower. I can help with EmpowerNotes features, setup and workflows."
+  content: "Hi, I am Ask Empower. I can help with EmpowerNotes features, FAQs, plans, billing, setup and workflows."
 };
 
 export function AskEmpowerWidget() {
@@ -74,7 +74,7 @@ export function AskEmpowerWidget() {
               </span>
               <div>
                 <h2 className="text-sm font-bold">Ask Empower</h2>
-                <p className="text-xs text-teal-50">EmpowerNotes help only</p>
+                <p className="text-xs text-teal-50">Features, plans and billing</p>
               </div>
             </div>
             <button type="button" onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-md text-white hover:bg-white/10" aria-label="Close Ask Empower">
@@ -104,7 +104,7 @@ export function AskEmpowerWidget() {
                 onChange={(event) => setQuestion(event.target.value)}
                 rows={2}
                 maxLength={1000}
-                placeholder="Ask about notes, rosters, incidents, billing..."
+                placeholder="Ask about plans, billing, notes, rosters..."
                 className="min-h-12 flex-1 resize-none rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
               />
               <button type="submit" disabled={busy || !question.trim()} className="grid h-12 w-12 place-items-center rounded-md bg-teal-800 text-white shadow-sm hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Send question to Ask Empower">
@@ -127,4 +127,3 @@ export function AskEmpowerWidget() {
     </div>
   );
 }
-

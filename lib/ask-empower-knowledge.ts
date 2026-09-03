@@ -1,5 +1,5 @@
 export const askEmpowerRefusal =
-  "I can only help with EmpowerNotes features, records, workflows and setup. Please ask me something about using the app.";
+  "I can only help with EmpowerNotes features, records, workflows, plans, billing and setup. Please ask me something about using the app.";
 
 export const askEmpowerKnowledge = [
   "EmpowerNotes is an Australian NDIS operations workspace for disability support providers.",
@@ -17,8 +17,19 @@ export const askEmpowerKnowledge = [
   "Agreement records can include start date, expiry date and reminders one month and two weeks before expiry.",
   "Billing is admin-only. Invoices are client-specific, date-aware and can include evidence-linked services from completed supports.",
   "Organisation branding can include logo and contact details on downloadable reports where enabled.",
+  "EmpowerNotes has a 14-day free trial. Card checkout opens when the trial ends.",
+  "Published self-service plans are Solo, Practice and Provider. Enterprise is arranged through a tailored conversation.",
+  "Solo is A$49.99/month for 1 active user and suits independent providers.",
+  "Practice is A$129.99/month for up to 5 active users and suits small support teams.",
+  "Provider is A$299.99/month for up to 20 active users and suits growing organisations with multiple workers, clients, houses, reporting and governance needs.",
+  "Enterprise is custom priced for multi-site governance, custom roles, onboarding, analytics and reporting control.",
+  "Additional active users on self-service plans are A$9.99 per user/month. Inactive staff can remain in records without counting toward active user allowance.",
+  "Subscription billing is separate from client invoicing. Subscription billing is managed in Admin under Plan & billing by owners or authorised billing users.",
+  "Workers and frontline staff should not see subscription payment prompts, pricing controls or plan management.",
+  "Client invoicing is admin-only and lives under Admin Invoicing. It creates client-specific, date-aware invoices from completed supports and confirmed evidence.",
+  "Ask Empower can answer EmpowerNotes FAQs about plans, billing, trial, onboarding, staff invites, roles, documents, rosters, incidents, notes and downloads.",
   "The developer platform console is separate from the client-facing workspace and is for platform-owner monitoring, diagnostics, analytics, subscriptions and support.",
-  "Ask Empower is an in-app assistant. It must answer only questions about EmpowerNotes use, setup and workflow decisions."
+  "Ask Empower is an in-app assistant. It must answer only questions about EmpowerNotes use, setup, workflow decisions, plans and billing."
 ].join("\n");
 
 const appScopeTerms = [
@@ -51,7 +62,22 @@ const appScopeTerms = [
   "invoice",
   "billing",
   "subscription",
+  "plan",
+  "plans",
+  "tier",
+  "tiers",
+  "trial",
   "pricing",
+  "price",
+  "payment",
+  "checkout",
+  "stripe",
+  "enterprise",
+  "solo",
+  "practice",
+  "provider",
+  "faq",
+  "faqs",
   "sign in",
   "password",
   "invite",
@@ -59,8 +85,6 @@ const appScopeTerms = [
   "permission",
   "download",
   "save",
-  "supabase",
-  "stripe",
   "vercel",
   "ndis"
 ];
@@ -89,4 +113,3 @@ export function isAskEmpowerQuestionInScope(question: string) {
   if (outsideScopeTerms.some((term) => normalized.includes(term)) && !appScopeTerms.some((term) => normalized.includes(term))) return false;
   return appScopeTerms.some((term) => normalized.includes(term)) || normalized.length < 80;
 }
-
