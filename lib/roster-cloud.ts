@@ -48,6 +48,9 @@ const statusMap: Record<string, RosterStatus> = {
 export async function loadTenantRosterShifts() {
   if (isPresentationModeEnabled()) return { shifts: [] as RosterShift[], error: "" };
 
+  const apiResult = await loadRosterShiftsViaApi();
+  if (apiResult.loadedFromApi || apiResult.error !== "api_unavailable") return apiResult;
+
   const [shiftResult, assignmentResult, clients, staff] = await Promise.all([
     supabaseRequest<ShiftRow[]>("support_shifts", {
       query: "select=id,participant_id,title,support_type,location,service_location_id,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,source_roster_shift_id,actual_start_time,actual_end_time,shift_signoff_status,shift_signoff_note,shift_signed_off_by,shift_approved_at,shift_approved_by&order=start_time.asc"
@@ -143,6 +146,23 @@ export async function saveTenantRosterShift(shift: RosterShift) {
     savedToCloud: !result.error,
     error: result.error || ""
   };
+}
+
+async function loadRosterShiftsViaApi() {
+  try {
+    const response = await fetch("/api/roster/shifts", {
+      method: "GET",
+      headers: getAuthenticatedApiHeaders(),
+      cache: "no-store"
+    });
+    const result = await response.json().catch(() => ({})) as { shifts?: RosterShift[]; error?: string };
+    if (!response.ok) return { shifts: [] as RosterShift[], error: result.error || "The roster could not be loaded from the workspace.", loadedFromApi: false };
+    const shifts = result.shifts || [];
+    saveRosterShifts(shifts);
+    return { shifts, error: "", loadedFromApi: true };
+  } catch {
+    return { shifts: [] as RosterShift[], error: "api_unavailable", loadedFromApi: false };
+  }
 }
 
 async function saveRosterShiftViaApi(shift: RosterShift) {

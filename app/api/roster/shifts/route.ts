@@ -22,6 +22,82 @@ const signOffStatuses = {
   Approved: "approved"
 } as const;
 
+export async function GET(request: Request) {
+  const access = await verifyServerAccess(request, "admin", "scheduling", "rostering.manage");
+  if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: access.status });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return NextResponse.json({ error: "Roster loading is not configured." }, { status: 503 });
+
+  const headers = serviceHeaders(key);
+  const [shifts, assignments, clients, staff, users] = await Promise.all([
+    rows<ShiftRow>(url, headers, `support_shifts?select=id,participant_id,title,support_type,location,service_location_id,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,source_roster_shift_id,actual_start_time,actual_end_time,shift_signoff_status,shift_signoff_note,shift_signed_off_by,shift_approved_at,shift_approved_by&organisation_id=eq.${access.organisationId}&order=start_time.asc`),
+    rows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${access.organisationId}`),
+    rows<ClientRow>(url, headers, `participants_or_clients?select=id,name,preferred_name,profile_photo_path&organisation_id=eq.${access.organisationId}`),
+    rows<StaffInviteRow>(url, headers, `staff_invites?select=id,name,email,invite_status&organisation_id=eq.${access.organisationId}`),
+    rows<UserRow>(url, headers, `users?select=id,email,name&organisation_id=eq.${access.organisationId}`)
+  ]);
+
+  const clientsById = new Map(clients.map((client) => [client.id, client]));
+  const staffById = new Map(staff.map((worker) => [worker.id, worker]));
+  const staffByEmail = new Map(staff.map((worker) => [worker.email.trim().toLowerCase(), worker]));
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const usersByEmail = new Map(users.map((user) => [user.email.trim().toLowerCase(), user]));
+  const assignmentsByShift = new Map<string, Array<{ id: string; name: string }>>();
+
+  for (const assignment of assignments) {
+    const staffInvite = assignment.staff_invite_id ? staffById.get(assignment.staff_invite_id) : undefined;
+    const linkedUser = assignment.staff_user_id ? usersById.get(assignment.staff_user_id) : undefined;
+    const staffFromUserEmail = linkedUser ? staffByEmail.get(linkedUser.email.trim().toLowerCase()) : undefined;
+    const userFromStaffEmail = staffInvite ? usersByEmail.get(staffInvite.email.trim().toLowerCase()) : undefined;
+    const id = staffInvite?.id || staffFromUserEmail?.id || linkedUser?.id || userFromStaffEmail?.id || "";
+    if (!id) continue;
+    const name = staffInvite?.name || staffFromUserEmail?.name || linkedUser?.name || linkedUser?.email || "Assigned staff";
+    const workers = assignmentsByShift.get(assignment.shift_id) || [];
+    if (!workers.some((worker) => worker.id === id)) workers.push({ id, name });
+    assignmentsByShift.set(assignment.shift_id, workers);
+  }
+
+  return NextResponse.json({
+    shifts: shifts
+      .filter((row) => !row.source_roster_shift_id || row.source_roster_shift_id === row.id)
+      .map((row) => {
+        const workers = assignmentsByShift.get(row.id) || [];
+        const firstWorker = workers[0] || { id: "", name: "Unassigned" };
+        const client = clientsById.get(row.participant_id);
+        return {
+          id: row.id,
+          participantId: row.participant_id,
+          participantName: client?.preferred_name || client?.name || "Client",
+          participantPhotoPath: client?.profile_photo_path || undefined,
+          workerId: firstWorker.id,
+          workerName: firstWorker.name,
+          assignedWorkers: workers,
+          staffingRatio: row.staffing_ratio || "1:1",
+          supportType: row.support_type || row.title || "Support shift",
+          shiftDate: sydneyPart(row.start_time, "date"),
+          startTime: sydneyPart(row.start_time, "time"),
+          endTime: sydneyPart(row.end_time, "time"),
+          location: row.location || "",
+          serviceLocationId: row.service_location_id || undefined,
+          serviceLocationName: row.service_location_id ? row.location || "Service location" : undefined,
+          shiftInstructions: row.shift_instructions || "",
+          status: normaliseStatus(row.status),
+          noteRequired: row.note_required,
+          noteCompleted: row.note_completed,
+          actualStartTime: row.actual_start_time ? sydneyPart(row.actual_start_time, "time") : undefined,
+          actualEndTime: row.actual_end_time ? sydneyPart(row.actual_end_time, "time") : undefined,
+          shiftSignOffStatus: normaliseSignOffStatus(row.shift_signoff_status),
+          shiftSignOffNote: row.shift_signoff_note || undefined,
+          shiftSignedOffBy: row.shift_signed_off_by || undefined,
+          shiftApprovedAt: row.shift_approved_at || undefined,
+          shiftApprovedBy: row.shift_approved_by || undefined
+        };
+      })
+  }, { headers: { "Cache-Control": "private, no-store" } });
+}
+
 export async function POST(request: Request) {
   const access = await verifyServerAccess(request, "admin", "scheduling", "rostering.manage");
   if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: access.status });
@@ -57,6 +133,7 @@ export async function POST(request: Request) {
     cache: "no-store"
   });
   if (!deleted.ok) {
+    if (assignedWorkers.length) return databaseError(deleted, "Existing roster assignments could not be refreshed.");
     assignmentWarnings.push(await databaseWarning(deleted, "Existing roster assignments could not be refreshed."));
   }
 
@@ -84,10 +161,10 @@ export async function POST(request: Request) {
           body: JSON.stringify(linkedAssignments),
           cache: "no-store"
         });
-        if (!retry.ok) assignmentWarnings.push(await databaseWarning(retry, "Roster staff assignments could not be saved."));
+        if (!retry.ok) return databaseError(retry, "Roster staff assignments could not be saved.");
         else assignmentWarnings.push("Some invited staff are not linked to signed-in accounts yet.");
       } else {
-        assignmentWarnings.push(await databaseWarning(written, "Roster staff assignments could not be saved."));
+        return databaseError(written, "Roster staff assignments could not be saved.");
       }
     }
   }
@@ -97,6 +174,31 @@ export async function POST(request: Request) {
 
 type StaffInviteRow = { id: string; name: string; email: string; invite_status: string };
 type UserRow = { id: string; email: string; name?: string | null };
+type ClientRow = { id: string; name: string; preferred_name: string | null; profile_photo_path: string | null };
+type AssignmentRow = { shift_id: string; staff_user_id: string | null; staff_invite_id: string | null };
+type ShiftRow = {
+  id: string;
+  participant_id: string;
+  title: string | null;
+  support_type: string | null;
+  location: string | null;
+  service_location_id: string | null;
+  start_time: string;
+  end_time: string;
+  status: string;
+  shift_instructions: string | null;
+  staffing_ratio: string | null;
+  note_required: boolean;
+  note_completed: boolean;
+  source_roster_shift_id: string | null;
+  actual_start_time: string | null;
+  actual_end_time: string | null;
+  shift_signoff_status: string | null;
+  shift_signoff_note: string | null;
+  shift_signed_off_by: string | null;
+  shift_approved_at: string | null;
+  shift_approved_by: string | null;
+};
 type Access = Awaited<ReturnType<typeof verifyServerAccess>>;
 type AssignedWorker = NonNullable<RosterShift["assignedWorkers"]>[number];
 type ResolvedStaffAssignment = { staffInviteId: string | null; staffUserId: string | null };
@@ -244,4 +346,22 @@ function dateToDayNumber(dateKey: string) {
 function timeToMinutes(time: string) {
   const [hour, minute] = time.split(":").map(Number);
   return hour * 60 + minute;
+}
+
+function sydneyPart(value: string, part: "date" | "time") {
+  return new Intl.DateTimeFormat(part === "date" ? "en-CA" : "en-AU", part === "date"
+    ? { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }
+    : { timeZone: "Australia/Sydney", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
+}
+
+function normaliseStatus(value: string): RosterStatus {
+  const label = value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  return Object.keys(allowedStatuses).includes(label) ? label as RosterStatus : "Scheduled";
+}
+
+function normaliseSignOffStatus(value: string | null) {
+  if (value === "started") return "Started" as const;
+  if (value === "finished") return "Finished" as const;
+  if (value === "approved") return "Approved" as const;
+  return undefined;
 }

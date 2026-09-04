@@ -41,9 +41,10 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
 });
 
 test("roster service locations are optional, tenant scoped and filterable", async () => {
-  const [modal, cloud, filters, sql, roster, rest, card, week, planning, page] = await Promise.all([
+  const [modal, cloud, route, filters, sql, roster, rest, card, week, planning, page] = await Promise.all([
     source("components/roster/CreateRosterShiftModal.tsx"),
     source("lib/roster-cloud.ts"),
+    source("app/api/roster/shifts/route.ts"),
     source("components/roster/RosterFilters.tsx"),
     source("supabase/optional-roster-service-locations.sql"),
     source("lib/roster.ts"),
@@ -61,8 +62,17 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(modal, /Shift particulars and instructions/);
   assert.match(modal, /Add to roster/);
   assert.match(modal, /getTenantHouses/);
+  assert.match(cloud, /loadRosterShiftsViaApi/);
+  assert.match(cloud, /fetch\("\/api\/roster\/shifts"/);
   assert.match(cloud, /save_roster_shift_with_service_location/);
   assert.match(cloud, /savedToCloud: !result\.error/);
+  assert.match(route, /export async function GET/);
+  assert.match(route, /verifyServerAccess\(request, "admin", "scheduling", "rostering.manage"\)/);
+  assert.match(route, /shift_staff\?select=shift_id,staff_user_id,staff_invite_id/);
+  assert.match(route, /staffByEmail\.get/);
+  assert.match(route, /usersByEmail\.get/);
+  assert.match(route, /Existing roster assignments could not be refreshed/);
+  assert.match(route, /Roster staff assignments could not be saved/);
   assert.match(filters, /Client home \/ community/);
   assert.match(sql, /service_location_id text/);
   assert.match(sql, /roster_service_location_id text default null/);
