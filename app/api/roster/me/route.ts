@@ -5,8 +5,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type AssignmentRow = { shift_id: string; staff_user_id: string | null; staff_invite_id: string | null };
-type InviteIdentityRow = { id: string };
+type InviteIdentityRow = { id: string; email?: string | null };
 type AcceptedInviteIdentityRow = { staff_invite_id: string | null };
+type UserRow = { id: string; email: string | null };
 type ShiftRow = {
   id: string; participant_id: string; title: string | null; support_type: string | null; location: string | null;
   start_time: string; end_time: string; status: string; shift_instructions: string | null; staffing_ratio: string | null;
@@ -31,28 +32,54 @@ export async function GET(request: Request) {
 
   const context = resolved.context;
   const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
-  const emailInviteRows = context.email
-    ? await getRows<InviteIdentityRow>(url, headers, `staff_invites?select=id&organisation_id=eq.${context.organisationId}&email=ilike.${encodeURIComponent(context.email)}&invite_status=neq.Suspended`)
-    : [];
-  const acceptedInviteRows = await getRows<AcceptedInviteIdentityRow>(url, headers, `organisation_invites?select=staff_invite_id&organisation_id=eq.${context.organisationId}&auth_user_id=eq.${context.userId}&status=eq.accepted`);
-  const inviteIds = [...new Set([
-    ...emailInviteRows.map((row) => row.id),
-    ...acceptedInviteRows.map((row) => row.staff_invite_id || "").filter(Boolean)
-  ])];
-  const identityFilters = [`staff_user_id.eq.${context.userId}`, ...inviteIds.map((id) => `staff_invite_id.eq.${id}`)];
-  const assignments = await getRows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${context.organisationId}&or=(${identityFilters.join(",")})`);
-  const shiftIds = [...new Set(assignments.map((row) => row.shift_id))];
-  if (!shiftIds.length) return NextResponse.json({ shifts: [], worker: { name: context.email.split("@")[0] } });
 
   // Query a one-day UTC buffer, then enforce the requested period using Sydney calendar dates.
   // This avoids dropping early shifts when daylight-saving changes the local UTC offset.
   const fromIso = `${addDays(from, -1)}T00:00:00Z`;
   const toIso = `${addDays(to, 2)}T00:00:00Z`;
-  const candidateShifts = await getRows<ShiftRow>(url, headers, `support_shifts?select=id,participant_id,title,support_type,location,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,actual_start_time,actual_end_time,shift_signoff_status,shift_signoff_note&organisation_id=eq.${context.organisationId}&id=in.(${shiftIds.join(",")})&start_time=gte.${encodeURIComponent(fromIso)}&start_time=lt.${encodeURIComponent(toIso)}&order=start_time.asc`);
+  const candidateShifts = await getRows<ShiftRow>(url, headers, `support_shifts?select=id,participant_id,title,support_type,location,start_time,end_time,status,shift_instructions,staffing_ratio,note_required,note_completed,actual_start_time,actual_end_time,shift_signoff_status,shift_signoff_note&organisation_id=eq.${context.organisationId}&start_time=gte.${encodeURIComponent(fromIso)}&start_time=lt.${encodeURIComponent(toIso)}&order=start_time.asc`);
   const shifts = candidateShifts.filter((row) => {
     const shiftDate = sydneyPart(row.start_time, "date");
     return shiftDate >= from && shiftDate <= to;
   });
+  if (!shifts.length) return NextResponse.json({ shifts: [], worker: { name: context.email.split("@")[0] } });
+
+  const shiftIds = shifts.map((row) => row.id);
+  const assignments = await getRows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${context.organisationId}&shift_id=in.(${csvIn(shiftIds)})`);
+  if (!assignments.length) return NextResponse.json({ shifts: [], worker: { name: context.email.split("@")[0] } });
+
+  const emailInviteRows = context.email
+    ? await getRows<InviteIdentityRow>(url, headers, `staff_invites?select=id,email&organisation_id=eq.${context.organisationId}&email=ilike.${encodeURIComponent(context.email)}&invite_status=neq.Suspended`)
+    : [];
+  const acceptedInviteRows = await getRows<AcceptedInviteIdentityRow>(url, headers, `organisation_invites?select=staff_invite_id&organisation_id=eq.${context.organisationId}&auth_user_id=eq.${context.userId}&status=eq.accepted`);
+  const assignedInviteIds = [...new Set(assignments.map((row) => row.staff_invite_id || "").filter(Boolean))];
+  const assignedUserIds = [...new Set(assignments.map((row) => row.staff_user_id || "").filter(Boolean))];
+  const [assignedInvites, assignedUsers] = await Promise.all([
+    assignedInviteIds.length ? getRows<InviteIdentityRow>(url, headers, `staff_invites?select=id,email&organisation_id=eq.${context.organisationId}&id=in.(${csvIn(assignedInviteIds)})`) : Promise.resolve([]),
+    assignedUserIds.length ? getRows<UserRow>(url, headers, `users?select=id,email&organisation_id=eq.${context.organisationId}&id=in.(${csvIn(assignedUserIds)})`) : Promise.resolve([])
+  ]);
+
+  const workerEmail = context.email.trim().toLowerCase();
+  const inviteIds = new Set([
+    ...emailInviteRows.map((row) => row.id),
+    ...acceptedInviteRows.map((row) => row.staff_invite_id || "").filter(Boolean)
+  ]);
+  for (const invite of assignedInvites) {
+    if (invite.email?.trim().toLowerCase() === workerEmail) inviteIds.add(invite.id);
+  }
+  const userIds = new Set([context.userId]);
+  for (const user of assignedUsers) {
+    if (user.email?.trim().toLowerCase() === workerEmail) userIds.add(user.id);
+  }
+  const workerShiftIds = new Set(assignments
+    .filter((assignment) =>
+      Boolean(assignment.staff_user_id && userIds.has(assignment.staff_user_id)) ||
+      Boolean(assignment.staff_invite_id && inviteIds.has(assignment.staff_invite_id))
+    )
+    .map((assignment) => assignment.shift_id));
+  const workerShifts = shifts.filter((row) => workerShiftIds.has(row.id));
+  if (!workerShifts.length) return NextResponse.json({ shifts: [], worker: { name: context.email.split("@")[0] } });
+
   const participantIds = [...new Set(shifts.map((row) => row.participant_id))];
   const participants = participantIds.length
     ? await getRows<{ id: string; name: string; preferred_name: string | null }>(url, headers, `participants_or_clients?select=id,name,preferred_name&organisation_id=eq.${context.organisationId}&id=in.(${participantIds.join(",")})`)
@@ -61,7 +88,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     worker: { name: context.email.split("@")[0] },
-    shifts: shifts.map((row) => ({
+    shifts: workerShifts.map((row) => ({
       id: row.id,
       participantId: row.participant_id,
       participantName: names.get(row.participant_id) || "Client",
@@ -92,6 +119,7 @@ async function getRows<T>(url: string, headers: Record<string, string>, path: st
 function validDate(value: string | null) { return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ""; }
 function daysBetween(from: string, to: string) { return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000); }
 function addDays(value: string, amount: number) { const date = new Date(`${value}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + amount); return date.toISOString().slice(0, 10); }
+function csvIn(values: string[]) { return values.map((value) => encodeURIComponent(value)).join(","); }
 function sydneyPart(value: string, part: "date" | "time") { return new Intl.DateTimeFormat(part === "date" ? "en-CA" : "en-AU", part === "date" ? { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" } : { timeZone: "Australia/Sydney", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value)); }
 function normaliseStatus(value: string) { return value.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "); }
 function normaliseSignOffStatus(value: string | null) { if (value === "started") return "Started"; if (value === "finished") return "Finished"; if (value === "approved") return "Approved"; return undefined; }

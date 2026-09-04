@@ -214,6 +214,11 @@ test("invited workers receive a private week, fortnight and month roster", async
   assert.match(api, /organisation_invites\?select=staff_invite_id/);
   assert.match(api, /auth_user_id=eq\.\$\{context\.userId\}/);
   assert.match(api, /status=eq\.accepted/);
+  assert.match(api, /assignedInvites/);
+  assert.match(api, /assignedUsers/);
+  assert.match(api, /workerShiftIds/);
+  assert.match(api, /staff_user_id && userIds\.has/);
+  assert.match(api, /staff_invite_id && inviteIds\.has/);
   assert.doesNotMatch(api, /params\.get\("staff|params\.get\("worker/i);
   assert.match(policy, /staff_user_id = \(select auth\.uid\(\)\)/);
   assert.match(policy, /link_shift_assignment_to_auth_user/);
@@ -245,6 +250,8 @@ test("assigned workers can sign on and off rostered shifts for manager approval"
   assert.match(signOffRoute, /This shift is not assigned to your roster/);
   assert.match(signOffRoute, /shift_staff\?select=shift_id,staff_user_id,staff_invite_id/);
   assert.match(signOffRoute, /shift_staff\?organisation_id=eq/);
+  assert.match(signOffRoute, /identity\.userIds\.has/);
+  assert.match(signOffRoute, /identity\.inviteIds\.has/);
   assert.match(signOffRoute, /status: body\.action === "start" \? "in_progress" : "completed"/);
   assert.match(signOffRoute, /actual_start_time/);
   assert.match(signOffRoute, /actual_end_time/);

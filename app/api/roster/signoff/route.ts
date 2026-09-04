@@ -6,8 +6,9 @@ export const dynamic = "force-dynamic";
 
 type SignOffAction = "start" | "finish";
 type AssignmentRow = { shift_id: string; staff_user_id: string | null; staff_invite_id: string | null };
-type InviteIdentityRow = { id: string };
+type InviteIdentityRow = { id: string; email?: string | null };
 type AcceptedInviteIdentityRow = { staff_invite_id: string | null };
+type UserRow = { id: string; email: string | null };
 type ShiftRow = {
   id: string;
   start_time: string;
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   const context = resolved.context;
   const headers = serviceHeaders(key);
   const identity = await getWorkerIdentity(url, headers, context.organisationId, context.userId, context.email);
-  const authorised = await workerCanUseShift(url, headers, context.organisationId, body.shiftId, identity.filters);
+  const authorised = await workerCanUseShift(url, headers, context.organisationId, body.shiftId, identity);
   if (!authorised) return NextResponse.json({ error: "This shift is not assigned to your roster." }, { status: 403 });
 
   const [shift] = await rows<ShiftRow>(url, headers, `support_shifts?select=id,start_time,end_time,status,note_required&organisation_id=eq.${context.organisationId}&id=eq.${encodeURIComponent(body.shiftId)}&limit=1`);
@@ -90,21 +91,36 @@ export async function POST(request: Request) {
   });
 }
 
-async function workerCanUseShift(url: string, headers: Record<string, string>, organisationId: string, shiftId: string, identityFilters: string[]) {
-  const assignments = await rows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${organisationId}&shift_id=eq.${encodeURIComponent(shiftId)}&or=(${identityFilters.join(",")})`);
-  return assignments.length > 0;
+async function workerCanUseShift(url: string, headers: Record<string, string>, organisationId: string, shiftId: string, identity: Awaited<ReturnType<typeof getWorkerIdentity>>) {
+  const assignments = await rows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${organisationId}&shift_id=eq.${encodeURIComponent(shiftId)}`);
+  return assignments.some((assignment) =>
+    Boolean(assignment.staff_user_id && identity.userIds.has(assignment.staff_user_id)) ||
+    Boolean(assignment.staff_invite_id && identity.inviteIds.has(assignment.staff_invite_id))
+  );
 }
 
 async function getWorkerIdentity(url: string, headers: Record<string, string>, organisationId: string, userId: string, email: string) {
   const emailInviteRows = email
-    ? await rows<InviteIdentityRow>(url, headers, `staff_invites?select=id&organisation_id=eq.${organisationId}&email=ilike.${encodeURIComponent(email)}&invite_status=neq.Suspended`)
+    ? await rows<InviteIdentityRow>(url, headers, `staff_invites?select=id,email&organisation_id=eq.${organisationId}&email=ilike.${encodeURIComponent(email)}&invite_status=neq.Suspended`)
     : [];
   const acceptedInviteRows = await rows<AcceptedInviteIdentityRow>(url, headers, `organisation_invites?select=staff_invite_id&organisation_id=eq.${organisationId}&auth_user_id=eq.${userId}&status=eq.accepted`);
-  const inviteIds = [...new Set([
+  const workerEmail = email.trim().toLowerCase();
+  const inviteIds = new Set([
     ...emailInviteRows.map((row) => row.id),
     ...acceptedInviteRows.map((row) => row.staff_invite_id || "").filter(Boolean)
-  ])];
-  return { filters: [`staff_user_id.eq.${userId}`, ...inviteIds.map((id) => `staff_invite_id.eq.${id}`)] };
+  ]);
+  const inviteEmailRows = inviteIds.size
+    ? await rows<InviteIdentityRow>(url, headers, `staff_invites?select=id,email&organisation_id=eq.${organisationId}&id=in.(${csvIn([...inviteIds])})`)
+    : [];
+  const inviteEmails = inviteEmailRows.map((row) => row.email?.trim().toLowerCase() || "").filter(Boolean);
+  const matchingUsers = inviteEmails.length
+    ? await rows<UserRow>(url, headers, `users?select=id,email&organisation_id=eq.${organisationId}&email=in.(${csvIn([...new Set([workerEmail, ...inviteEmails].filter(Boolean))])})`)
+    : await rows<UserRow>(url, headers, `users?select=id,email&organisation_id=eq.${organisationId}&id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const userIds = new Set([userId]);
+  for (const user of matchingUsers) {
+    if (user.email?.trim().toLowerCase() === workerEmail || inviteEmails.includes(user.email?.trim().toLowerCase() || "")) userIds.add(user.id);
+  }
+  return { filters: [`staff_user_id.eq.${userId}`, ...[...inviteIds].map((id) => `staff_invite_id.eq.${id}`)], inviteIds, userIds };
 }
 
 function serviceHeaders(key: string) {
@@ -115,6 +131,10 @@ async function rows<T>(url: string, headers: Record<string, string>, path: strin
   const response = await fetch(`${url}/rest/v1/${path}`, { headers, cache: "no-store" });
   if (!response.ok) return [];
   return response.json() as Promise<T[]>;
+}
+
+function csvIn(values: string[]) {
+  return values.map((value) => encodeURIComponent(value)).join(",");
 }
 
 async function databaseError(response: Response, fallback: string) {
