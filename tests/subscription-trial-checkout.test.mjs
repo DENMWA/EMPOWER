@@ -7,15 +7,19 @@ const root = process.cwd();
 const source = (file) => readFile(path.join(root, file), "utf8");
 
 test("plan checkout starts only after the 14-day free trial", async () => {
-  const [checkout, stripe, plan, statusRoute, prompt, shell] = await Promise.all([
+  const [checkout, stripe, plan, statusRoute, refreshRoute, prompt, shell] = await Promise.all([
     source("app/api/stripe/checkout/route.ts"),
     source("lib/stripe/server.ts"),
     source("components/billing/PlanManagementCard.tsx"),
     source("app/api/subscription/status/route.ts"),
+    source("app/api/subscription/refresh/route.ts"),
     source("components/subscription/SubscriptionPaymentPrompt.tsx"),
     source("components/AppShell.tsx")
   ]);
   assert.match(stripe, /trial_ends_at/);
+  assert.match(stripe, /refreshOrganisationSubscriptionFromStripe/);
+  assert.match(stripe, /\/subscriptions\/\$\{encodeURIComponent\(organisation\.stripe_subscription_id\)\}/);
+  assert.match(stripe, /\/subscriptions\?customer=\$\{encodeURIComponent\(organisation\.stripe_customer_id\)\}/);
   assert.match(checkout, /organisation\.subscription_status === "trialing" && trialEndsAt > Date\.now\(\)/);
   assert.match(checkout, /payment_method_types\[0\]/);
   assert.match(checkout, /payment_method_collection: "always"/);
@@ -28,7 +32,12 @@ test("plan checkout starts only after the 14-day free trial", async () => {
   assert.match(statusRoute, /paymentRequired/);
   assert.match(statusRoute, /Your free trial is complete/);
   assert.match(statusRoute, /canManageBilling/);
+  assert.match(refreshRoute, /verifyServerAccess\(request, "admin", "billing"\)/);
+  assert.match(refreshRoute, /refreshOrganisationSubscriptionFromStripe\(access\.organisationId\)/);
   assert.match(prompt, /Proceed to payment/);
+  assert.match(prompt, /Refresh status/);
+  assert.match(prompt, /\/api\/subscription\/refresh/);
+  assert.match(prompt, /params\.get\("subscription"\) !== "active"/);
   assert.match(prompt, /\/api\/subscription\/status/);
   assert.match(prompt, /!status\.canManageBilling/);
   assert.doesNotMatch(prompt, /Your organisation admin can update payment/);

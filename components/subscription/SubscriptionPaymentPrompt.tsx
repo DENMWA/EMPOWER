@@ -14,10 +14,12 @@ type SubscriptionStatus = {
 };
 
 const dismissedKey = "empowernotes:payment-prompt-dismissed";
+const checkoutRefreshKey = "empowernotes:checkout-subscription-refreshed";
 
 export function SubscriptionPaymentPrompt({ signedIn, isPlatform }: { signedIn: boolean; isPlatform: boolean }) {
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     setDismissed(window.sessionStorage.getItem(dismissedKey) === "true");
@@ -30,8 +32,21 @@ export function SubscriptionPaymentPrompt({ signedIn, isPlatform }: { signedIn: 
     }
 
     let mounted = true;
+    async function refreshCheckoutStatus() {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("subscription") !== "active" || window.sessionStorage.getItem(checkoutRefreshKey) === "true") return;
+      window.sessionStorage.setItem(checkoutRefreshKey, "true");
+      await fetch("/api/subscription/refresh", {
+        method: "POST",
+        headers: getAuthenticatedApiHeaders({ "Content-Type": "application/json" }),
+        cache: "no-store"
+      }).catch(() => undefined);
+    }
+
     async function loadStatus() {
       try {
+        await refreshCheckoutStatus();
         const response = await fetch("/api/subscription/status", {
           headers: getAuthenticatedApiHeaders(),
           cache: "no-store"
@@ -58,6 +73,25 @@ export function SubscriptionPaymentPrompt({ signedIn, isPlatform }: { signedIn: 
     setDismissed(true);
   }
 
+  async function refreshStatus() {
+    setRefreshing(true);
+    try {
+      await fetch("/api/subscription/refresh", {
+        method: "POST",
+        headers: getAuthenticatedApiHeaders({ "Content-Type": "application/json" }),
+        cache: "no-store"
+      });
+      const response = await fetch("/api/subscription/status", {
+        headers: getAuthenticatedApiHeaders(),
+        cache: "no-store"
+      });
+      const result = await response.json() as SubscriptionStatus;
+      if (response.ok) setStatus(result);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <section className="border-b border-amber-200 bg-amber-50 px-4 py-3 sm:px-6 lg:px-8" aria-label="Payment required">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -77,6 +111,9 @@ export function SubscriptionPaymentPrompt({ signedIn, isPlatform }: { signedIn: 
             <CreditCard size={16} aria-hidden="true" />
             Proceed to payment
           </Link>
+          <button type="button" onClick={refreshStatus} disabled={refreshing} className="inline-flex min-h-10 items-center rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-900 hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-60">
+            {refreshing ? "Refreshing..." : "Refresh status"}
+          </button>
           <button type="button" onClick={dismiss} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:border-slate-400" aria-label="Dismiss payment notice for this session">
             <X size={17} aria-hidden="true" />
           </button>

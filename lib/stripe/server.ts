@@ -144,6 +144,28 @@ export async function syncOrganisationSubscription(organisationId: string, subsc
   });
 }
 
+export async function refreshOrganisationSubscriptionFromStripe(organisationId: string) {
+  const organisation = await getOrganisationBilling(organisationId);
+  if (!organisation) return { refreshed: false, error: "The organisation billing profile could not be loaded." };
+
+  if (organisation.stripe_subscription_id) {
+    const result = await stripeRequest<StripeSubscription>(`/subscriptions/${encodeURIComponent(organisation.stripe_subscription_id)}?expand[]=items.data.price`, undefined, "GET");
+    if (!result.data) return { refreshed: false, error: result.error || "Stripe subscription could not be refreshed." };
+    const synced = await syncOrganisationSubscription(organisationId, result.data);
+    return { refreshed: !synced.error, error: synced.error || "" };
+  }
+
+  if (organisation.stripe_customer_id) {
+    const result = await stripeRequest<{ data?: StripeSubscription[] }>(`/subscriptions?customer=${encodeURIComponent(organisation.stripe_customer_id)}&status=all&limit=1&expand[]=data.items.data.price`, undefined, "GET");
+    const subscription = result.data?.data?.[0];
+    if (!subscription) return { refreshed: false, error: result.error || "No Stripe subscription was found for this customer." };
+    const synced = await syncOrganisationSubscription(organisationId, subscription);
+    return { refreshed: !synced.error, error: synced.error || "" };
+  }
+
+  return { refreshed: false, error: "No Stripe customer or subscription is linked to this workspace yet." };
+}
+
 export async function recordSubscriptionInvoice(organisationId: string, invoice: StripeInvoice, eventId: string, eventType: string) {
   if (!invoice.id) return { data: null, error: "Stripe invoice identifier is missing." };
   const failed = eventType === "invoice.payment_failed";
