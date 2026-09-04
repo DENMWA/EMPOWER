@@ -173,9 +173,9 @@ async function saveRosterShiftViaApi(shift: RosterShift) {
       body: JSON.stringify(shift),
       cache: "no-store"
     });
-    const result = await response.json().catch(() => ({})) as { error?: string };
+    const result = await response.json().catch(() => ({})) as { error?: string; warning?: string };
     if (!response.ok) return { savedToCloud: false, error: result.error || "New shift could not be saved." };
-    return { savedToCloud: true, error: "" };
+    return { savedToCloud: true, error: result.warning || "" };
   } catch {
     return { savedToCloud: false, error: "api_unavailable" };
   }

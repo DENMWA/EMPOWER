@@ -164,7 +164,10 @@ export async function POST(request: Request) {
         if (!retry.ok) return databaseError(retry, "Roster staff assignments could not be saved.");
         else assignmentWarnings.push("Some invited staff are not linked to signed-in accounts yet.");
       } else {
-        return databaseError(written, "Roster staff assignments could not be saved.");
+        const hasUnlinkedStaff = assignments.some((assignment) => !assignment.staff_user_id);
+        return databaseError(written, hasUnlinkedStaff
+          ? "Roster staff assignments could not be saved. Make sure the staff member has accepted their invite and signed in, then run the roster identity SQL repair if this continues."
+          : "Roster staff assignments could not be saved.");
       }
     }
   }

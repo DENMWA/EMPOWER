@@ -41,12 +41,13 @@ test("employee availability PDFs are tenant protected, AI reviewed and manager p
 });
 
 test("roster service locations are optional, tenant scoped and filterable", async () => {
-  const [modal, cloud, route, filters, sql, roster, rest, card, week, planning, page] = await Promise.all([
+  const [modal, cloud, route, filters, sql, repairSql, roster, rest, card, week, planning, page] = await Promise.all([
     source("components/roster/CreateRosterShiftModal.tsx"),
     source("lib/roster-cloud.ts"),
     source("app/api/roster/shifts/route.ts"),
     source("components/roster/RosterFilters.tsx"),
     source("supabase/optional-roster-service-locations.sql"),
+    source("supabase/roster-assignment-identity-repair.sql"),
     source("lib/roster.ts"),
     source("lib/supabase-rest.ts"),
     source("components/roster/RosterShiftCard.tsx"),
@@ -73,6 +74,9 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(route, /usersByEmail\.get/);
   assert.match(route, /Existing roster assignments could not be refreshed/);
   assert.match(route, /Roster staff assignments could not be saved/);
+  assert.match(repairSql, /alter column staff_user_id drop not null/);
+  assert.match(repairSql, /staff_invite_id uuid references public\.staff_invites/);
+  assert.match(repairSql, /link_shift_assignment_to_auth_user/);
   assert.match(filters, /Client home \/ community/);
   assert.match(sql, /service_location_id text/);
   assert.match(sql, /roster_service_location_id text default null/);
@@ -114,6 +118,8 @@ test("roster service locations are optional, tenant scoped and filterable", asyn
   assert.match(page, /getTenantStaffInvites/);
   assert.match(page, /Roster coverage colours/);
   assert.match(page, /keepRosterSheetOpenAfterSave/);
+  assert.match(page, /The shift remains visible here but workers will not see it until the workspace save succeeds/);
+  assert.doesNotMatch(page, /setShifts\(shifts\)/);
   assert.match(page, /rosterSheetShifts/);
   assert.match(page, /shifts=\{rosterSheetShifts\}/);
   assert.match(page, /downloadRoster/);

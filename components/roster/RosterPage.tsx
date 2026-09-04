@@ -142,11 +142,11 @@ export function RosterPage() {
       setSyncMessage("Saving roster change...");
       void saveTenantRosterShift(updatedShift).then((result) => {
         if (!result.savedToCloud) {
-          setShifts(shifts);
-          saveRosterShifts(shifts);
-          setActiveShift(shifts.find((shift) => shift.id === activeShift?.id) ?? null);
+          setActiveShift(updatedShift);
         }
-        setSyncMessage(result.savedToCloud ? "Roster change saved to workspace." : result.error || "Roster change could not be saved.");
+        setSyncMessage(result.savedToCloud
+          ? result.error || "Roster change saved to workspace."
+          : `${result.error || "Roster change could not be saved."} The shift remains visible here but workers will not see it until the workspace save succeeds.`);
       });
     }
   }
@@ -167,11 +167,11 @@ export function RosterPage() {
     setSyncMessage("Saving new shift...");
     void saveTenantRosterShift(shift).then((result) => {
       if (!result.savedToCloud) {
-        setShifts(shifts);
-        saveRosterShifts(shifts);
         setActiveShift(null);
       }
-      setSyncMessage(result.savedToCloud ? "New shift saved to workspace." : result.error || "New shift could not be saved.");
+      setSyncMessage(result.savedToCloud
+        ? result.error || "New shift saved to workspace."
+        : `${result.error || "New shift could not be saved."} The shift remains visible here but workers will not see it until the workspace save succeeds.`);
     });
     return "";
   }
