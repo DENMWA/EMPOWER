@@ -31,7 +31,8 @@ export async function POST(request: Request) {
 
   const context = resolved.context;
   const headers = serviceHeaders(key);
-  const authorised = await workerCanUseShift(url, headers, context.organisationId, context.userId, context.email, body.shiftId);
+  const identity = await getWorkerIdentity(url, headers, context.organisationId, context.userId, context.email);
+  const authorised = await workerCanUseShift(url, headers, context.organisationId, body.shiftId, identity.filters);
   if (!authorised) return NextResponse.json({ error: "This shift is not assigned to your roster." }, { status: 403 });
 
   const [shift] = await rows<ShiftRow>(url, headers, `support_shifts?select=id,start_time,end_time,status,note_required&organisation_id=eq.${context.organisationId}&id=eq.${encodeURIComponent(body.shiftId)}&limit=1`);
@@ -68,6 +69,13 @@ export async function POST(request: Request) {
   });
   if (!response.ok) return databaseError(response, "Shift sign-off could not be saved.");
 
+  await fetch(`${url}/rest/v1/shift_staff?organisation_id=eq.${context.organisationId}&shift_id=eq.${encodeURIComponent(body.shiftId)}&or=(${identity.filters.join(",")})`, {
+    method: "PATCH",
+    headers: { ...headers, Prefer: "return=minimal" },
+    body: JSON.stringify({ status: body.action === "start" ? "in_progress" : "completed" }),
+    cache: "no-store"
+  });
+
   const [saved] = await response.json() as Array<ShiftRow & { actual_start_time: string | null; actual_end_time: string | null; shift_signoff_note: string | null; shift_signoff_status: string | null }>;
   return NextResponse.json({
     ok: true,
@@ -82,7 +90,12 @@ export async function POST(request: Request) {
   });
 }
 
-async function workerCanUseShift(url: string, headers: Record<string, string>, organisationId: string, userId: string, email: string, shiftId: string) {
+async function workerCanUseShift(url: string, headers: Record<string, string>, organisationId: string, shiftId: string, identityFilters: string[]) {
+  const assignments = await rows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${organisationId}&shift_id=eq.${encodeURIComponent(shiftId)}&or=(${identityFilters.join(",")})`);
+  return assignments.length > 0;
+}
+
+async function getWorkerIdentity(url: string, headers: Record<string, string>, organisationId: string, userId: string, email: string) {
   const emailInviteRows = email
     ? await rows<InviteIdentityRow>(url, headers, `staff_invites?select=id&organisation_id=eq.${organisationId}&email=ilike.${encodeURIComponent(email)}&invite_status=neq.Suspended`)
     : [];
@@ -91,9 +104,7 @@ async function workerCanUseShift(url: string, headers: Record<string, string>, o
     ...emailInviteRows.map((row) => row.id),
     ...acceptedInviteRows.map((row) => row.staff_invite_id || "").filter(Boolean)
   ])];
-  const identityFilters = [`staff_user_id.eq.${userId}`, ...inviteIds.map((id) => `staff_invite_id.eq.${id}`)];
-  const assignments = await rows<AssignmentRow>(url, headers, `shift_staff?select=shift_id,staff_user_id,staff_invite_id&organisation_id=eq.${organisationId}&shift_id=eq.${encodeURIComponent(shiftId)}&or=(${identityFilters.join(",")})`);
-  return assignments.length > 0;
+  return { filters: [`staff_user_id.eq.${userId}`, ...inviteIds.map((id) => `staff_invite_id.eq.${id}`)] };
 }
 
 function serviceHeaders(key: string) {

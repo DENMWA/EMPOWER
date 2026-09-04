@@ -44,17 +44,8 @@ export async function POST(request: Request) {
   }
 
   const assignedWorkers = (shift.assignedWorkers?.length ? shift.assignedWorkers : [{ id: shift.workerId, name: shift.workerName }]).filter((worker) => worker.id);
-  const staff = assignedWorkers.length
-    ? await rows<StaffInviteRow>(url, headers, `staff_invites?select=id,name,email,invite_status&id=in.(${assignedWorkers.map((worker) => encodeURIComponent(worker.id)).join(",")})&organisation_id=eq.${access.organisationId}`)
-    : [];
-  const staffById = new Map(staff.map((worker) => [worker.id, worker]));
-  const unavailable = assignedWorkers.find((worker) => !staffById.has(worker.id) || unavailableStaffStatuses.has(staffById.get(worker.id)?.invite_status.toLowerCase() || ""));
-  if (unavailable) return NextResponse.json({ error: "One assigned staff member is unavailable in this organisation." }, { status: 404 });
-
-  const linkedUsers = staff.length
-    ? await rows<{ id: string; email: string }>(url, headers, `users?select=id,email&organisation_id=eq.${access.organisationId}&email=in.(${staff.map((worker) => encodeURIComponent(worker.email.trim().toLowerCase())).join(",")})`)
-    : [];
-  const userIdByEmail = new Map(linkedUsers.map((user) => [user.email.trim().toLowerCase(), user.id]));
+  const resolvedAssignments = await resolveAssignedStaff(url, headers, access.organisationId, assignedWorkers);
+  if (resolvedAssignments.error) return NextResponse.json({ error: resolvedAssignments.error }, { status: 404 });
 
   const saved = await upsertShift(url, headers, access, shift);
   if (!saved.ok) return databaseError(saved, "The roster shift could not be saved.");
@@ -69,12 +60,12 @@ export async function POST(request: Request) {
     assignmentWarnings.push(await databaseWarning(deleted, "Existing roster assignments could not be refreshed."));
   }
 
-  if (deleted.ok && staff.length) {
-    const assignments = staff.map((worker) => ({
+  if (deleted.ok && resolvedAssignments.assignments.length) {
+    const assignments = resolvedAssignments.assignments.map((worker) => ({
       organisation_id: access.organisationId,
       shift_id: shift.id,
-      staff_user_id: userIdByEmail.get(worker.email.trim().toLowerCase()) || null,
-      staff_invite_id: worker.id,
+      staff_user_id: worker.staffUserId,
+      staff_invite_id: worker.staffInviteId,
       role: "assigned worker",
       status: shift.status === "Completed" ? "completed" : "assigned"
     }));
@@ -105,7 +96,51 @@ export async function POST(request: Request) {
 }
 
 type StaffInviteRow = { id: string; name: string; email: string; invite_status: string };
+type UserRow = { id: string; email: string; name?: string | null };
 type Access = Awaited<ReturnType<typeof verifyServerAccess>>;
+type AssignedWorker = NonNullable<RosterShift["assignedWorkers"]>[number];
+type ResolvedStaffAssignment = { staffInviteId: string | null; staffUserId: string | null };
+
+async function resolveAssignedStaff(url: string, headers: Record<string, string>, organisationId: string, assignedWorkers: AssignedWorker[]) {
+  if (!assignedWorkers.length) return { assignments: [] as ResolvedStaffAssignment[], error: "" };
+
+  const workerIds = [...new Set(assignedWorkers.map((worker) => worker.id).filter(Boolean))];
+  const staffByIdRows = await rows<StaffInviteRow>(url, headers, `staff_invites?select=id,name,email,invite_status&id=in.(${csvIn(workerIds)})&organisation_id=eq.${organisationId}`);
+  const usersByIdRows = await rows<UserRow>(url, headers, `users?select=id,email,name&organisation_id=eq.${organisationId}&id=in.(${csvIn(workerIds)})`);
+  const userEmails = usersByIdRows.map((user) => user.email.trim().toLowerCase()).filter(Boolean);
+  const staffByUserEmailRows = userEmails.length
+    ? await rows<StaffInviteRow>(url, headers, `staff_invites?select=id,name,email,invite_status&organisation_id=eq.${organisationId}&email=in.(${csvIn(userEmails)})`)
+    : [];
+  const inviteEmails = staffByIdRows.map((worker) => worker.email.trim().toLowerCase()).filter(Boolean);
+  const usersByInviteEmailRows = inviteEmails.length
+    ? await rows<UserRow>(url, headers, `users?select=id,email,name&organisation_id=eq.${organisationId}&email=in.(${csvIn(inviteEmails)})`)
+    : [];
+
+  const staffById = new Map([...staffByIdRows, ...staffByUserEmailRows].map((worker) => [worker.id, worker]));
+  const staffByEmail = new Map([...staffByIdRows, ...staffByUserEmailRows].map((worker) => [worker.email.trim().toLowerCase(), worker]));
+  const usersById = new Map(usersByIdRows.map((user) => [user.id, user]));
+  const usersByEmail = new Map([...usersByIdRows, ...usersByInviteEmailRows].map((user) => [user.email.trim().toLowerCase(), user]));
+
+  const assignments = assignedWorkers.map((worker) => {
+    const userById = usersById.get(worker.id);
+    const staff = staffById.get(worker.id) || (userById ? staffByEmail.get(userById.email.trim().toLowerCase()) : undefined);
+    const user = userById || (staff ? usersByEmail.get(staff.email.trim().toLowerCase()) : undefined);
+    return { worker, staff, user };
+  });
+
+  const unavailable = assignments.find(({ staff, user }) => {
+    if (!staff && !user) return true;
+    return staff ? unavailableStaffStatuses.has(staff.invite_status.toLowerCase()) : false;
+  });
+  if (unavailable) return { assignments: [] as ResolvedStaffAssignment[], error: "One assigned staff member is unavailable in this organisation." };
+
+  return {
+    assignments: assignments
+      .map(({ staff, user }) => ({ staffInviteId: staff?.id || null, staffUserId: user?.id || null }))
+      .filter((assignment) => assignment.staffInviteId || assignment.staffUserId),
+    error: ""
+  };
+}
 
 function validateShift(shift: RosterShift | null) {
   if (!shift?.id || !shift.participantId) return "Choose a client before saving this roster shift.";
@@ -158,6 +193,10 @@ function serviceHeaders(key: string) {
 async function rows<T>(url: string, headers: Record<string, string>, path: string): Promise<T[]> {
   const response = await fetch(`${url}/rest/v1/${path}`, { headers, cache: "no-store" });
   return response.ok ? await response.json() as T[] : [];
+}
+
+function csvIn(values: string[]) {
+  return values.map((value) => encodeURIComponent(value)).join(",");
 }
 
 async function databaseError(response: Response, fallback: string) {

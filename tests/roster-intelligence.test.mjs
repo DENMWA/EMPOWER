@@ -228,6 +228,8 @@ test("assigned workers can sign on and off rostered shifts for manager approval"
   assert.match(signOffRoute, /resolveUserAccessContext\(request\)/);
   assert.match(signOffRoute, /This shift is not assigned to your roster/);
   assert.match(signOffRoute, /shift_staff\?select=shift_id,staff_user_id,staff_invite_id/);
+  assert.match(signOffRoute, /shift_staff\?organisation_id=eq/);
+  assert.match(signOffRoute, /status: body\.action === "start" \? "in_progress" : "completed"/);
   assert.match(signOffRoute, /actual_start_time/);
   assert.match(signOffRoute, /actual_end_time/);
   assert.match(adminModal, /Shift sign-off/);
@@ -237,6 +239,18 @@ test("assigned workers can sign on and off rostered shifts for manager approval"
   assert.match(meRoute, /shift_signoff_note/);
   assert.match(sql, /shift_signoff_status/);
   assert.match(sql, /support_shifts_signoff_status_check/);
+});
+
+test("roster shift saving links assignments to staff invite and signed-in user identities", async () => {
+  const route = await source("app/api/roster/shifts/route.ts");
+  assert.match(route, /resolveAssignedStaff/);
+  assert.match(route, /staff_invites\?select=id,name,email,invite_status&id=in/);
+  assert.match(route, /users\?select=id,email,name&organisation_id=eq/);
+  assert.match(route, /staffByEmail\.get/);
+  assert.match(route, /usersByEmail\.get/);
+  assert.match(route, /staff_user_id: worker\.staffUserId/);
+  assert.match(route, /staff_invite_id: worker\.staffInviteId/);
+  assert.doesNotMatch(route, /staff_invite_id: worker\.id/);
 });
 
 test("providers can choose built-in, imported or manual rostering workflows", async () => {
