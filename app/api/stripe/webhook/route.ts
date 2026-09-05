@@ -3,6 +3,7 @@ import {
   findOrganisationForSubscription,
   recordSubscriptionInvoice,
   stripeRequest,
+  supabaseServiceRequest,
   syncOrganisationSubscription,
   verifyStripeWebhook,
   type StripeInvoice,
@@ -32,36 +33,65 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid Stripe payload." }, { status: 400 });
   }
 
+  let resolvedOrganisationId = "";
+  let handled = false;
+
   try {
     if (event.type === "checkout.session.completed") {
+      handled = true;
       const session = event.data?.object || {};
       const subscriptionId = stringId(session.subscription);
       const organisationId = stringValue(session.client_reference_id) || metadataValue(session, "organisation_id");
       if (subscriptionId && organisationId) {
-        await retrieveAndSync(subscriptionId, organisationId);
+        resolvedOrganisationId = await retrieveAndSync(subscriptionId, organisationId);
       }
     } else if (event.type?.startsWith("customer.subscription.")) {
+      handled = true;
       const subscription = event.data?.object as StripeSubscription | undefined;
       if (subscription?.id) {
         const organisationId = await findOrganisationForSubscription(subscription);
-        if (organisationId) await ensureSynced(organisationId, subscription);
+        if (organisationId) {
+          await ensureSynced(organisationId, subscription);
+          resolvedOrganisationId = organisationId;
+        }
         if (organisationId && subscription.status === "active") await recordSubscriptionMarketingConversion(organisationId, subscription.id).catch(() => undefined);
       }
     } else if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
+      handled = true;
       const invoice = (event.data?.object || {}) as StripeInvoice;
       const subscriptionId = invoiceSubscriptionId(invoice);
       const organisationId = subscriptionId ? await retrieveAndSync(subscriptionId) : "";
       if (organisationId) {
+        resolvedOrganisationId = organisationId;
         const ledger = await recordSubscriptionInvoice(organisationId, invoice, event.id || "", event.type);
         if (ledger.error) throw new Error(ledger.error);
         if ((event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") && subscriptionId) await recordSubscriptionMarketingConversion(organisationId, subscriptionId).catch(() => undefined);
       }
     }
-  } catch {
+  } catch (error) {
+    await logWebhookEvent(event, resolvedOrganisationId, "error", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json({ error: "Subscription synchronization failed." }, { status: 500 });
   }
 
+  await logWebhookEvent(event, resolvedOrganisationId, handled ? "processed" : "ignored");
   return NextResponse.json({ received: true, eventId: event.id || null });
+}
+
+async function logWebhookEvent(event: StripeEvent, organisationId: string, outcome: "processed" | "ignored" | "error", errorDetail = "") {
+  if (!event.id) return;
+  await supabaseServiceRequest(
+    "stripe_webhook_events?on_conflict=stripe_event_id",
+    "POST",
+    {
+      stripe_event_id: event.id,
+      event_type: event.type || "unknown",
+      organisation_id: organisationId || null,
+      outcome,
+      error_detail: errorDetail || null,
+      received_at: new Date().toISOString()
+    },
+    "resolution=merge-duplicates,return=minimal"
+  ).catch(() => undefined);
 }
 
 async function retrieveAndSync(subscriptionId: string, knownOrganisationId = "") {
