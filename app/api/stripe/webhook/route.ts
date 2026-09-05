@@ -47,14 +47,14 @@ export async function POST(request: Request) {
         if (organisationId) await ensureSynced(organisationId, subscription);
         if (organisationId && subscription.status === "active") await recordSubscriptionMarketingConversion(organisationId, subscription.id).catch(() => undefined);
       }
-    } else if (event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
+    } else if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
       const invoice = (event.data?.object || {}) as StripeInvoice;
       const subscriptionId = invoiceSubscriptionId(invoice);
       const organisationId = subscriptionId ? await retrieveAndSync(subscriptionId) : "";
       if (organisationId) {
         const ledger = await recordSubscriptionInvoice(organisationId, invoice, event.id || "", event.type);
         if (ledger.error) throw new Error(ledger.error);
-        if (event.type === "invoice.payment_succeeded" && subscriptionId) await recordSubscriptionMarketingConversion(organisationId, subscriptionId).catch(() => undefined);
+        if ((event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") && subscriptionId) await recordSubscriptionMarketingConversion(organisationId, subscriptionId).catch(() => undefined);
       }
     }
   } catch {

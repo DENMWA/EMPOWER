@@ -1531,7 +1531,10 @@ test("platform subscription payments are owner-only, idempotent and risk-aged", 
     source("supabase/platform-subscription-payment-ledger.sql")
   ]);
   assert.match(webhook, /recordSubscriptionInvoice/);
+  assert.match(webhook, /invoice\.paid/);
+  assert.match(webhook, /invoice\.payment_succeeded/);
   assert.match(stripe, /on_conflict=stripe_invoice_id/);
+  assert.match(stripe, /eventType === "invoice\.paid"/);
   assert.match(stripe, /resolution=merge-duplicates/);
   assert.match(summary, /verifyServerAccess\(request, "platform"\)/);
   assert.match(summary, /60 \* 24 \* 60 \* 60 \* 1000/);

@@ -169,7 +169,7 @@ export async function refreshOrganisationSubscriptionFromStripe(organisationId: 
 export async function recordSubscriptionInvoice(organisationId: string, invoice: StripeInvoice, eventId: string, eventType: string) {
   if (!invoice.id) return { data: null, error: "Stripe invoice identifier is missing." };
   const failed = eventType === "invoice.payment_failed";
-  const paid = eventType === "invoice.payment_succeeded" || invoice.status === "paid";
+  const paid = eventType === "invoice.paid" || eventType === "invoice.payment_succeeded" || invoice.status === "paid";
   const status = paid ? "paid" : failed ? "failed" : normaliseInvoiceStatus(invoice.status);
   return supabaseServiceRequest("platform_subscription_payments?on_conflict=stripe_invoice_id", "POST", {
     stripe_invoice_id: invoice.id,
