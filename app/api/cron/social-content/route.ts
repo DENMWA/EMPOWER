@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateSocialCopy, pickFeatureForDate, publishToLinkedInProfile, type SocialPlatform } from "@/lib/social-content";
+import { buildSocialImageUrl, generateSocialCopy, pickFeatureForDate, publishToLinkedInProfile, type SocialPlatform } from "@/lib/social-content";
 import type { PublicSeoPage } from "@/lib/public-seo-pages";
 
 export const runtime = "nodejs";
@@ -33,11 +33,13 @@ async function processPlatform(url: string, headers: Record<string, string>, pla
   if (existing[0]) return { platform, action: "skipped", reason: `Already ${existing[0].status} for today.` };
 
   const generated = await generateSocialCopy(feature, platform);
+  const imageUrl = buildSocialImageUrl(feature, generated.imageLine, platform);
 
   const insertBody: Record<string, unknown> = {
     platform,
     feature_slug: feature.slug,
     content_text: generated.text,
+    image_url: imageUrl,
     status: "draft",
     scheduled_for: scheduledFor,
     error_detail: generated.error || null
