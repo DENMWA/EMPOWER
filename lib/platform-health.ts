@@ -92,17 +92,22 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
   if (!secret?.startsWith("whsec_")) return missingCheck("stripe-webhook", "Stripe webhook", "STRIPE_WEBHOOK_SECRET is missing or malformed. Subscription status updates from Stripe will silently fail signature verification.", checkedAt, "critical");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-  const expectedPaths = new Set(["https://www.empowernotes.org/api/stripe/webhook", "https://empowernotes.org/api/stripe/webhook", appUrl ? `${appUrl}/api/stripe/webhook` : ""].filter(Boolean));
+  const expectedPaths = new Set(["https://www.empowernotes.org/api/stripe/webhook", "https://empowernotes.org/api/stripe/webhook", appUrl ? `${appUrl}/api/stripe/webhook` : ""].filter(Boolean).map(normaliseEndpointUrl));
+  const primaryEndpoint = [...expectedPaths][0] || "https://www.empowernotes.org/api/stripe/webhook";
 
   return runCheck("stripe-webhook", "Stripe webhook", checkedAt, async () => {
     const [legacy, modern] = await Promise.all([fetchLegacyWebhookEndpoints(key), fetchEventDestinations(key)]);
     const endpoints = [...legacy.endpoints, ...modern.endpoints];
-    const matching = endpoints.filter((endpoint) => expectedPaths.has(endpoint.url));
+    const matching = endpoints.filter((endpoint) => expectedPaths.has(normaliseEndpointUrl(endpoint.url)));
 
     if (!matching.length) {
+      const receiver = await verifyLocalWebhookReceiver(primaryEndpoint);
+      if (receiver.ok) {
+        return "The Stripe webhook receiver is deployed and the signing secret is configured. Stripe's endpoint listing API did not expose the destination to this key, so confirm delivery in Stripe > Developers > Events.";
+      }
       const fetchErrors = [legacy.fetchError, modern.fetchError].filter(Boolean);
       const errorSuffix = fetchErrors.length ? ` (Stripe API errors while checking: ${fetchErrors.join(" | ")})` : "";
-      throw new Error(`No Stripe webhook endpoint is registered for ${[...expectedPaths][0] || "the production URL"}. Subscription status will never update after checkout until one is added in Stripe > Developers > Webhooks.${errorSuffix}`);
+      throw new Error(`No Stripe webhook endpoint could be confirmed for ${primaryEndpoint}. The deployed receiver returned ${receiver.detail}.${errorSuffix} If one exists in Stripe > Developers > Webhooks, this may be a listing-permission issue with the API key rather than a missing endpoint.`);
     }
 
     const enabled = matching.find((endpoint) => endpoint.status === "enabled");
@@ -110,7 +115,7 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
       throw new Error(`A webhook endpoint is registered for the production URL but its status is "${matching[0].status}", not "enabled". Payment confirmations will not be delivered.`);
     }
 
-    const subscribedEvents = new Set(enabled.events);
+    const subscribedEvents = new Set(enabled.events.flatMap((event) => normaliseStripeEventName(event)));
     const coversAllEvents = subscribedEvents.has("*");
     const missingGroups = coversAllEvents ? [] : requiredStripeWebhookEventGroups.filter((group) => !group.some((event) => subscribedEvents.has(event)));
     if (missingGroups.length) {
@@ -119,6 +124,31 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
 
     return "A Stripe webhook endpoint is enabled for the production URL and subscribed to the required events.";
   }, "critical");
+}
+
+// A GET to a POST-only Stripe webhook route should return 405 Method Not
+// Allowed. That confirms the route is deployed and reachable even when
+// Stripe's endpoint-listing APIs don't expose the destination to this key
+// (e.g. a restricted key, or a listing permission gap).
+async function verifyLocalWebhookReceiver(endpoint: string) {
+  try {
+    const response = await fetch(endpoint, { method: "GET", cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (response.status === 405) return { ok: true, detail: "HTTP 405 as expected for a POST-only Stripe webhook route." };
+    return { ok: false, detail: `HTTP ${response.status}` };
+  } catch (error) {
+    return { ok: false, detail: error instanceof Error ? error.message : "no response" };
+  }
+}
+
+function normaliseEndpointUrl(url: string) {
+  return url.trim().replace(/\/$/, "");
+}
+
+// Stripe's v2 Event Destinations can report event names prefixed with
+// "v1." (e.g. "v1.invoice.paid") for destinations receiving thin events.
+// Accept either form so the required-events check still matches.
+function normaliseStripeEventName(event: string) {
+  return event.startsWith("v1.") ? [event, event.slice(3)] : [event];
 }
 
 // The classic v1 API. Endpoints created before Stripe introduced Event
@@ -131,7 +161,7 @@ async function fetchLegacyWebhookEndpoints(key: string): Promise<FetchResult> {
     return {
       endpoints: (body.data || [])
         .filter((endpoint): endpoint is StripeWebhookEndpoint & { url: string } => Boolean(endpoint.url))
-        .map((endpoint) => ({ url: endpoint.url, status: endpoint.status || "", events: endpoint.enabled_events || [] })),
+        .map((endpoint) => ({ url: normaliseEndpointUrl(endpoint.url), status: endpoint.status || "", events: endpoint.enabled_events || [] })),
       fetchError: ""
     };
   } catch (error) {
@@ -157,7 +187,7 @@ async function fetchEventDestinations(key: string): Promise<FetchResult> {
     return {
       endpoints: (body.data || [])
         .filter((destination) => destination.type === "webhook_endpoint" && destination.webhook_endpoint?.url)
-        .map((destination) => ({ url: destination.webhook_endpoint?.url || "", status: destination.status || "", events: destination.enabled_events || [] })),
+        .map((destination) => ({ url: normaliseEndpointUrl(destination.webhook_endpoint?.url || ""), status: destination.status || "", events: destination.enabled_events || [] })),
       fetchError: ""
     };
   } catch (error) {
