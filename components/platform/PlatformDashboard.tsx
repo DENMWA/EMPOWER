@@ -146,7 +146,7 @@ export function PlatformDashboard() {
 
 type LivePlatformSummary = {
   generatedAt: string;
-  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; payingAccounts: number; paymentRisk: number; lifetimeRevenueCents: number; currentMonthRevenueCents: number };
+  summary: { organisations: number; activeUsers: number; activeClients: number; incidents: number; trialAccounts: number; payingAccounts: number; paymentRisk: number; lifetimeRevenueCents: number; currentMonthRevenueCents: number; organisationsTruncated?: boolean; paymentsTruncated?: boolean };
   organisations: Array<{
     id: string;
     name: string;
@@ -196,20 +196,27 @@ function LivePlatformDataPending() {
   const loadData = useCallback(async (showLoading = false) => {
     if (showLoading) { setData(null); setOperations(null); }
     setError("");
-    try {
-      const [summaryResponse, operationsResponse] = await Promise.all([
-        fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" }),
-        fetch("/api/platform/operations", { headers: getAuthenticatedApiHeaders(), cache: "no-store" })
-      ]);
-      const summary = await summaryResponse.json() as LivePlatformSummary & { error?: string };
-      const operational = await operationsResponse.json() as LivePlatformOperations & { error?: string };
-      if (!summaryResponse.ok) throw new Error(summary.error || "Live platform data could not be loaded.");
-      if (!operationsResponse.ok) throw new Error(operational.error || "Platform operations could not be loaded. Run the platform operations migration.");
-      setData(summary);
-      setOperations(operational);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Live platform data could not be loaded.");
-    }
+    const [summaryResult, operationsResult] = await Promise.allSettled([
+      fetch("/api/platform/summary", { headers: getAuthenticatedApiHeaders(), cache: "no-store" }).then(async (response) => {
+        const body = await response.json() as LivePlatformSummary & { error?: string };
+        if (!response.ok) throw new Error(body.error || "Live platform data could not be loaded.");
+        return body;
+      }),
+      fetch("/api/platform/operations", { headers: getAuthenticatedApiHeaders(), cache: "no-store" }).then(async (response) => {
+        const body = await response.json() as LivePlatformOperations & { error?: string };
+        if (!response.ok) throw new Error(body.error || "Platform operations could not be loaded. Run the platform operations migration.");
+        return body;
+      })
+    ]);
+
+    const errors: string[] = [];
+    if (summaryResult.status === "fulfilled") setData(summaryResult.value);
+    else errors.push(summaryResult.reason instanceof Error ? summaryResult.reason.message : "Live platform data could not be loaded.");
+
+    if (operationsResult.status === "fulfilled") setOperations(operationsResult.value);
+    else errors.push(operationsResult.reason instanceof Error ? operationsResult.reason.message : "Platform operations could not be loaded.");
+
+    setError(errors.join(" "));
   }, []);
 
   useEffect(() => {
@@ -242,7 +249,13 @@ function LivePlatformDataPending() {
       />
       <Section className="space-y-6">
         {error ? <Card className="border-red-200"><p className="font-semibold text-red-800">{error}</p></Card> : null}
-        {(!data || !operations) && !error ? <Card><p className="font-semibold text-ink">Loading live platform data...</p></Card> : null}
+        {data?.summary.organisationsTruncated || data?.summary.paymentsTruncated ? <Card className="border-amber-200 bg-amber-50">
+          <p className="font-semibold text-amber-900">
+            {data.summary.organisationsTruncated ? "Organisation count has reached the 100-row display limit — totals below may undercount. " : ""}
+            {data.summary.paymentsTruncated ? "Payment history has reached the 1000-row display limit — revenue totals may undercount." : ""}
+          </p>
+        </Card> : null}
+        {!data && !operations && !error ? <Card><p className="font-semibold text-ink">Loading live platform data...</p></Card> : null}
         {data && operations ? <>
           <Card className="p-3">
             <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Platform console areas">
@@ -251,6 +264,15 @@ function LivePlatformDataPending() {
             </div>
           </Card>
           <LivePlatformArea activeArea={activeArea} data={data} operations={operations} onRefresh={refresh} />
+        </> : null}
+        {data && !operations ? <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <PlatformMetric label="Organisations" value={data.summary.organisations} detail={`${data.summary.trialAccounts} trials active`} icon={Building2} />
+            <PlatformMetric label="Paying" value={data.summary.payingAccounts} detail="Active subscriptions" icon={CreditCard} tone="green" />
+            <PlatformMetric label="Users" value={data.summary.activeUsers} detail={`${data.summary.activeClients} clients`} icon={Users} tone="blue" />
+            <PlatformMetric label="Payment attention" value={data.summary.paymentRisk} detail="Past-due providers" icon={AlertTriangle} tone="amber" />
+          </div>
+          <Card><p className="text-sm text-slate-600">Usage, security, and support panels need the operations service, which did not respond this time. <button type="button" onClick={refresh} className="font-semibold text-teal-700 underline">Try again</button>.</p></Card>
         </> : null}
       </Section>
     </>
