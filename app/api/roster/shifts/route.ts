@@ -126,19 +126,29 @@ export async function POST(request: Request) {
   const saved = await upsertShift(url, headers, access, shift);
   if (!saved.ok) return databaseError(saved, "The roster shift could not be saved.");
 
+  // Diff-based assignment sync: insert additions first, and only remove
+  // assignments that are actually being replaced, and only AFTER the insert
+  // succeeds. Previously this deleted every existing shift_staff row up
+  // front and then inserted the new set — if the insert failed for any
+  // reason (e.g. an invited worker not yet linked to a users row), the
+  // shift was left with zero assignments, which showed up as the shift
+  // silently reverting to "Unassigned".
   const assignmentWarnings: string[] = [];
-  const deleted = await fetch(`${url}/rest/v1/shift_staff?organisation_id=eq.${access.organisationId}&shift_id=eq.${encodeURIComponent(shift.id)}`, {
-    method: "DELETE",
-    headers,
-    cache: "no-store"
-  });
-  if (!deleted.ok) {
-    if (assignedWorkers.length) return databaseError(deleted, "Existing roster assignments could not be refreshed.");
-    assignmentWarnings.push(await databaseWarning(deleted, "Existing roster assignments could not be refreshed."));
-  }
+  const assignmentKey = (userId: string | null, inviteId: string | null) => `${userId || ""}:${inviteId || ""}`;
 
-  if (deleted.ok && resolvedAssignments.assignments.length) {
-    const assignments = resolvedAssignments.assignments.map((worker) => ({
+  const existingAssignments = await rows<{ id: string; staff_user_id: string | null; staff_invite_id: string | null }>(
+    url,
+    headers,
+    `shift_staff?select=id,staff_user_id,staff_invite_id&organisation_id=eq.${access.organisationId}&shift_id=eq.${encodeURIComponent(shift.id)}`
+  );
+  const existingKeys = new Set(existingAssignments.map((row) => assignmentKey(row.staff_user_id, row.staff_invite_id)));
+  const targetKeys = new Set(resolvedAssignments.assignments.map((worker) => assignmentKey(worker.staffUserId, worker.staffInviteId)));
+
+  const toInsert = resolvedAssignments.assignments.filter((worker) => !existingKeys.has(assignmentKey(worker.staffUserId, worker.staffInviteId)));
+  const toRemove = existingAssignments.filter((row) => !targetKeys.has(assignmentKey(row.staff_user_id, row.staff_invite_id)));
+
+  if (toInsert.length) {
+    const assignments = toInsert.map((worker) => ({
       organisation_id: access.organisationId,
       shift_id: shift.id,
       staff_user_id: worker.staffUserId,
@@ -164,11 +174,26 @@ export async function POST(request: Request) {
         if (!retry.ok) return databaseError(retry, "Roster staff assignments could not be saved.");
         else assignmentWarnings.push("Some invited staff are not linked to signed-in accounts yet.");
       } else {
+        // Nothing has been removed yet at this point, so the shift keeps
+        // whatever assignment it already had instead of reverting to
+        // Unassigned.
         const hasUnlinkedStaff = assignments.some((assignment) => !assignment.staff_user_id);
         return databaseError(written, hasUnlinkedStaff
           ? "Roster staff assignments could not be saved. Make sure the staff member has accepted their invite and signed in, then run the roster identity SQL repair if this continues."
           : "Roster staff assignments could not be saved.");
       }
+    }
+  }
+
+  if (toRemove.length) {
+    const removeIds = toRemove.map((row) => row.id);
+    const deleted = await fetch(`${url}/rest/v1/shift_staff?organisation_id=eq.${access.organisationId}&id=in.(${csvIn(removeIds)})`, {
+      method: "DELETE",
+      headers,
+      cache: "no-store"
+    });
+    if (!deleted.ok) {
+      assignmentWarnings.push(await databaseWarning(deleted, "Some previous roster assignments could not be removed."));
     }
   }
 
