@@ -163,7 +163,21 @@ export async function refreshOrganisationSubscriptionFromStripe(organisationId: 
     return { refreshed: !synced.error, error: synced.error || "" };
   }
 
-  return { refreshed: false, error: "No Stripe customer or subscription is linked to this workspace yet." };
+  // Neither ID is saved locally yet — this happens when checkout.session.completed
+  // never reached us (e.g. the customer paid before the webhook endpoint was
+  // correctly configured), so nothing ever backfilled these fields. Fall back
+  // to Stripe's Search API, matching on the organisation_id metadata that
+  // checkout always sets on the subscription itself
+  // (subscription_data[metadata][organisation_id] in app/api/stripe/checkout/route.ts).
+  const searchQuery = encodeURIComponent(`metadata['organisation_id']:'${organisationId}'`);
+  const searchResult = await stripeRequest<{ data?: StripeSubscription[] }>(`/subscriptions/search?query=${searchQuery}&limit=1&expand[]=data.items.data.price`, undefined, "GET");
+  const foundSubscription = searchResult.data?.data?.[0];
+  if (foundSubscription) {
+    const synced = await syncOrganisationSubscription(organisationId, foundSubscription);
+    return { refreshed: !synced.error, error: synced.error || "" };
+  }
+
+  return { refreshed: false, error: searchResult.error || "No Stripe customer or subscription is linked to this workspace yet, and none could be found by matching Stripe's records to this workspace. Check Stripe > Customers for a subscription with this organisation's email, and confirm it exists and is active." };
 }
 
 export async function recordSubscriptionInvoice(organisationId: string, invoice: StripeInvoice, eventId: string, eventType: string) {
