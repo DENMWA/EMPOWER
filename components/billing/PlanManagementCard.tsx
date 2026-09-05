@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, ArrowUpRight, Check, CreditCard } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CreditCard, RefreshCw } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
 import { getLiveSubscriptionUsage } from "@/lib/subscriptions/client-usage";
@@ -22,31 +22,54 @@ export function PlanManagementCard() {
   const [renewalDate, setRenewalDate] = useState("");
   const [planConfirmed, setPlanConfirmed] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("practice");
-  const [busyAction, setBusyAction] = useState<"checkout" | "portal" | "">("");
+  const [busyAction, setBusyAction] = useState<"checkout" | "portal" | "refresh" | "">("");
   const [billingMessage, setBillingMessage] = useState("");
   const trialEndsAt = renewalDate ? new Date(renewalDate) : null;
   const trialActive = status === "trialing" && Boolean(trialEndsAt && !Number.isNaN(trialEndsAt.getTime()) && trialEndsAt.getTime() > Date.now());
   const trialDaysRemaining = trialActive && trialEndsAt ? Math.max(1, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86400000)) : 0;
 
-  useEffect(() => {
-    async function loadPlan() {
-      const live = await getLiveSubscriptionUsage().catch(() => ({ data: null, error: "Unavailable" }));
-      if (live.data) {
-        setTier(live.data.tier);
-        setSelectedTier(live.data.tier);
-        setStatus(live.data.status);
-        setEnforcementMode(live.data.enforcementMode);
-        setRenewalDate(live.data.trialEndsAt || live.data.currentPeriodEnd);
-        setPlanConfirmed(true);
-        return;
-      }
-
-      setStatus("Plan unavailable");
-      setPlanConfirmed(false);
+  async function loadPlan() {
+    const live = await getLiveSubscriptionUsage().catch(() => ({ data: null, error: "Unavailable" }));
+    if (live.data) {
+      setTier(live.data.tier);
+      setSelectedTier(live.data.tier);
+      setStatus(live.data.status);
+      setEnforcementMode(live.data.enforcementMode);
+      setRenewalDate(live.data.trialEndsAt || live.data.currentPeriodEnd);
+      setPlanConfirmed(true);
+      return;
     }
 
+    setStatus("Plan unavailable");
+    setPlanConfirmed(false);
+  }
+
+  useEffect(() => {
     void loadPlan();
   }, []);
+
+  async function syncFromStripe() {
+    setBusyAction("refresh");
+    setBillingMessage("Checking Stripe for your latest payment status...");
+    try {
+      const response = await fetch("/api/subscription/refresh", {
+        method: "POST",
+        headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" }
+      });
+      const result = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) {
+        setBillingMessage(result.error || "Stripe did not return a subscription for this workspace yet. If you just paid, wait a moment and try again.");
+        setBusyAction("");
+        return;
+      }
+      await loadPlan();
+      setBillingMessage("Your billing status is now up to date.");
+    } catch {
+      setBillingMessage("The billing service is temporarily unavailable. Try again.");
+    } finally {
+      setBusyAction("");
+    }
+  }
 
   async function openBillingEndpoint(endpoint: "checkout" | "portal") {
     if (endpoint === "checkout" && selectedTier === "enterprise") {
@@ -117,6 +140,11 @@ export function PlanManagementCard() {
           {busyAction === "portal" ? "Opening..." : "Manage billing"}
         </button>
       </div>
+
+      {planConfirmed && status === "trialing" && !trialActive ? <button type="button" disabled={Boolean(busyAction)} onClick={() => void syncFromStripe()} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:border-teal-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+        <RefreshCw size={16} aria-hidden="true" className={busyAction === "refresh" ? "animate-spin" : ""} />
+        {busyAction === "refresh" ? "Checking Stripe..." : "Already paid? Sync from Stripe"}
+      </button> : null}
 
       {billingMessage ? <p aria-live="polite" className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">{billingMessage}</p> : null}
       </div>
