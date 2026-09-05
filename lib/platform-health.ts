@@ -56,12 +56,16 @@ async function checkStripe(checkedAt: string) {
   }, "warning", expiry("STRIPE_SECRET_KEY"));
 }
 
-const requiredStripeWebhookEvents = [
-  "checkout.session.completed",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-  "invoice.payment_succeeded",
-  "invoice.payment_failed"
+// Each inner array is a group where at least one of the listed events must
+// be subscribed. Stripe's webhook handler (app/api/stripe/webhook/route.ts)
+// accepts both invoice.paid and invoice.payment_succeeded as equivalent, so
+// either satisfies that requirement.
+const requiredStripeWebhookEventGroups = [
+  ["checkout.session.completed"],
+  ["customer.subscription.updated"],
+  ["customer.subscription.deleted"],
+  ["invoice.paid", "invoice.payment_succeeded"],
+  ["invoice.payment_failed"]
 ];
 
 type StripeWebhookEndpoint = {
@@ -69,6 +73,15 @@ type StripeWebhookEndpoint = {
   status?: string;
   enabled_events?: string[];
 };
+
+type StripeEventDestination = {
+  type?: string;
+  status?: string;
+  enabled_events?: string[];
+  webhook_endpoint?: { url?: string | null };
+};
+
+type NormalisedEndpoint = { url: string; status: string; events: string[] };
 
 async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthCheck> {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -80,11 +93,8 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
   const expectedPaths = new Set(["https://www.empowernotes.org/api/stripe/webhook", "https://empowernotes.org/api/stripe/webhook", appUrl ? `${appUrl}/api/stripe/webhook` : ""].filter(Boolean));
 
   return runCheck("stripe-webhook", "Stripe webhook", checkedAt, async () => {
-    const response = await fetch("https://api.stripe.com/v1/webhook_endpoints?limit=20", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
-    if (!response.ok) throw new Error(`Stripe returned HTTP ${response.status} while listing webhook endpoints.`);
-    const body = await response.json() as { data?: StripeWebhookEndpoint[] };
-    const endpoints = body.data || [];
-    const matching = endpoints.filter((endpoint) => endpoint.url && expectedPaths.has(endpoint.url));
+    const endpoints = await listStripeWebhookDestinations(key);
+    const matching = endpoints.filter((endpoint) => expectedPaths.has(endpoint.url));
 
     if (!matching.length) {
       throw new Error(`No Stripe webhook endpoint is registered for ${[...expectedPaths][0] || "the production URL"}. Subscription status will never update after checkout until one is added in Stripe > Developers > Webhooks.`);
@@ -95,16 +105,61 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
       throw new Error(`A webhook endpoint is registered for the production URL but its status is "${matching[0].status}", not "enabled". Payment confirmations will not be delivered.`);
     }
 
-    const subscribedEvents = new Set(enabled.enabled_events || []);
+    const subscribedEvents = new Set(enabled.events);
     const coversAllEvents = subscribedEvents.has("*");
-    const missingEvents = coversAllEvents ? [] : requiredStripeWebhookEvents.filter((event) => !subscribedEvents.has(event));
-    if (missingEvents.length) {
-      throw new Error(`The webhook endpoint is enabled but is not subscribed to: ${missingEvents.join(", ")}. Add these events in Stripe > Developers > Webhooks so subscription status stays in sync.`);
+    const missingGroups = coversAllEvents ? [] : requiredStripeWebhookEventGroups.filter((group) => !group.some((event) => subscribedEvents.has(event)));
+    if (missingGroups.length) {
+      throw new Error(`The webhook endpoint is enabled but is not subscribed to: ${missingGroups.map((group) => group.join(" or ")).join(", ")}. Add these events in Stripe > Developers > Webhooks so subscription status stays in sync.`);
     }
 
     return "A Stripe webhook endpoint is enabled for the production URL and subscribed to the required events.";
   }, "critical");
 }
+
+async function listStripeWebhookDestinations(key: string): Promise<NormalisedEndpoint[]> {
+  const [legacy, modern] = await Promise.all([
+    fetchLegacyWebhookEndpoints(key),
+    fetchEventDestinations(key)
+  ]);
+  return [...legacy, ...modern];
+}
+
+// The classic v1 API. Endpoints created before Stripe introduced Event
+// Destinations (or via direct v1 API calls) show up here, with IDs like we_...
+async function fetchLegacyWebhookEndpoints(key: string): Promise<NormalisedEndpoint[]> {
+  try {
+    const response = await fetch("https://api.stripe.com/v1/webhook_endpoints?limit=20", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return [];
+    const body = await response.json() as { data?: StripeWebhookEndpoint[] };
+    return (body.data || [])
+      .filter((endpoint): endpoint is StripeWebhookEndpoint & { url: string } => Boolean(endpoint.url))
+      .map((endpoint) => ({ url: endpoint.url, status: endpoint.status || "", events: endpoint.enabled_events || [] }));
+  } catch {
+    return [];
+  }
+}
+
+// Stripe's current dashboard ("Developers > Webhooks > Add destination")
+// creates entries through the newer v2 Event Destinations API instead, with
+// IDs like ed_... The v1 list above never returns these, so they need to be
+// queried separately with their own API version header.
+async function fetchEventDestinations(key: string): Promise<NormalisedEndpoint[]> {
+  try {
+    const response = await fetch("https://api.stripe.com/v2/core/event_destinations?limit=20&include[0]=webhook_endpoint.url", {
+      headers: { Authorization: `Bearer ${key}`, "Stripe-Version": process.env.STRIPE_API_VERSION || "2026-01-28.clover" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return [];
+    const body = await response.json() as { data?: StripeEventDestination[] };
+    return (body.data || [])
+      .filter((destination) => destination.type === "webhook_endpoint" && destination.webhook_endpoint?.url)
+      .map((destination) => ({ url: destination.webhook_endpoint?.url || "", status: destination.status || "", events: destination.enabled_events || [] }));
+  } catch {
+    return [];
+  }
+}
+
 
 async function checkResend(checkedAt: string) {
   const key = process.env.RESEND_API_KEY;
