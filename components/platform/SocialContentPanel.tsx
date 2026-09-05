@@ -85,12 +85,23 @@ export function SocialContentPanel() {
               </div>
               <StatusBadge label={post.status} tone={post.status === "posted" ? "green" : post.status === "failed" ? "red" : "amber"} />
             </div>
-            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">{post.content_text}</p>
+            <div className="mt-3 flex flex-wrap items-start gap-4">
+              {post.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={post.image_url} alt={`${post.feature_slug} social graphic`} className="w-40 rounded-md border border-slate-200" />
+              ) : null}
+              <p className="min-w-0 flex-1 whitespace-pre-line text-sm leading-6 text-slate-700">{post.content_text}</p>
+            </div>
             {post.error_detail ? <p className="mt-2 text-xs font-semibold text-red-700">{post.error_detail}</p> : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={() => void copyText(post)} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-ink hover:border-teal-400">
                 <Copy size={13} aria-hidden="true" /> {copiedId === post.id ? "Copied" : "Copy caption"}
               </button>
+              {post.image_url ? (
+                <a href={post.image_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-ink hover:border-teal-400">
+                  Open image
+                </a>
+              ) : null}
               {post.status === "draft" ? (
                 <button type="button" disabled={busyId === post.id} onClick={() => void markPosted(post.id)} className="rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-800 disabled:opacity-50">
                   {busyId === post.id ? "Marking..." : "Mark posted"}

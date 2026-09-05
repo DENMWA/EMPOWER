@@ -19,8 +19,8 @@ const platformBrief: Record<SocialPlatform, string> = {
   instagram: "Instagram caption, punchy and warm tone, 40-90 words, short sentences, line breaks between ideas, end with 5-8 relevant hashtags on their own line."
 };
 
-export async function generateSocialCopy(feature: PublicSeoPage, platform: SocialPlatform): Promise<{ text: string; error: string }> {
-  if (!openAiApiKey) return { text: localFallbackCopy(feature, platform), error: "" };
+export async function generateSocialCopy(feature: PublicSeoPage, platform: SocialPlatform): Promise<{ text: string; imageLine: string; error: string }> {
+  if (!openAiApiKey) return { ...localFallbackCopy(feature, platform), error: "" };
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -42,7 +42,8 @@ export async function generateSocialCopy(feature: PublicSeoPage, platform: Socia
               "Write about the specific feature described in the user message. Make it feel fresh and different from a generic feature list — pick one angle (a pain point it solves, a before/after, a specific scenario) rather than restating the whole description.",
               "Never invent specific customer names, testimonials, statistics, or claims you cannot verify.",
               "Never use the words 'revolutionary', 'game-changer', 'unlock', or 'supercharge'.",
-              "Return JSON only in this shape: {\"text\":\"...\"}. No markdown, no preamble."
+              "Also write a short 6-12 word line for the accompanying graphic — punchier and shorter than the caption, no hashtags, no emoji.",
+              "Return JSON only in this shape: {\"text\":\"...\",\"imageLine\":\"...\"}. No markdown, no preamble."
             ].join(" ")
           },
           {
@@ -52,22 +53,37 @@ export async function generateSocialCopy(feature: PublicSeoPage, platform: Socia
         ]
       })
     });
-    if (!response.ok) return { text: localFallbackCopy(feature, platform), error: `OpenAI returned HTTP ${response.status}.` };
+    if (!response.ok) return { ...localFallbackCopy(feature, platform), error: `OpenAI returned HTTP ${response.status}.` };
     const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const content = body.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(content) as { text?: string };
+    const parsed = JSON.parse(content) as { text?: string; imageLine?: string };
     const text = (parsed.text || "").trim();
-    if (!text) return { text: localFallbackCopy(feature, platform), error: "OpenAI returned an empty post." };
-    return { text, error: "" };
+    const imageLine = (parsed.imageLine || "").trim();
+    if (!text) return { ...localFallbackCopy(feature, platform), error: "OpenAI returned an empty post." };
+    return { text, imageLine: imageLine || feature.description.slice(0, 100), error: "" };
   } catch (error) {
-    return { text: localFallbackCopy(feature, platform), error: error instanceof Error ? error.message : "OpenAI request failed." };
+    return { ...localFallbackCopy(feature, platform), error: error instanceof Error ? error.message : "OpenAI request failed." };
   }
 }
 
 function localFallbackCopy(feature: PublicSeoPage, platform: SocialPlatform) {
   const base = `${feature.title}: ${feature.description}`;
-  if (platform === "instagram") return `${base}\n\n#NDIS #DisabilitySupport #SupportWorkers #NDISProvider #CareTech`;
-  return `${base}\n\nLearn more: https://www.empowernotes.org/features/${feature.slug}`;
+  const text = platform === "instagram"
+    ? `${base}\n\n#NDIS #DisabilitySupport #SupportWorkers #NDISProvider #CareTech`
+    : `${base}\n\nLearn more: https://www.empowernotes.org/features/${feature.slug}`;
+  return { text, imageLine: feature.description.slice(0, 100) };
+}
+
+const imageRatioForPlatform: Record<SocialPlatform, "square" | "wide"> = {
+  linkedin: "wide",
+  linkedin_page: "wide",
+  instagram: "square"
+};
+
+export function buildSocialImageUrl(feature: PublicSeoPage, imageLine: string, platform: SocialPlatform) {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://www.empowernotes.org").replace(/\/$/, "");
+  const params = new URLSearchParams({ title: feature.title, line: imageLine, ratio: imageRatioForPlatform[platform] });
+  return `${appUrl}/social-image?${params.toString()}`;
 }
 
 type LinkedInPublishResult = { ok: boolean; externalPostId: string; error: string };
