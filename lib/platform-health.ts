@@ -16,6 +16,7 @@ export async function runPlatformHealthScan() {
     checkSupabase(checkedAt),
     checkOpenAi(checkedAt),
     checkStripe(checkedAt),
+    checkStripeAccountRestrictions(checkedAt),
     checkStripeWebhook(checkedAt),
     checkResend(checkedAt),
     checkApplicationUrl(checkedAt)
@@ -54,6 +55,33 @@ async function checkStripe(checkedAt: string) {
     if (!response.ok) throw new Error(`Stripe returned HTTP ${response.status}.`);
     return "Stripe account connection is responding; no payment action was performed.";
   }, "warning", expiry("STRIPE_SECRET_KEY"));
+}
+
+type StripeAccount = {
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  requirements?: { disabled_reason?: string | null; currently_due?: string[] };
+};
+
+// Stripe can disable charges or payouts on an account (e.g. a compliance
+// review, a requested document not submitted) without this showing up
+// anywhere else in the app — checkout would start failing silently for
+// every customer with no error visible except in the Stripe Dashboard.
+async function checkStripeAccountRestrictions(checkedAt: string): Promise<PlatformHealthCheck> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return missingCheck("stripe-account", "Stripe account status", "Stripe server key is not configured, so account restrictions cannot be checked.", checkedAt, "warning");
+  return runCheck("stripe-account", "Stripe account status", checkedAt, async () => {
+    const response = await fetch("https://api.stripe.com/v1/account", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`Stripe returned HTTP ${response.status} while checking account status.`);
+    const account = await response.json() as StripeAccount;
+    const issues: string[] = [];
+    if (account.charges_enabled === false) issues.push("charges are disabled — customers cannot be charged at all");
+    if (account.payouts_enabled === false) issues.push("payouts are disabled");
+    const disabledReason = account.requirements?.disabled_reason;
+    if (disabledReason) issues.push(`Stripe reports a disabled reason: ${disabledReason}`);
+    if (issues.length) throw new Error(`Stripe account restriction detected: ${issues.join("; ")}. Check Stripe > Settings > Account for required actions.`);
+    return "Charges and payouts are both enabled on the connected Stripe account.";
+  }, "critical");
 }
 
 // Each inner array is a group where at least one of the listed events must
@@ -122,8 +150,30 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
       throw new Error(`The webhook endpoint is enabled but is not subscribed to: ${missingGroups.map((group) => group.join(" or ")).join(", ")}. Add these events in Stripe > Developers > Webhooks so subscription status stays in sync.`);
     }
 
-    return "A Stripe webhook endpoint is enabled for the production URL and subscribed to the required events.";
+    return `A Stripe webhook endpoint is enabled for the production URL and subscribed to the required events.${await lastWebhookEventSummary()}`;
   }, "critical");
+}
+
+// Informational only — appended to the success detail so staleness is
+// visible without inventing a new pass/fail threshold (a brand-new account
+// with zero events yet is not a failure).
+async function lastWebhookEventSummary() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return "";
+  try {
+    const response = await fetch(`${url}/rest/v1/stripe_webhook_events?select=received_at&order=received_at.desc&limit=1`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return "";
+    const rows = await response.json() as Array<{ received_at: string }>;
+    if (!rows[0]?.received_at) return " No webhook events have been received yet.";
+    return ` Last webhook event received ${new Date(rows[0].received_at).toLocaleString("en-AU")}.`;
+  } catch {
+    return "";
+  }
 }
 
 // A GET to a POST-only Stripe webhook route should return 405 Method Not
