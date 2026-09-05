@@ -56,12 +56,11 @@ export async function GET(request: Request) {
     { headers, cache: "no-store" }
   );
   const paymentRows = paymentResponse.ok ? await paymentResponse.json() as PaymentRow[] : [];
-  const organisations = await Promise.all(organisationRows.map(async (organisation) => {
-    const [users, clients, incidents] = await Promise.all([
-      countRows(url, headers, "users", organisation.id),
-      countRows(url, headers, "participants_or_clients", organisation.id),
-      countRows(url, headers, "incident_reports", organisation.id)
-    ]);
+  const organisationsLimit = 100;
+  const paymentsLimit = 1000;
+  const counts = await getOrganisationCounts(url, headers, organisationRows.map((row) => row.id));
+  const organisations = organisationRows.map((organisation) => {
+    const rowCounts = counts.get(organisation.id) || { users: 0, clients: 0, incidents: 0 };
     const status = normaliseSubscriptionStatus(organisation.subscription_status);
     return {
       id: organisation.id,
@@ -78,11 +77,11 @@ export async function GET(request: Request) {
       platformAccessStatus: organisation.platform_access_status || "active",
       platformAccessReason: organisation.platform_access_reason || "",
       platformAccessUpdatedAt: organisation.platform_access_updated_at || "",
-      users,
-      clients,
-      incidents
+      users: rowCounts.users,
+      clients: rowCounts.clients,
+      incidents: rowCounts.incidents
     };
-  }));
+  });
 
   const payments = buildPaymentAnalytics(paymentRows, organisationRows);
 
@@ -97,11 +96,52 @@ export async function GET(request: Request) {
       payingAccounts: organisations.filter((item) => item.billingState === "Paying").length,
       paymentRisk: Math.max(organisations.filter((item) => item.status === "past_due").length, payments.providers.filter((item) => item.risk).length),
       lifetimeRevenueCents: payments.lifetimePaidCents,
-      currentMonthRevenueCents: payments.currentMonthPaidCents
+      currentMonthRevenueCents: payments.currentMonthPaidCents,
+      organisationsTruncated: organisationRows.length >= organisationsLimit,
+      paymentsTruncated: paymentRows.length >= paymentsLimit
     },
     organisations,
     payments
   });
+}
+
+async function getOrganisationCounts(url: string, headers: Record<string, string>, organisationIds: string[]) {
+  const counts = new Map<string, { users: number; clients: number; incidents: number }>();
+
+  // Fast path: a single aggregated query (see supabase/platform-organisation-counts.sql).
+  // Falls back to the old per-organisation queries below if that migration
+  // has not been run yet, so this keeps working either way.
+  try {
+    const response = await fetch(`${url}/rest/v1/rpc/platform_organisation_counts`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store"
+    });
+    if (response.ok) {
+      const rows = await response.json() as Array<{ organisation_id: string; users_count: number | string; clients_count: number | string; incidents_count: number | string }>;
+      rows.forEach((row) => {
+        counts.set(row.organisation_id, {
+          users: Number(row.users_count) || 0,
+          clients: Number(row.clients_count) || 0,
+          incidents: Number(row.incidents_count) || 0
+        });
+      });
+      return counts;
+    }
+  } catch {
+    // fall through to the per-organisation fallback below
+  }
+
+  await Promise.all(organisationIds.map(async (organisationId) => {
+    const [users, clients, incidents] = await Promise.all([
+      countRows(url, headers, "users", organisationId),
+      countRows(url, headers, "participants_or_clients", organisationId),
+      countRows(url, headers, "incident_reports", organisationId)
+    ]);
+    counts.set(organisationId, { users, clients, incidents });
+  }));
+  return counts;
 }
 
 function buildPaymentAnalytics(rows: PaymentRow[], organisations: OrganisationRow[]) {

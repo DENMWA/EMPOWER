@@ -16,6 +16,7 @@ export async function runPlatformHealthScan() {
     checkSupabase(checkedAt),
     checkOpenAi(checkedAt),
     checkStripe(checkedAt),
+    checkStripeWebhook(checkedAt),
     checkResend(checkedAt),
     checkApplicationUrl(checkedAt)
   ]);
@@ -53,6 +54,56 @@ async function checkStripe(checkedAt: string) {
     if (!response.ok) throw new Error(`Stripe returned HTTP ${response.status}.`);
     return "Stripe account connection is responding; no payment action was performed.";
   }, "warning", expiry("STRIPE_SECRET_KEY"));
+}
+
+const requiredStripeWebhookEvents = [
+  "checkout.session.completed",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "invoice.payment_succeeded",
+  "invoice.payment_failed"
+];
+
+type StripeWebhookEndpoint = {
+  url?: string;
+  status?: string;
+  enabled_events?: string[];
+};
+
+async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthCheck> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return missingCheck("stripe-webhook", "Stripe webhook", "Stripe server key is not configured, so webhook delivery cannot be verified.", checkedAt, "warning");
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret?.startsWith("whsec_")) return missingCheck("stripe-webhook", "Stripe webhook", "STRIPE_WEBHOOK_SECRET is missing or malformed. Subscription status updates from Stripe will silently fail signature verification.", checkedAt, "critical");
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const expectedPaths = new Set(["https://www.empowernotes.org/api/stripe/webhook", "https://empowernotes.org/api/stripe/webhook", appUrl ? `${appUrl}/api/stripe/webhook` : ""].filter(Boolean));
+
+  return runCheck("stripe-webhook", "Stripe webhook", checkedAt, async () => {
+    const response = await fetch("https://api.stripe.com/v1/webhook_endpoints?limit=20", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`Stripe returned HTTP ${response.status} while listing webhook endpoints.`);
+    const body = await response.json() as { data?: StripeWebhookEndpoint[] };
+    const endpoints = body.data || [];
+    const matching = endpoints.filter((endpoint) => endpoint.url && expectedPaths.has(endpoint.url));
+
+    if (!matching.length) {
+      throw new Error(`No Stripe webhook endpoint is registered for ${[...expectedPaths][0] || "the production URL"}. Subscription status will never update after checkout until one is added in Stripe > Developers > Webhooks.`);
+    }
+
+    const enabled = matching.find((endpoint) => endpoint.status === "enabled");
+    if (!enabled) {
+      throw new Error(`A webhook endpoint is registered for the production URL but its status is "${matching[0].status}", not "enabled". Payment confirmations will not be delivered.`);
+    }
+
+    const subscribedEvents = new Set(enabled.enabled_events || []);
+    const coversAllEvents = subscribedEvents.has("*");
+    const missingEvents = coversAllEvents ? [] : requiredStripeWebhookEvents.filter((event) => !subscribedEvents.has(event));
+    if (missingEvents.length) {
+      throw new Error(`The webhook endpoint is enabled but is not subscribed to: ${missingEvents.join(", ")}. Add these events in Stripe > Developers > Webhooks so subscription status stays in sync.`);
+    }
+
+    return "A Stripe webhook endpoint is enabled for the production URL and subscribed to the required events.";
+  }, "critical");
 }
 
 async function checkResend(checkedAt: string) {
