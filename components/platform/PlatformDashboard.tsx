@@ -20,6 +20,7 @@ import { TrialRunChecklist } from "@/components/trial/TrialRunChecklist";
 import { SystemHealthPanel } from "@/components/platform/SystemHealthPanel";
 import { NdisPricingMonitorPanel } from "@/components/platform/NdisPricingMonitorPanel";
 import { MarketingAttributionPanel } from "@/components/platform/MarketingAttributionPanel";
+import { SocialContentPanel } from "@/components/platform/SocialContentPanel";
 import { DiscoverabilityPanel } from "@/components/platform/DiscoverabilityPanel";
 import { PlatformKpiScorecard } from "@/components/platform/PlatformKpiScorecard";
 import { NdisMatchQualityPanel, PlatformVisualIntelligence } from "@/components/platform/PlatformVisualIntelligence";
@@ -287,7 +288,7 @@ function LivePlatformArea({ activeArea, data, operations, onRefresh }: { activeA
   if (activeArea === "ndis") return <div className="space-y-6"><NdisPricingMonitorPanel /><NdisMatchQualityPanel events={operations.ndisMatchEvents || []} /></div>;
   if (activeArea === "diagnostics") return <SystemHealthPanel />;
   if (activeArea === "analytics") return <div className="space-y-6"><PlatformVisualIntelligence organisations={data.organisations} payments={data.payments} snapshots={operations.snapshots || []} usage={operations.usage} securityEvents={operations.securityEvents} supportCases={operations.supportCases} ndisMatchEvents={operations.ndisMatchEvents || []} /><LiveUsagePanel data={data} operations={operations} /></div>;
-  if (activeArea === "marketing") return <MarketingAttributionPanel />;
+  if (activeArea === "marketing") return <div className="space-y-6"><MarketingAttributionPanel /><SocialContentPanel /></div>;
   if (activeArea === "discoverability") return <DiscoverabilityPanel />;
   if (activeArea === "security") return <LiveSecurityPanel data={data} operations={operations} />;
   if (activeArea === "support") return <LiveSupportPanel data={data} operations={operations} onRefresh={onRefresh} />;
