@@ -83,6 +83,8 @@ type StripeEventDestination = {
 
 type NormalisedEndpoint = { url: string; status: string; events: string[] };
 
+type FetchResult = { endpoints: NormalisedEndpoint[]; fetchError: string };
+
 async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthCheck> {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return missingCheck("stripe-webhook", "Stripe webhook", "Stripe server key is not configured, so webhook delivery cannot be verified.", checkedAt, "warning");
@@ -93,11 +95,14 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
   const expectedPaths = new Set(["https://www.empowernotes.org/api/stripe/webhook", "https://empowernotes.org/api/stripe/webhook", appUrl ? `${appUrl}/api/stripe/webhook` : ""].filter(Boolean));
 
   return runCheck("stripe-webhook", "Stripe webhook", checkedAt, async () => {
-    const endpoints = await listStripeWebhookDestinations(key);
+    const [legacy, modern] = await Promise.all([fetchLegacyWebhookEndpoints(key), fetchEventDestinations(key)]);
+    const endpoints = [...legacy.endpoints, ...modern.endpoints];
     const matching = endpoints.filter((endpoint) => expectedPaths.has(endpoint.url));
 
     if (!matching.length) {
-      throw new Error(`No Stripe webhook endpoint is registered for ${[...expectedPaths][0] || "the production URL"}. Subscription status will never update after checkout until one is added in Stripe > Developers > Webhooks.`);
+      const fetchErrors = [legacy.fetchError, modern.fetchError].filter(Boolean);
+      const errorSuffix = fetchErrors.length ? ` (Stripe API errors while checking: ${fetchErrors.join(" | ")})` : "";
+      throw new Error(`No Stripe webhook endpoint is registered for ${[...expectedPaths][0] || "the production URL"}. Subscription status will never update after checkout until one is added in Stripe > Developers > Webhooks.${errorSuffix}`);
     }
 
     const enabled = matching.find((endpoint) => endpoint.status === "enabled");
@@ -116,26 +121,21 @@ async function checkStripeWebhook(checkedAt: string): Promise<PlatformHealthChec
   }, "critical");
 }
 
-async function listStripeWebhookDestinations(key: string): Promise<NormalisedEndpoint[]> {
-  const [legacy, modern] = await Promise.all([
-    fetchLegacyWebhookEndpoints(key),
-    fetchEventDestinations(key)
-  ]);
-  return [...legacy, ...modern];
-}
-
 // The classic v1 API. Endpoints created before Stripe introduced Event
 // Destinations (or via direct v1 API calls) show up here, with IDs like we_...
-async function fetchLegacyWebhookEndpoints(key: string): Promise<NormalisedEndpoint[]> {
+async function fetchLegacyWebhookEndpoints(key: string): Promise<FetchResult> {
   try {
     const response = await fetch("https://api.stripe.com/v1/webhook_endpoints?limit=20", { headers: { Authorization: `Bearer ${key}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
-    if (!response.ok) return [];
+    if (!response.ok) return { endpoints: [], fetchError: `v1 list returned HTTP ${response.status}: ${(await response.text()).slice(0, 200)}` };
     const body = await response.json() as { data?: StripeWebhookEndpoint[] };
-    return (body.data || [])
-      .filter((endpoint): endpoint is StripeWebhookEndpoint & { url: string } => Boolean(endpoint.url))
-      .map((endpoint) => ({ url: endpoint.url, status: endpoint.status || "", events: endpoint.enabled_events || [] }));
-  } catch {
-    return [];
+    return {
+      endpoints: (body.data || [])
+        .filter((endpoint): endpoint is StripeWebhookEndpoint & { url: string } => Boolean(endpoint.url))
+        .map((endpoint) => ({ url: endpoint.url, status: endpoint.status || "", events: endpoint.enabled_events || [] })),
+      fetchError: ""
+    };
+  } catch (error) {
+    return { endpoints: [], fetchError: `v1 list request failed: ${error instanceof Error ? error.message : "unknown error"}` };
   }
 }
 
@@ -143,20 +143,25 @@ async function fetchLegacyWebhookEndpoints(key: string): Promise<NormalisedEndpo
 // creates entries through the newer v2 Event Destinations API instead, with
 // IDs like ed_... The v1 list above never returns these, so they need to be
 // queried separately with their own API version header.
-async function fetchEventDestinations(key: string): Promise<NormalisedEndpoint[]> {
+async function fetchEventDestinations(key: string): Promise<FetchResult> {
   try {
+    const headers: Record<string, string> = { Authorization: `Bearer ${key}` };
+    if (process.env.STRIPE_API_VERSION) headers["Stripe-Version"] = process.env.STRIPE_API_VERSION;
     const response = await fetch("https://api.stripe.com/v2/core/event_destinations?limit=20&include[0]=webhook_endpoint.url", {
-      headers: { Authorization: `Bearer ${key}`, "Stripe-Version": process.env.STRIPE_API_VERSION || "2026-01-28.clover" },
+      headers,
       cache: "no-store",
       signal: AbortSignal.timeout(8000)
     });
-    if (!response.ok) return [];
+    if (!response.ok) return { endpoints: [], fetchError: `v2 list returned HTTP ${response.status}: ${(await response.text()).slice(0, 200)}` };
     const body = await response.json() as { data?: StripeEventDestination[] };
-    return (body.data || [])
-      .filter((destination) => destination.type === "webhook_endpoint" && destination.webhook_endpoint?.url)
-      .map((destination) => ({ url: destination.webhook_endpoint?.url || "", status: destination.status || "", events: destination.enabled_events || [] }));
-  } catch {
-    return [];
+    return {
+      endpoints: (body.data || [])
+        .filter((destination) => destination.type === "webhook_endpoint" && destination.webhook_endpoint?.url)
+        .map((destination) => ({ url: destination.webhook_endpoint?.url || "", status: destination.status || "", events: destination.enabled_events || [] })),
+      fetchError: ""
+    };
+  } catch (error) {
+    return { endpoints: [], fetchError: `v2 list request failed: ${error instanceof Error ? error.message : "unknown error"}` };
   }
 }
 
