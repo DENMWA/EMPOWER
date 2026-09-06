@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildSocialImageUrl, generateSocialCopy, pickFeatureForDate, publishToLinkedInProfile, type SocialPlatform } from "@/lib/social-content";
+import { buildSocialImageUrl, generateSocialCopy, pickFeatureForDate, publishToInstagram, publishToLinkedInProfile, type SocialPlatform } from "@/lib/social-content";
 import type { PublicSeoPage } from "@/lib/public-seo-pages";
 
 export const runtime = "nodejs";
@@ -47,6 +47,16 @@ async function processPlatform(url: string, headers: Record<string, string>, pla
 
   if (platform === "linkedin") {
     const publish = await publishToLinkedInProfile(generated.text);
+    if (publish.ok) {
+      insertBody.status = "posted";
+      insertBody.external_post_id = publish.externalPostId;
+      insertBody.posted_at = new Date().toISOString();
+    } else {
+      insertBody.status = "failed";
+      insertBody.error_detail = publish.error;
+    }
+  } else if (platform === "instagram") {
+    const publish = await publishToInstagram(imageUrl, generated.text);
     if (publish.ok) {
       insertBody.status = "posted";
       insertBody.external_post_id = publish.externalPostId;
