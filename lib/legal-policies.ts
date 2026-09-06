@@ -13,7 +13,7 @@ export type LegalPolicy = {
 };
 
 export const policyEffectiveDate = "24 July 2026";
-export const policyContactEmail = "privacy@empowernotes.org";
+export const policyContactEmail = "info@empowernotes.org";
 
 export const legalPolicies: LegalPolicy[] = [
   {
