@@ -127,3 +127,48 @@ export async function publishToLinkedInProfile(text: string): Promise<LinkedInPu
     return { ok: false, externalPostId: "", error: error instanceof Error ? error.message : "LinkedIn request failed." };
   }
 }
+
+type InstagramPublishResult = { ok: boolean; externalPostId: string; error: string };
+
+// Instagram Graph API content publishing is a two-step flow: create a media
+// container referencing a public image URL, then publish that container.
+// Requires INSTAGRAM_ACCESS_TOKEN (long-lived token for the connected
+// Instagram Business account) and INSTAGRAM_BUSINESS_ACCOUNT_ID (defaults to
+// the account connected during setup, id 17841435029641998 — override via
+// env if the account ever changes).
+export async function publishToInstagram(imageUrl: string, caption: string): Promise<InstagramPublishResult> {
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const igUserId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID || "17841435029641998";
+  if (!accessToken) return { ok: false, externalPostId: "", error: "INSTAGRAM_ACCESS_TOKEN is not configured." };
+
+  const apiVersion = process.env.META_GRAPH_API_VERSION || "v21.0";
+  const graphUrl = `https://graph.facebook.com/${apiVersion}`;
+
+  try {
+    const containerResponse = await fetch(`${graphUrl}/${igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(20000),
+      body: JSON.stringify({ image_url: imageUrl, caption, access_token: accessToken })
+    });
+    const containerBody = await containerResponse.json() as { id?: string; error?: { message?: string } };
+    if (!containerResponse.ok || !containerBody.id) {
+      return { ok: false, externalPostId: "", error: `Instagram media creation failed: ${containerBody.error?.message || `HTTP ${containerResponse.status}`}` };
+    }
+
+    const publishResponse = await fetch(`${graphUrl}/${igUserId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(20000),
+      body: JSON.stringify({ creation_id: containerBody.id, access_token: accessToken })
+    });
+    const publishBody = await publishResponse.json() as { id?: string; error?: { message?: string } };
+    if (!publishResponse.ok || !publishBody.id) {
+      return { ok: false, externalPostId: "", error: `Instagram publish failed: ${publishBody.error?.message || `HTTP ${publishResponse.status}`}` };
+    }
+
+    return { ok: true, externalPostId: publishBody.id, error: "" };
+  } catch (error) {
+    return { ok: false, externalPostId: "", error: error instanceof Error ? error.message : "Instagram request failed." };
+  }
+}
