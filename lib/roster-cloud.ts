@@ -119,7 +119,7 @@ export async function loadTenantRosterShifts() {
 
 export async function saveTenantRosterShift(shift: RosterShift) {
   const apiResult = await saveRosterShiftViaApi(shift);
-  if (apiResult.savedToCloud || apiResult.error !== "api_unavailable") return apiResult;
+  if (apiResult.savedToCloud || apiResult.error !== "api_unavailable") return { ...apiResult, source: "api" as const };
 
   const result = await supabaseRpc<string>("save_roster_shift_with_service_location", {
     roster_shift_id: shift.id,
@@ -144,6 +144,7 @@ export async function saveTenantRosterShift(shift: RosterShift) {
 
   return {
     savedToCloud: !result.error,
+    source: "rpc-fallback" as const,
     error: result.error || ""
   };
 }
@@ -173,9 +174,9 @@ async function saveRosterShiftViaApi(shift: RosterShift) {
       body: JSON.stringify(shift),
       cache: "no-store"
     });
-    const result = await response.json().catch(() => ({})) as { error?: string; warning?: string };
+    const result = await response.json().catch(() => ({})) as { error?: string; warning?: string; debug?: Record<string, number> };
     if (!response.ok) return { savedToCloud: false, error: result.error || "New shift could not be saved." };
-    return { savedToCloud: true, error: result.warning || "" };
+    return { savedToCloud: true, error: result.warning || "", debug: result.debug };
   } catch {
     return { savedToCloud: false, error: "api_unavailable" };
   }
