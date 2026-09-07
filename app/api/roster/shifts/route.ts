@@ -197,7 +197,18 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, id: shift.id, warning: assignmentWarnings.filter(Boolean).join(" ") });
+  return NextResponse.json({
+    ok: true,
+    id: shift.id,
+    warning: assignmentWarnings.filter(Boolean).join(" "),
+    debug: {
+      receivedWorkerCount: assignedWorkers.length,
+      resolvedWorkerCount: resolvedAssignments.assignments.length,
+      toInsertCount: toInsert.length,
+      toRemoveCount: toRemove.length,
+      existingCount: existingAssignments.length
+    }
+  });
 }
 
 type StaffInviteRow = { id: string; name: string; email: string; invite_status: string };

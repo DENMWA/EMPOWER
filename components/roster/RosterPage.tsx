@@ -143,7 +143,9 @@ export function RosterPage() {
       void saveTenantRosterShift(updatedShift).then((result) => {
         if (!result.savedToCloud) {
           setActiveShift(updatedShift);
-          window.alert(`Roster save failed:\n\n${result.error || "Unknown error"}`);
+          window.alert(`Roster save failed (via ${result.source}):\n\n${result.error || "Unknown error"}`);
+        } else if (window.location.search.includes("debugRoster=1")) {
+          window.alert(`Roster save OK (via ${result.source}):\n\n${JSON.stringify("debug" in result ? result.debug : {}, null, 2)}`);
         }
         setSyncMessage(result.savedToCloud
           ? result.error || "Roster change saved to workspace."
@@ -169,7 +171,9 @@ export function RosterPage() {
     void saveTenantRosterShift(shift).then((result) => {
       if (!result.savedToCloud) {
         setActiveShift(null);
-        window.alert(`Roster save failed:\n\n${result.error || "Unknown error"}`);
+        window.alert(`Roster save failed (via ${result.source}):\n\n${result.error || "Unknown error"}`);
+      } else if (window.location.search.includes("debugRoster=1")) {
+        window.alert(`Roster save OK (via ${result.source}):\n\n${JSON.stringify("debug" in result ? result.debug : {}, null, 2)}`);
       }
       setSyncMessage(result.savedToCloud
         ? result.error || "New shift saved to workspace."
