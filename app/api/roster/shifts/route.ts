@@ -332,7 +332,14 @@ function csvIn(values: string[]) {
 async function databaseError(response: Response, fallback: string) {
   const detail = await response.text();
   console.error(fallback, response.status, detail);
-  return NextResponse.json({ error: fallback }, { status: 502 });
+  let hint = "";
+  try {
+    const parsed = JSON.parse(detail) as { message?: string; details?: string; hint?: string; code?: string };
+    hint = [parsed.message, parsed.details, parsed.hint, parsed.code].filter(Boolean).join(" | ");
+  } catch {
+    hint = detail.slice(0, 300);
+  }
+  return NextResponse.json({ error: hint ? `${fallback} (${hint})` : fallback }, { status: 502 });
 }
 
 async function databaseWarning(response: Response, fallback: string) {
