@@ -9,7 +9,7 @@ import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { refreshSupabaseSession } from "@/lib/supabase-auth";
 
 type ProposedLine = { id: string; weekday: number; day: string; startTime: string; endTime: string; kind: AvailabilityKind; notes: string };
-type ParseResult = { lines?: ProposedLine[]; error?: string; source?: "pdf-text" | "vision-image"; advisory?: string };
+type ParseResult = { lines?: ProposedLine[]; error?: string; source?: "pdf-text" | "vision-image"; advisory?: string; warning?: string };
 
 export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPublished }: { staffInviteId: string; staffName: string; onPublished: (records: StaffAvailability[]) => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -42,7 +42,8 @@ export function AvailabilityDocumentWorkflow({ staffInviteId, staffName, onPubli
     const result = await response.json() as ParseResult;
     setBusy("");
     if (!response.ok || !result.lines) return setMessage(readUploadError(result.error) || "The availability form could not be read.");
-    setLines(result.lines); setMessage(result.source === "vision-image" ? "Handwritten availability was read with AI vision. Please review each line carefully." : "Proposed lines are ready for review.");
+    const readMessage = result.source === "vision-image" ? "Handwritten availability was read with AI vision. Please review each line carefully." : "Proposed lines are ready for review.";
+    setLines(result.lines); setMessage(result.warning ? `${result.warning} ${readMessage}` : readMessage);
   }
 
   async function publish() {
