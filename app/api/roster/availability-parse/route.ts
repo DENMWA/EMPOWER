@@ -33,13 +33,21 @@ export async function POST(request: Request) {
     if (!response.ok) return NextResponse.json({ error: "AI could not read this form right now." }, { status: 502 });
     const data = await response.json();
     const parsed = JSON.parse(data?.choices?.[0]?.message?.content || "{}") as { lines?: Array<Record<string, unknown>> };
-    const lines = (parsed.lines || []).filter(validLine).slice(0, 14).map((line) => ({
+    const candidateLines: Array<Record<string, unknown>> = (parsed.lines || []).map((line) => ({ ...line, startTime: normaliseTime(line.startTime), endTime: normaliseTime(line.endTime) }));
+    const lines = candidateLines.filter(validLine).slice(0, 14).map((line) => ({
       id: crypto.randomUUID(), weekday: Number(line.weekday), day: weekdays[Number(line.weekday)], startTime: String(line.startTime), endTime: String(line.endTime),
       kind: line.kind, notes: typeof line.notes === "string" ? line.notes.slice(0, 300) : ""
     }));
+    const droppedCount = candidateLines.length - lines.length;
     if (!lines.length) return NextResponse.json({ error: "No complete availability lines were found. Review the form and ensure days and times are entered." }, { status: 422 });
     await access.gate.recordUsage();
-    return NextResponse.json({ fileName: file.name, lines, source: content.source, advisory: "AI extraction requires admin review before publication." });
+    return NextResponse.json({
+      fileName: file.name,
+      lines,
+      source: content.source,
+      advisory: "AI extraction requires admin review before publication.",
+      warning: droppedCount > 0 ? `${droppedCount} line${droppedCount === 1 ? "" : "s"} could not be read clearly and were left out — review the original form for any missing days.` : ""
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Availability extraction failed." }, { status: 500 });
   }
@@ -94,4 +102,21 @@ function validLine(line: Record<string, unknown>) {
   return Number.isInteger(Number(line.weekday)) && Number(line.weekday) >= 0 && Number(line.weekday) <= 6
     && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(line.startTime)) && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(line.endTime))
     && String(line.endTime) > String(line.startTime) && ["available", "preferred", "unavailable"].includes(String(line.kind));
+}
+
+// The model is asked for strict 24-hour HH:MM, but real output sometimes
+// varies (single-digit hours, AM/PM, trailing seconds, hour-only). Without
+// this, validLine's strict regex silently drops the whole line — and with
+// it, the entire day — even though the underlying data was read correctly.
+function normaliseTime(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(am|pm|AM|PM)?$/);
+  if (!match) return raw;
+  let hour = Number(match[1]);
+  const minute = match[2] || "00";
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  if (hour > 23) return raw;
+  return `${String(hour).padStart(2, "0")}:${minute}`;
 }
