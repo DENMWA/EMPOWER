@@ -19,6 +19,7 @@ export type RosterRecommendation = {
   staffId: string;
   staffName: string;
   eligible: boolean;
+  hardBlocked: boolean;
   score: number;
   reasons: string[];
   warnings: string[];
@@ -46,6 +47,7 @@ export function recommendStaffForShift({
     const assignedToClient = worker.assignedParticipants.includes(shift.participantId);
     const suspended = worker.inviteStatus === "Suspended";
     const eligible = !suspended && !unavailable && !conflict && Boolean(covering);
+    const hardBlocked = suspended || unavailable || conflict;
     const reasons = [
       covering ? covering.kind === "preferred" ? "Preferred availability covers the shift" : "Confirmed availability covers the shift" : "No covering availability recorded",
       assignedToClient ? "Already assigned to this client" : "Not currently assigned to this client"
@@ -58,7 +60,7 @@ export function recommendStaffForShift({
       ...(!assignedToClient ? ["Manager must confirm client suitability"] : [])
     ];
     const score = Math.max(0, (covering ? 50 : 0) + (covering?.kind === "preferred" ? 15 : 0) + (assignedToClient ? 25 : 0) + (eligible ? 10 : 0));
-    return { staffId: worker.id, staffName: worker.name, eligible, score, reasons, warnings };
+    return { staffId: worker.id, staffName: worker.name, eligible, hardBlocked, score, reasons, warnings };
   }).sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.score - a.score || a.staffName.localeCompare(b.staffName));
 }
 
