@@ -706,11 +706,11 @@ export function NativeBillingWorkspace() {
       return;
     }
     const rows = [
-      ["Client", "Service date", "NDIS support code", "Quantity", "Unit", "Pricing source", "Amount"],
-      ...invoicePreview.lines.map((line) => [selectedClient?.name || "", line.date, line.code, line.quantity, line.unit, line.source, line.amount]),
-      ["", "", "", "", "", "Subtotal", invoicePreview.subtotal],
-      ["", "", "", "", "", "GST", invoicePreview.gst],
-      ["", "", "", "", "", "Total", invoicePreview.total]
+      ["Client", "Service date", "Start time", "End time", "NDIS support code", "Quantity", "Unit", "Pricing source", "Amount"],
+      ...invoicePreview.lines.map((line) => [selectedClient?.name || "", line.date, line.startTime, line.endTime, line.code, line.quantity, line.unit, line.source, line.amount]),
+      ["", "", "", "", "", "", "", "Subtotal", invoicePreview.subtotal],
+      ["", "", "", "", "", "", "", "GST", invoicePreview.gst],
+      ["", "", "", "", "", "", "", "Total", invoicePreview.total]
     ];
     downloadCsv(`invoice-preview-${new Date().toISOString().slice(0, 10)}.csv`, rows.map((row) => row.map(toCsvCell).join(",")).join("\n"));
     setMessage("Invoice preview downloaded as CSV. Generate the invoice to create its permanent invoice number and record.");
@@ -1172,7 +1172,7 @@ export function NativeBillingWorkspace() {
             <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-ink">Invoice preview</h3><StatusBadge label={invoicePreview.reviewCount ? `${invoicePreview.reviewCount} review item${invoicePreview.reviewCount === 1 ? "" : "s"}` : "Ready"} tone={invoicePreview.reviewCount ? "amber" : "green"} /></div>
             <div className="mt-3 space-y-2">
               {invoicePreview.lines.map((line) => <div key={line.shiftId} className="grid gap-1 rounded-md bg-slate-50 p-3 text-sm sm:grid-cols-[1fr_auto]">
-                <div><p className="font-semibold text-ink">{line.date} · {line.code || "Support code required"}</p><p className="mt-1 text-slate-600">{line.quantity} {line.unit} · {line.source}</p></div>
+                <div><p className="font-semibold text-ink">{line.date} · {line.startTime}-{line.endTime} · {line.code || "Support code required"}</p><p className="mt-1 text-slate-600">{line.quantity} {line.unit} · {line.source}</p></div>
                 <p className="font-bold text-ink">{formatMoney(line.amount)}</p>
               </div>)}
               {!invoicePreview.lines.length ? <p className="text-sm text-slate-600">Choose delivered services to preview the invoice.</p> : null}
@@ -1291,9 +1291,9 @@ function getInvoicePreview(
     const quantity = unit ? getBillableQuantity(shift, unit) : 0;
     const ndisLimit = supportItem?.priceLimit ?? agreementItem?.ndisPriceLimit ?? null;
     const review = !draft.approved || !code || !rate || (draft.source === "manual" && ndisLimit !== null && rate > ndisLimit);
-    const serviceLine = { shiftId, date: shift.startTime.slice(0, 10), code, quantity, unit, source: formatRateSource(draft.source), amount: Math.round(quantity * rate * 100) / 100, review };
+    const serviceLine = { shiftId, date: shift.startTime.slice(0, 10), startTime: formatServiceTime(shift.startTime), endTime: formatServiceTime(shift.endTime), code, quantity, unit, source: formatRateSource(draft.source), amount: Math.round(quantity * rate * 100) / 100, review };
     if (!includedTravel[shiftId] || !shift.travelKilometres || !shift.travelRatePerKilometre) return [serviceLine];
-    return [serviceLine, { shiftId: `${shiftId}-travel`, date: shift.startTime.slice(0, 10), code: shift.travelSupportItemNumber || "Travel", quantity: shift.travelKilometres, unit: "km", source: "Service Agreement Rate", amount: Math.round(shift.travelKilometres * shift.travelRatePerKilometre * 100) / 100, review: true }];
+    return [serviceLine, { shiftId: `${shiftId}-travel`, date: shift.startTime.slice(0, 10), startTime: formatServiceTime(shift.startTime), endTime: formatServiceTime(shift.endTime), code: shift.travelSupportItemNumber || "Travel", quantity: shift.travelKilometres, unit: "km", source: "Service Agreement Rate", amount: Math.round(shift.travelKilometres * shift.travelRatePerKilometre * 100) / 100, review: true }];
   });
   const subtotal = Math.round(lines.reduce((total, line) => total + line.amount, 0) * 100) / 100;
   return { lines, serviceCount: Object.values(selectedServices).filter(Boolean).length, quantity: lines.reduce((total, line) => total + line.quantity, 0), subtotal, gst: 0, total: subtotal, reviewCount: lines.filter((line) => line.review).length };

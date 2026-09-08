@@ -55,7 +55,7 @@ async function createTenantInvoiceResponse(invoiceId: string, organisationFilter
   const pdf = createInvoicePdf({
     invoiceNumber: text(row.invoice_number), invoiceDate: text(row.invoice_date), dueDate: text(row.due_date), participantName: participantRows[0]?.name || "Participant",
     participantNdisNumber: text(row.participant_ndis_number), recipientName: text(row.recipient_name), recipientEmail: text(row.recipient_email), billingPeriodStart: text(row.billing_period_start), billingPeriodEnd: text(row.billing_period_end), totalAmount: number(row.total_amount), paymentStatus: text(row.payment_status)
-  }, lineRows.map((line) => ({ serviceDate: text(line.service_date), supportItemNumber: text(line.support_item_number), quantity: number(line.quantity), unitType: text(line.unit_type), rate: number(line.rate), amount: number(line.amount), gstCode: text(line.gst_code) })), {
+  }, lineRows.map((line) => ({ serviceDate: text(line.service_date), serviceStartTime: text(line.service_start_time), serviceEndTime: text(line.service_end_time), supportItemNumber: text(line.support_item_number), quantity: number(line.quantity), unitType: text(line.unit_type), rate: number(line.rate), amount: number(line.amount), gstCode: text(line.gst_code) })), {
     organisationName: includeOrganisationBranding ? text(profile.organisation_name) : "EmpowerNotes",
     abn: includeOrganisationBranding ? text(profile.abn) : "",
     providerNumber: includeOrganisationBranding ? text(profile.provider_number) : "",
