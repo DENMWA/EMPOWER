@@ -47,14 +47,18 @@ export function RosterIntelligencePanel({
   const candidateShifts = useMemo(() => shifts.filter((shift) => !["Completed", "Note Completed", "No Show"].includes(shift.status)), [shifts]);
   const selectedShift = candidateShifts.find((shift) => shift.id === selectedShiftId) || null;
   const recommendations = selectedShift ? recommendStaffForShift({ shift: selectedShift, staff, availability, shifts }) : [];
-  const draftRecommendations = useMemo(() => candidateShifts
-    .filter((shift) => !shift.workerId && !shift.assignedWorkers?.length && !["Cancelled", "No Show"].includes(shift.status))
-    .map((shift) => ({
-      shift,
-      recommendation: recommendStaffForShift({ shift, staff, availability, shifts }).find((item) => item.eligible)
-    }))
+  const unassignedShifts = useMemo(() => candidateShifts
+    .filter((shift) => !shift.workerId && !shift.assignedWorkers?.length && !["Cancelled", "No Show"].includes(shift.status)), [candidateShifts]);
+  const unassignedWithRecommendations = useMemo(() => unassignedShifts
+    .map((shift) => ({ shift, shiftRecommendations: recommendStaffForShift({ shift, staff, availability, shifts }) })), [availability, unassignedShifts, shifts, staff]);
+  const draftRecommendations = useMemo(() => unassignedWithRecommendations
+    .map(({ shift, shiftRecommendations }) => ({ shift, recommendation: shiftRecommendations.find((item) => item.eligible) }))
     .filter((item) => Boolean(item.recommendation))
-    .slice(0, 6), [availability, candidateShifts, shifts, staff]);
+    .slice(0, 6), [unassignedWithRecommendations]);
+  const uncoveredShifts = useMemo(() => unassignedWithRecommendations
+    .filter(({ shiftRecommendations }) => !shiftRecommendations.some((item) => item.eligible))
+    .map(({ shift }) => shift)
+    .slice(0, 8), [unassignedWithRecommendations]);
 
   useEffect(() => {
     if (replacementShiftId && candidateShifts.some((shift) => shift.id === replacementShiftId)) {
@@ -98,7 +102,10 @@ export function RosterIntelligencePanel({
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Availability and AI tools</p>
             <h2 className="mt-1 text-xl font-bold text-ink">Draft roster recommendations</h2>
           </div>
-          <span className="rounded-md bg-teal-50 px-3 py-2 text-sm font-bold text-teal-900">{draftRecommendations.length} ready</span>
+          <span className="flex gap-2">
+            <span className="rounded-md bg-teal-50 px-3 py-2 text-sm font-bold text-teal-900">{draftRecommendations.length} ready</span>
+            {uncoveredShifts.length ? <span className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-800">{uncoveredShifts.length} need coverage</span> : null}
+          </span>
         </div>
       </summary>
       <div className="mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -132,6 +139,19 @@ export function RosterIntelligencePanel({
                   <button type="button" onClick={() => onAssign(shift.id, { id: recommendation.staffId, name: recommendation.staffName })} className="min-h-9 rounded-md bg-ink px-3 text-xs font-semibold text-white">Accept</button>
                 </div>
               ) : null)}
+            </div>
+          </div>
+        ) : null}
+        {uncoveredShifts.length ? (
+          <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-sm font-bold text-red-950">No coverage — no staff currently show confirmed availability</p>
+            <div className="mt-3 space-y-2">
+              {uncoveredShifts.map((shift) => (
+                <button key={shift.id} type="button" onClick={() => setSelectedShiftId(shift.id)} className="flex w-full flex-wrap items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-left text-sm hover:border-red-300">
+                  <p className="font-semibold text-ink">{shift.shiftDate} {shift.startTime}-{shift.endTime} · {shift.participantName}</p>
+                  <span className="text-xs font-semibold text-red-700">Review candidates →</span>
+                </button>
+              ))}
             </div>
           </div>
         ) : null}
