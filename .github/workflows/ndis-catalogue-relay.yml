@@ -1,8 +1,17 @@
 name: NDIS catalogue relay
 
+# Automatic weekly schedule disabled — the NDIS government site (or a WAF in
+# front of it) blocks this workflow's requests (curl 403), likely by IP/ASN
+# reputation rather than anything fixable via headers. Decided not worth
+# chasing further (see PR #20's discussion); catalogue updates are applied
+# manually instead. Kept as workflow_dispatch so it can still be run by hand
+# if a future attempt seems worth trying (e.g. after changing how/where this
+# request originates from).
+#
+# on:
+#   schedule:
+#     - cron: "15 19 * * 1"
 on:
-  schedule:
-    - cron: "15 19 * * 1"
   workflow_dispatch:
 
 permissions:
