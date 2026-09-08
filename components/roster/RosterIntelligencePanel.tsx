@@ -29,6 +29,7 @@ export function RosterIntelligencePanel({
   const [availability, setAvailability] = useState<StaffAvailability[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedShiftId, setSelectedShiftId] = useState("");
+  const [reassigning, setReassigning] = useState(false);
   const [message, setMessage] = useState("Loading availability...");
   const [offering, setOffering] = useState("");
 
@@ -60,6 +61,10 @@ export function RosterIntelligencePanel({
   useEffect(() => {
     onCoverageChange?.(allUncoveredShifts.length, allDraftRecommendations.length);
   }, [allUncoveredShifts.length, allDraftRecommendations.length, onCoverageChange]);
+
+  useEffect(() => {
+    setReassigning(false);
+  }, [selectedShiftId]);
 
   useEffect(() => {
     if (replacementShiftId && candidateShifts.some((shift) => shift.id === replacementShiftId)) {
@@ -152,13 +157,22 @@ export function RosterIntelligencePanel({
         ) : null}
         <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">Shift<select value={selectedShiftId} onChange={(event) => setSelectedShiftId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3"><option value="">Choose a shift</option>{candidateShifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.shiftDate} - {shift.startTime} - {shift.participantName}{shift.status === "Cancelled" ? " - cancelled" : !shift.workerId && !shift.assignedWorkers?.length ? " - unassigned" : ""}</option>)}</select></label>
         {!selectedShift ? <p className="mt-4 text-sm text-slate-600">Choose a shift to rank eligible staff.</p> : null}
-        <div className="mt-4 space-y-3">{recommendations.slice(0, 5).map((item) => <div key={item.staffId} className={`rounded-md border p-4 ${item.eligible ? "border-teal-200 bg-teal-50" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{item.staffName}</p><p className="mt-1 text-sm text-slate-600">{item.reasons.join(" · ")}</p>{item.warnings.length ? <p className="mt-2 text-xs font-semibold text-amber-800">Review: {item.warnings.join(" · ")}</p> : null}</div><span className="inline-flex items-center gap-1 text-sm font-bold text-teal-800"><Sparkles size={15} />{item.score}</span></div><div className="mt-3 flex flex-wrap gap-2">{item.eligible ? (
-          <button type="button" onClick={() => onAssign(selectedShift!.id, { id: item.staffId, name: item.staffName })} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white">Assign</button>
+        {selectedShift && selectedShift.assignedWorkers?.length && !reassigning ? (
+          <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-4">
+            <p className="font-semibold text-teal-950">Assigned to {selectedShift.assignedWorkers.map((worker) => worker.name).join(", ")}</p>
+            <p className="mt-1 text-sm text-teal-900">This shift already has an assignee. Choosing a different candidate below will replace them.</p>
+            <button type="button" onClick={() => setReassigning(true)} className="mt-3 min-h-9 rounded-md border border-teal-400 bg-white px-3 text-xs font-semibold text-teal-900 hover:bg-teal-100">Reassign</button>
+          </div>
+        ) : null}
+        {selectedShift && (!selectedShift.assignedWorkers?.length || reassigning) ? (
+          <div className="mt-4 space-y-3">{recommendations.slice(0, 5).map((item) => <div key={item.staffId} className={`rounded-md border p-4 ${item.eligible ? "border-teal-200 bg-teal-50" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{item.staffName}</p><p className="mt-1 text-sm text-slate-600">{item.reasons.join(" · ")}</p>{item.warnings.length ? <p className="mt-2 text-xs font-semibold text-amber-800">Review: {item.warnings.join(" · ")}</p> : null}</div><span className="inline-flex items-center gap-1 text-sm font-bold text-teal-800"><Sparkles size={15} />{item.score}</span></div><div className="mt-3 flex flex-wrap gap-2">{item.eligible ? (
+          <button type="button" onClick={() => { onAssign(selectedShift.id, { id: item.staffId, name: item.staffName }); setReassigning(false); }} className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white">Assign</button>
         ) : item.hardBlocked ? (
           <button type="button" disabled className="min-h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Assign</button>
         ) : (
-          <button type="button" onClick={() => { if (window.confirm(`${item.staffName}'s availability doesn't confirm coverage for this shift. Assign anyway?`)) onAssign(selectedShift!.id, { id: item.staffId, name: item.staffName }); }} className="min-h-10 rounded-md border border-amber-400 bg-amber-50 px-3 text-sm font-semibold text-amber-900 hover:bg-amber-100">Assign anyway</button>
+          <button type="button" onClick={() => { if (window.confirm(`${item.staffName}'s availability doesn't confirm coverage for this shift. Assign anyway?`)) { onAssign(selectedShift.id, { id: item.staffId, name: item.staffName }); setReassigning(false); } }} className="min-h-10 rounded-md border border-amber-400 bg-amber-50 px-3 text-sm font-semibold text-amber-900 hover:bg-amber-100">Assign anyway</button>
         )}<button type="button" disabled={!item.eligible || offering === item.staffId} onClick={() => sendOffer(item)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-ink disabled:opacity-40"><Mail size={16} />Send Y/N offer</button></div></div>)}</div>
+        ) : null}
         <p className="mt-4 text-xs leading-5 text-slate-500">&quot;Assign anyway&quot; is available when availability just hasn&apos;t been confirmed on file. It&apos;s not offered for suspended access, staff marked unavailable, or a conflicting shift — those require resolving the underlying issue first.</p>
         <p className="mt-1 text-xs leading-5 text-slate-500">Recommendations are advisory. Managers remain responsible for suitability, award conditions, fatigue and final publication.</p>
       </Card>
