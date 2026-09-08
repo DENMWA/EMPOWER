@@ -52,8 +52,21 @@ function isSupportedAvailabilityFile(file: File) {
 
 async function createPdfAvailabilityPrompt(buffer: Buffer): Promise<{ prompt: string; source: "pdf-text" } | { error: string; status: number }> {
   const extracted = (await extractPdfText(buffer)).replace(/\s+/g, " ").trim().slice(0, 16000);
+  const noReadablePhotoGuidance = "Upload a clear JPG, PNG or WebP photo of the handwritten form so AI vision can review it.";
   if (extracted.length < 30) {
-    return { error: "This scanned PDF has no readable text. Upload a clear JPG, PNG or WebP photo of the handwritten form so AI vision can review it.", status: 422 };
+    return { error: `This scanned PDF has no readable text. ${noReadablePhotoGuidance}`, status: 422 };
+  }
+  // A scanned PDF of a handwritten form typically has printed template
+  // labels (day names, headers) as real embedded text, but the actual
+  // filled-in times and marks are pure image data with no text
+  // representation. That printed skeleton alone can be long enough to
+  // pass the check above while containing none of the data that actually
+  // matters, silently producing an incomplete result. Require at least
+  // one clock-style time (e.g. "9:00" or "9am") in the extracted text
+  // before trusting text-only extraction for a PDF.
+  const hasTimePattern = /\b([01]?\d)(:[0-5]\d)?\s*(am|pm|AM|PM)\b|\b([01]\d|2[0-3]):[0-5]\d\b/.test(extracted);
+  if (!hasTimePattern) {
+    return { error: `This PDF appears to contain only printed template text, not the filled-in handwriting (no times were found in the extracted text). ${noReadablePhotoGuidance}`, status: 422 };
   }
   return { prompt: `Availability form text:\n${extracted}`, source: "pdf-text" };
 }
