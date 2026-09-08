@@ -87,8 +87,20 @@ export function RosterStatusReports({ shifts, selectedDate }: { shifts: RosterSh
                   <td className="px-3 py-3">
                     <details>
                       <summary className="cursor-pointer font-semibold text-teal-800">{worker.days.length} day{worker.days.length === 1 ? "" : "s"}</summary>
-                      <div className="mt-2 min-w-48 space-y-1">
-                        {worker.days.map((day) => <p key={day.date} className="flex justify-between gap-4 text-xs text-slate-600"><span>{formatWorkDate(day.date)} · {day.shifts} shift{day.shifts === 1 ? "" : "s"}</span><strong className="text-ink">{formatHours(day.hours)}</strong></p>)}
+                      <div className="mt-2 min-w-64 space-y-3">
+                        {worker.days.map((day) => (
+                          <div key={day.date}>
+                            <p className="flex justify-between gap-4 text-xs font-semibold text-ink"><span>{formatWorkDate(day.date)}</span><span>{formatHours(day.hours)}</span></p>
+                            <div className="mt-1 space-y-1 border-l-2 border-teal-100 pl-2">
+                              {day.shifts.map((shift, index) => (
+                                <p key={index} className="flex justify-between gap-4 text-xs text-slate-600">
+                                  <span>{shift.startTime}-{shift.endTime} · {shift.participantName} · {shift.location}</span>
+                                  <span className="font-semibold text-slate-800">{formatHours(shift.hours)}</span>
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </details>
                   </td>
@@ -117,10 +129,10 @@ function downloadStaffHoursCsv(hours: ReturnType<typeof getStaffHoursSummary>) {
   const rows = [
     ["Period", hours.dateRange],
     [],
-    ["Staff member", "Completed shifts", "Days worked", "Daily breakdown", "Clients supported", "Hours worked"],
-    ...hours.staff.map((worker) => [worker.workerName, String(worker.completedShifts), String(worker.days.length), worker.days.map((day) => `${day.date}: ${day.hours.toFixed(2)} hours (${day.shifts} shifts)`).join("; "), worker.participantNames.join("; "), worker.totalHours.toFixed(2)]),
+    ["Staff member", "Date", "Start time", "End time", "Site", "Client", "Hours worked"],
+    ...hours.staff.flatMap((worker) => worker.days.flatMap((day) => day.shifts.map((shift) => [worker.workerName, day.date, shift.startTime, shift.endTime, shift.location, shift.participantName, shift.hours.toFixed(2)]))),
     [],
-    ["Total staff hours", "", "", "", "", hours.totalHours.toFixed(2)]
+    ["Total staff hours", "", "", "", "", "", hours.totalHours.toFixed(2)]
   ];
   const csv = rows.map((row) => row.map((value) => `"${String(value || "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));

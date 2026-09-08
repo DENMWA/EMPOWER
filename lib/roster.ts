@@ -51,7 +51,7 @@ export type StaffHoursSummary = {
   completedShifts: number;
   totalHours: number;
   participantNames: string[];
-  days: Array<{ date: string; shifts: number; hours: number }>;
+  days: Array<{ date: string; hours: number; shifts: Array<{ startTime: string; endTime: string; location: string; participantName: string; hours: number }> }>;
 };
 
 export type EmployeeColourScheme = {
@@ -390,11 +390,13 @@ export function getStaffHoursSummary(shifts: RosterShift[], period: RosterReport
       existing.totalHours = Math.round((existing.totalHours + hours) * 100) / 100;
       if (!existing.participantNames.includes(shift.participantName)) existing.participantNames.push(shift.participantName);
       const day = existing.days.find((item) => item.date === shift.shiftDate);
+      const shiftDetail = { startTime: shift.startTime, endTime: shift.endTime, location: shift.serviceLocationName || shift.location || "Not recorded", participantName: shift.participantName, hours };
       if (day) {
-        day.shifts += 1;
         day.hours = Math.round((day.hours + hours) * 100) / 100;
+        day.shifts.push(shiftDetail);
+        day.shifts.sort((a, b) => a.startTime.localeCompare(b.startTime));
       } else {
-        existing.days.push({ date: shift.shiftDate, shifts: 1, hours });
+        existing.days.push({ date: shift.shiftDate, hours, shifts: [shiftDetail] });
       }
       existing.days.sort((a, b) => a.date.localeCompare(b.date));
       staff.set(worker.id, existing);
