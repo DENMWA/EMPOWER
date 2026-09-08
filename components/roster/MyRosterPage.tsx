@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, List, MapPin, PlayCircle } from "lucide-react";
 import { Card, PageHeader, Section, StatusBadge } from "@/components/ui";
+import { WeeklyAvailabilityGrid } from "@/components/roster/WeeklyAvailabilityGrid";
 import { getActualShiftHours, getShiftDurationHours, getShiftSignOffStatus, type ShiftSignOffStatus } from "@/lib/roster";
+import { saveWeeklyAvailabilityGrid, type WeeklyGridEntry } from "@/lib/roster-intelligence-cloud";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +22,17 @@ export function MyRosterPage() {
   const [savingShiftId, setSavingShiftId] = useState("");
   const [message, setMessage] = useState("");
   const [state, setState] = useState<"loading"|"ready"|"error">("loading");
+  const [myAvailability, setMyAvailability] = useState<{ staffInviteId: string; entries: WeeklyGridEntry[] } | null>(null);
   const range = useMemo(() => periodRange(period, anchor), [period, anchor]);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    fetch("/api/roster/my-availability", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+      .then((response) => response.json() as Promise<{ staffInviteId: string; entries: WeeklyGridEntry[] }>)
+      .then((result) => setMyAvailability(result))
+      .catch(() => setMyAvailability({ staffInviteId: "", entries: [] }));
+  }, []);
 
   useEffect(() => {
     const token = getStoredAccessToken();
@@ -86,6 +98,20 @@ export function MyRosterPage() {
         <Metric label="Actual signed hours" value={`${actualHours.toFixed(1)}h`} />
       </div>
       {message ? <Card className="border-teal-200 bg-teal-50 p-4"><p className="text-sm font-semibold text-teal-950" role="status">{message}</p></Card> : null}
+
+      <details className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none p-4"><span className="text-sm font-bold text-ink">My availability</span><span className="ml-2 text-sm text-slate-600">Set the days and times you&apos;re available to be rostered.</span></summary>
+        <div className="border-t border-slate-200 p-4">
+          {myAvailability === null ? <p className="text-sm text-slate-600">Loading your availability...</p> : null}
+          {myAvailability && !myAvailability.staffInviteId ? <p className="text-sm text-slate-600">No staff record is linked to your account yet — contact your manager to set this up.</p> : null}
+          {myAvailability && myAvailability.staffInviteId ? (
+            <WeeklyAvailabilityGrid
+              initialEntries={myAvailability.entries}
+              onSave={(grid) => saveWeeklyAvailabilityGrid(myAvailability.staffInviteId, grid)}
+            />
+          ) : null}
+        </div>
+      </details>
 
       {state === "loading" ? <Card><p className="text-sm text-slate-600" role="status">Loading your roster...</p></Card> : null}
       {state === "error" ? <Card><p className="font-semibold text-red-700" role="alert">Your roster could not be loaded. Refresh the page or contact your manager.</p></Card> : null}

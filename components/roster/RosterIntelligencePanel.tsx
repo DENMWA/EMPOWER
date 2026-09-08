@@ -1,37 +1,34 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, Check, Mail, Sparkles } from "lucide-react";
+import { BrainCircuit, Mail, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui";
 import { AvailabilityDocumentWorkflow } from "@/components/roster/AvailabilityDocumentWorkflow";
 import { StaffAvailabilityMap } from "@/components/roster/StaffAvailabilityMap";
-import { loadStaffAvailability, saveStaffAvailability } from "@/lib/roster-intelligence-cloud";
-import { recommendStaffForShift, type AvailabilityKind, type StaffAvailability } from "@/lib/roster-intelligence";
+import { WeeklyAvailabilityGrid } from "@/components/roster/WeeklyAvailabilityGrid";
+import { loadStaffAvailability, saveWeeklyAvailabilityGrid } from "@/lib/roster-intelligence-cloud";
+import { recommendStaffForShift, type StaffAvailability } from "@/lib/roster-intelligence";
 import type { RosterShift } from "@/lib/roster";
 import { getTenantStaffInvites, isStaffActiveForRostering, type StaffRecord } from "@/lib/staff-records";
 import { getStoredAccessToken } from "@/lib/supabase-rest";
-
-const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function RosterIntelligencePanel({
   shifts,
   selectedDate,
   replacementShiftId,
-  onAssign
+  onAssign,
+  onCoverageChange
 }: {
   shifts: RosterShift[];
   selectedDate: string;
   replacementShiftId?: string;
   onAssign: (shiftId: string, worker: { id: string; name: string }) => void;
+  onCoverageChange?: (uncoveredCount: number, readyCount: number) => void;
 }) {
   const [staff, setStaff] = useState<StaffRecord[]>([]);
   const [availability, setAvailability] = useState<StaffAvailability[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedShiftId, setSelectedShiftId] = useState("");
-  const [weekday, setWeekday] = useState(1);
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [kind, setKind] = useState<AvailabilityKind>("available");
   const [message, setMessage] = useState("Loading availability...");
   const [offering, setOffering] = useState("");
 
@@ -51,34 +48,24 @@ export function RosterIntelligencePanel({
     .filter((shift) => !shift.workerId && !shift.assignedWorkers?.length && !["Cancelled", "No Show"].includes(shift.status)), [candidateShifts]);
   const unassignedWithRecommendations = useMemo(() => unassignedShifts
     .map((shift) => ({ shift, shiftRecommendations: recommendStaffForShift({ shift, staff, availability, shifts }) })), [availability, unassignedShifts, shifts, staff]);
-  const draftRecommendations = useMemo(() => unassignedWithRecommendations
+  const allDraftRecommendations = useMemo(() => unassignedWithRecommendations
     .map(({ shift, shiftRecommendations }) => ({ shift, recommendation: shiftRecommendations.find((item) => item.eligible) }))
-    .filter((item) => Boolean(item.recommendation))
-    .slice(0, 6), [unassignedWithRecommendations]);
-  const uncoveredShifts = useMemo(() => unassignedWithRecommendations
+    .filter((item) => Boolean(item.recommendation)), [unassignedWithRecommendations]);
+  const allUncoveredShifts = useMemo(() => unassignedWithRecommendations
     .filter(({ shiftRecommendations }) => !shiftRecommendations.some((item) => item.eligible))
-    .map(({ shift }) => shift)
-    .slice(0, 8), [unassignedWithRecommendations]);
+    .map(({ shift }) => shift), [unassignedWithRecommendations]);
+  const draftRecommendations = allDraftRecommendations.slice(0, 6);
+  const uncoveredShifts = allUncoveredShifts.slice(0, 8);
+
+  useEffect(() => {
+    onCoverageChange?.(allUncoveredShifts.length, allDraftRecommendations.length);
+  }, [allUncoveredShifts.length, allDraftRecommendations.length, onCoverageChange]);
 
   useEffect(() => {
     if (replacementShiftId && candidateShifts.some((shift) => shift.id === replacementShiftId)) {
       setSelectedShiftId(replacementShiftId);
     }
   }, [candidateShifts, replacementShiftId]);
-
-  async function addAvailability() {
-    if (!selectedStaffId || endTime <= startTime) {
-      setMessage("Select staff and add a valid time window.");
-      return;
-    }
-    const record: StaffAvailability = {
-      id: crypto.randomUUID(), staffInviteId: selectedStaffId, weekday, specificDate: null,
-      startTime, endTime, kind, recurring: true, notes: ""
-    };
-    const result = await saveStaffAvailability(record);
-    if (result.saved && result.record) setAvailability((current) => [...current, result.record!]);
-    setMessage(result.saved ? "Availability saved." : result.error || "Availability could not be saved.");
-  }
 
   async function sendOffer(recommendation: { staffId: string; staffName: string }) {
     if (!selectedShift) return;
@@ -95,7 +82,7 @@ export function RosterIntelligencePanel({
   }
 
   return (
-    <details className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+    <details id="roster-intelligence-panel" className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <summary className="cursor-pointer list-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -103,8 +90,8 @@ export function RosterIntelligencePanel({
             <h2 className="mt-1 text-xl font-bold text-ink">Draft roster recommendations</h2>
           </div>
           <span className="flex gap-2">
-            <span className="rounded-md bg-teal-50 px-3 py-2 text-sm font-bold text-teal-900">{draftRecommendations.length} ready</span>
-            {uncoveredShifts.length ? <span className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-800">{uncoveredShifts.length} need coverage</span> : null}
+            <span className="rounded-md bg-teal-50 px-3 py-2 text-sm font-bold text-teal-900">{allDraftRecommendations.length} ready</span>
+            {allUncoveredShifts.length ? <span className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-800">{allUncoveredShifts.length} need coverage</span> : null}
           </span>
         </div>
       </summary>
@@ -113,15 +100,23 @@ export function RosterIntelligencePanel({
         <div className="flex items-start justify-between gap-3">
           <div><p className="text-sm font-semibold uppercase tracking-wide text-sea">Availability</p><h2 className="mt-1 text-xl font-bold text-ink">Staff availability</h2></div>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">Staff<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3">{staff.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">Day<select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))} className="min-h-11 rounded-md border border-slate-300 px-3">{weekdays.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">Status<select value={kind} onChange={(event) => setKind(event.target.value as AvailabilityKind)} className="min-h-11 rounded-md border border-slate-300 px-3"><option value="available">Available</option><option value="preferred">Preferred</option><option value="unavailable">Unavailable</option></select></label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">From<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" /></label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">To<input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3" /></label>
-        </div>
-        <button type="button" onClick={addAvailability} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sea px-4 text-sm font-semibold text-white"><Check size={17} />Save availability</button>
-        <div className="mt-4 space-y-2">{availability.filter((item) => item.staffInviteId === selectedStaffId).map((item) => <div key={item.id} className="flex justify-between rounded-md bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold text-ink">{item.specificDate || weekdays[item.weekday ?? 0]}</span><span className="text-slate-600">{item.startTime}-{item.endTime} · {item.kind}</span></div>)}</div>
+        <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">Staff<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="min-h-11 rounded-md border border-slate-300 px-3">{staff.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></label>
+        {selectedStaffId ? (
+          <div className="mt-4">
+            <WeeklyAvailabilityGrid
+              key={selectedStaffId}
+              initialEntries={availability.filter((item) => item.staffInviteId === selectedStaffId && item.weekday !== null).map((item) => ({ weekday: item.weekday as number, startTime: item.startTime, endTime: item.endTime, kind: item.kind }))}
+              onSave={async (grid) => {
+                const result = await saveWeeklyAvailabilityGrid(selectedStaffId, grid);
+                if (result.saved) {
+                  const refreshed = await loadStaffAvailability();
+                  setAvailability(refreshed.records);
+                }
+                return result;
+              }}
+            />
+          </div>
+        ) : null}
       </Card>
 
       <Card className="border-slate-200 shadow-none">
