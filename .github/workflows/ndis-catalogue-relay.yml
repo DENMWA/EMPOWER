@@ -23,7 +23,11 @@ jobs:
         run: |
           set -euo pipefail
           page_url="https://www.ndis.gov.au/providers/pricing-and-payments/pricing/what-support-catalogue"
-          curl --fail --location --retry 3 --user-agent "Mozilla/5.0 EmpowerNotes pricing monitor" "$page_url" --output page.html
+          curl --fail --location --retry 3 \
+            --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" \
+            --header "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" \
+            --header "Accept-Language: en-AU,en;q=0.9" \
+            "$page_url" --output page.html
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           from html.parser import HTMLParser
           from urllib.parse import urljoin
@@ -57,7 +61,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3 --referer "https://www.ndis.gov.au/" --user-agent "Mozilla/5.0 EmpowerNotes pricing monitor" "${{ steps.catalogue.outputs.url }}" --output ndis-support-catalogue.xlsx
+          curl --fail --location --retry 3 --referer "https://www.ndis.gov.au/" \
+            --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" \
+            --header "Accept: */*" \
+            --header "Accept-Language: en-AU,en;q=0.9" \
+            "${{ steps.catalogue.outputs.url }}" --output ndis-support-catalogue.xlsx
           test "$(head -c 2 ndis-support-catalogue.xlsx)" = "PK"
           test "$(stat -c%s ndis-support-catalogue.xlsx)" -gt 10000
 
