@@ -56,6 +56,7 @@ export function RosterPage() {
   const [rosterToolsReady, setRosterToolsReady] = useState(false);
   const [rosteringMode, setRosteringModeState] = useState<RosteringMode>("built-in");
   const [organisationProfile, setOrganisationProfile] = useState<OrganisationProfile>(defaultOrganisationProfile);
+  const [coverageStats, setCoverageStats] = useState({ uncovered: 0, ready: 0 });
 
   useEffect(() => {
     Promise.all([loadTenantRosterShifts(), getTenantStaffInvites(), getTenantClients()]).then(([result, staff, clients]) => {
@@ -102,6 +103,64 @@ export function RosterPage() {
   const selectedRange = getRosterPlanningRange(selectedDate, view);
   const selectedDateLabel = selectedRange.label;
   const rosterModeLabel = rosteringModeOptions.find((option) => option.value === rosteringMode)?.label || "Use EmpowerNotes roster";
+
+  function jumpToCoveragePanel() {
+    const panel = document.getElementById("roster-intelligence-panel");
+    if (panel instanceof HTMLDetailsElement) panel.open = true;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function copyLastWeek() {
+    const thisWeekStart = getWeekStart(selectedDate);
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(lastWeekStart);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+    const lastWeekStartKey = toDateKey(lastWeekStart);
+    const lastWeekEndKey = toDateKey(lastWeekEnd);
+
+    const sourceShifts = shifts.filter((shift) => shift.shiftDate >= lastWeekStartKey && shift.shiftDate <= lastWeekEndKey && shift.status !== "Cancelled" && shift.status !== "No Show");
+    if (!sourceShifts.length) { setSyncMessage("No shifts found in the previous week to copy."); return; }
+
+    const existingKeys = new Set(shifts.map((shift) => `${shift.participantId}|${shift.shiftDate}|${shift.startTime}`));
+    const newShifts: RosterShift[] = [];
+    let skipped = 0;
+    for (const source of sourceShifts) {
+      const sourceDate = new Date(`${source.shiftDate}T00:00:00`);
+      sourceDate.setDate(sourceDate.getDate() + 7);
+      const newDate = toDateKey(sourceDate);
+      const key = `${source.participantId}|${newDate}|${source.startTime}`;
+      if (existingKeys.has(key)) { skipped += 1; continue; }
+      existingKeys.add(key);
+      newShifts.push({
+        ...source,
+        id: crypto.randomUUID(),
+        shiftDate: newDate,
+        status: "Scheduled",
+        noteRequired: true,
+        noteCompleted: false,
+        actualStartTime: undefined,
+        actualEndTime: undefined,
+        shiftSignOffStatus: undefined,
+        shiftSignOffNote: undefined,
+        shiftSignedOffBy: undefined,
+        progressNoteId: undefined
+      });
+    }
+
+    if (!newShifts.length) { setSyncMessage(`No new shifts to copy — all ${skipped} already exist this week.`); return; }
+
+    setSyncMessage(`Copying ${newShifts.length} shift${newShifts.length === 1 ? "" : "s"} from last week...`);
+    const updatedShifts = [...shifts, ...newShifts];
+    setShifts(updatedShifts);
+    saveRosterShifts(updatedShifts);
+
+    const results = await Promise.all(newShifts.map((shift) => saveTenantRosterShift(shift)));
+    const failed = results.filter((result) => !result.savedToCloud).length;
+    setSyncMessage(failed
+      ? `Copied ${newShifts.length - failed} of ${newShifts.length} shifts. ${failed} failed to save${skipped ? ` (${skipped} skipped as already existing)` : ""} — check your connection and retry.`
+      : `Copied ${newShifts.length} shift${newShifts.length === 1 ? "" : "s"} from last week${skipped ? `, skipped ${skipped} already present` : ""}.`);
+  }
 
   function moveCalendar(direction: -1 | 1) {
     const date = new Date(`${selectedDate}T00:00:00`);
@@ -309,6 +368,15 @@ export function RosterPage() {
           <Card className={rosterConflicts.length ? "border-red-200 bg-red-50" : ""}><p className="text-sm font-medium text-slate-600">Staff conflicts</p><p className={cn("mt-2 text-3xl font-bold", rosterConflicts.length ? "text-red-700" : "text-emerald-700")}>{rosterConflicts.length}</p></Card>
         </div>
 
+        {coverageStats.uncovered > 0 ? (
+          <Card className="border-red-200 bg-red-50">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-red-900">{coverageStats.uncovered} unassigned shift{coverageStats.uncovered === 1 ? "" : "s"} {coverageStats.uncovered === 1 ? "has" : "have"} no confirmed staff coverage.</p>
+              <button type="button" onClick={jumpToCoveragePanel} className="min-h-9 rounded-md bg-red-700 px-3 text-xs font-semibold text-white hover:bg-red-800">Review coverage gaps</button>
+            </div>
+          </Card>
+        ) : null}
+
         {rosterConflicts.length ? (
           <Card className="border-red-200 bg-red-50">
             <h2 className="font-semibold text-red-900">Existing roster conflicts need review</h2>
@@ -337,6 +405,9 @@ export function RosterPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => void copyLastWeek()} className="mt-auto inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
+              <CalendarPlus size={17} aria-hidden="true" />Copy last week
+            </button>
             <button type="button" onClick={downloadRoster} className="mt-auto inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-ink shadow-sm hover:border-teal-400">
               <Download size={17} aria-hidden="true" />Download PDF roster
             </button>
@@ -392,7 +463,7 @@ export function RosterPage() {
         </details>
 
         {rosteringMode !== "manual" && rosterToolsReady ? (
-          <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} />
+          <RosterIntelligencePanel shifts={shifts} selectedDate={selectedDate} replacementShiftId={replacementShiftId} onAssign={assignRecommendedWorker} onCoverageChange={(uncovered, ready) => setCoverageStats({ uncovered, ready })} />
         ) : rosteringMode !== "manual" ? (
           <Card>
             <p className="text-sm font-semibold uppercase tracking-wide text-sea">Roster intelligence</p>
@@ -466,6 +537,13 @@ function toDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function getWeekStart(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  const day = date.getDay();
+  date.setDate(date.getDate() + (day === 0 ? -6 : 1 - day));
+  return date;
 }
 
 function parseRosterCsv(text: string, clients: Array<{ id: string; name: string; profilePhotoPath?: string }>, staff: Array<{ id: string; name: string }>) {

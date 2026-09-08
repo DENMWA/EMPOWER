@@ -31,6 +31,18 @@ export async function saveStaffAvailability(record: StaffAvailability) {
   return { saved: Boolean(result.data && !result.error), record: result.data ? record : null, error: result.error || "" };
 }
 
+export type WeeklyGridEntry = { weekday: number; startTime: string; endTime: string; kind: AvailabilityKind };
+
+// Replaces a staff member's entire recurring weekly pattern in one call —
+// pass every day that should have a state; any day left out is cleared.
+export async function saveWeeklyAvailabilityGrid(staffInviteId: string, grid: WeeklyGridEntry[]) {
+  const result = await supabaseRpc<null>("save_weekly_availability_grid", {
+    target_staff_invite_id: staffInviteId,
+    grid: grid.map((entry) => ({ weekday: entry.weekday, startTime: entry.startTime, endTime: entry.endTime, kind: entry.kind }))
+  }, { write: true });
+  return { saved: !result.error, error: result.error || "" };
+}
+
 function toAvailability(row: AvailabilityRow): StaffAvailability {
   return {
     id: row.id,
