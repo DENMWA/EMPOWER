@@ -1436,7 +1436,10 @@ test("marketing attribution is first party, bounded, platform private and Stripe
   assert.match(layout, /googletagmanager\.com\/gtag\/js/);
   assert.doesNotMatch(layout, /GTM-/);
   assert.match(onboarding, /trackGoogleAdsSignupConversion\(getCurrentAuthStatus\(\)\.userId\)/);
-  assert.match(googleAds, /NEXT_PUBLIC_GOOGLE_ADS_SIGNUP_CONVERSION_LABEL/);
+  assert.match(googleAds, /7OXFCPbCz_ICeJPHyN1E/);
+  assert.match(googleAds, /value:\s*1\.0/);
+  assert.match(googleAds, /currency:\s*"AUD"/);
+  assert.match(googleAds, /if \(!userId/);
   assert.match(googleAds, /window\.gtag\("event", "conversion"/);
   assert.doesNotMatch(googleAds, /pricing_view|page_view|signup_started/);
 });

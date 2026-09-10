@@ -1,6 +1,7 @@
 "use client";
 
 const googleAdsTagId = "AW-18441446291";
+const signupConversionDestination = `${googleAdsTagId}/7OXFCPbCz_ICeJPHyN1E`;
 const signupConversionStorageKey = "empowernotes:google-ads-signup-conversion";
 
 type Gtag = (command: "event", eventName: string, parameters: Record<string, unknown>) => void;
@@ -12,14 +13,15 @@ declare global {
 }
 
 export function trackGoogleAdsSignupConversion(userId: string) {
-  const conversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_SIGNUP_CONVERSION_LABEL;
-  if (!conversionLabel || typeof window === "undefined" || typeof window.gtag !== "function") return;
+  if (!userId || typeof window === "undefined" || typeof window.gtag !== "function") return;
 
   const conversionKey = `${signupConversionStorageKey}:${userId}`;
   if (window.localStorage.getItem(conversionKey) === "sent") return;
   window.localStorage.setItem(conversionKey, "sent");
 
   window.gtag("event", "conversion", {
-    send_to: `${googleAdsTagId}/${conversionLabel}`
+    send_to: signupConversionDestination,
+    value: 1.0,
+    currency: "AUD"
   });
 }
