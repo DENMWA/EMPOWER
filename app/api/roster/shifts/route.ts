@@ -136,11 +136,12 @@ export async function POST(request: Request) {
   const assignmentWarnings: string[] = [];
   const assignmentKey = (userId: string | null, inviteId: string | null) => `${userId || ""}:${inviteId || ""}`;
 
-  const existingAssignments = await rows<{ id: string; staff_user_id: string | null; staff_invite_id: string | null }>(
-    url,
-    headers,
-    `shift_staff?select=id,staff_user_id,staff_invite_id&organisation_id=eq.${access.organisationId}&shift_id=eq.${encodeURIComponent(shift.id)}`
+  const existingAssignmentsResponse = await fetch(
+    `${url}/rest/v1/shift_staff?select=id,staff_user_id,staff_invite_id&organisation_id=eq.${access.organisationId}&shift_id=eq.${encodeURIComponent(shift.id)}`,
+    { headers, cache: "no-store" }
   );
+  if (!existingAssignmentsResponse.ok) return databaseError(existingAssignmentsResponse, "Existing roster assignments could not be refreshed.");
+  const existingAssignments = await existingAssignmentsResponse.json() as Array<{ id: string; staff_user_id: string | null; staff_invite_id: string | null }>;
   const existingKeys = new Set(existingAssignments.map((row) => assignmentKey(row.staff_user_id, row.staff_invite_id)));
   const targetKeys = new Set(resolvedAssignments.assignments.map((worker) => assignmentKey(worker.staffUserId, worker.staffInviteId)));
 

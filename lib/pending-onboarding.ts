@@ -1,7 +1,8 @@
 import { createCurrentUserOrganisation } from "@/lib/supabase-rest";
 import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
 import { getMarketingVisitorId } from "@/lib/marketing/client";
-import { getAuthenticatedApiHeaders } from "@/lib/supabase-auth";
+import { getAuthenticatedApiHeaders, getCurrentAuthStatus } from "@/lib/supabase-auth";
+import { trackGoogleAdsSignupConversion } from "@/lib/google-ads";
 
 const pendingOnboardingKey = "empowernotes:pending-onboarding";
 
@@ -53,6 +54,7 @@ export async function completePendingOnboarding() {
     }).catch(() => undefined);
   }
 
+  trackGoogleAdsSignupConversion(getCurrentAuthStatus().userId);
   window.localStorage.removeItem(pendingOnboardingKey);
   return { completed: true, error: "" };
 }

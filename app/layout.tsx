@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { MarketingAttribution } from "@/components/marketing/MarketingAttribution";
@@ -6,6 +7,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.empowernotes.org";
+const googleAdsTagId = "AW-18441446291";
 const seoDescription =
   "EmpowerNotes is Australian NDIS operations software for disability support providers who need progress notes, incident reporting, rostering, client records, appointment reminders, documents, audit reporting and billing in one workspace.";
 
@@ -82,6 +84,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   };
   return (
     <html lang="en-AU">
+      <Script id="google-ads-tag-src" src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsTagId}`} strategy="beforeInteractive" />
+      <Script id="google-ads-tag-init" strategy="beforeInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${googleAdsTagId}');
+        `}
+      </Script>
       <body>
         <JsonLd data={publicEntityGraph} />
         <MarketingAttribution />

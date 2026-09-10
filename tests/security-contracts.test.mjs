@@ -1406,11 +1406,12 @@ test("invoice service presets broaden catalogue matching without entering clinic
 });
 
 test("marketing attribution is first party, bounded, platform private and Stripe authoritative", async () => {
-  const [client, attribution, server, events, signup, webhook, migration, layout, panel] = await Promise.all([
+  const [client, attribution, server, events, signup, webhook, migration, layout, panel, onboarding, googleAds] = await Promise.all([
     source("lib/marketing/client.ts"), source("lib/marketing/attribution.ts"), source("lib/marketing/server.ts"),
     source("app/api/marketing/events/route.ts"), source("app/api/marketing/signup/route.ts"),
     source("app/api/stripe/webhook/route.ts"), source("supabase/marketing-attribution-v1.sql"),
-    source("app/layout.tsx"), source("components/platform/MarketingAttributionPanel.tsx")
+    source("app/layout.tsx"), source("components/platform/MarketingAttributionPanel.tsx"),
+    source("lib/pending-onboarding.ts"), source("lib/google-ads.ts")
   ]);
   assert.match(client, /crypto\.randomUUID/);
   assert.match(client, /empower_visitor_id/);
@@ -1431,6 +1432,13 @@ test("marketing attribution is first party, bounded, platform private and Stripe
   assert.match(migration, /revoke all .* from anon,authenticated/g);
   assert.match(layout, /MarketingAttribution/);
   assert.match(panel, /First-party attribution/);
+  assert.match(layout, /AW-18441446291/);
+  assert.match(layout, /googletagmanager\.com\/gtag\/js/);
+  assert.doesNotMatch(layout, /GTM-/);
+  assert.match(onboarding, /trackGoogleAdsSignupConversion\(getCurrentAuthStatus\(\)\.userId\)/);
+  assert.match(googleAds, /NEXT_PUBLIC_GOOGLE_ADS_SIGNUP_CONVERSION_LABEL/);
+  assert.match(googleAds, /window\.gtag\("event", "conversion"/);
+  assert.doesNotMatch(googleAds, /pricing_view|page_view|signup_started/);
 });
 
 test("OpenAI chat requests disable provider-side response storage", async () => {
