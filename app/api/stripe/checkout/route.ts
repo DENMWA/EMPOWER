@@ -5,6 +5,26 @@ import type { SubscriptionTier } from "@/lib/subscriptions/tiers";
 
 const tiers = new Set<SubscriptionTier>(["solo", "practice", "provider"]);
 
+// Fails open (returns undefined, treated as "not blocked") on any missing
+// config or request error - an outage in this check should never be the
+// reason a customer trying to pay gets blocked.
+async function isEmailConfirmed(userId: string): Promise<boolean | undefined> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || !userId) return undefined;
+  try {
+    const response = await fetch(`${url}/auth/v1/admin/users/${userId}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return undefined;
+    const body = await response.json() as { email_confirmed_at?: string | null };
+    return Boolean(body.email_confirmed_at);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function POST(request: Request) {
   const access = await verifyServerAccess(request, "admin", "billing");
   if (!access.allowed) return NextResponse.json({ error: access.reason }, { status: access.status });
@@ -23,6 +43,12 @@ export async function POST(request: Request) {
   if (organisation.stripe_subscription_id && ["active", "trialing", "past_due"].includes(organisation.subscription_status || "")) {
     return NextResponse.json({ error: "This organisation already has a subscription. Use Manage billing to change its plan." }, { status: 409 });
   }
+
+  const confirmed = await isEmailConfirmed(access.userId);
+  if (confirmed === false) {
+    return NextResponse.json({ error: "Confirm your email address before starting a paid plan.", code: "email_unconfirmed" }, { status: 403 });
+  }
+
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, "");
   const body = new URLSearchParams({
     mode: "subscription",
