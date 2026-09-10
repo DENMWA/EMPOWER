@@ -1163,6 +1163,11 @@ test("invoice actions respond clearly and expose CSV before and after generation
   assert.match(workspace, /PDF download started/);
   assert.match(workspace, /createInvoiceFromServices\(selections, notes, selectedClient, true\)/);
   assert.match(workspace, /saveNativeInvoiceBundleToCloud\(result\.invoice, result\.lines\)/);
+  assert.match(workspace, /async function markInvoicePaid\(invoice: NativeInvoice\)/);
+  assert.match(workspace, /setSavingInvoicePaymentId\(invoice\.id\)/);
+  assert.match(workspace, /markInvoicePaymentStatus\(invoice\.id, "paid"\)/);
+  assert.match(workspace, /await waitForNativeBillingSave\(\)/);
+  assert.match(workspace, /Payment status was not saved/);
   assert.match(cloud, /export async function saveNativeInvoiceBundleToCloud/);
   assert.match(cloud, /invoice_rows: \[toInvoiceCloudRow\(invoice, organisationId, userId\)\]/);
 });

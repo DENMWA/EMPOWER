@@ -85,6 +85,7 @@ export function NativeBillingWorkspace() {
   const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
   const [savingAction, setSavingAction] = useState<"agreement" | "item" | "">("");
   const [creatingInvoiceId, setCreatingInvoiceId] = useState("");
+  const [savingInvoicePaymentId, setSavingInvoicePaymentId] = useState("");
   const [invoicePeriodStart, setInvoicePeriodStart] = useState(() => `${new Date().toISOString().slice(0, 7)}-01`);
   const [invoicePeriodEnd, setInvoicePeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedInvoiceServices, setSelectedInvoiceServices] = useState<Record<string, boolean>>({});
@@ -696,8 +697,29 @@ export function NativeBillingWorkspace() {
   }
 
   function exportInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
+    if (!lines.length) {
+      setMessage("This invoice has no service lines to download yet.");
+      return;
+    }
     downloadCsv(`${invoice.invoiceNumber}.csv`, buildInvoiceCsv(invoice, lines));
     setMessage(`${invoice.invoiceNumber} downloaded as CSV.`);
+  }
+
+  async function markInvoicePaid(invoice: NativeInvoice) {
+    if (savingInvoicePaymentId) return;
+    setSavingInvoicePaymentId(invoice.id);
+    setMessage(`Marking ${invoice.invoiceNumber} as paid...`);
+    try {
+      markInvoicePaymentStatus(invoice.id, "paid");
+      await waitForNativeBillingSave();
+      setRecords(getNativeBillingRecords());
+      setMessage(`${invoice.invoiceNumber} marked as paid.`);
+    } catch (error) {
+      setRecords(getNativeBillingRecords());
+      setMessage(`Payment status was not saved. ${getBillingError(error)}`);
+    } finally {
+      setSavingInvoicePaymentId("");
+    }
   }
 
   function exportInvoicePreviewCsv() {
@@ -1222,9 +1244,9 @@ export function NativeBillingWorkspace() {
                   </div>
                   {lines.filter((line) => line.exceptionReason).map((line) => <p key={`${line.id}-warning`} className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">{line.supportItemNumber}: {line.exceptionReason}</p>)}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => void exportInvoicePdf(invoice)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> Download PDF</button>
+                    <button type="button" disabled={Boolean(creatingInvoiceId)} onClick={() => void exportInvoicePdf(invoice)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-400"><FileDown size={16} /> Download PDF</button>
                     <button type="button" onClick={() => exportInvoiceCsv(invoice, lines)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"><FileDown size={16} /> Download CSV</button>
-                    <button type="button" onClick={() => markInvoicePaymentStatus(invoice.id, "paid")} className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700">Mark paid</button>
+                    <button type="button" disabled={Boolean(savingInvoicePaymentId)} onClick={() => void markInvoicePaid(invoice)} className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-400">{savingInvoicePaymentId === invoice.id ? "Saving..." : "Mark paid"}</button>
                   </div>
                 </div>
               );
