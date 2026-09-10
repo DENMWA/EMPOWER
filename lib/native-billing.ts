@@ -151,6 +151,8 @@ export type NativeInvoiceLine = {
   serviceAgreementItemId: string;
   participantId: string;
   serviceDate: string;
+  serviceStartTime: string;
+  serviceEndTime: string;
   supportItemNumber: string;
   supportItemName: string;
   description: string;
@@ -644,6 +646,8 @@ export function createInvoiceFromServices(
       serviceAgreementItemId: agreementItem?.id || "",
       participantId: shift.participantId,
       serviceDate,
+      serviceStartTime: formatTimeOnly(new Date(shift.startTime)),
+      serviceEndTime: formatTimeOnly(new Date(shift.endTime)),
       supportItemNumber,
       supportItemName,
       description: supportItemNumber,
@@ -679,6 +683,8 @@ export function createInvoiceFromServices(
       serviceAgreementItemId: agreementItem.id,
       participantId: shift.participantId,
       serviceDate: formatDateOnly(new Date(shift.startTime)),
+      serviceStartTime: formatTimeOnly(new Date(shift.startTime)),
+      serviceEndTime: formatTimeOnly(new Date(shift.endTime)),
       supportItemNumber: shift.travelSupportItemNumber,
       supportItemName: "Provider travel - non-labour costs",
       description: `Travel evidence: odometer ${shift.odometerStart} to ${shift.odometerEnd} (${kilometres} km)${shift.travelNotes ? ` - ${shift.travelNotes}` : ""}`,
@@ -775,7 +781,7 @@ export function getBudgetUsage(records: NativeBillingRecords, participantId: str
 }
 
 export function buildInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine[]) {
-  const headers = ["invoice_number", "invoice_date", "due_date", "participant_name", "participant_ndis_number", "recipient_name", "recipient_email", "service_date", "support_item_number", "quantity", "unit_type", "rate", "amount", "gst_code", "payment_status"];
+  const headers = ["invoice_number", "invoice_date", "due_date", "participant_name", "participant_ndis_number", "recipient_name", "recipient_email", "service_date", "start_time", "end_time", "support_item_number", "quantity", "unit_type", "rate", "amount", "gst_code", "payment_status"];
   const rows = lines.map((line) => [
     invoice.invoiceNumber,
     invoice.invoiceDate,
@@ -785,6 +791,8 @@ export function buildInvoiceCsv(invoice: NativeInvoice, lines: NativeInvoiceLine
     invoice.recipientName,
     invoice.recipientEmail,
     line.serviceDate,
+    line.serviceStartTime,
+    line.serviceEndTime,
     line.supportItemNumber,
     String(line.quantity),
     line.unitType,
@@ -897,6 +905,12 @@ function formatDateOnly(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatTimeOnly(date: Date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function roundCurrency(value: number) {

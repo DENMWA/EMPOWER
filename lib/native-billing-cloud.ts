@@ -261,7 +261,7 @@ function toInvoiceLineCloudRow(line: NativeInvoiceLine, organisationId: string) 
   return {
     id: line.id, organisation_id: organisationId, invoice_id: line.invoiceId, shift_id: line.shiftId || null,
     service_agreement_id: line.serviceAgreementId || null, service_agreement_item_id: line.serviceAgreementItemId || null,
-    participant_id: line.participantId, service_date: line.serviceDate, support_item_number: line.supportItemNumber,
+    participant_id: line.participantId, service_date: line.serviceDate, service_start_time: line.serviceStartTime || null, service_end_time: line.serviceEndTime || null, support_item_number: line.supportItemNumber,
     support_item_name: line.supportItemName, description: line.description, quantity: line.quantity,
     unit_type: line.unitType, rate: line.rate, amount: line.amount, gst_code: line.gstCode || null,
     pricing_version_id: line.pricingVersionId || null, pricing_version_name: line.pricingVersionName,
@@ -433,6 +433,8 @@ function toInvoiceLine(row: CloudRow): NativeInvoiceLine {
     serviceAgreementItemId: asString(row.service_agreement_item_id),
     participantId: asString(row.participant_id),
     serviceDate: asString(row.service_date),
+    serviceStartTime: asString(row.service_start_time),
+    serviceEndTime: asString(row.service_end_time),
     supportItemNumber: asString(row.support_item_number),
     supportItemName: asString(row.support_item_name),
     description: asString(row.description),

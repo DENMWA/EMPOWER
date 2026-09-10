@@ -2,7 +2,7 @@ type PdfInvoice = {
   invoiceNumber: string; invoiceDate: string; dueDate: string; participantName: string; participantNdisNumber: string;
   recipientName: string; recipientEmail: string; billingPeriodStart: string; billingPeriodEnd: string; totalAmount: number; paymentStatus: string;
 };
-type PdfLine = { serviceDate: string; supportItemNumber: string; quantity: number; unitType: string; rate: number; amount: number; gstCode: string };
+type PdfLine = { serviceDate: string; serviceStartTime: string; serviceEndTime: string; supportItemNumber: string; quantity: number; unitType: string; rate: number; amount: number; gstCode: string };
 type PdfOrganisation = { organisationName: string; abn: string; providerNumber: string; email: string; phone: string; address: string; paymentTerms: string; paymentInstructions: string; logoDataUrl?: string };
 type PdfImage = { width: number; height: number; data: Uint8Array; filter: "DCTDecode" | "FlateDecode" };
 
@@ -58,17 +58,21 @@ export function createInvoicePdf(invoice: PdfInvoice, lines: PdfLine[], organisa
     ensureSpace(52);
     if (index % 2 === 0) fill(MARGIN, y - 24, CONTENT_WIDTH, 34, "0.97 0.98 0.98");
     y -= 3;
-    add(`${index + 1}. Service date ${formatInvoiceDate(line.serviceDate)} | ${line.supportItemNumber || "Support"}`, 9, true);
-    add(`${line.quantity} ${line.unitType} x $${line.rate.toFixed(2)} = $${line.amount.toFixed(2)} | GST: ${line.gstCode || "Not specified"}`, 8, false, 15, 12);
+    const timeRange = line.serviceStartTime && line.serviceEndTime ? ` ${line.serviceStartTime}-${line.serviceEndTime}` : "";
+    const hoursWorked = formatWorkedHours(line.serviceStartTime, line.serviceEndTime);
+    add(`${index + 1}. ${formatInvoiceDate(line.serviceDate)}${timeRange} | ${line.supportItemNumber || "Support"}`, 9, true);
+    add(`${line.quantity} ${line.unitType} x $${line.rate.toFixed(2)} = $${line.amount.toFixed(2)}${hoursWorked ? ` | ${hoursWorked} worked` : ""} | GST: ${line.gstCode || "Not specified"}`, 8, false, 15, 12);
   });
 
   rule();
   const gst = lines.reduce((sum, line) => sum + (isGstFree(line.gstCode) ? 0 : line.amount / 11), 0);
+  const totalInclGst = invoice.totalAmount;
+  const totalExclGst = totalInclGst - gst;
   ensureSpace(150);
   fill(MARGIN, y - 70, CONTENT_WIDTH, 82, "0.07 0.29 0.34");
   y -= 8;
-  add(`TOTAL DUE  $${invoice.totalAmount.toFixed(2)}`, 15, true, 22, 12, "1 1 1");
-  add(`Subtotal: $${invoice.totalAmount.toFixed(2)}   |   GST component: $${gst.toFixed(2)}`, 9, false, 16, 12, "0.88 0.96 0.95");
+  add(`TOTAL DUE  $${totalInclGst.toFixed(2)}`, 15, true, 22, 12, "1 1 1");
+  add(`Total excluding GST: $${totalExclGst.toFixed(2)}   |   GST: $${gst.toFixed(2)}   |   Total including GST: $${totalInclGst.toFixed(2)}`, 9, false, 16, 12, "0.88 0.96 0.95");
   add(`Payment status: ${invoice.paymentStatus}`, 9, true, 22, 12, "1 1 1");
   y -= 8;
   add(`Payment terms: ${organisation.paymentTerms || "Payment due within 14 days."}`);
@@ -205,6 +209,16 @@ function paeth(left: number, up: number, upperLeft: number) {
 function bytesToHex(data: Uint8Array) { return Array.from(data, (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 
 function isGstFree(code: string) { return !code || /free|gst-free|g-free|n-t/i.test(code); }
+function formatWorkedHours(startTime: string, endTime: string) {
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) return "";
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  const startMinutes = startHour * 60 + startMinute;
+  let endMinutes = endHour * 60 + endMinute;
+  if (endMinutes < startMinutes) endMinutes += 24 * 60;
+  const hours = Math.round(((endMinutes - startMinutes) / 60) * 100) / 100;
+  return `${hours}h`;
+}
 function formatInvoiceDate(value: string) {
   if (!value) return "Not set";
   const date = new Date(`${value.slice(0, 10)}T00:00:00`);
