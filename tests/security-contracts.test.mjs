@@ -1449,6 +1449,23 @@ test("marketing attribution is first party, bounded, platform private and Stripe
   assert.doesNotMatch(googleAds, /pricing_view|page_view|signup_started/);
 });
 
+test("Instagram social content can be published or retried from the platform console", async () => {
+  const [route, panel] = await Promise.all([
+    source("app/api/platform/social-content/route.ts"),
+    source("components/platform/SocialContentPanel.tsx")
+  ]);
+  assert.match(route, /verifyServerAccess\(request, "platform"\)/);
+  assert.match(route, /publishToInstagram/);
+  assert.match(route, /body\.action === "publish_now"/);
+  assert.match(route, /post\.platform !== "instagram"/);
+  assert.match(route, /status: "posted", external_post_id: publish\.externalPostId/);
+  assert.match(route, /status: "failed", error_detail: publish\.error/);
+  assert.match(panel, /Post to Instagram/);
+  assert.match(panel, /Retry Instagram/);
+  assert.match(panel, /Instagram \(auto-ready\)/);
+  assert.match(panel, /action: "publish_now"/);
+});
+
 test("OpenAI chat requests disable provider-side response storage", async () => {
   for (const file of [
     "app/api/ai/improve-note/route.ts",

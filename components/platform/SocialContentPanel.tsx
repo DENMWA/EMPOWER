@@ -22,7 +22,7 @@ type SocialPost = {
 const platformLabel: Record<SocialPost["platform"], string> = {
   linkedin: "LinkedIn (personal — auto-posts)",
   linkedin_page: "LinkedIn (company page — manual)",
-  instagram: "Instagram — manual"
+  instagram: "Instagram (auto-ready)"
 };
 
 export function SocialContentPanel() {
@@ -55,6 +55,25 @@ export function SocialContentPanel() {
     await load();
   }
 
+  async function publishInstagram(postId: string) {
+    setBusyId(postId);
+    setError("");
+    try {
+      const response = await fetch("/api/platform/social-content", {
+        method: "POST",
+        headers: { ...getAuthenticatedApiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "publish_now", postId })
+      });
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(body.error || "Instagram publishing failed.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Instagram publishing failed.");
+    } finally {
+      setBusyId("");
+      await load();
+    }
+  }
+
   async function copyText(post: SocialPost) {
     await navigator.clipboard.writeText(post.content_text).catch(() => undefined);
     setCopiedId(post.id);
@@ -67,7 +86,7 @@ export function SocialContentPanel() {
         <div>
           <p className="text-xs font-bold uppercase text-teal-700">Daily rotation</p>
           <h2 className="mt-2 text-xl font-bold text-ink">Social content queue</h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">LinkedIn (personal profile) auto-posts when configured. LinkedIn company page and Instagram need manual posting until Meta/LinkedIn app review is complete — copy the caption and mark it posted here.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">LinkedIn personal posts and Instagram can publish when credentials are connected. LinkedIn company page remains manual until LinkedIn page publishing is approved.</p>
         </div>
       </div>
 
@@ -101,6 +120,11 @@ export function SocialContentPanel() {
                 <a href={post.image_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-ink hover:border-teal-400">
                   Open image
                 </a>
+              ) : null}
+              {post.platform === "instagram" && post.status !== "posted" ? (
+                <button type="button" disabled={busyId === post.id} onClick={() => void publishInstagram(post.id)} className="rounded-md border border-pink-200 bg-pink-50 px-3 py-1.5 text-xs font-semibold text-pink-800 disabled:opacity-50">
+                  {busyId === post.id ? "Posting..." : post.status === "failed" ? "Retry Instagram" : "Post to Instagram"}
+                </button>
               ) : null}
               {post.status === "draft" ? (
                 <button type="button" disabled={busyId === post.id} onClick={() => void markPosted(post.id)} className="rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-800 disabled:opacity-50">
