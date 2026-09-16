@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,6 +12,7 @@ import { authSessionChangedEvent, getCurrentAuthStatus, refreshSupabaseSession, 
 import { SubscriptionPaymentPrompt } from "@/components/subscription/SubscriptionPaymentPrompt";
 import { WorkspaceSwitcher } from "@/components/auth/WorkspaceSwitcher";
 import { activeOrganisationUpdatedEvent, getStoredAccessToken } from "@/lib/supabase-rest";
+import { defaultOrganisationProfile, getTenantOrganisationProfile, organisationProfileUpdatedEvent, type OrganisationProfile } from "@/lib/organisation-profile";
 import { getDemoOrganisationAccess, isAccessBlocked } from "@/lib/platform-access";
 import { setDataMode } from "@/lib/presentation-mode";
 import { complianceDisclaimer, cn } from "@/lib/utils";
@@ -46,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [signedIn, setSignedIn] = useState(false);
   const [verifiedAdmin, setVerifiedAdmin] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  const [organisationProfile, setOrganisationProfile] = useState<OrganisationProfile>(defaultOrganisationProfile);
   const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const isPlatform = pathname.startsWith("/platform");
@@ -136,6 +139,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [signedIn]);
 
   useEffect(() => {
+    let mounted = true;
+
+    async function refreshOrganisationBranding() {
+      if (!signedIn || isPlatform) {
+        setOrganisationProfile(defaultOrganisationProfile);
+        return;
+      }
+
+      try {
+        const profile = await getTenantOrganisationProfile();
+        if (mounted) setOrganisationProfile(profile);
+      } catch {
+        if (mounted) setOrganisationProfile(defaultOrganisationProfile);
+      }
+    }
+
+    void refreshOrganisationBranding();
+    window.addEventListener(activeOrganisationUpdatedEvent, refreshOrganisationBranding);
+    window.addEventListener(organisationProfileUpdatedEvent, refreshOrganisationBranding);
+    window.addEventListener(authSessionChangedEvent, refreshOrganisationBranding);
+    return () => {
+      mounted = false;
+      window.removeEventListener(activeOrganisationUpdatedEvent, refreshOrganisationBranding);
+      window.removeEventListener(organisationProfileUpdatedEvent, refreshOrganisationBranding);
+      window.removeEventListener(authSessionChangedEvent, refreshOrganisationBranding);
+    };
+  }, [signedIn, isPlatform]);
+
+  useEffect(() => {
     window.localStorage.setItem("empower-accessibility-mode", String(accessibilityMode));
   }, [accessibilityMode]);
 
@@ -144,16 +176,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.location.assign("/signin");
   }
 
+  const workspaceName = signedIn && !isPlatform && organisationProfile.organisationName.trim()
+    ? organisationProfile.organisationName.trim()
+    : "EmpowerNotes";
+  const workspaceLogo = signedIn && !isPlatform ? organisationProfile.logoDataUrl : "";
+
   return (
     <div className={cn("min-h-screen", isPlatform ? "bg-slate-100" : "bg-mist", accessibilityMode && "accessibility-mode")}>
       <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-ink" aria-label="Open EmpowerNotes dashboard">
             <span className={cn("grid h-10 w-10 place-items-center rounded-lg text-base font-bold text-white shadow-sm", isPlatform ? "bg-slate-950" : "bg-sea")}>
-              {isPlatform ? <SquareTerminal size={19} aria-hidden="true" /> : "E"}
+              {isPlatform ? (
+                <SquareTerminal size={19} aria-hidden="true" />
+              ) : workspaceLogo ? (
+                <Image src={workspaceLogo} alt={`${workspaceName} logo`} width={40} height={40} unoptimized className="h-10 w-10 rounded-lg bg-white object-contain p-1" />
+              ) : "E"}
             </span>
             <span>
-              <span className="block text-[17px] leading-5">{isPlatform ? "EmpowerNotes Platform" : "EmpowerNotes"}</span>
+              <span className="block text-[17px] leading-5">{isPlatform ? "EmpowerNotes Platform" : workspaceName}</span>
               <span className="block text-xs font-normal text-slate-500">{isPlatform ? "Owner console" : "Care delivered. Clearly recorded."}</span>
             </span>
           </Link>

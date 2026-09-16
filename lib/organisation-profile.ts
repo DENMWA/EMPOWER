@@ -17,6 +17,7 @@ export type OrganisationProfile = {
 };
 
 const organisationProfileKey = "empowernotes:organisation-profile";
+export const organisationProfileUpdatedEvent = "empowernotes:organisation-profile-updated";
 
 type OrganisationProfileRow = {
   organisation_name: string | null;
@@ -61,6 +62,7 @@ export function getOrganisationProfile() {
 
 export function saveOrganisationProfile(profile: OrganisationProfile) {
   window.sessionStorage.setItem(tenantStorageKey(organisationProfileKey), JSON.stringify(profile));
+  window.dispatchEvent(new CustomEvent(organisationProfileUpdatedEvent, { detail: { organisationName: profile.organisationName } }));
 }
 
 function toOrganisationProfile(row: OrganisationProfileRow): OrganisationProfile {

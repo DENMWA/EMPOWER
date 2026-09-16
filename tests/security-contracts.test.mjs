@@ -631,9 +631,19 @@ test("submitted incidents expose an actionable admin escalation workflow", async
 });
 
 test("organisation settings require admin role and assigned settings permission", async () => {
-  const page = await source("app/admin/settings/page.tsx");
+  const [page, shell, profile] = await Promise.all([
+    source("app/admin/settings/page.tsx"),
+    source("components/AppShell.tsx"),
+    source("lib/organisation-profile.ts")
+  ]);
   assert.match(page, /<AdminGate permission="settings">/);
   assert.doesNotMatch(page, /SettingsSecurityGate/);
+  assert.match(profile, /organisationProfileUpdatedEvent/);
+  assert.match(profile, /window\.dispatchEvent\(new CustomEvent\(organisationProfileUpdatedEvent/);
+  assert.match(shell, /getTenantOrganisationProfile/);
+  assert.match(shell, /organisationProfileUpdatedEvent/);
+  assert.match(shell, /workspaceName/);
+  assert.match(shell, /workspaceLogo/);
   const serverAccess = await source("lib/security/server-access.ts");
   const context = await source("lib/security/user-access-context.ts");
   assert.match(serverAccess, /canAccessAdmin\(context\.role, context\.adminPermissions, requiredPermission\)/);
