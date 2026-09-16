@@ -878,9 +878,7 @@ test("staff dashboard hides management surfaces unless server access is verified
   assert.doesNotMatch(dashboard, /ManagerDashboardCards|DashboardOperationalLists|StaffProfiles/);
   assert.match(roleAware, /\/api\/auth\/access\?mode=admin/);
   assert.match(roleAware, /\{access \? <ManagerDashboardCards/);
-  assert.match(roleAware, /can\("team"\) \? <StaffProfiles/);
-  assert.match(roleAware, /can\("shift_verification"\)/);
-  assert.match(roleAware, /can\("billing"\)/);
+  assert.doesNotMatch(roleAware, /DashboardOperationalLists|StaffProfiles|ManagerApprovalPanel|InvoiceReadinessPanel/);
   assert.match(shell, /item\.href !== "\/admin" \|\| verifiedAdmin/);
   assert.match(cards, /\/admin\/reviews#note-\$\{encodeURIComponent\(note\.id\)\}/);
   assert.match(reviews, /id=\{`note-\$\{note\.id\}`\}/);
