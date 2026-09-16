@@ -180,6 +180,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? organisationProfile.organisationName.trim()
     : "EmpowerNotes";
   const workspaceLogo = signedIn && !isPlatform ? organisationProfile.logoDataUrl : "";
+  const showPoweredBy = signedIn && !isPlatform && workspaceName !== "EmpowerNotes";
 
   return (
     <div className={cn("min-h-screen", isPlatform ? "bg-slate-100" : "bg-mist", accessibilityMode && "accessibility-mode")}>
@@ -196,6 +197,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span>
               <span className="block text-[17px] leading-5">{isPlatform ? "EmpowerNotes Platform" : workspaceName}</span>
               <span className="block text-xs font-normal text-slate-500">{isPlatform ? "Owner console" : "Care delivered. Clearly recorded."}</span>
+              {showPoweredBy ? (
+                <span className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-teal-700">
+                  <span className="grid h-4 w-4 place-items-center rounded-sm bg-sea text-[10px] font-bold leading-none text-white" aria-hidden="true">E</span>
+                  Powered by EmpowerNotes
+                </span>
+              ) : null}
             </span>
           </Link>
           <div className="flex flex-wrap items-center gap-3">

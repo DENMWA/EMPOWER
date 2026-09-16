@@ -644,6 +644,8 @@ test("organisation settings require admin role and assigned settings permission"
   assert.match(shell, /organisationProfileUpdatedEvent/);
   assert.match(shell, /workspaceName/);
   assert.match(shell, /workspaceLogo/);
+  assert.match(shell, /showPoweredBy/);
+  assert.match(shell, /Powered by EmpowerNotes/);
   const serverAccess = await source("lib/security/server-access.ts");
   const context = await source("lib/security/user-access-context.ts");
   assert.match(serverAccess, /canAccessAdmin\(context\.role, context\.adminPermissions, requiredPermission\)/);
