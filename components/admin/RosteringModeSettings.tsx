@@ -28,11 +28,10 @@ export function RosteringModeSettings() {
 
   return (
     <Card className="border-sky-100 md:col-span-2">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-sea">Rostering setup</p>
-          <h2 className="mt-1 text-2xl font-bold text-ink">Choose how this provider handles rosters</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Keep EmpowerNotes flexible for providers that already use another roster platform while still protecting notes, billing, reports and staff evidence.</p>
+          <h2 className="mt-1 text-2xl font-bold text-ink">Roster source</h2>
         </div>
         <StatusBadge label={selected.label} tone={mode === "built-in" ? "green" : mode === "imported" ? "blue" : "amber"} />
       </div>
@@ -52,11 +51,17 @@ export function RosteringModeSettings() {
                 <Icon size={19} aria-hidden="true" />
               </span>
               <span className="mt-3 block font-semibold text-ink">{option.label}</span>
-              <span className="mt-1 block text-sm leading-6 text-slate-600">{option.description}</span>
+              <span className="mt-1 block text-sm leading-5 text-slate-600">{shortRosterDescription(option.value)}</span>
             </button>
           );
         })}
       </div>
     </Card>
   );
+}
+
+function shortRosterDescription(mode: RosteringMode) {
+  if (mode === "built-in") return "Create and assign shifts here.";
+  if (mode === "imported") return "Import shifts from another system.";
+  return "Enter shift details only when needed.";
 }
